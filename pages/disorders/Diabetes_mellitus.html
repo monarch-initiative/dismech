@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2722,27 +2771,26 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
-                        <a class="item-name-link" href="Type_I_Diabetes.html">type 1 diabetes mellitus</a>
-                        
+                        type 1 diabetes mellitus
                         
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0005147" target="_blank">MONDO:0005147</a>
                         
                         
-                        <a class="dismech-inline-link" href="Type_I_Diabetes.html">Dismech</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Autoimmune-predominant diabetes with progressive beta-cell loss.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -2809,27 +2857,26 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
-                        <a class="item-name-link" href="Type_2_Diabetes_Mellitus.html">type 2 diabetes mellitus</a>
-                        
+                        type 2 diabetes mellitus
                         
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0005148" target="_blank">MONDO:0005148</a>
                         
                         
-                        <a class="dismech-inline-link" href="Type_2_Diabetes_Mellitus.html">Dismech</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Diabetes with dominant insulin resistance and relative insulin deficiency.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -2846,16 +2893,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        gestational diabetes
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">gestational diabetes</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0005406" target="_blank">MONDO:0005406</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0005406" target="_blank">MONDO:0005406</a>
                         
                         
                     </div>
@@ -2863,9 +2907,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Pregnancy-associated diabetes characterized by glucose intolerance first emerging or first recognized during pregnancy, typically driven by pregnancy-induced insulin resistance with inadequate beta-cell compensation.</div>
+                    
                     
                     
                     
@@ -2948,16 +2995,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        monogenic diabetes
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">monogenic diabetes</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0015967" target="_blank">MONDO:0015967</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0015967" target="_blank">MONDO:0015967</a>
                         
                         
                     </div>
@@ -2965,9 +3009,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Inherited single-gene forms of diabetes spanning neonatal diabetes, MODY subtypes, and related syndromic/mitochondrial presentations.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3058,16 +3105,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maternally-inherited diabetes and deafness
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maternally-inherited diabetes and deafness</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010785" target="_blank">MONDO:0010785</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0010785" target="_blank">MONDO:0010785</a>
                         
                         
                     </div>
@@ -3075,9 +3119,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Mitochondrial diabetes subtype associated with sensorineural hearing loss.</div>
+                    
                     
                     
                     
@@ -3088,16 +3135,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        type 5 diabetes mellitus
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">type 5 diabetes mellitus</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_1010179" target="_blank">MONDO:1010179</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_1010179" target="_blank">MONDO:1010179</a>
                         
                         
                     </div>
@@ -3105,9 +3149,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Recently formalized diabetes class (often framed as malnutrition-related diabetes) with insulin-deficient phenotypes in undernourished populations, while some contemporary literature frames overlapping cases as pancreatogenic fibro-inflammatory disease; classification boundaries remain under active debate.</div>
+                    
                     
                     
                     
@@ -3190,16 +3237,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        diabetic ketoacidosis
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">diabetic ketoacidosis</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012819" target="_blank">MONDO:0012819</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012819" target="_blank">MONDO:0012819</a>
                         
                         
                     </div>
@@ -3207,9 +3251,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Included here because MONDO currently places it as a direct subclass of diabetes mellitus, although it is often treated clinically as an acute complication state.</div>
+                    
                     
                     
                     
@@ -3255,20 +3302,19 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        latent autoimmune diabetes in adults
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">latent autoimmune diabetes in adults</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0850306" target="_blank">MONDO:0850306</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0850306" target="_blank">MONDO:0850306</a>
                         
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
@@ -3278,6 +3324,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3285,20 +3332,19 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        lipoatrophic diabetes
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">lipoatrophic diabetes</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0005827" target="_blank">MONDO:0005827</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0005827" target="_blank">MONDO:0005827</a>
                         
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
@@ -3308,6 +3354,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3315,16 +3362,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        neonatal diabetes mellitus
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">neonatal diabetes mellitus</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0016391" target="_blank">MONDO:0016391</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0016391" target="_blank">MONDO:0016391</a>
                         
                         
                     </div>
@@ -3332,9 +3376,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Monogenic diabetes presenting in early infancy.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3423,16 +3470,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        transient neonatal diabetes mellitus
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">transient neonatal diabetes mellitus</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0020525" target="_blank">MONDO:0020525</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0020525" target="_blank">MONDO:0020525</a>
                         
                         
                     </div>
@@ -3440,9 +3484,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Neonatal diabetes with early remission and possible relapse later in life.</div>
+                    
                     
                     
                     
@@ -3483,16 +3530,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        permanent neonatal diabetes mellitus
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">permanent neonatal diabetes mellitus</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0100164" target="_blank">MONDO:0100164</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0100164" target="_blank">MONDO:0100164</a>
                         
                         
                     </div>
@@ -3500,9 +3544,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Persistent neonatal-onset diabetes requiring ongoing management.</div>
+                    
                     
                     
                     
@@ -3543,16 +3590,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0018911" target="_blank">MONDO:0018911</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0018911" target="_blank">MONDO:0018911</a>
                         
                         
                     </div>
@@ -3560,9 +3604,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Monogenic diabetes group classically characterized by early-onset non-ketotic diabetes.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3635,16 +3682,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 1
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 1</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0007452" target="_blank">MONDO:0007452</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0007452" target="_blank">MONDO:0007452</a>
                         
                         
                     </div>
@@ -3652,9 +3696,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3665,16 +3712,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 2
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 2</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0007453" target="_blank">MONDO:0007453</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0007453" target="_blank">MONDO:0007453</a>
                         
                         
                     </div>
@@ -3682,9 +3726,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3695,16 +3742,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 3
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 3</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010894" target="_blank">MONDO:0010894</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0010894" target="_blank">MONDO:0010894</a>
                         
                         
                     </div>
@@ -3712,9 +3756,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3725,16 +3772,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 4
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 4</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0011667" target="_blank">MONDO:0011667</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0011667" target="_blank">MONDO:0011667</a>
                         
                         
                     </div>
@@ -3742,9 +3786,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3755,16 +3802,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 6
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 6</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0011668" target="_blank">MONDO:0011668</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0011668" target="_blank">MONDO:0011668</a>
                         
                         
                     </div>
@@ -3772,9 +3816,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3785,16 +3832,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 7
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 7</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012513" target="_blank">MONDO:0012513</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012513" target="_blank">MONDO:0012513</a>
                         
                         
                     </div>
@@ -3802,9 +3846,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3815,16 +3862,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 8
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 8</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012348" target="_blank">MONDO:0012348</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012348" target="_blank">MONDO:0012348</a>
                         
                         
                     </div>
@@ -3832,9 +3876,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3845,16 +3892,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 9
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 9</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012818" target="_blank">MONDO:0012818</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012818" target="_blank">MONDO:0012818</a>
                         
                         
                     </div>
@@ -3862,9 +3906,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3875,16 +3922,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 10
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 10</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013240" target="_blank">MONDO:0013240</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013240" target="_blank">MONDO:0013240</a>
                         
                         
                     </div>
@@ -3892,9 +3936,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3905,16 +3952,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 11
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 11</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013242" target="_blank">MONDO:0013242</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013242" target="_blank">MONDO:0013242</a>
                         
                         
                     </div>
@@ -3922,9 +3966,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3935,16 +3982,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young, type 12
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young, type 12</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0978299" target="_blank">MONDO:0978299</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0978299" target="_blank">MONDO:0978299</a>
                         
                         
                     </div>
@@ -3952,9 +3996,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3965,16 +4012,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 13
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 13</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014589" target="_blank">MONDO:0014589</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014589" target="_blank">MONDO:0014589</a>
                         
                         
                     </div>
@@ -3982,9 +4026,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3995,16 +4042,13 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        maturity-onset diabetes of the young type 14
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">maturity-onset diabetes of the young type 14</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014674" target="_blank">MONDO:0014674</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014674" target="_blank">MONDO:0014674</a>
                         
                         
                     </div>
@@ -4012,9 +4056,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -4025,26 +4072,26 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        renal cysts and diabetes syndrome
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">renal cysts and diabetes syndrome</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0007669" target="_blank">MONDO:0007669</a>
                         
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0007669" target="_blank">MONDO:0007669</a>
                         
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
                     </div>
                     
                     <div class="item-desc">Syndromic form overlapping MODY-related monogenic diabetes spectrum.</div>
+                    
                     
                     
                     
@@ -4122,6 +4169,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4268,6 +4316,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4385,6 +4434,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4465,6 +4515,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4585,6 +4636,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4659,6 +4711,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4759,6 +4812,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4909,6 +4963,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4983,6 +5038,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5120,6 +5176,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5204,6 +5261,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5301,6 +5359,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5392,6 +5451,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5472,6 +5532,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5510,6 +5571,7 @@
                 <div class="item-name">Increased lipolysis and ketogenesis</div>
                 
                 <div class="item-desc">Severe insulin deficiency drives adipose lipolysis and hepatic ketone body production, predisposing to ketoacidosis.</div>
+                
                 
                 
                 
@@ -5600,6 +5662,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5666,6 +5729,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5726,6 +5790,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5812,6 +5877,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5909,6 +5975,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6000,6 +6067,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6081,6 +6149,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6168,6 +6237,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6252,6 +6322,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6326,6 +6397,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6426,6 +6498,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6500,6 +6573,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6580,6 +6654,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6654,6 +6729,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6745,6 +6821,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6856,6 +6933,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -7004,6 +7082,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7063,7 +7142,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absolute insulin deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-complete deficiency of endogenous insulin severely impairs metabolic glucose regulation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"]}}, {\"id\": \"Albuminuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent urinary albumin excretion reflecting diabetic glomerular and tubular injury.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012592\"}}, {\"id\": \"Arterial thrombosis and ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic vascular disease increases arterial thrombus formation and ischemic end-organ injury risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\", \"platelet activation\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Autoimmune diabetes genetic susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLA class II (HLA-DQ2/HLA-DQ8) and non-HLA susceptibility variants increase risk of islet-directed autoimmunity in type 1 diabetes pathways.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"immune response\"], \"genes\": [\"HLA-DQA1\", \"HLA-DQB1\", \"INS\"]}}, {\"id\": \"Autoimmune pancreatic beta-cell destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune-mediated loss of insulin-producing pancreatic beta cells drives insulin-deficient hyperglycemia in type 1 diabetes pathways.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type B pancreatic cell\", \"T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Cerebrovascular disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral vascular disease burden with elevated ischemic stroke risk in diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Chronic hyperglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of blood glucose establishes the shared biochemical driver of long-term diabetes tissue injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive reduction in kidney function due to cumulative diabetic renal injury.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Coronary artery disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atherosclerotic coronary artery narrowing that increases myocardial ischemic risk in diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001677\"}}, {\"id\": \"Diabetic glomerular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular structural injury, including podocyte and filtration barrier damage, contributes to progressive diabetic nephropathy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"renal glomerulus\"]}}, {\"id\": \"Diabetic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute life-threatening decompensation from insulin deficiency and ketone excess.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001953\"}}, {\"id\": \"Diabetic kidney disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Established diabetic kidney disease reflects cumulative glomerular, tubular, inflammatory, and fibrotic renal injury.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"extracellular matrix organization\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral and autonomic nerve injury associated with diabetic microvascular disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Diabetic renal fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive extracellular matrix deposition and scarring drive irreversible diabetic renal structural remodeling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic renal hemodynamic dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diabetes alters intrarenal hemodynamics with hyperfiltration and RAAS-linked stress that initiates kidney injury.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic renal inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent inflammatory signaling in diabetic kidneys drives progressive tissue injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal microvascular injury related to chronic diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Diabetic tubular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tubular cell injury and maladaptive remodeling contribute to progressive renal functional decline in diabetes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"nephron tubule\"]}}, {\"id\": \"Early pancreatic beta-cell injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural and functional beta-cell damage can emerge before clinically apparent dysglycemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Endothelial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diabetic vascular beds lose balanced endothelial control of vascular tone and structure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"HLA-DQA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DQA1\"], \"association\": \"Susceptibility\"}}, {\"id\": \"HLA-DQB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DQB1\"], \"association\": \"Susceptibility\"}}, {\"id\": \"Hyperglycemia-driven AGE-RAGE pathway activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hyperglycemia increases advanced glycation end products and RAGE signaling, propagating vascular injury responses.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Hyperglycemia-induced oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperglycemia-induced increases in reactive oxygen species amplify downstream vascular injury pathways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"INS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"INS\"], \"association\": \"Susceptibility\"}}, {\"id\": \"Increased hepatic glucose output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin resistance increases hepatic glucose production and raises fasting and postprandial glucose load.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Increased lipolysis and ketogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe insulin deficiency drives adipose lipolysis and hepatic ketone body production, predisposing to ketoacidosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Incretin axis dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired incretin signaling reduces glucose-stimulated insulin secretory responses, especially through blunted GIP pathway activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\", \"enteroendocrine cell\"], \"biological_processes\": [\"cAMP-mediated signaling\", \"regulation of insulin secretion\"]}}, {\"id\": \"Interferon-driven beta-cell inflammatory priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I and type II interferon responses increase beta-cell immunogenicity, promoting progression to immune-mediated beta-cell destruction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"antigen processing and presentation of peptide antigen via MHC class I\", \"chemokine production\"]}}, {\"id\": \"Macrovascular atherosclerotic disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperglycemia-associated vascular injury and inflammation promote atherosclerotic plaque progression in large arteries.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood vessel remodeling\", \"inflammatory response\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early mitochondrial dysfunction and pathological reactive oxygen species signaling across metabolic tissues can accelerate diabetes progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\", \"skeletal muscle cell\", \"adipocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"autophagy of mitochondrion\"]}}, {\"id\": \"Neural microvascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic diabetic injury of neural microvessels contributes to ischemic and metabolic stress in peripheral nerves.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"nerve\", \"blood vessel\"]}}, {\"id\": \"Pancreatic beta-cell secretory dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective insulin secretion by pancreatic beta cells reduces compensatory endocrine capacity and worsens dysglycemia progression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"]}}, {\"id\": \"Pancreatogenic endocrine hormone loss (T5DM/fibro-inflammatory overlap)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some diabetes cases discussed within evolving T5DM literature are framed as pancreatogenic fibro-inflammatory disease with loss of key endocrine hormones, including insulin and glucagon.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Peripheral artery disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive lower-limb arterial disease caused by accelerated peripheral atherosclerosis in diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004950\"}}, {\"id\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver, skeletal muscle, and adipose tissue develop impaired biologic responses to insulin stimulation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\", \"skeletal muscle cell\", \"adipocyte\"], \"biological_processes\": [\"insulin receptor signaling pathway\"]}}, {\"id\": \"Prediabetic metabolic stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prediabetes reflects a metabolic risk state that precedes overt diabetes and is associated with accelerated progression toward youth-onset type 2 diabetes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Reduced peripheral glucose disposal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin resistance lowers glucose uptake in peripheral tissues, especially skeletal muscle and adipose compartments.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle cell\", \"adipocyte\"], \"biological_processes\": [\"insulin receptor signaling pathway\"]}}, {\"id\": \"Relative insulin deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin secretory capacity becomes inadequate relative to metabolic demand.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"]}}, {\"id\": \"Renal microvascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic diabetic injury of renal small vessels perturbs glomerular and peritubular perfusion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"kidney\", \"blood vessel\"]}}, {\"id\": \"Retinal microvascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic diabetic injury of retinal small vessels drives progressive retinal vascular pathology.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"retina\", \"blood vessel\"]}}, {\"id\": \"Vascular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory activation in diabetic vasculature promotes progressive microvascular damage and atherosclerotic remodeling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"blood vessel\"]}}], \"edges\": [{\"source\": \"Autoimmune diabetes genetic susceptibility\", \"target\": \"Interferon-driven beta-cell inflammatory priming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune diabetes genetic susceptibility\", \"target\": \"Autoimmune pancreatic beta-cell destruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Interferon-driven beta-cell inflammatory priming\", \"target\": \"Autoimmune pancreatic beta-cell destruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune pancreatic beta-cell destruction\", \"target\": \"Absolute insulin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Prediabetic metabolic stress\", \"target\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Prediabetic metabolic stress\", \"target\": \"Early pancreatic beta-cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Prediabetic metabolic stress\", \"target\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"target\": \"Early pancreatic beta-cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"target\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early pancreatic beta-cell injury\", \"target\": \"Pancreatic beta-cell secretory dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"target\": \"Increased hepatic glucose output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"target\": \"Reduced peripheral glucose disposal\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Incretin axis dysfunction\", \"target\": \"Pancreatic beta-cell secretory dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pancreatic beta-cell secretory dysfunction\", \"target\": \"Relative insulin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased hepatic glucose output\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced peripheral glucose disposal\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pancreatogenic endocrine hormone loss (T5DM/fibro-inflammatory overlap)\", \"target\": \"Absolute insulin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Absolute insulin deficiency\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Absolute insulin deficiency\", \"target\": \"Increased lipolysis and ketogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased lipolysis and ketogenesis\", \"target\": \"Diabetic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Relative insulin deficiency\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hyperglycemia\", \"target\": \"Hyperglycemia-induced oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hyperglycemia\", \"target\": \"Hyperglycemia-driven AGE-RAGE pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia-induced oxidative stress\", \"target\": \"Endothelial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia-driven AGE-RAGE pathway activation\", \"target\": \"Vascular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Vascular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Renal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Retinal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Neural microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Macrovascular atherosclerotic disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Renal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Retinal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Neural microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Macrovascular atherosclerotic disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal microvascular injury\", \"target\": \"Diabetic renal hemodynamic dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal microvascular injury\", \"target\": \"Diabetic retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural microvascular injury\", \"target\": \"Diabetic neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal hemodynamic dysregulation\", \"target\": \"Diabetic glomerular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal hemodynamic dysregulation\", \"target\": \"Diabetic tubular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic glomerular injury\", \"target\": \"Diabetic renal inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic tubular injury\", \"target\": \"Diabetic renal inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal inflammation\", \"target\": \"Diabetic renal fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal fibrosis\", \"target\": \"Diabetic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic kidney disease\", \"target\": \"Albuminuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic kidney disease\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrovascular atherosclerotic disease\", \"target\": \"Arterial thrombosis and ischemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arterial thrombosis and ischemia\", \"target\": \"Coronary artery disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arterial thrombosis and ischemia\", \"target\": \"Cerebrovascular disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arterial thrombosis and ischemia\", \"target\": \"Peripheral artery disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HLA-DQA1\", \"target\": \"Autoimmune diabetes genetic susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-DQB1\", \"target\": \"Autoimmune diabetes genetic susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"INS\", \"target\": \"Autoimmune diabetes genetic susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absolute insulin deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-complete deficiency of endogenous insulin severely impairs metabolic glucose regulation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"]}}, {\"id\": \"Albuminuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent urinary albumin excretion reflecting diabetic glomerular and tubular injury.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012592\"}}, {\"id\": \"Arterial thrombosis and ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atherosclerotic vascular disease increases arterial thrombus formation and ischemic end-organ injury risk.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\", \"platelet activation\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Autoimmune diabetes genetic susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HLA class II (HLA-DQ2/HLA-DQ8) and non-HLA susceptibility variants increase risk of islet-directed autoimmunity in type 1 diabetes pathways.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"immune response\"], \"genes\": [\"HLA-DQA1\", \"HLA-DQB1\", \"INS\"]}}, {\"id\": \"Autoimmune pancreatic beta-cell destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune-mediated loss of insulin-producing pancreatic beta cells drives insulin-deficient hyperglycemia in type 1 diabetes pathways.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type B pancreatic cell\", \"T cell\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Cerebrovascular disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral vascular disease burden with elevated ischemic stroke risk in diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001297\"}}, {\"id\": \"Chronic hyperglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of blood glucose establishes the shared biochemical driver of long-term diabetes tissue injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive reduction in kidney function due to cumulative diabetic renal injury.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Coronary artery disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atherosclerotic coronary artery narrowing that increases myocardial ischemic risk in diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001677\"}}, {\"id\": \"Diabetic glomerular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glomerular structural injury, including podocyte and filtration barrier damage, contributes to progressive diabetic nephropathy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"renal glomerulus\"]}}, {\"id\": \"Diabetic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute life-threatening decompensation from insulin deficiency and ketone excess.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001953\"}}, {\"id\": \"Diabetic kidney disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Established diabetic kidney disease reflects cumulative glomerular, tubular, inflammatory, and fibrotic renal injury.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\", \"extracellular matrix organization\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral and autonomic nerve injury associated with diabetic microvascular disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Diabetic renal fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive extracellular matrix deposition and scarring drive irreversible diabetic renal structural remodeling.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic renal hemodynamic dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diabetes alters intrarenal hemodynamics with hyperfiltration and RAAS-linked stress that initiates kidney injury.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic renal inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent inflammatory signaling in diabetic kidneys drives progressive tissue injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Diabetic retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinal microvascular injury related to chronic diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000488\"}}, {\"id\": \"Diabetic tubular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tubular cell injury and maladaptive remodeling contribute to progressive renal functional decline in diabetes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"nephron tubule\"]}}, {\"id\": \"Early pancreatic beta-cell injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Structural and functional beta-cell damage can emerge before clinically apparent dysglycemia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Endothelial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diabetic vascular beds lose balanced endothelial control of vascular tone and structure.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"HLA-DQA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DQA1\"], \"subtypes\": [\"type 1 diabetes mellitus\"], \"association\": \"Susceptibility\"}}, {\"id\": \"HLA-DQB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HLA-DQB1\"], \"subtypes\": [\"type 1 diabetes mellitus\"], \"association\": \"Susceptibility\"}}, {\"id\": \"Hyperglycemia-driven AGE-RAGE pathway activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hyperglycemia increases advanced glycation end products and RAGE signaling, propagating vascular injury responses.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Hyperglycemia-induced oxidative stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperglycemia-induced increases in reactive oxygen species amplify downstream vascular injury pathways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"INS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"INS\"], \"subtypes\": [\"type 1 diabetes mellitus\"], \"association\": \"Susceptibility\"}}, {\"id\": \"Increased hepatic glucose output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin resistance increases hepatic glucose production and raises fasting and postprandial glucose load.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"gluconeogenesis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Increased lipolysis and ketogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe insulin deficiency drives adipose lipolysis and hepatic ketone body production, predisposing to ketoacidosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Incretin axis dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired incretin signaling reduces glucose-stimulated insulin secretory responses, especially through blunted GIP pathway activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\", \"enteroendocrine cell\"], \"biological_processes\": [\"cAMP-mediated signaling\", \"regulation of insulin secretion\"]}}, {\"id\": \"Interferon-driven beta-cell inflammatory priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I and type II interferon responses increase beta-cell immunogenicity, promoting progression to immune-mediated beta-cell destruction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"type I interferon signaling pathway\", \"antigen processing and presentation of peptide antigen via MHC class I\", \"chemokine production\"]}}, {\"id\": \"Macrovascular atherosclerotic disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperglycemia-associated vascular injury and inflammation promote atherosclerotic plaque progression in large arteries.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood vessel remodeling\", \"inflammatory response\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early mitochondrial dysfunction and pathological reactive oxygen species signaling across metabolic tissues can accelerate diabetes progression.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\", \"skeletal muscle cell\", \"adipocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"autophagy of mitochondrion\"]}}, {\"id\": \"Neural microvascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic diabetic injury of neural microvessels contributes to ischemic and metabolic stress in peripheral nerves.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"nerve\", \"blood vessel\"]}}, {\"id\": \"Pancreatic beta-cell secretory dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective insulin secretion by pancreatic beta cells reduces compensatory endocrine capacity and worsens dysglycemia progression.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"]}}, {\"id\": \"Pancreatogenic endocrine hormone loss (T5DM/fibro-inflammatory overlap)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Some diabetes cases discussed within evolving T5DM literature are framed as pancreatogenic fibro-inflammatory disease with loss of key endocrine hormones, including insulin and glucagon.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"], \"locations\": [\"pancreatic islet\"]}}, {\"id\": \"Peripheral artery disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstructive lower-limb arterial disease caused by accelerated peripheral atherosclerosis in diabetes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004950\"}}, {\"id\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Liver, skeletal muscle, and adipose tissue develop impaired biologic responses to insulin stimulation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\", \"skeletal muscle cell\", \"adipocyte\"], \"biological_processes\": [\"insulin receptor signaling pathway\"]}}, {\"id\": \"Prediabetic metabolic stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Prediabetes reflects a metabolic risk state that precedes overt diabetes and is associated with accelerated progression toward youth-onset type 2 diabetes.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Reduced peripheral glucose disposal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin resistance lowers glucose uptake in peripheral tissues, especially skeletal muscle and adipose compartments.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle cell\", \"adipocyte\"], \"biological_processes\": [\"insulin receptor signaling pathway\"]}}, {\"id\": \"Relative insulin deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin secretory capacity becomes inadequate relative to metabolic demand.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"type B pancreatic cell\"], \"biological_processes\": [\"insulin secretion\"]}}, {\"id\": \"Renal microvascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic diabetic injury of renal small vessels perturbs glomerular and peritubular perfusion.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"kidney\", \"blood vessel\"]}}, {\"id\": \"Retinal microvascular injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic diabetic injury of retinal small vessels drives progressive retinal vascular pathology.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"blood vessel remodeling\"], \"locations\": [\"retina\", \"blood vessel\"]}}, {\"id\": \"Vascular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory activation in diabetic vasculature promotes progressive microvascular damage and atherosclerotic remodeling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"blood vessel\"]}}], \"edges\": [{\"source\": \"Autoimmune diabetes genetic susceptibility\", \"target\": \"Interferon-driven beta-cell inflammatory priming\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune diabetes genetic susceptibility\", \"target\": \"Autoimmune pancreatic beta-cell destruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Interferon-driven beta-cell inflammatory priming\", \"target\": \"Autoimmune pancreatic beta-cell destruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autoimmune pancreatic beta-cell destruction\", \"target\": \"Absolute insulin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Prediabetic metabolic stress\", \"target\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Prediabetic metabolic stress\", \"target\": \"Early pancreatic beta-cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Prediabetic metabolic stress\", \"target\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"target\": \"Early pancreatic beta-cell injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial dysfunction and oxidative stress in metabolic tissues\", \"target\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Early pancreatic beta-cell injury\", \"target\": \"Pancreatic beta-cell secretory dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"target\": \"Increased hepatic glucose output\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral insulin resistance in insulin-sensitive tissues\", \"target\": \"Reduced peripheral glucose disposal\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Incretin axis dysfunction\", \"target\": \"Pancreatic beta-cell secretory dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pancreatic beta-cell secretory dysfunction\", \"target\": \"Relative insulin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased hepatic glucose output\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced peripheral glucose disposal\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pancreatogenic endocrine hormone loss (T5DM/fibro-inflammatory overlap)\", \"target\": \"Absolute insulin deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Absolute insulin deficiency\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Absolute insulin deficiency\", \"target\": \"Increased lipolysis and ketogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Increased lipolysis and ketogenesis\", \"target\": \"Diabetic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Relative insulin deficiency\", \"target\": \"Chronic hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hyperglycemia\", \"target\": \"Hyperglycemia-induced oxidative stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic hyperglycemia\", \"target\": \"Hyperglycemia-driven AGE-RAGE pathway activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia-induced oxidative stress\", \"target\": \"Endothelial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hyperglycemia-driven AGE-RAGE pathway activation\", \"target\": \"Vascular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Vascular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Renal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Retinal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Neural microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endothelial dysfunction\", \"target\": \"Macrovascular atherosclerotic disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Renal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Retinal microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Neural microvascular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular inflammation\", \"target\": \"Macrovascular atherosclerotic disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal microvascular injury\", \"target\": \"Diabetic renal hemodynamic dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinal microvascular injury\", \"target\": \"Diabetic retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural microvascular injury\", \"target\": \"Diabetic neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal hemodynamic dysregulation\", \"target\": \"Diabetic glomerular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal hemodynamic dysregulation\", \"target\": \"Diabetic tubular injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic glomerular injury\", \"target\": \"Diabetic renal inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic tubular injury\", \"target\": \"Diabetic renal inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal inflammation\", \"target\": \"Diabetic renal fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic renal fibrosis\", \"target\": \"Diabetic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic kidney disease\", \"target\": \"Albuminuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Diabetic kidney disease\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrovascular atherosclerotic disease\", \"target\": \"Arterial thrombosis and ischemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arterial thrombosis and ischemia\", \"target\": \"Coronary artery disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arterial thrombosis and ischemia\", \"target\": \"Cerebrovascular disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Arterial thrombosis and ischemia\", \"target\": \"Peripheral artery disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HLA-DQA1\", \"target\": \"Autoimmune diabetes genetic susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HLA-DQB1\", \"target\": \"Autoimmune diabetes genetic susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"INS\", \"target\": \"Autoimmune diabetes genetic susceptibility\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9298,17 +9377,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Insulin therapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000259" target="_blank">
-                            MAXO:0000259
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">insulin treatment</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000259" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000259</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         insulin
@@ -9364,17 +9452,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Metformin
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         metformin
@@ -9430,14 +9527,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dietary intervention
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000088" target="_blank">
-                            MAXO:0000088
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">dietary intervention</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000088</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -9504,14 +9610,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical activity increase
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000065" target="_blank">
-                            MAXO:0000065
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">aerobic exercise therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000065" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000065</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -9578,17 +9693,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     GLP-1 receptor agonists
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         semaglutide
@@ -9651,17 +9775,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     SGLT2 inhibitors
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         empagliflozin
@@ -9731,17 +9864,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     GLP-1/GIP dual agonists
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         tirzepatide
@@ -9797,17 +9939,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Teplizumab immunotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         monoclonal antibody
@@ -9863,8 +10014,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Blood glucose monitoring
-                    
                 </div>
+                
                 
                 
                 
@@ -9911,8 +10062,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Continuous glucose monitoring
-                    
                 </div>
+                
                 
                 
                 
@@ -11481,7 +11632,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-pancreatic-beta-cell-genome-scale-metabolic-model">
                 <div class="item-name">
                     Pancreatic Beta Cell Genome-Scale Metabolic Model
                     
@@ -11500,6 +11651,7 @@
                     
                     
                 </div>
+                
                 
                 
     
@@ -11542,7 +11694,7 @@
     
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-whole-body-human-metabolic-model-for-diabetes">
                 <div class="item-name">
                     Whole-Body Human Metabolic Model for Diabetes
                     
@@ -11565,6 +11717,7 @@
                     <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: Recon3D</span>
                     
                 </div>
+                
                 
                 
     
@@ -11607,7 +11760,7 @@
     
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-agora2-gut-microbiome-metabolic-models">
                 <div class="item-name">
                     AGORA2 Gut Microbiome Metabolic Models
                     
@@ -11628,6 +11781,7 @@
                     
                     
                 </div>
+                
                 
                 
     
@@ -11670,7 +11824,7 @@
     
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-micom-community-metabolic-model">
                 <div class="item-name">
                     MICOM Community Metabolic Model
                     
@@ -11691,6 +11845,7 @@
                     
                     
                 </div>
+                
                 
                 
     

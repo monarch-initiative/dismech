@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2406,6 +2455,676 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">13</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s00428-010-0952-2" target="_blank">DOI:10.1007/s00428-010-0952-2</a>
+                        </div>
+                        
+                        <div class="reference-title">HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing</div>
+            
+            
+            <div class="reference-finding-supporting">"HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s10120-023-01459-1" target="_blank">DOI:10.1007/s10120-023-01459-1</a>
+                        </div>
+                        
+                        <div class="reference-title">Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis</div>
+            
+            
+            <div class="reference-finding-supporting">"Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.heliyon.2023.e21339" target="_blank">DOI:10.1016/j.heliyon.2023.e21339</a>
+                        </div>
+                        
+                        <div class="reference-title">Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response</div>
+            
+            
+            <div class="reference-finding-supporting">"Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41389-023-00466-2" target="_blank">DOI:10.1038/s41389-023-00466-2</a>
+                        </div>
+                        
+                        <div class="reference-title">Exploring potential molecular resistance and clonal evolution in advanced HER2-positive gastric cancer under trastuzumab therapy</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">HER2-positive gastric cancer (GC) makes up 15–20% of all GC incidences, and targeted therapy with trastuzumab is the standard of treatment.</div>
+            
+            
+            <div class="reference-finding-supporting">"HER2-positive gastric cancer (GC) makes up 15–20% of all GC incidences, and targeted therapy with trastuzumab is the standard of treatment."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41389-023-00466-2" target="_blank">DOI:10.1038/s41389-023-00466-2</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HER2-positive gastric cancer (GC) makes up 15–20% of all GC incidences, and targeted therapy with trastuzumab is the standard of treatment."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41571-021-00492-2" target="_blank">DOI:10.1038/s41571-021-00492-2</a>
+                        </div>
+                        
+                        <div class="reference-title">Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm</div>
+            
+            
+            <div class="reference-finding-supporting">"Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41571-023-00747-0" target="_blank">DOI:10.1038/s41571-023-00747-0</a>
+                        </div>
+                        
+                        <div class="reference-title">Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention</div>
+            
+            
+            <div class="reference-finding-supporting">"Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41591-024-02992-x" target="_blank">DOI:10.1038/s41591-024-02992-x</a>
+                        </div>
+                        
+                        <div class="reference-title">Trastuzumab deruxtecan in HER2-positive advanced gastric cancer: exploratory biomarker analysis of the randomized, phase 2 DESTINY-Gastric01 trial</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Trastuzumab deruxtecan (T-DXd) showed statistically significant clinical improvement in patients with human epidermal growth factor receptor 2-positive (HER2+) gastric cancer in the DESTINY-Gastric01 trial.</div>
+            
+            
+            <div class="reference-finding-supporting">"Trastuzumab deruxtecan (T-DXd) showed statistically significant clinical improvement in patients with human epidermal growth factor receptor 2-positive (HER2+) gastric cancer in the DESTINY-Gastric01 trial."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41591-024-02992-x" target="_blank">DOI:10.1038/s41591-024-02992-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Trastuzumab deruxtecan (T-DXd) showed statistically significant clinical improvement in patients with human epidermal growth factor receptor 2-positive (HER2+) gastric cancer in the DESTINY-Gastric01 trial."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41598-024-76296-y" target="_blank">DOI:10.1038/s41598-024-76296-y</a>
+                        </div>
+                        
+                        <div class="reference-title">Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study</div>
+            
+            
+            <div class="reference-finding-supporting">"Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1200/jco.2016.69.4836" target="_blank">DOI:10.1200/jco.2016.69.4836</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;i&gt;HER2&lt;/i&gt; Testing and Clinical Decision Making in Gastroesophageal Adenocarcinoma: Guideline From the College of American Pathologists, American Society for Clinical Pathology, and the American Society of Clinical Oncology</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Context ERBB2 (erb-b2 receptor tyrosine kinase 2 or HER2) is currently the only biomarker established for selection of a specific therapy for patients with advanced gastroesophageal adenocarcinoma (GEA).</div>
+            
+            
+            <div class="reference-finding-supporting">"Context ERBB2 (erb-b2 receptor tyrosine kinase 2 or HER2) is currently the only biomarker established for selection of a specific therapy for patients with advanced gastroesophageal adenocarcinoma (GEA)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.2016.69.4836" target="_blank">DOI:10.1200/jco.2016.69.4836</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Context ERBB2 (erb-b2 receptor tyrosine kinase 2 or HER2) is currently the only biomarker established for selection of a specific therapy for patients with advanced gastroesophageal adenocarcinoma (GEA)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.20892/j.issn.2095-3941.2024.0159" target="_blank">DOI:10.20892/j.issn.2095-3941.2024.0159</a>
+                        </div>
+                        
+                        <div class="reference-title">Global, regional, and national burden of early-onset gastric cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The burden of gastric cancer (GC) across different age groups needs updating.</div>
+            
+            
+            <div class="reference-finding-supporting">"The burden of gastric cancer (GC) across different age groups needs updating."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.20892/j.issn.2095-3941.2024.0159" target="_blank">DOI:10.20892/j.issn.2095-3941.2024.0159</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The burden of gastric cancer (GC) across different age groups needs updating."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3349/ymj.2023.0096" target="_blank">DOI:10.3349/ymj.2023.0096</a>
+                        </div>
+                        
+                        <div class="reference-title">Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy</div>
+            
+            
+            <div class="reference-finding-supporting">"Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16071336" target="_blank">DOI:10.3390/cancers16071336</a>
+                        </div>
+                        
+                        <div class="reference-title">HER2-Positive Gastric Cancer and Antibody Treatment: State of the Art and Future Developments</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Despite a decreasing incidence in Western countries, gastric cancer is among the most common cancer subtypes globally and is associated with one of the highest tumor-related mortality rates.</div>
+            
+            
+            <div class="reference-finding-supporting">"Despite a decreasing incidence in Western countries, gastric cancer is among the most common cancer subtypes globally and is associated with one of the highest tumor-related mortality rates."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16071336" target="_blank">DOI:10.3390/cancers16071336</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Despite a decreasing incidence in Western countries, gastric cancer is among the most common cancer subtypes globally and is associated with one of the highest tumor-related mortality rates."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16091747" target="_blank">DOI:10.3390/cancers16091747</a>
+                        </div>
+                        
+                        <div class="reference-title">Recent Progress in Treatment for HER2-Positive Advanced Gastric Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Human epidermal receptor (HER) 2-positive advanced gastric cancer is one of the major subtypes of gastric cancer, accounting for ~20% of all cases.</div>
+            
+            
+            <div class="reference-finding-supporting">"Human epidermal receptor (HER) 2-positive advanced gastric cancer is one of the major subtypes of gastric cancer, accounting for ~20% of all cases."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16091747" target="_blank">DOI:10.3390/cancers16091747</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Human epidermal receptor (HER) 2-positive advanced gastric cancer is one of the major subtypes of gastric cancer, accounting for ~20% of all cases."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2473,6 +3192,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2537,6 +3257,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2573,6 +3294,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2603,6 +3325,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3023,17 +3746,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trastuzumab plus Chemotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab
@@ -3059,17 +3791,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trastuzumab Deruxtecan (T-DXd)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab deruxtecan
@@ -3095,17 +3836,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trastuzumab plus Pembrolizumab plus Chemotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab
@@ -3131,17 +3881,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ramucirumab plus Paclitaxel
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         ramucirumab
@@ -3174,14 +3933,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3266,13 +4034,15 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: HER2-Positive Gastric Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:52:58Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
-  HER2-positive gastric cancer is a molecularly defined subtype characterized by ERBB2 (HER2)
+  HER2-positive gastric cancer is a molecularly defined subtype characterized by ERBB2
+  (HER2)
   amplification or overexpression, occurring in approximately 15-20% of gastric and
   gastroesophageal junction adenocarcinomas. HER2 positivity is enriched in intestinal-type
   tumors and those at the gastroesophageal junction. Trastuzumab combined with chemotherapy
-  was the first targeted therapy to improve survival in gastric cancer (ToGA trial). More
+  was the first targeted therapy to improve survival in gastric cancer (ToGA trial).
+  More
   recently, trastuzumab deruxtecan (T-DXd) has demonstrated remarkable activity, establishing
   a new standard of care for HER2-positive gastric cancer.
 categories:
@@ -3284,7 +4054,8 @@ parents:
 pathophysiology:
 - name: ERBB2 (HER2) Amplification and Overexpression
   description: &gt;-
-    ERBB2 gene amplification leads to overexpression of the HER2 receptor tyrosine kinase.
+    ERBB2 gene amplification leads to overexpression of the HER2 receptor tyrosine
+    kinase.
     High-level HER2 expression promotes constitutive receptor dimerization (particularly
     HER2 homodimers and HER2/HER3 heterodimers), leading to ligand-independent signaling.
     HER2 amplification is a driver event in gastric carcinogenesis.
@@ -3317,7 +4088,8 @@ pathophysiology:
     description: HER2/HER3 heterodimers potently activate PI3K signaling
 - name: MAPK Pathway Activation
   description: &gt;-
-    HER2 receptor activation recruits GRB2/SOS adaptor proteins, activating RAS and the
+    HER2 receptor activation recruits GRB2/SOS adaptor proteins, activating RAS and
+    the
     downstream MAPK cascade. This drives transcription of genes promoting cell proliferation,
     including cyclin D1 and MYC.
   biological_processes:
@@ -3331,7 +4103,8 @@ pathophysiology:
     description: MAPK signaling drives cell cycle progression
 - name: PI3K-AKT Pathway Activation
   description: &gt;-
-    HER2/HER3 heterodimerization is particularly effective at activating PI3K because HER3
+    HER2/HER3 heterodimerization is particularly effective at activating PI3K because
+    HER3
     contains six PI3K binding motifs. PI3K activation leads to AKT phosphorylation,
     promoting cell survival, protein synthesis through mTOR, and resistance to apoptosis.
     PI3K pathway alterations may confer resistance to HER2-targeted therapy.
@@ -3344,7 +4117,8 @@ pathophysiology:
 - name: Enhanced Proliferation and Tumor Growth
   description: &gt;-
     Combined MAPK and PI3K/AKT pathway activation drives uncontrolled cell proliferation
-    and tumor growth. HER2-positive tumors are dependent on HER2 signaling, making them
+    and tumor growth. HER2-positive tumors are dependent on HER2 signaling, making
+    them
     vulnerable to HER2-targeted therapies.
   biological_processes:
   - preferred_term: cell population proliferation
@@ -3373,7 +4147,8 @@ phenotypes:
   name: Abdominal Pain
   frequency: VERY_FREQUENT
   description: &gt;-
-    Epigastric pain or discomfort is a common presenting symptom, often initially attributed
+    Epigastric pain or discomfort is a common presenting symptom, often initially
+    attributed
     to dyspepsia or peptic ulcer disease.
   phenotype_term:
     preferred_term: Abdominal pain
@@ -3384,7 +4159,8 @@ phenotypes:
   name: Dysphagia
   frequency: FREQUENT
   description: &gt;-
-    Difficulty swallowing occurs particularly with gastroesophageal junction tumors or
+    Difficulty swallowing occurs particularly with gastroesophageal junction tumors
+    or
     proximal gastric cancers. Progressive dysphagia to solids is a concerning symptom.
   phenotype_term:
     preferred_term: Dysphagia
@@ -3406,7 +4182,8 @@ phenotypes:
   name: Gastrointestinal Hemorrhage
   frequency: FREQUENT
   description: &gt;-
-    Bleeding from tumor ulceration may present as hematemesis, melena, or chronic occult
+    Bleeding from tumor ulceration may present as hematemesis, melena, or chronic
+    occult
     blood loss leading to iron deficiency anemia.
   phenotype_term:
     preferred_term: Gastrointestinal hemorrhage
@@ -3454,30 +4231,38 @@ biochemical:
 - name: HER2 In Situ Hybridization
   notes: &gt;-
     FISH or other ISH methods assess HER2/CEP17 ratio. Ratio greater than 2.0 is positive.
-    Required for IHC 2+ (equivocal) cases. Intratumoral heterogeneity is more common in
+    Required for IHC 2+ (equivocal) cases. Intratumoral heterogeneity is more common
+    in
     gastric than breast cancer.
 genetic:
 - name: ERBB2 (HER2)
   association: Somatic Amplification
   notes: &gt;-
-    ERBB2 amplification occurs in 15-20% of gastric adenocarcinomas, with higher rates at
-    the gastroesophageal junction (up to 30%) and in intestinal-type tumors. Copy number
-    gain correlates with protein expression and clinical benefit from HER2-targeted therapy.
+    ERBB2 amplification occurs in 15-20% of gastric adenocarcinomas, with higher rates
+    at
+    the gastroesophageal junction (up to 30%) and in intestinal-type tumors. Copy
+    number
+    gain correlates with protein expression and clinical benefit from HER2-targeted
+    therapy.
 - name: TP53
   association: Co-occurring Mutations
   notes: &gt;-
-    TP53 mutations frequently co-occur with HER2 amplification. The chromosomally unstable
-    (CIN) molecular subtype defined by TCGA is enriched for both HER2 amplification and
+    TP53 mutations frequently co-occur with HER2 amplification. The chromosomally
+    unstable
+    (CIN) molecular subtype defined by TCGA is enriched for both HER2 amplification
+    and
     TP53 mutations.
 - name: PIK3CA
   association: Potential Resistance Mechanism
   notes: &gt;-
-    PIK3CA mutations may co-occur with HER2 amplification and potentially contribute to
+    PIK3CA mutations may co-occur with HER2 amplification and potentially contribute
+    to
     resistance to HER2-targeted therapies through parallel PI3K pathway activation.
 treatments:
 - name: Trastuzumab plus Chemotherapy
   description: &gt;-
-    First-line standard of care for HER2-positive metastatic gastric cancer. ToGA trial
+    First-line standard of care for HER2-positive metastatic gastric cancer. ToGA
+    trial
     demonstrated improved overall survival with trastuzumab added to cisplatin/fluoropyrimidine
     chemotherapy. Remains backbone of first-line treatment.
   treatment_term:
@@ -3493,7 +4278,8 @@ treatments:
 - name: Trastuzumab Deruxtecan (T-DXd)
   description: &gt;-
     Antibody-drug conjugate with anti-HER2 antibody linked to topoisomerase I inhibitor
-    deruxtecan. DESTINY-Gastric01 demonstrated superior overall survival compared to
+    deruxtecan. DESTINY-Gastric01 demonstrated superior overall survival compared
+    to
     chemotherapy in previously treated HER2-positive gastric cancer. Bystander effect
     allows activity even with heterogeneous HER2 expression.
   treatment_term:
@@ -3509,7 +4295,8 @@ treatments:
 - name: Trastuzumab plus Pembrolizumab plus Chemotherapy
   description: &gt;-
     Combination of HER2-targeted therapy with PD-1 inhibition and chemotherapy.
-    KEYNOTE-811 showed improved response rates with the addition of pembrolizumab to
+    KEYNOTE-811 showed improved response rates with the addition of pembrolizumab
+    to
     trastuzumab and chemotherapy in first-line HER2-positive gastric cancer.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3543,7 +4330,8 @@ treatments:
 - name: Surgical Resection
   description: &gt;-
     Gastrectomy with lymph node dissection for resectable disease. Perioperative chemotherapy
-    (FLOT regimen) is standard for locally advanced disease. Role of HER2-targeted therapy
+    (FLOT regimen) is standard for locally advanced disease. Role of HER2-targeted
+    therapy
     in perioperative setting under investigation.
   treatment_term:
     preferred_term: surgical procedure
@@ -3562,6 +4350,140 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1007/s00428-010-0952-2
+  title: HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing
+    supporting_text: HER2 diagnostics in gastric cancer—guideline validation and development of standardized immunohistochemical testing
+- reference: DOI:10.1007/s10120-023-01459-1
+  title: &#39;Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis&#39;
+    supporting_text: &#39;Dose–response association between cigarette smoking and gastric cancer risk: a systematic review and meta-analysis&#39;
+- reference: DOI:10.1016/j.heliyon.2023.e21339
+  title: Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response
+    supporting_text: Liquid biopsy based HER2 amplification status in gastric cancer patients indicates clinical response
+- reference: DOI:10.1038/s41389-023-00466-2
+  title: Exploring potential molecular resistance and clonal evolution in advanced HER2-positive gastric cancer under trastuzumab therapy
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: HER2-positive gastric cancer (GC) makes up 15–20% of all GC incidences, and targeted therapy with trastuzumab is the standard of treatment.
+    supporting_text: HER2-positive gastric cancer (GC) makes up 15–20% of all GC incidences, and targeted therapy with trastuzumab is the standard of treatment.
+    evidence:
+    - reference: DOI:10.1038/s41389-023-00466-2
+      reference_title: Exploring potential molecular resistance and clonal evolution in advanced HER2-positive gastric cancer under trastuzumab therapy
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: HER2-positive gastric cancer (GC) makes up 15–20% of all GC incidences, and targeted therapy with trastuzumab is the standard of treatment.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.
+- reference: DOI:10.1038/s41571-021-00492-2
+  title: &#39;Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm&#39;
+    supporting_text: &#39;Biomarker-targeted therapies for advanced-stage gastric and gastro-oesophageal junction cancers: an emerging paradigm&#39;
+- reference: DOI:10.1038/s41571-023-00747-0
+  title: &#39;Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention&#39;
+    supporting_text: &#39;Global burden of gastric cancer: epidemiological trends, risk factors, screening and prevention&#39;
+- reference: DOI:10.1038/s41591-024-02992-x
+  title: &#39;Trastuzumab deruxtecan in HER2-positive advanced gastric cancer: exploratory biomarker analysis of the randomized, phase 2 DESTINY-Gastric01 trial&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Trastuzumab deruxtecan (T-DXd) showed statistically significant clinical improvement in patients with human epidermal growth factor receptor 2-positive (HER2+) gastric cancer in the DESTINY-Gastric01 trial.
+    supporting_text: Trastuzumab deruxtecan (T-DXd) showed statistically significant clinical improvement in patients with human epidermal growth factor receptor 2-positive (HER2+) gastric cancer in the DESTINY-Gastric01 trial.
+    evidence:
+    - reference: DOI:10.1038/s41591-024-02992-x
+      reference_title: &#39;Trastuzumab deruxtecan in HER2-positive advanced gastric cancer: exploratory biomarker analysis of the randomized, phase 2 DESTINY-Gastric01 trial&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Trastuzumab deruxtecan (T-DXd) showed statistically significant clinical improvement in patients with human epidermal growth factor receptor 2-positive (HER2+) gastric cancer in the DESTINY-Gastric01 trial.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.
+- reference: DOI:10.1038/s41598-024-76296-y
+  title: &#39;Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study&#39;
+    supporting_text: &#39;Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study&#39;
+- reference: DOI:10.1200/jco.2016.69.4836
+  title: &#39;&lt;i&gt;HER2&lt;/i&gt; Testing and Clinical Decision Making in Gastroesophageal Adenocarcinoma: Guideline From the College of American Pathologists, American Society for Clinical Pathology, and the American Society of Clinical Oncology&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Context ERBB2 (erb-b2 receptor tyrosine kinase 2 or HER2) is currently the only biomarker established for selection of a specific therapy for patients with advanced gastroesophageal adenocarcinoma (GEA).
+    supporting_text: Context ERBB2 (erb-b2 receptor tyrosine kinase 2 or HER2) is currently the only biomarker established for selection of a specific therapy for patients with advanced gastroesophageal adenocarcinoma (GEA).
+    evidence:
+    - reference: DOI:10.1200/jco.2016.69.4836
+      reference_title: &#39;&lt;i&gt;HER2&lt;/i&gt; Testing and Clinical Decision Making in Gastroesophageal Adenocarcinoma: Guideline From the College of American Pathologists, American Society for Clinical Pathology, and the American Society of Clinical Oncology&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Context ERBB2 (erb-b2 receptor tyrosine kinase 2 or HER2) is currently the only biomarker established for selection of a specific therapy for patients with advanced gastroesophageal adenocarcinoma (GEA).
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.
+- reference: DOI:10.20892/j.issn.2095-3941.2024.0159
+  title: Global, regional, and national burden of early-onset gastric cancer
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;The burden of gastric cancer (GC) across different age groups needs updating.&#39;
+    supporting_text: &#39;The burden of gastric cancer (GC) across different age groups needs updating.&#39;
+    evidence:
+    - reference: DOI:10.20892/j.issn.2095-3941.2024.0159
+      reference_title: Global, regional, and national burden of early-onset gastric cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;The burden of gastric cancer (GC) across different age groups needs updating.&#39;
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.
+- reference: DOI:10.3349/ymj.2023.0096
+  title: Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy
+    supporting_text: Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy
+- reference: DOI:10.3390/cancers16071336
+  title: &#39;HER2-Positive Gastric Cancer and Antibody Treatment: State of the Art and Future Developments&#39;
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Despite a decreasing incidence in Western countries, gastric cancer is among the most common cancer subtypes globally and is associated with one of the highest tumor-related mortality rates.
+    supporting_text: Despite a decreasing incidence in Western countries, gastric cancer is among the most common cancer subtypes globally and is associated with one of the highest tumor-related mortality rates.
+    evidence:
+    - reference: DOI:10.3390/cancers16071336
+      reference_title: &#39;HER2-Positive Gastric Cancer and Antibody Treatment: State of the Art and Future Developments&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Despite a decreasing incidence in Western countries, gastric cancer is among the most common cancer subtypes globally and is associated with one of the highest tumor-related mortality rates.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.
+- reference: DOI:10.3390/cancers16091747
+  title: Recent Progress in Treatment for HER2-Positive Advanced Gastric Cancer
+  found_in:
+  - HER2_Positive_Gastric_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Human epidermal receptor (HER) 2-positive advanced gastric cancer is one of the major subtypes of gastric cancer, accounting for ~20% of all cases.
+    supporting_text: Human epidermal receptor (HER) 2-positive advanced gastric cancer is one of the major subtypes of gastric cancer, accounting for ~20% of all cases.
+    evidence:
+    - reference: DOI:10.3390/cancers16091747
+      reference_title: Recent Progress in Treatment for HER2-Positive Advanced Gastric Cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Human epidermal receptor (HER) 2-positive advanced gastric cancer is one of the major subtypes of gastric cancer, accounting for ~20% of all cases.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Gastric Cancer.
 </pre>
             </div>
         </div>

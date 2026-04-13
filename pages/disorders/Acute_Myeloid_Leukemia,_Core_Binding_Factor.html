@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2427,11 +2476,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         AML with t(8;21)(q22;q22) RUNX1-RUNX1T1
                         
                         
@@ -2441,9 +2488,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">AML characterized by the t(8;21) translocation fusing RUNX1 (formerly AML1) on chromosome 21 with RUNX1T1 (formerly ETO) on chromosome 8. Typically shows maturation to promyelocyte/myelocyte stage. Associated with Auer rods, CD19 expression, and loss of chromosome Y or del(9q). Favorable prognosis with intensive chemotherapy.</div>
+                    
                     
                     
                     
@@ -2454,11 +2504,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         AML with inv(16)(p13.1q22) or t(16;16) CBFB-MYH11
                         
                         
@@ -2468,9 +2516,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">AML characterized by inv(16) or t(16;16) fusing CBFB (core binding factor beta) with MYH11 (smooth muscle myosin heavy chain). Associated with abnormal bone marrow eosinophils containing abnormal granules. Typically presents with younger age and may have extramedullary disease. Favorable prognosis.</div>
+                    
                     
                     
                     
@@ -2486,6 +2537,468 @@
         
 
         <!-- References -->
+        
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">9</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41408-023-00928-1" target="_blank">DOI:10.1038/s41408-023-00928-1</a>
+                        </div>
+                        
+                        <div class="reference-title">Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia</div>
+            
+            
+            <div class="reference-finding-supporting">"Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1172/jci176311" target="_blank">DOI:10.1172/jci176311</a>
+                        </div>
+                        
+                        <div class="reference-title">Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein</div>
+            
+            
+            <div class="reference-finding-supporting">"Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1172/jci179105" target="_blank">DOI:10.1172/jci179105</a>
+                        </div>
+                        
+                        <div class="reference-title">Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia</div>
+            
+            
+            <div class="reference-finding-supporting">"Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-5301043/v1" target="_blank">DOI:10.21203/rs.3.rs-5301043/v1</a>
+                        </div>
+                        
+                        <div class="reference-title">Efficacy of venetoclax and azacitidine based therapy in favorable-risk unfit acute myeloid leukemia: a real-world study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Venetoclax combined with azacitidine (VA) is a new standard of care for newly diagnosed patients with acute myeloid leukemia (AML) who are unfit for intensive chemotherapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"Venetoclax combined with azacitidine (VA) is a new standard of care for newly diagnosed patients with acute myeloid leukemia (AML) who are unfit for intensive chemotherapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.21203/rs.3.rs-5301043/v1" target="_blank">DOI:10.21203/rs.3.rs-5301043/v1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Venetoclax combined with azacitidine (VA) is a new standard of care for newly diagnosed patients with acute myeloid leukemia (AML) who are unfit for intensive chemotherapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Core Binding Factor AML.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.2217/ijh-2022-0004" target="_blank">DOI:10.2217/ijh-2022-0004</a>
+                        </div>
+                        
+                        <div class="reference-title">Therapy-Related Core Binding Factor Acute Myeloid Leukemia</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Therapy-Related Core Binding Factor Acute Myeloid Leukemia</div>
+            
+            
+            <div class="reference-finding-supporting">"Therapy-Related Core Binding Factor Acute Myeloid Leukemia"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers15061795" target="_blank">DOI:10.3390/cancers15061795</a>
+                        </div>
+                        
+                        <div class="reference-title">Deregulated Gene Expression Profiles and Regulatory Networks in Adult and Pediatric RUNX1/RUNX1T1-Positive AML Patients</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Acute myeloid leukemia (AML) is a heterogeneous and complex disease concerning molecular aberrations and prognosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Acute myeloid leukemia (AML) is a heterogeneous and complex disease concerning molecular aberrations and prognosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15061795" target="_blank">DOI:10.3390/cancers15061795</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute myeloid leukemia (AML) is a heterogeneous and complex disease concerning molecular aberrations and prognosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Core Binding Factor AML.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers15133512" target="_blank">DOI:10.3390/cancers15133512</a>
+                        </div>
+                        
+                        <div class="reference-title">Modern Risk Stratification of Acute Myeloid Leukemia in 2023: Integrating Established and Emerging Prognostic Factors</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">An accurate estimation of AML prognosis is complex since it depends on patient-related factors, AML manifestations at diagnosis, and disease genetics.</div>
+            
+            
+            <div class="reference-finding-supporting">"An accurate estimation of AML prognosis is complex since it depends on patient-related factors, AML manifestations at diagnosis, and disease genetics."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15133512" target="_blank">DOI:10.3390/cancers15133512</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"An accurate estimation of AML prognosis is complex since it depends on patient-related factors, AML manifestations at diagnosis, and disease genetics."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Core Binding Factor AML.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cells13010078" target="_blank">DOI:10.3390/cells13010078</a>
+                        </div>
+                        
+                        <div class="reference-title">Deciphering Acute Myeloid Leukemia Associated Transcription Factors in Human Primary CD34+ Hematopoietic Stem/Progenitor Cells</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hemato-oncological diseases account for nearly 10% of all malignancies and can be classified into leukemia, lymphoma, myeloproliferative diseases, and myelodysplastic syndromes.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hemato-oncological diseases account for nearly 10% of all malignancies and can be classified into leukemia, lymphoma, myeloproliferative diseases, and myelodysplastic syndromes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cells13010078" target="_blank">DOI:10.3390/cells13010078</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hemato-oncological diseases account for nearly 10% of all malignancies and can be classified into leukemia, lymphoma, myeloproliferative diseases, and myelodysplastic syndromes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Core Binding Factor AML.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.4274/tjh.galenos.2022.2021.0641" target="_blank">DOI:10.4274/tjh.galenos.2022.2021.0641</a>
+                        </div>
+                        
+                        <div class="reference-title">Comprehensive mutation profile in acute myeloid leukemia patients with RUNX1- RUNX1T1 or CBFB-MYH11 fusions</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Comprehensive mutation profile in acute myeloid leukemia patients with RUNX1- RUNX1T1 or CBFB-MYH11 fusions</div>
+            
+            
+            <div class="reference-finding-supporting">"Comprehensive mutation profile in acute myeloid leukemia patients with RUNX1- RUNX1T1 or CBFB-MYH11 fusions"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
         
 
         <!-- Pathophysiology -->
@@ -2537,6 +3050,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2621,6 +3135,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2651,6 +3166,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2697,6 +3213,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -3145,14 +3662,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Intensive Chemotherapy (7+3) with High-Dose Cytarabine Consolidation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3169,17 +3695,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gemtuzumab Ozogamicin
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         gemtuzumab ozogamicin
@@ -3205,14 +3740,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     MRD-Guided Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000127" target="_blank">
-                            MAXO:0000127
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic testing</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000127" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000127</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3229,14 +3773,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Allogeneic Stem Cell Transplantation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000747" target="_blank">
-                            MAXO:0000747
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000747" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000747</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3321,7 +3874,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Myeloid Leukemia, Core Binding Factor
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:52:55Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   Core binding factor (CBF) acute myeloid leukemia encompasses two favorable-risk
   AML subtypes defined by chromosomal abnormalities affecting the CBF transcription
@@ -3614,6 +4167,98 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: hematologic malignancy
+references:
+- reference: DOI:10.1038/s41408-023-00928-1
+  title: Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia
+    supporting_text: Efficacy of venetoclax combined with hypomethylating agents in young, and unfit patients with newly diagnosed core binding factor acute myeloid leukemia
+- reference: DOI:10.1172/jci176311
+  title: Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein
+    supporting_text: Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein
+- reference: DOI:10.1172/jci179105
+  title: Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia
+    supporting_text: Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia
+- reference: DOI:10.21203/rs.3.rs-5301043/v1
+  title: &#39;Efficacy of venetoclax and azacitidine based therapy in favorable-risk unfit acute myeloid leukemia: a real-world study&#39;
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Venetoclax combined with azacitidine (VA) is a new standard of care for newly diagnosed patients with acute myeloid leukemia (AML) who are unfit for intensive chemotherapy.
+    supporting_text: Venetoclax combined with azacitidine (VA) is a new standard of care for newly diagnosed patients with acute myeloid leukemia (AML) who are unfit for intensive chemotherapy.
+    evidence:
+    - reference: DOI:10.21203/rs.3.rs-5301043/v1
+      reference_title: &#39;Efficacy of venetoclax and azacitidine based therapy in favorable-risk unfit acute myeloid leukemia: a real-world study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Venetoclax combined with azacitidine (VA) is a new standard of care for newly diagnosed patients with acute myeloid leukemia (AML) who are unfit for intensive chemotherapy.
+      explanation: Deep research cited this publication as relevant literature for Core Binding Factor AML.
+- reference: DOI:10.2217/ijh-2022-0004
+  title: Therapy-Related Core Binding Factor Acute Myeloid Leukemia
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Therapy-Related Core Binding Factor Acute Myeloid Leukemia
+    supporting_text: Therapy-Related Core Binding Factor Acute Myeloid Leukemia
+- reference: DOI:10.3390/cancers15061795
+  title: Deregulated Gene Expression Profiles and Regulatory Networks in Adult and Pediatric RUNX1/RUNX1T1-Positive AML Patients
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Acute myeloid leukemia (AML) is a heterogeneous and complex disease concerning molecular aberrations and prognosis.
+    supporting_text: Acute myeloid leukemia (AML) is a heterogeneous and complex disease concerning molecular aberrations and prognosis.
+    evidence:
+    - reference: DOI:10.3390/cancers15061795
+      reference_title: Deregulated Gene Expression Profiles and Regulatory Networks in Adult and Pediatric RUNX1/RUNX1T1-Positive AML Patients
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Acute myeloid leukemia (AML) is a heterogeneous and complex disease concerning molecular aberrations and prognosis.
+      explanation: Deep research cited this publication as relevant literature for Core Binding Factor AML.
+- reference: DOI:10.3390/cancers15133512
+  title: &#39;Modern Risk Stratification of Acute Myeloid Leukemia in 2023: Integrating Established and Emerging Prognostic Factors&#39;
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: An accurate estimation of AML prognosis is complex since it depends on patient-related factors, AML manifestations at diagnosis, and disease genetics.
+    supporting_text: An accurate estimation of AML prognosis is complex since it depends on patient-related factors, AML manifestations at diagnosis, and disease genetics.
+    evidence:
+    - reference: DOI:10.3390/cancers15133512
+      reference_title: &#39;Modern Risk Stratification of Acute Myeloid Leukemia in 2023: Integrating Established and Emerging Prognostic Factors&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: An accurate estimation of AML prognosis is complex since it depends on patient-related factors, AML manifestations at diagnosis, and disease genetics.
+      explanation: Deep research cited this publication as relevant literature for Core Binding Factor AML.
+- reference: DOI:10.3390/cells13010078
+  title: Deciphering Acute Myeloid Leukemia Associated Transcription Factors in Human Primary CD34+ Hematopoietic Stem/Progenitor Cells
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Hemato-oncological diseases account for nearly 10% of all malignancies and can be classified into leukemia, lymphoma, myeloproliferative diseases, and myelodysplastic syndromes.
+    supporting_text: Hemato-oncological diseases account for nearly 10% of all malignancies and can be classified into leukemia, lymphoma, myeloproliferative diseases, and myelodysplastic syndromes.
+    evidence:
+    - reference: DOI:10.3390/cells13010078
+      reference_title: Deciphering Acute Myeloid Leukemia Associated Transcription Factors in Human Primary CD34+ Hematopoietic Stem/Progenitor Cells
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hemato-oncological diseases account for nearly 10% of all malignancies and can be classified into leukemia, lymphoma, myeloproliferative diseases, and myelodysplastic syndromes.
+      explanation: Deep research cited this publication as relevant literature for Core Binding Factor AML.
+- reference: DOI:10.4274/tjh.galenos.2022.2021.0641
+  title: Comprehensive mutation profile in acute myeloid leukemia patients with RUNX1- RUNX1T1 or CBFB-MYH11 fusions
+  found_in:
+  - Core_Binding_Factor_AML-deep-research-falcon.md
+  findings:
+  - statement: Comprehensive mutation profile in acute myeloid leukemia patients with RUNX1- RUNX1T1 or CBFB-MYH11 fusions
+    supporting_text: Comprehensive mutation profile in acute myeloid leukemia patients with RUNX1- RUNX1T1 or CBFB-MYH11 fusions
 </pre>
             </div>
         </div>

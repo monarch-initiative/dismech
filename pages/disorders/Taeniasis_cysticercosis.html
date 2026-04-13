@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2371,6 +2420,1265 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">20</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s15010-023-02021-y" target="_blank">DOI:10.1007/s15010-023-02021-y</a>
+                        </div>
+                        
+                        <div class="reference-title">Efficacy and safety of antiparasitic therapy for neurocysticercosis in rural Tanzania: a prospective cohort study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurocysticercosis is common in regions endemic for Taenia solium.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurocysticercosis is common in regions endemic for Taenia solium."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s15010-023-02021-y" target="_blank">DOI:10.1007/s15010-023-02021-y</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neurocysticercosis is common in regions endemic for Taenia solium."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s44197-024-00271-z" target="_blank">DOI:10.1007/s44197-024-00271-z</a>
+                        </div>
+                        
+                        <div class="reference-title">Neurocysticercosis Prevalence and Characteristics in Communities of Sinda District in Zambia: A Cross-Sectional Study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">This study aimed at describing the epidemiology of (neuro)cysticercosis as well as its clinical and radiological characteristics in a Taenia solium endemic district of Zambia.</div>
+            
+            
+            <div class="reference-finding-supporting">"This study aimed at describing the epidemiology of (neuro)cysticercosis as well as its clinical and radiological characteristics in a Taenia solium endemic district of Zambia."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s44197-024-00271-z" target="_blank">DOI:10.1007/s44197-024-00271-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This study aimed at describing the epidemiology of (neuro)cysticercosis as well as its clinical and radiological characteristics in a Taenia solium endemic district of Zambia."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.lana.2024.100876" target="_blank">DOI:10.1016/j.lana.2024.100876</a>
+                        </div>
+                        
+                        <div class="reference-title">Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness</div>
+            
+            
+            <div class="reference-finding-supporting">"Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/jtm/taac102" target="_blank">DOI:10.1093/jtm/taac102</a>
+                        </div>
+                        
+                        <div class="reference-title">Clinical characteristics and management of neurocysticercosis patients: a retrospective assessment of case reports from Europe</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jtm/taac102" target="_blank">DOI:10.1093/jtm/taac102</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1111/tmi.13870" target="_blank">DOI:10.1111/tmi.13870</a>
+                        </div>
+                        
+                        <div class="reference-title">The challenges of detecting &lt;i&gt;Taenia solium&lt;/i&gt; and neurocysticercosis in low and middle‐income countries: A scoping review of Lao People&#39;s Democratic Republic</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taenia solium is a tapeworm of global importance due to the burden of disease associated with human epilepsy caused by neurocysticercosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taenia solium is a tapeworm of global importance due to the burden of disease associated with human epilepsy caused by neurocysticercosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1111/tmi.13870" target="_blank">DOI:10.1111/tmi.13870</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taenia solium is a tapeworm of global importance due to the burden of disease associated with human epilepsy caused by neurocysticercosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1186/s13071-023-05989-6" target="_blank">DOI:10.1186/s13071-023-05989-6</a>
+                        </div>
+                        
+                        <div class="reference-title">Insights into the diagnosis, vaccines, and control of Taenia solium, a zoonotic, neglected parasite</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taenia solium taeniasis/cysticercosis (TSTC) is a foodborne, zoonotic neglected tropical disease affecting predominately low- and middle-income countries.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taenia solium taeniasis/cysticercosis (TSTC) is a foodborne, zoonotic neglected tropical disease affecting predominately low- and middle-income countries."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13071-023-05989-6" target="_blank">DOI:10.1186/s13071-023-05989-6</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taenia solium taeniasis/cysticercosis (TSTC) is a foodborne, zoonotic neglected tropical disease affecting predominately low- and middle-income countries."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1212/wnl.0000000000209865" target="_blank">DOI:10.1212/wnl.0000000000209865</a>
+                        </div>
+                        
+                        <div class="reference-title">Seizures and Epilepsy in Association With Neurocysticercosis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Seizures and Epilepsy in Association With Neurocysticercosis</div>
+            
+            
+            <div class="reference-finding-supporting">"Seizures and Epilepsy in Association With Neurocysticercosis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0011042" target="_blank">DOI:10.1371/journal.pntd.0011042</a>
+                        </div>
+                        
+                        <div class="reference-title">The epidemiology of human Taenia solium infections: A systematic review of the distribution in Eastern and Southern Africa</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taenia solium is a tapeworm that causes taeniosis in humans and cysticercosis in humans and pigs.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taenia solium is a tapeworm that causes taeniosis in humans and cysticercosis in humans and pigs."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0011042" target="_blank">DOI:10.1371/journal.pntd.0011042</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taenia solium is a tapeworm that causes taeniosis in humans and cysticercosis in humans and pigs."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012140" target="_blank">DOI:10.1371/journal.pntd.0012140</a>
+                        </div>
+                        
+                        <div class="reference-title">The Vicious Worm education tool improves the knowledge of community health workers on Taenia solium cysticercosis in Rwanda</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The pork tapeworm Taenia solium causes human taeniasis and cysticercosis when ingested as viable cysts and eggs, respectively.</div>
+            
+            
+            <div class="reference-finding-supporting">"The pork tapeworm Taenia solium causes human taeniasis and cysticercosis when ingested as viable cysts and eggs, respectively."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012140" target="_blank">DOI:10.1371/journal.pntd.0012140</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The pork tapeworm Taenia solium causes human taeniasis and cysticercosis when ingested as viable cysts and eggs, respectively."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012643" target="_blank">DOI:10.1371/journal.pntd.0012643</a>
+                        </div>
+                        
+                        <div class="reference-title">Accuracy of immunological tests on serum and urine for diagnosis of Taenia solium neurocysticercosis: A systematic review</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taenia solium neurocysticercosis is a zoonotic neglected tropical disease, for which adequate diagnostic management is paramount, especially in patients with active cysts for whom improved and timely management could prove beneficial.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taenia solium neurocysticercosis is a zoonotic neglected tropical disease, for which adequate diagnostic management is paramount, especially in patients with active cysts for whom improved and timely management could prove beneficial."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012643" target="_blank">DOI:10.1371/journal.pntd.0012643</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taenia solium neurocysticercosis is a zoonotic neglected tropical disease, for which adequate diagnostic management is paramount, especially in patients with active cysts for whom improved and timely management could prove beneficial."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0307240" target="_blank">DOI:10.1371/journal.pone.0307240</a>
+                        </div>
+                        
+                        <div class="reference-title">Assessment of knowledge and practices regarding taeniasis and cysticercosis in Pak Chong, Nakhon Ratchasima, Thailand: A cross-sectional study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taeniasis and cysticercosis are parasitic infections caused by Taenia spp., mainly transmitted through the consumption of undercooked pork.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taeniasis and cysticercosis are parasitic infections caused by Taenia spp., mainly transmitted through the consumption of undercooked pork."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0307240" target="_blank">DOI:10.1371/journal.pone.0307240</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taeniasis and cysticercosis are parasitic infections caused by Taenia spp., mainly transmitted through the consumption of undercooked pork."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3389/fpara.2024.1394089" target="_blank">DOI:10.3389/fpara.2024.1394089</a>
+                        </div>
+                        
+                        <div class="reference-title">From laboratory to clinical practice: an update of the immunological and molecular tools for neurocysticercosis diagnosis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurocysticercosis (NCC) is caused by the invasion of Taenia solium larvae in the central nervous system (CNS) and stands as the predominant cause of epilepsy and other neurological disorders in many developing nations.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurocysticercosis (NCC) is caused by the invasion of Taenia solium larvae in the central nervous system (CNS) and stands as the predominant cause of epilepsy and other neurological disorders in many developing nations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fpara.2024.1394089" target="_blank">DOI:10.3389/fpara.2024.1394089</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neurocysticercosis (NCC) is caused by the invasion of Taenia solium larvae in the central nervous system (CNS) and stands as the predominant cause of epilepsy and other neurological disorders in many developing nations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/pathogens13010026" target="_blank">DOI:10.3390/pathogens13010026</a>
+                        </div>
+                        
+                        <div class="reference-title">Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurocysticercosis (NCC), the infection of the central nervous system caused by Taenia solium larvae (cysticerci), is a major cause of acquired epilepsy worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurocysticercosis (NCC), the infection of the central nervous system caused by Taenia solium larvae (cysticerci), is a major cause of acquired epilepsy worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/pathogens13010026" target="_blank">DOI:10.3390/pathogens13010026</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neurocysticercosis (NCC), the infection of the central nervous system caused by Taenia solium larvae (cysticerci), is a major cause of acquired epilepsy worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/pathogens13030218" target="_blank">DOI:10.3390/pathogens13030218</a>
+                        </div>
+                        
+                        <div class="reference-title">Current Role of Surgery in the Treatment of Neurocysticercosis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurocysticercosis (NCC) is a common parasitic disease of the central nervous system (CNS) in low- and middle-income countries.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurocysticercosis (NCC) is a common parasitic disease of the central nervous system (CNS) in low- and middle-income countries."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/pathogens13030218" target="_blank">DOI:10.3390/pathogens13030218</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neurocysticercosis (NCC) is a common parasitic disease of the central nervous system (CNS) in low- and middle-income countries."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/pathogens13110988" target="_blank">DOI:10.3390/pathogens13110988</a>
+                        </div>
+                        
+                        <div class="reference-title">Seroprevalence and Risk Factors for Cysticercosis in Mexican Americans in Starr County, Texas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cysticercosis is a parasitic infection and neglected tropical disease caused by Taenia solium, or the pork tapeworm.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cysticercosis is a parasitic infection and neglected tropical disease caused by Taenia solium, or the pork tapeworm."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/pathogens13110988" target="_blank">DOI:10.3390/pathogens13110988</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cysticercosis is a parasitic infection and neglected tropical disease caused by Taenia solium, or the pork tapeworm."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/tropicalmed9090215" target="_blank">DOI:10.3390/tropicalmed9090215</a>
+                        </div>
+                        
+                        <div class="reference-title">Murine Extraparenchymal Neurocysticercosis: Appropriate Model for Evaluating Anthelminthic and Anti-Inflammatory Treatment Schedules</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Experimental models of neurocysticercosis (NCC) are helpful for an improved understanding of the pathophysiological mechanisms of human diseases and for testing novel therapeutic approaches.</div>
+            
+            
+            <div class="reference-finding-supporting">"Experimental models of neurocysticercosis (NCC) are helpful for an improved understanding of the pathophysiological mechanisms of human diseases and for testing novel therapeutic approaches."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/tropicalmed9090215" target="_blank">DOI:10.3390/tropicalmed9090215</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Experimental models of neurocysticercosis (NCC) are helpful for an improved understanding of the pathophysiological mechanisms of human diseases and for testing novel therapeutic approaches."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/zoonoticdis4020013" target="_blank">DOI:10.3390/zoonoticdis4020013</a>
+                        </div>
+                        
+                        <div class="reference-title">Prevalence and Risk Factors of Human Taenia solium Cysticercosis in Mbulu District, Northern Tanzania</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taeniosis and cysticercosis are human infections caused by the pork tapeworm, Taenia solium.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taeniosis and cysticercosis are human infections caused by the pork tapeworm, Taenia solium."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/zoonoticdis4020013" target="_blank">DOI:10.3390/zoonoticdis4020013</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taeniosis and cysticercosis are human infections caused by the pork tapeworm, Taenia solium."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.5772/intechopen.1004554" target="_blank">DOI:10.5772/intechopen.1004554</a>
+                        </div>
+                        
+                        <div class="reference-title">Neurocysticercosis and the Central Nervous System: Advancements in Diagnosis, Treatment, and Future Prospects</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neurocysticercosis presents a formidable global health challenge.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neurocysticercosis presents a formidable global health challenge."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.5772/intechopen.1004554" target="_blank">DOI:10.5772/intechopen.1004554</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neurocysticercosis presents a formidable global health challenge."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.5772/intechopen.110727" target="_blank">DOI:10.5772/intechopen.110727</a>
+                        </div>
+                        
+                        <div class="reference-title">Epidemiology of Taeniosis/Cysticercosis in Humans and Animals</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Taenia saginata, Taenia solium, and Taenia asiatica popularly known as beef, pork, and Asian tapeworm, are important food-borne parasites.</div>
+            
+            
+            <div class="reference-finding-supporting">"Taenia saginata, Taenia solium, and Taenia asiatica popularly known as beef, pork, and Asian tapeworm, are important food-borne parasites."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.5772/intechopen.110727" target="_blank">DOI:10.5772/intechopen.110727</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Taenia saginata, Taenia solium, and Taenia asiatica popularly known as beef, pork, and Asian tapeworm, are important food-borne parasites."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.7759/cureus.64617" target="_blank">DOI:10.7759/cureus.64617</a>
+                        </div>
+                        
+                        <div class="reference-title">Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis</div>
+            
+            
+            <div class="reference-finding-supporting">"Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2385,6 +3693,7 @@
                 <div class="item-name">Larval infection of the nervous system (neurocysticercosis)</div>
                 
                 <div class="item-desc">Larval Taenia solium infects the human nervous system.</div>
+                
                 
                 
                 
@@ -2521,14 +3830,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Antiparasitic therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -2573,14 +3891,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical management
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -2662,7 +3989,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Taeniasis/cysticercosis
 creation_date: &#39;2026-01-26T15:56:41Z&#39;
-updated_date: &#39;2026-01-26T15:56:41Z&#39;
+updated_date: &#39;2026-04-11T01:06:52Z&#39;
 category: Infectious Disease
 description: &gt;-
   Taeniasis/cysticercosis is caused by Taenia solium, with intestinal
@@ -2768,6 +4095,266 @@ treatments:
     supports: SUPPORT
     snippet: &#34;Available therapeutic measures include steroids, treatments for symptoms, surgery, and, more controversially, antiparasitic drugs to kill brain parasites.&#34;
     explanation: The abstract includes surgery as a treatment option.
+references:
+- reference: DOI:10.1007/s15010-023-02021-y
+  title: &#39;Efficacy and safety of antiparasitic therapy for neurocysticercosis in rural Tanzania: a prospective cohort study&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Neurocysticercosis is common in regions endemic for Taenia solium.
+    supporting_text: Neurocysticercosis is common in regions endemic for Taenia solium.
+    evidence:
+    - reference: DOI:10.1007/s15010-023-02021-y
+      reference_title: &#39;Efficacy and safety of antiparasitic therapy for neurocysticercosis in rural Tanzania: a prospective cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Neurocysticercosis is common in regions endemic for Taenia solium.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1007/s44197-024-00271-z
+  title: &#39;Neurocysticercosis Prevalence and Characteristics in Communities of Sinda District in Zambia: A Cross-Sectional Study&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: This study aimed at describing the epidemiology of (neuro)cysticercosis as well as its clinical and radiological characteristics in a Taenia solium endemic district of Zambia.
+    supporting_text: This study aimed at describing the epidemiology of (neuro)cysticercosis as well as its clinical and radiological characteristics in a Taenia solium endemic district of Zambia.
+    evidence:
+    - reference: DOI:10.1007/s44197-024-00271-z
+      reference_title: &#39;Neurocysticercosis Prevalence and Characteristics in Communities of Sinda District in Zambia: A Cross-Sectional Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: This study aimed at describing the epidemiology of (neuro)cysticercosis as well as its clinical and radiological characteristics in a Taenia solium endemic district of Zambia.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1016/j.lana.2024.100876
+  title: &#39;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: &#39;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness&#39;
+    supporting_text: &#39;Mass chemotherapy with niclosamide for the control of Taenia solium: population-based safety profile and treatment effectiveness&#39;
+- reference: DOI:10.1093/jtm/taac102
+  title: &#39;Clinical characteristics and management of neurocysticercosis patients: a retrospective assessment of case reports from Europe&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium.
+    supporting_text: Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium.
+    evidence:
+    - reference: DOI:10.1093/jtm/taac102
+      reference_title: &#39;Clinical characteristics and management of neurocysticercosis patients: a retrospective assessment of case reports from Europe&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1111/tmi.13870
+  title: &#34;The challenges of detecting &lt;i&gt;Taenia solium&lt;/i&gt; and neurocysticercosis in low and middle‐income countries: A scoping review of Lao People&#39;s Democratic Republic&#34;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Taenia solium is a tapeworm of global importance due to the burden of disease associated with human epilepsy caused by neurocysticercosis.
+    supporting_text: Taenia solium is a tapeworm of global importance due to the burden of disease associated with human epilepsy caused by neurocysticercosis.
+    evidence:
+    - reference: DOI:10.1111/tmi.13870
+      reference_title: &#34;The challenges of detecting &lt;i&gt;Taenia solium&lt;/i&gt; and neurocysticercosis in low and middle‐income countries: A scoping review of Lao People&#39;s Democratic Republic&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Taenia solium is a tapeworm of global importance due to the burden of disease associated with human epilepsy caused by neurocysticercosis.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1186/s13071-023-05989-6
+  title: Insights into the diagnosis, vaccines, and control of Taenia solium, a zoonotic, neglected parasite
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Taenia solium taeniasis/cysticercosis (TSTC) is a foodborne, zoonotic neglected tropical disease affecting predominately low- and middle-income countries.
+    supporting_text: Taenia solium taeniasis/cysticercosis (TSTC) is a foodborne, zoonotic neglected tropical disease affecting predominately low- and middle-income countries.
+    evidence:
+    - reference: DOI:10.1186/s13071-023-05989-6
+      reference_title: Insights into the diagnosis, vaccines, and control of Taenia solium, a zoonotic, neglected parasite
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Taenia solium taeniasis/cysticercosis (TSTC) is a foodborne, zoonotic neglected tropical disease affecting predominately low- and middle-income countries.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1212/wnl.0000000000209865
+  title: Seizures and Epilepsy in Association With Neurocysticercosis
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Seizures and Epilepsy in Association With Neurocysticercosis
+    supporting_text: Seizures and Epilepsy in Association With Neurocysticercosis
+- reference: DOI:10.1371/journal.pntd.0011042
+  title: &#39;The epidemiology of human Taenia solium infections: A systematic review of the distribution in Eastern and Southern Africa&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Taenia solium is a tapeworm that causes taeniosis in humans and cysticercosis in humans and pigs.
+    supporting_text: Taenia solium is a tapeworm that causes taeniosis in humans and cysticercosis in humans and pigs.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0011042
+      reference_title: &#39;The epidemiology of human Taenia solium infections: A systematic review of the distribution in Eastern and Southern Africa&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Taenia solium is a tapeworm that causes taeniosis in humans and cysticercosis in humans and pigs.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1371/journal.pntd.0012140
+  title: The Vicious Worm education tool improves the knowledge of community health workers on Taenia solium cysticercosis in Rwanda
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: The pork tapeworm Taenia solium causes human taeniasis and cysticercosis when ingested as viable cysts and eggs, respectively.
+    supporting_text: The pork tapeworm Taenia solium causes human taeniasis and cysticercosis when ingested as viable cysts and eggs, respectively.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0012140
+      reference_title: The Vicious Worm education tool improves the knowledge of community health workers on Taenia solium cysticercosis in Rwanda
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The pork tapeworm Taenia solium causes human taeniasis and cysticercosis when ingested as viable cysts and eggs, respectively.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1371/journal.pntd.0012643
+  title: &#39;Accuracy of immunological tests on serum and urine for diagnosis of Taenia solium neurocysticercosis: A systematic review&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: &#39;Taenia solium neurocysticercosis is a zoonotic neglected tropical disease, for which adequate diagnostic management is paramount, especially in patients with active cysts for whom improved and timely management could prove beneficial.&#39;
+    supporting_text: Taenia solium neurocysticercosis is a zoonotic neglected tropical disease, for which adequate diagnostic management is paramount, especially in patients with active cysts for whom improved and timely management could prove beneficial.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0012643
+      reference_title: &#39;Accuracy of immunological tests on serum and urine for diagnosis of Taenia solium neurocysticercosis: A systematic review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Taenia solium neurocysticercosis is a zoonotic neglected tropical disease, for which adequate diagnostic management is paramount, especially in patients with active cysts for whom improved and timely management could prove beneficial.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.1371/journal.pone.0307240
+  title: &#39;Assessment of knowledge and practices regarding taeniasis and cysticercosis in Pak Chong, Nakhon Ratchasima, Thailand: A cross-sectional study&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Taeniasis and cysticercosis are parasitic infections caused by Taenia spp., mainly transmitted through the consumption of undercooked pork.
+    supporting_text: Taeniasis and cysticercosis are parasitic infections caused by Taenia spp., mainly transmitted through the consumption of undercooked pork.
+    evidence:
+    - reference: DOI:10.1371/journal.pone.0307240
+      reference_title: &#39;Assessment of knowledge and practices regarding taeniasis and cysticercosis in Pak Chong, Nakhon Ratchasima, Thailand: A cross-sectional study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Taeniasis and cysticercosis are parasitic infections caused by Taenia spp., mainly transmitted through the consumption of undercooked pork.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.3389/fpara.2024.1394089
+  title: &#39;From laboratory to clinical practice: an update of the immunological and molecular tools for neurocysticercosis diagnosis&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Neurocysticercosis (NCC) is caused by the invasion of Taenia solium larvae in the central nervous system (CNS) and stands as the predominant cause of epilepsy and other neurological disorders in many developing nations.
+    supporting_text: Neurocysticercosis (NCC) is caused by the invasion of Taenia solium larvae in the central nervous system (CNS) and stands as the predominant cause of epilepsy and other neurological disorders in many developing nations.
+    evidence:
+    - reference: DOI:10.3389/fpara.2024.1394089
+      reference_title: &#39;From laboratory to clinical practice: an update of the immunological and molecular tools for neurocysticercosis diagnosis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Neurocysticercosis (NCC) is caused by the invasion of Taenia solium larvae in the central nervous system (CNS) and stands as the predominant cause of epilepsy and other neurological disorders in many developing nations.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.3390/pathogens13010026
+  title: &#39;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Neurocysticercosis (NCC), the infection of the central nervous system caused by Taenia solium larvae (cysticerci), is a major cause of acquired epilepsy worldwide.
+    supporting_text: Neurocysticercosis (NCC), the infection of the central nervous system caused by Taenia solium larvae (cysticerci), is a major cause of acquired epilepsy worldwide.
+    evidence:
+    - reference: DOI:10.3390/pathogens13010026
+      reference_title: &#39;Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Neurocysticercosis (NCC), the infection of the central nervous system caused by Taenia solium larvae (cysticerci), is a major cause of acquired epilepsy worldwide.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.3390/pathogens13030218
+  title: Current Role of Surgery in the Treatment of Neurocysticercosis
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Neurocysticercosis (NCC) is a common parasitic disease of the central nervous system (CNS) in low- and middle-income countries.
+    supporting_text: Neurocysticercosis (NCC) is a common parasitic disease of the central nervous system (CNS) in low- and middle-income countries.
+    evidence:
+    - reference: DOI:10.3390/pathogens13030218
+      reference_title: Current Role of Surgery in the Treatment of Neurocysticercosis
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Neurocysticercosis (NCC) is a common parasitic disease of the central nervous system (CNS) in low- and middle-income countries.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.3390/pathogens13110988
+  title: Seroprevalence and Risk Factors for Cysticercosis in Mexican Americans in Starr County, Texas
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Cysticercosis is a parasitic infection and neglected tropical disease caused by Taenia solium, or the pork tapeworm.
+    supporting_text: Cysticercosis is a parasitic infection and neglected tropical disease caused by Taenia solium, or the pork tapeworm.
+    evidence:
+    - reference: DOI:10.3390/pathogens13110988
+      reference_title: Seroprevalence and Risk Factors for Cysticercosis in Mexican Americans in Starr County, Texas
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Cysticercosis is a parasitic infection and neglected tropical disease caused by Taenia solium, or the pork tapeworm.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.3390/tropicalmed9090215
+  title: &#39;Murine Extraparenchymal Neurocysticercosis: Appropriate Model for Evaluating Anthelminthic and Anti-Inflammatory Treatment Schedules&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Experimental models of neurocysticercosis (NCC) are helpful for an improved understanding of the pathophysiological mechanisms of human diseases and for testing novel therapeutic approaches.
+    supporting_text: Experimental models of neurocysticercosis (NCC) are helpful for an improved understanding of the pathophysiological mechanisms of human diseases and for testing novel therapeutic approaches.
+    evidence:
+    - reference: DOI:10.3390/tropicalmed9090215
+      reference_title: &#39;Murine Extraparenchymal Neurocysticercosis: Appropriate Model for Evaluating Anthelminthic and Anti-Inflammatory Treatment Schedules&#39;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: Experimental models of neurocysticercosis (NCC) are helpful for an improved understanding of the pathophysiological mechanisms of human diseases and for testing novel therapeutic approaches.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.3390/zoonoticdis4020013
+  title: Prevalence and Risk Factors of Human Taenia solium Cysticercosis in Mbulu District, Northern Tanzania
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Taeniosis and cysticercosis are human infections caused by the pork tapeworm, Taenia solium.
+    supporting_text: Taeniosis and cysticercosis are human infections caused by the pork tapeworm, Taenia solium.
+    evidence:
+    - reference: DOI:10.3390/zoonoticdis4020013
+      reference_title: Prevalence and Risk Factors of Human Taenia solium Cysticercosis in Mbulu District, Northern Tanzania
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Taeniosis and cysticercosis are human infections caused by the pork tapeworm, Taenia solium.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.5772/intechopen.1004554
+  title: &#39;Neurocysticercosis and the Central Nervous System: Advancements in Diagnosis, Treatment, and Future Prospects&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Neurocysticercosis presents a formidable global health challenge.
+    supporting_text: Neurocysticercosis presents a formidable global health challenge.
+    evidence:
+    - reference: DOI:10.5772/intechopen.1004554
+      reference_title: &#39;Neurocysticercosis and the Central Nervous System: Advancements in Diagnosis, Treatment, and Future Prospects&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Neurocysticercosis presents a formidable global health challenge.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.5772/intechopen.110727
+  title: Epidemiology of Taeniosis/Cysticercosis in Humans and Animals
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: Taenia saginata, Taenia solium, and Taenia asiatica popularly known as beef, pork, and Asian tapeworm, are important food-borne parasites.
+    supporting_text: Taenia saginata, Taenia solium, and Taenia asiatica popularly known as beef, pork, and Asian tapeworm, are important food-borne parasites.
+    evidence:
+    - reference: DOI:10.5772/intechopen.110727
+      reference_title: Epidemiology of Taeniosis/Cysticercosis in Humans and Animals
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Taenia saginata, Taenia solium, and Taenia asiatica popularly known as beef, pork, and Asian tapeworm, are important food-borne parasites.
+      explanation: Deep research cited this publication as relevant literature for Taeniasis Cysticercosis.
+- reference: DOI:10.7759/cureus.64617
+  title: &#39;Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis&#39;
+  found_in:
+  - Taeniasis_Cysticercosis-deep-research-falcon.md
+  findings:
+  - statement: &#39;Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis&#39;
+    supporting_text: &#39;Effectiveness of the Antiparasitic Combination of Albendazole and Praziquantel As Compared With Albendazole Monotherapy in the Treatment of Neurocysticercosis in Children: A Systematic Review and Meta-Analysis&#39;
 </pre>
             </div>
         </div>

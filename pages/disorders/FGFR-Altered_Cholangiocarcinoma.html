@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2406,6 +2455,796 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">13</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.jhep.2023.10.041" target="_blank">DOI:10.1016/j.jhep.2023.10.041</a>
+                        </div>
+                        
+                        <div class="reference-title">Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma</div>
+            
+            
+            <div class="reference-finding-supporting">"Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/oncolo/oyae170" target="_blank">DOI:10.1093/oncolo/oyae170</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;i&gt;FGFR2&lt;/i&gt; fusion/rearrangement is associated with favorable prognosis and immunoactivation in patients with intrahepatic cholangiocarcinoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Increasing evidence highlights that fibroblast growth factor receptor 2 (FGFR2) fusion/rearrangement shows important therapeutic value for patients with intrahepatic cholangiocarcinoma (ICC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Increasing evidence highlights that fibroblast growth factor receptor 2 (FGFR2) fusion/rearrangement shows important therapeutic value for patients with intrahepatic cholangiocarcinoma (ICC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/oncolo/oyae170" target="_blank">DOI:10.1093/oncolo/oyae170</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Increasing evidence highlights that fibroblast growth factor receptor 2 (FGFR2) fusion/rearrangement shows important therapeutic value for patients with intrahepatic cholangiocarcinoma (ICC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1136/gutjnl-2023-330029" target="_blank">DOI:10.1136/gutjnl-2023-330029</a>
+                        </div>
+                        
+                        <div class="reference-title">British Society of Gastroenterology guidelines for the diagnosis and management of cholangiocarcinoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">These guidelines for the diagnosis and management of cholangiocarcinoma (CCA) were commissioned by the British Society of Gastroenterology liver section.</div>
+            
+            
+            <div class="reference-finding-supporting">"These guidelines for the diagnosis and management of cholangiocarcinoma (CCA) were commissioned by the British Society of Gastroenterology liver section."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1136/gutjnl-2023-330029" target="_blank">DOI:10.1136/gutjnl-2023-330029</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"These guidelines for the diagnosis and management of cholangiocarcinoma (CCA) were commissioned by the British Society of Gastroenterology liver section."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-22-2036" target="_blank">DOI:10.1158/1078-0432.ccr-22-2036</a>
+                        </div>
+                        
+                        <div class="reference-title">FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement</div>
+            
+            
+            <div class="reference-finding-supporting">"On April 17, 2020, the FDA granted accelerated approval to pemigatinib (PEMAZYRE, Incyte Corporation) for the treatment of adults with previously treated, unresectable locally advanced or metastatic cholangiocarcinoma with an FGFR2 fusion or other rearrangement as detected by an FDA-approved test."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-22-2036" target="_blank">DOI:10.1158/1078-0432.ccr-22-2036</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"On April 17, 2020, the FDA granted accelerated approval to pemigatinib (PEMAZYRE, Incyte Corporation) for the treatment of adults with previously treated, unresectable locally advanced or metastatic cholangiocarcinoma with an FGFR2 fusion or other rearrangement as detected by an FDA-approved test."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-3780" target="_blank">DOI:10.1158/1078-0432.ccr-23-3780</a>
+                        </div>
+                        
+                        <div class="reference-title">Clinical Value of Liquid Biopsy in Patients with &lt;i&gt;FGFR2&lt;/i&gt; Fusion–Positive Cholangiocarcinoma During Targeted Therapy</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">FGFR2 fusions occur in 10% to 15% of patients with intrahepatic cholangiocarcinoma (iCCA), potentially benefiting from FGFR inhibitors (FGFRi).</div>
+            
+            
+            <div class="reference-finding-supporting">"FGFR2 fusions occur in 10% to 15% of patients with intrahepatic cholangiocarcinoma (iCCA), potentially benefiting from FGFR inhibitors (FGFRi)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-3780" target="_blank">DOI:10.1158/1078-0432.ccr-23-3780</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"FGFR2 fusions occur in 10% to 15% of patients with intrahepatic cholangiocarcinoma (iCCA), potentially benefiting from FGFR inhibitors (FGFRi)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-24-1834" target="_blank">DOI:10.1158/1078-0432.ccr-24-1834</a>
+                        </div>
+                        
+                        <div class="reference-title">Understanding and Overcoming Resistance to Selective FGFR Inhibitors across &lt;i&gt;FGFR2&lt;/i&gt; -Driven Malignancies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Understanding resistance to selective FGFR inhibitors is crucial to improve the clinical outcomes of patients with FGFR2-driven malignancies.</div>
+            
+            
+            <div class="reference-finding-supporting">"Understanding resistance to selective FGFR inhibitors is crucial to improve the clinical outcomes of patients with FGFR2-driven malignancies."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-24-1834" target="_blank">DOI:10.1158/1078-0432.ccr-24-1834</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Understanding resistance to selective FGFR inhibitors is crucial to improve the clinical outcomes of patients with FGFR2-driven malignancies."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.2147/dddt.s559328" target="_blank">DOI:10.2147/dddt.s559328</a>
+                        </div>
+                        
+                        <div class="reference-title">Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps</div>
+            
+            
+            <div class="reference-finding-supporting">"Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.21873/anticanres.17046" target="_blank">DOI:10.21873/anticanres.17046</a>
+                        </div>
+                        
+                        <div class="reference-title">Antitumor Activity of Tasurgratinib as an Orally Available FGFR1-3 Inhibitor in Cholangiocarcinoma Models With FGFR2-fusion</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Antitumor Activity of Tasurgratinib as an Orally Available FGFR1-3 Inhibitor in Cholangiocarcinoma Models With FGFR2-fusion</div>
+            
+            
+            <div class="reference-finding-supporting">"Antitumor Activity of Tasurgratinib as an Orally Available FGFR1-3 Inhibitor in Cholangiocarcinoma Models With FGFR2-fusion"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3350/cmh.2024.0318" target="_blank">DOI:10.3350/cmh.2024.0318</a>
+                        </div>
+                        
+                        <div class="reference-title">Burden of mortality from hepatocellular carcinoma and biliary tract cancers by race and ethnicity and sex in US, 2018–2023</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">s/The trends in mortality of hepatocellular carcinoma (HCC) and biliary tract cancers stratified by sex and race/ethnicity in the US continue to evolve.</div>
+            
+            
+            <div class="reference-finding-supporting">"s/The trends in mortality of hepatocellular carcinoma (HCC) and biliary tract cancers stratified by sex and race/ethnicity in the US continue to evolve."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3350/cmh.2024.0318" target="_blank">DOI:10.3350/cmh.2024.0318</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"s/The trends in mortality of hepatocellular carcinoma (HCC) and biliary tract cancers stratified by sex and race/ethnicity in the US continue to evolve."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3389/fmed.2024.1384314" target="_blank">DOI:10.3389/fmed.2024.1384314</a>
+                        </div>
+                        
+                        <div class="reference-title">Global, regional, and national burden and trends analysis of gallbladder and biliary tract cancer from 1990 to 2019 and predictions to 2030: a systematic analysis for the Global Burden of Disease Study 2019</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Our aim was to explore the disease burden caused by gallbladder and biliary tract cancer globally, regionally, and nationally, by age and sex.</div>
+            
+            
+            <div class="reference-finding-supporting">"Our aim was to explore the disease burden caused by gallbladder and biliary tract cancer globally, regionally, and nationally, by age and sex."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmed.2024.1384314" target="_blank">DOI:10.3389/fmed.2024.1384314</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Our aim was to explore the disease burden caused by gallbladder and biliary tract cancer globally, regionally, and nationally, by age and sex."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers17183052" target="_blank">DOI:10.3390/cancers17183052</a>
+                        </div>
+                        
+                        <div class="reference-title">Chronic Liver Disease Associated Cholangiocarcinoma: Genomic Insights and Precision Therapeutic Strategies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cholangiocarcinoma (CCA) is a highly heterogeneous malignancy arising from the biliary epithelium, with an increasing incidence and poor prognosis worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cholangiocarcinoma (CCA) is a highly heterogeneous malignancy arising from the biliary epithelium, with an increasing incidence and poor prognosis worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers17183052" target="_blank">DOI:10.3390/cancers17183052</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cholangiocarcinoma (CCA) is a highly heterogeneous malignancy arising from the biliary epithelium, with an increasing incidence and poor prognosis worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers18030531" target="_blank">DOI:10.3390/cancers18030531</a>
+                        </div>
+                        
+                        <div class="reference-title">FGFR2-Rearranged Biliary Tract Cancer: Biology, Resistance Mechanisms, and Emerging Therapeutic Strategies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Fibroblast growth factor receptor 2 (FGFR2) rearrangements represent one of the most actionable molecular alterations in biliary tract cancer, particularly in intrahepatic cholangiocarcinoma (iCCA).</div>
+            
+            
+            <div class="reference-finding-supporting">"Fibroblast growth factor receptor 2 (FGFR2) rearrangements represent one of the most actionable molecular alterations in biliary tract cancer, particularly in intrahepatic cholangiocarcinoma (iCCA)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers18030531" target="_blank">DOI:10.3390/cancers18030531</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Fibroblast growth factor receptor 2 (FGFR2) rearrangements represent one of the most actionable molecular alterations in biliary tract cancer, particularly in intrahepatic cholangiocarcinoma (iCCA)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/curroncol31070266" target="_blank">DOI:10.3390/curroncol31070266</a>
+                        </div>
+                        
+                        <div class="reference-title">Integrating Molecular Insights into Biliary Tract Cancer Management: A Review of Personalized Therapeutic Strategies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Biliary tract cancers (BTCs) are rare and aggressive malignancies with an increasing incidence and poor prognosis.</div>
+            
+            
+            <div class="reference-finding-supporting">"Biliary tract cancers (BTCs) are rare and aggressive malignancies with an increasing incidence and poor prognosis."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/curroncol31070266" target="_blank">DOI:10.3390/curroncol31070266</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Biliary tract cancers (BTCs) are rare and aggressive malignancies with an increasing incidence and poor prognosis."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2473,6 +3312,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2537,6 +3377,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2573,6 +3414,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2581,6 +3423,7 @@
                 <div class="item-name">PLCgamma-PKC Pathway Activation</div>
                 
                 <div class="item-desc">FGFR2 directly phosphorylates phospholipase C gamma, leading to protein kinase C activation. This pathway contributes to cell migration, invasion, and other aspects of the transformed phenotype.</div>
+                
                 
                 
                 
@@ -2621,6 +3464,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3033,17 +3877,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pemigatinib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         pemigatinib
@@ -3069,17 +3922,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Futibatinib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         futibatinib
@@ -3105,17 +3967,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Infigratinib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         infigratinib
@@ -3141,14 +4012,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gemcitabine plus Cisplatin
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3165,17 +4045,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gemcitabine plus Cisplatin plus Durvalumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         durvalumab
@@ -3208,14 +4097,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3311,13 +4209,15 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: FGFR-Altered Cholangiocarcinoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:52:56Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   FGFR-altered cholangiocarcinoma is a molecularly defined subtype of intrahepatic
   cholangiocarcinoma characterized by fibroblast growth factor receptor (FGFR) alterations,
-  primarily FGFR2 fusions or rearrangements. FGFR2 fusions occur in approximately 10-15%
+  primarily FGFR2 fusions or rearrangements. FGFR2 fusions occur in approximately
+  10-15%
   of intrahepatic cholangiocarcinomas and represent actionable targets. Multiple fusion
-  partners have been identified, with BICC1, PPHLN1, and AHCYL1 being most common. FGFR
+  partners have been identified, with BICC1, PPHLN1, and AHCYL1 being most common.
+  FGFR
   inhibitors pemigatinib, futibatinib, and infigratinib have demonstrated significant
   activity in FGFR2 fusion-positive cholangiocarcinoma, establishing these as standard
   therapies for this molecularly defined subset.
@@ -3380,7 +4280,8 @@ pathophysiology:
 - name: PI3K-AKT Pathway Activation
   description: &gt;-
     FGFR2 signaling activates PI3K through adaptor proteins, leading to AKT phosphorylation.
-    This promotes cell survival and resistance to apoptosis. PI3K pathway activation may
+    This promotes cell survival and resistance to apoptosis. PI3K pathway activation
+    may
     contribute to resistance to FGFR inhibitors.
   biological_processes:
   - preferred_term: phosphatidylinositol 3-kinase signaling
@@ -3390,13 +4291,15 @@ pathophysiology:
       label: phosphatidylinositol 3-kinase/protein kinase B signal transduction
 - name: PLCgamma-PKC Pathway Activation
   description: &gt;-
-    FGFR2 directly phosphorylates phospholipase C gamma, leading to protein kinase C
+    FGFR2 directly phosphorylates phospholipase C gamma, leading to protein kinase
+    C
     activation. This pathway contributes to cell migration, invasion, and other aspects
     of the transformed phenotype.
 - name: Enhanced Cell Proliferation
   description: &gt;-
     Combined activation of MAPK, PI3K-AKT, and PLCgamma pathways drives enhanced cell
-    proliferation. FGFR2 fusion-positive tumors are dependent on FGFR2 signaling, making
+    proliferation. FGFR2 fusion-positive tumors are dependent on FGFR2 signaling,
+    making
     them vulnerable to FGFR inhibition.
   biological_processes:
   - preferred_term: cell population proliferation
@@ -3486,7 +4389,8 @@ phenotypes:
 biochemical:
 - name: CA 19-9
   notes: &gt;-
-    Carbohydrate antigen 19-9 is frequently elevated in cholangiocarcinoma. Useful for
+    Carbohydrate antigen 19-9 is frequently elevated in cholangiocarcinoma. Useful
+    for
     monitoring treatment response when elevated at baseline.
 - name: Serum Phosphate
   notes: &gt;-
@@ -3495,7 +4399,8 @@ biochemical:
     therapy.
 - name: Liver Function Tests
   notes: &gt;-
-    Elevated alkaline phosphatase, GGT, and potentially bilirubin. Transaminases may be
+    Elevated alkaline phosphatase, GGT, and potentially bilirubin. Transaminases may
+    be
     elevated with hepatic involvement.
 genetic:
 - name: FGFR2 Fusions
@@ -3503,7 +4408,8 @@ genetic:
   notes: &gt;-
     FGFR2 fusions occur in 10-15% of intrahepatic cholangiocarcinomas. Common partners
     include BICC1, PPHLN1, AHCYL1, TACC3, MGEA5, and others. Over 100 different fusion
-    partners have been identified. Detected by RNA-based NGS, FISH, or break-apart assays.
+    partners have been identified. Detected by RNA-based NGS, FISH, or break-apart
+    assays.
   evidence:
   - reference: PMID:35871236
     reference_title: &#34;Genomic architecture of FGFR2 fusions in cholangiocarcinoma and its implication for molecular testing.&#34;
@@ -3526,7 +4432,8 @@ treatments:
 - name: Pemigatinib
   description: &gt;-
     Selective FGFR1-3 inhibitor approved for previously treated FGFR2 fusion/rearrangement
-    positive cholangiocarcinoma. FIGHT-202 trial demonstrated 36% objective response rate
+    positive cholangiocarcinoma. FIGHT-202 trial demonstrated 36% objective response
+    rate
     with 9.1 months median duration of response. Now also approved in first-line
     (FIGHT-302).
   treatment_term:
@@ -3542,7 +4449,8 @@ treatments:
 - name: Futibatinib
   description: &gt;-
     Irreversible pan-FGFR inhibitor approved for previously treated FGFR2 fusion/rearrangement
-    positive cholangiocarcinoma. FOENIX-CCA2 trial demonstrated 42% response rate. May
+    positive cholangiocarcinoma. FOENIX-CCA2 trial demonstrated 42% response rate.
+    May
     retain activity against some resistance mutations due to covalent binding mechanism.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3570,7 +4478,8 @@ treatments:
         label: Infigratinib
 - name: Gemcitabine plus Cisplatin
   description: &gt;-
-    First-line standard chemotherapy for advanced cholangiocarcinoma. May be used before
+    First-line standard chemotherapy for advanced cholangiocarcinoma. May be used
+    before
     FGFR inhibitors or in combination approaches. FGFR inhibitors increasingly moving
     to first-line setting.
   treatment_term:
@@ -3581,7 +4490,8 @@ treatments:
 - name: Gemcitabine plus Cisplatin plus Durvalumab
   description: &gt;-
     Addition of anti-PD-L1 durvalumab to gemcitabine/cisplatin is now standard first-line
-    treatment for advanced biliary tract cancers (TOPAZ-1 trial). Sequencing with FGFR
+    treatment for advanced biliary tract cancers (TOPAZ-1 trial). Sequencing with
+    FGFR
     inhibitors being defined.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3619,6 +4529,168 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1016/j.jhep.2023.10.041
+  title: Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma
+    supporting_text: Convergent MAPK pathway alterations mediate acquired resistance to FGFR inhibitors in FGFR2 fusion-positive cholangiocarcinoma
+- reference: DOI:10.1093/oncolo/oyae170
+  title: &lt;i&gt;FGFR2&lt;/i&gt; fusion/rearrangement is associated with favorable prognosis and immunoactivation in patients with intrahepatic cholangiocarcinoma
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Increasing evidence highlights that fibroblast growth factor receptor 2 (FGFR2) fusion/rearrangement shows important therapeutic value for patients with intrahepatic cholangiocarcinoma (ICC).
+    supporting_text: Increasing evidence highlights that fibroblast growth factor receptor 2 (FGFR2) fusion/rearrangement shows important therapeutic value for patients with intrahepatic cholangiocarcinoma (ICC).
+    evidence:
+    - reference: DOI:10.1093/oncolo/oyae170
+      reference_title: &lt;i&gt;FGFR2&lt;/i&gt; fusion/rearrangement is associated with favorable prognosis and immunoactivation in patients with intrahepatic cholangiocarcinoma
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Increasing evidence highlights that fibroblast growth factor receptor 2 (FGFR2) fusion/rearrangement shows important therapeutic value for patients with intrahepatic cholangiocarcinoma (ICC).
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.1136/gutjnl-2023-330029
+  title: British Society of Gastroenterology guidelines for the diagnosis and management of cholangiocarcinoma
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: These guidelines for the diagnosis and management of cholangiocarcinoma (CCA) were commissioned by the British Society of Gastroenterology liver section.
+    supporting_text: These guidelines for the diagnosis and management of cholangiocarcinoma (CCA) were commissioned by the British Society of Gastroenterology liver section.
+    evidence:
+    - reference: DOI:10.1136/gutjnl-2023-330029
+      reference_title: British Society of Gastroenterology guidelines for the diagnosis and management of cholangiocarcinoma
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: These guidelines for the diagnosis and management of cholangiocarcinoma (CCA) were commissioned by the British Society of Gastroenterology liver section.
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.1158/1078-0432.ccr-22-2036
+  title: &#39;FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement&#39;
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement&#39;
+    supporting_text: On April 17, 2020, the FDA granted accelerated approval to pemigatinib (PEMAZYRE, Incyte Corporation) for the treatment of adults with previously treated, unresectable locally advanced or metastatic cholangiocarcinoma with an FGFR2 fusion or other rearrangement as detected by an FDA-approved test.
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-22-2036
+      reference_title: &#39;FDA Approval Summary: Pemigatinib for Previously Treated, Unresectable Locally Advanced or Metastatic Cholangiocarcinoma with FGFR2 Fusion or Other Rearrangement&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: On April 17, 2020, the FDA granted accelerated approval to pemigatinib (PEMAZYRE, Incyte Corporation) for the treatment of adults with previously treated, unresectable locally advanced or metastatic cholangiocarcinoma with an FGFR2 fusion or other rearrangement as detected by an FDA-approved test.
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.1158/1078-0432.ccr-23-3780
+  title: Clinical Value of Liquid Biopsy in Patients with &lt;i&gt;FGFR2&lt;/i&gt; Fusion–Positive Cholangiocarcinoma During Targeted Therapy
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;FGFR2 fusions occur in 10% to 15% of patients with intrahepatic cholangiocarcinoma (iCCA), potentially benefiting from FGFR inhibitors (FGFRi).&#39;
+    supporting_text: &#39;FGFR2 fusions occur in 10% to 15% of patients with intrahepatic cholangiocarcinoma (iCCA), potentially benefiting from FGFR inhibitors (FGFRi).&#39;
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-23-3780
+      reference_title: Clinical Value of Liquid Biopsy in Patients with &lt;i&gt;FGFR2&lt;/i&gt; Fusion–Positive Cholangiocarcinoma During Targeted Therapy
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;FGFR2 fusions occur in 10% to 15% of patients with intrahepatic cholangiocarcinoma (iCCA), potentially benefiting from FGFR inhibitors (FGFRi).&#39;
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.1158/1078-0432.ccr-24-1834
+  title: Understanding and Overcoming Resistance to Selective FGFR Inhibitors across &lt;i&gt;FGFR2&lt;/i&gt; -Driven Malignancies
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Understanding resistance to selective FGFR inhibitors is crucial to improve the clinical outcomes of patients with FGFR2-driven malignancies.&#39;
+    supporting_text: &#39;Understanding resistance to selective FGFR inhibitors is crucial to improve the clinical outcomes of patients with FGFR2-driven malignancies.&#39;
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-24-1834
+      reference_title: Understanding and Overcoming Resistance to Selective FGFR Inhibitors across &lt;i&gt;FGFR2&lt;/i&gt; -Driven Malignancies
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Understanding resistance to selective FGFR inhibitors is crucial to improve the clinical outcomes of patients with FGFR2-driven malignancies.&#39;
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.2147/dddt.s559328
+  title: &#39;Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps&#39;
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps&#39;
+    supporting_text: &#39;Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps&#39;
+- reference: DOI:10.21873/anticanres.17046
+  title: Antitumor Activity of Tasurgratinib as an Orally Available FGFR1-3 Inhibitor in Cholangiocarcinoma Models With FGFR2-fusion
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Antitumor Activity of Tasurgratinib as an Orally Available FGFR1-3 Inhibitor in Cholangiocarcinoma Models With FGFR2-fusion
+    supporting_text: Antitumor Activity of Tasurgratinib as an Orally Available FGFR1-3 Inhibitor in Cholangiocarcinoma Models With FGFR2-fusion
+- reference: DOI:10.3350/cmh.2024.0318
+  title: Burden of mortality from hepatocellular carcinoma and biliary tract cancers by race and ethnicity and sex in US, 2018–2023
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: s/The trends in mortality of hepatocellular carcinoma (HCC) and biliary tract cancers stratified by sex and race/ethnicity in the US continue to evolve.
+    supporting_text: s/The trends in mortality of hepatocellular carcinoma (HCC) and biliary tract cancers stratified by sex and race/ethnicity in the US continue to evolve.
+    evidence:
+    - reference: DOI:10.3350/cmh.2024.0318
+      reference_title: Burden of mortality from hepatocellular carcinoma and biliary tract cancers by race and ethnicity and sex in US, 2018–2023
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: s/The trends in mortality of hepatocellular carcinoma (HCC) and biliary tract cancers stratified by sex and race/ethnicity in the US continue to evolve.
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.3389/fmed.2024.1384314
+  title: &#39;Global, regional, and national burden and trends analysis of gallbladder and biliary tract cancer from 1990 to 2019 and predictions to 2030: a systematic analysis for the Global Burden of Disease Study 2019&#39;
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Our aim was to explore the disease burden caused by gallbladder and biliary tract cancer globally, regionally, and nationally, by age and sex.
+    supporting_text: Our aim was to explore the disease burden caused by gallbladder and biliary tract cancer globally, regionally, and nationally, by age and sex.
+    evidence:
+    - reference: DOI:10.3389/fmed.2024.1384314
+      reference_title: &#39;Global, regional, and national burden and trends analysis of gallbladder and biliary tract cancer from 1990 to 2019 and predictions to 2030: a systematic analysis for the Global Burden of Disease Study 2019&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Our aim was to explore the disease burden caused by gallbladder and biliary tract cancer globally, regionally, and nationally, by age and sex.
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.3390/cancers17183052
+  title: &#39;Chronic Liver Disease Associated Cholangiocarcinoma: Genomic Insights and Precision Therapeutic Strategies&#39;
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Cholangiocarcinoma (CCA) is a highly heterogeneous malignancy arising from the biliary epithelium, with an increasing incidence and poor prognosis worldwide.
+    supporting_text: Cholangiocarcinoma (CCA) is a highly heterogeneous malignancy arising from the biliary epithelium, with an increasing incidence and poor prognosis worldwide.
+    evidence:
+    - reference: DOI:10.3390/cancers17183052
+      reference_title: &#39;Chronic Liver Disease Associated Cholangiocarcinoma: Genomic Insights and Precision Therapeutic Strategies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cholangiocarcinoma (CCA) is a highly heterogeneous malignancy arising from the biliary epithelium, with an increasing incidence and poor prognosis worldwide.
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.3390/cancers18030531
+  title: &#39;FGFR2-Rearranged Biliary Tract Cancer: Biology, Resistance Mechanisms, and Emerging Therapeutic Strategies&#39;
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Fibroblast growth factor receptor 2 (FGFR2) rearrangements represent one of the most actionable molecular alterations in biliary tract cancer, particularly in intrahepatic cholangiocarcinoma (iCCA).
+    supporting_text: Fibroblast growth factor receptor 2 (FGFR2) rearrangements represent one of the most actionable molecular alterations in biliary tract cancer, particularly in intrahepatic cholangiocarcinoma (iCCA).
+    evidence:
+    - reference: DOI:10.3390/cancers18030531
+      reference_title: &#39;FGFR2-Rearranged Biliary Tract Cancer: Biology, Resistance Mechanisms, and Emerging Therapeutic Strategies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Fibroblast growth factor receptor 2 (FGFR2) rearrangements represent one of the most actionable molecular alterations in biliary tract cancer, particularly in intrahepatic cholangiocarcinoma (iCCA).
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
+- reference: DOI:10.3390/curroncol31070266
+  title: &#39;Integrating Molecular Insights into Biliary Tract Cancer Management: A Review of Personalized Therapeutic Strategies&#39;
+  found_in:
+  - FGFR_Altered_Cholangiocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Biliary tract cancers (BTCs) are rare and aggressive malignancies with an increasing incidence and poor prognosis.
+    supporting_text: Biliary tract cancers (BTCs) are rare and aggressive malignancies with an increasing incidence and poor prognosis.
+    evidence:
+    - reference: DOI:10.3390/curroncol31070266
+      reference_title: &#39;Integrating Molecular Insights into Biliary Tract Cancer Management: A Review of Personalized Therapeutic Strategies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Biliary tract cancers (BTCs) are rare and aggressive malignancies with an increasing incidence and poor prognosis.
+      explanation: Deep research cited this publication as relevant literature for FGFR Altered Cholangiocarcinoma.
 </pre>
             </div>
         </div>

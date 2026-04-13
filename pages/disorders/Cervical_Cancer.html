@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2431,11 +2480,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Squamous Cell Carcinoma
                         
                         
@@ -2445,9 +2492,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">The most common histologic type, accounting for approximately 70-80% of cases. Arises from the squamous epithelium of the ectocervix, typically at the transformation zone where squamous and glandular epithelia meet.</div>
+                    
                     
                     
                     
@@ -2458,11 +2508,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Adenocarcinoma
                         
                         
@@ -2472,9 +2520,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Accounts for 20-25% of cervical cancers. Arises from the glandular epithelium of the endocervical canal. Often HPV-18 associated. May be more difficult to detect by cytology screening.</div>
+                    
                     
                     
                     
@@ -2485,11 +2536,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Adenosquamous Carcinoma
                         
                         
@@ -2499,9 +2548,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Mixed tumors with both squamous and glandular differentiation. Generally associated with worse prognosis than pure squamous cell carcinoma.</div>
+                    
                     
                     
                     
@@ -2599,6 +2651,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2649,6 +2702,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2681,6 +2735,37 @@
                 
                 
                 
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28112728" target="_blank">PMID:28112728</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Integration of human papilloma virus (HPV) was observed in all HPV18-related samples and 76% of HPV16-related samples, and was associated with structural aberrations and increased target-gene expression."</div>
+                
+                
+                <div class="evidence-explanation">TCGA confirmed near-universal HPV integration in HPV18-positive cervical cancers and frequent integration in HPV16-positive cancers, linked to host structural alterations and target-gene upregulation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -2711,6 +2796,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2814,7 +2900,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Constitutive E6/E7 Expression\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints, allows cells with genomic instability to survive, and prevents apoptosis of infected cells.\", \"meta\": {\"cell_types\": [\"epithelial cell of cervix\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"apoptotic process\"], \"locations\": [\"uterine cervix\"]}}, {\"id\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors to drive uncontrolled cell cycle progression. E7 also targets pRB family members p107 and p130, and destabilizes pRB through proteasomal degradation.\", \"meta\": {\"biological_processes\": [\"G1/S transition of mitotic cell cycle\", \"cell cycle checkpoint signaling\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"HPV Genome Integration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integration of HPV DNA into the host genome disrupts the viral E2 gene, which normally represses E6/E7 expression. This results in constitutive overexpression of E6 and E7 oncoproteins, a critical step in malignant progression from CIN3 to invasive carcinoma.\", \"meta\": {\"biological_processes\": [\"viral genome integration into host DNA\"]}}, {\"id\": \"Loss of DNA Damage Response\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Uncontrolled Cell Proliferation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Loss of DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"target\": \"Uncontrolled Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"HPV Genome Integration\", \"target\": \"Constitutive E6/E7 Expression\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Constitutive E6/E7 Expression\", \"Genomic Instability\", \"Loss of DNA Damage Response\", \"Uncontrolled Cell Proliferation\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Constitutive E6/E7 Expression\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints, allows cells with genomic instability to survive, and prevents apoptosis of infected cells.\", \"meta\": {\"cell_types\": [\"epithelial cell of cervix\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"apoptotic process\"], \"locations\": [\"uterine cervix\"]}}, {\"id\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors to drive uncontrolled cell cycle progression. E7 also targets pRB family members p107 and p130, and destabilizes pRB through proteasomal degradation.\", \"meta\": {\"biological_processes\": [\"G1/S transition of mitotic cell cycle\", \"cell cycle checkpoint signaling\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"HPV Genome Integration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integration of HPV DNA into the host genome disrupts the viral E2 gene, which normally represses E6/E7 expression. This results in constitutive overexpression of E6 and E7 oncoproteins, a critical step in malignant progression from CIN3 to invasive carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"viral genome integration into host DNA\"]}}, {\"id\": \"Loss of DNA Damage Response\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Uncontrolled Cell Proliferation\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}], \"edges\": [{\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Loss of DNA Damage Response\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"target\": \"Uncontrolled Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": true}, {\"source\": \"HPV Genome Integration\", \"target\": \"Constitutive E6/E7 Expression\", \"predicate\": \"causes\", \"is_orphan\": true}], \"orphan_targets\": [\"Constitutive E6/E7 Expression\", \"Genomic Instability\", \"Loss of DNA Damage Response\", \"Uncontrolled Cell Proliferation\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -2854,7 +2940,7 @@
                     <div class="item-name">
                         Abnormal Vaginal Bleeding
                         
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
                         
                         
                         <span class="phenotype-id">
@@ -2869,6 +2955,36 @@
                     
                     
     
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29794500" target="_blank">PMID:29794500</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively."</div>
+                
+                
+                <div class="evidence-explanation">Retrospective review of 149 cervical cancer patients in Botswana identifies abnormal vaginal bleeding as the most common presenting symptom (75.8%), supporting its classification as a frequent diagnostic phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
     
                     
     
@@ -2877,9 +2993,9 @@
                 
                 <div class="item-box phenotype-box">
                     <div class="item-name">
-                        Urinary Symptoms
+                        Hematuria
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">FREQUENT</span>
                         
                         
                         <span class="phenotype-id">
@@ -2893,6 +3009,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23244084" target="_blank">PMID:23244084</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A total of 130 were patients included, 54 of which (41.5%) had hematuria."</div>
+                
+                
+                <div class="evidence-explanation">Prospective study of 130 newly diagnosed cervical cancer patients quantifies hematuria prevalence (41.5%), with hematuria shown to be a sensitive screening test for urinary bladder mucosal infiltration in advanced cervical cancer, supporting classification as a frequent phenotype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2913,7 +3059,7 @@
                     <div class="item-name">
                         Pelvic Pain
                         
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">FREQUENT</span>
                         
                         
                         <span class="phenotype-id">
@@ -2927,6 +3073,36 @@
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29794500" target="_blank">PMID:29794500</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively."</div>
+                
+                
+                <div class="evidence-explanation">Low abdominal pain was reported in 66.4% of cervical cancer patients in this Botswana cohort, with the same study identifying low abdominal pain as a significant predictor of locally advanced disease at presentation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -2952,10 +3128,40 @@
                         
                     </div>
                     
-                    <div class="item-desc">No specific HP term available for vaginal discharge; phenotype captured clinically as abnormal genital tract secretion.</div>
+                    <div class="item-desc">No suitable specific HP term for vaginal discharge was identified in the current ontology build; phenotype captured clinically as abnormal genital tract secretion.</div>
                     
                     
                     
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29794500" target="_blank">PMID:29794500</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively."</div>
+                
+                
+                <div class="evidence-explanation">Same Botswana retrospective review reports malodorous vaginal discharge in 39.6% of cervical cancer cases, supporting its classification as a frequent presenting symptom.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
                     
@@ -3043,14 +3249,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     HPV Vaccination
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0001017" target="_blank">
-                            MAXO:0001017
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">vaccination</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0001017" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001017</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3067,14 +3282,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cone Biopsy/LEEP
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3091,14 +3315,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radical Hysterectomy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3115,17 +3348,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Chemoradiation
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000014" target="_blank">
-                            MAXO:0000014
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">radiation therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000014</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         cisplatin
@@ -3151,17 +3393,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pembrolizumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         pembrolizumab
@@ -3255,7 +3506,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Cervical Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-03-18T00:00:00Z&#39;
+updated_date: &#39;2026-04-11T15:11:34Z&#39;
 description: &gt;-
   Cervical cancer is a malignancy arising from the epithelium of the uterine cervix,
   with the vast majority (greater than 95%) caused by persistent infection with
@@ -3362,6 +3613,13 @@ pathophysiology:
     which normally represses E6/E7 expression. This results in constitutive
     overexpression of E6 and E7 oncoproteins, a critical step in malignant
     progression from CIN3 to invasive carcinoma.
+  evidence:
+  - reference: PMID:28112728
+    reference_title: &#34;Integrated genomic and molecular characterization of cervical cancer.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Integration of human papilloma virus (HPV) was observed in all HPV18-related samples and 76% of HPV16-related samples, and was associated with structural aberrations and increased target-gene expression.&#34;
+    explanation: TCGA confirmed near-universal HPV integration in HPV18-positive cervical cancers and frequent integration in HPV16-positive cancers, linked to host structural alterations and target-gene upregulation.
   biological_processes:
   - preferred_term: viral genome integration into host DNA
     term:
@@ -3401,7 +3659,7 @@ histopathology:
 phenotypes:
 - category: Gynecologic
   name: Abnormal Vaginal Bleeding
-  frequency: VERY_FREQUENT
+  frequency: FREQUENT
   diagnostic: true
   description: &gt;-
     The most common presenting symptom, including postcoital bleeding,
@@ -3412,6 +3670,16 @@ phenotypes:
     term:
       id: HP:0100608
       label: Metrorrhagia
+  evidence:
+  - reference: PMID:29794500
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively.&#34;
+    explanation: &gt;-
+      Retrospective review of 149 cervical cancer patients in Botswana
+      identifies abnormal vaginal bleeding as the most common
+      presenting symptom (75.8%), supporting its classification as a
+      frequent diagnostic phenotype.
 - category: Gynecologic
   name: Vaginal Discharge
   frequency: FREQUENT
@@ -3419,11 +3687,21 @@ phenotypes:
     Watery, mucoid, or blood-tinged vaginal discharge may occur, sometimes
     with foul odor in advanced cases due to tumor necrosis.
   notes: &gt;-
-    No specific HP term available for vaginal discharge; phenotype captured
-    clinically as abnormal genital tract secretion.
+    No suitable specific HP term for vaginal discharge was identified in the
+    current ontology build; phenotype captured clinically as abnormal genital
+    tract secretion.
+  evidence:
+  - reference: PMID:29794500
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively.&#34;
+    explanation: &gt;-
+      Same Botswana retrospective review reports malodorous vaginal
+      discharge in 39.6% of cervical cancer cases, supporting its
+      classification as a frequent presenting symptom.
 - category: Pelvic
   name: Pelvic Pain
-  frequency: OCCASIONAL
+  frequency: FREQUENT
   description: &gt;-
     Pelvic pain typically indicates locally advanced disease with parametrial
     invasion, pelvic sidewall involvement, or nerve compression.
@@ -3432,17 +3710,38 @@ phenotypes:
     term:
       id: HP:0002027
       label: Abdominal pain
+  evidence:
+  - reference: PMID:29794500
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Common symptoms were abnormal vaginal bleeding, low abdominal pain, and malodorous vaginal discharge reported among 75.8%, 66.4%, and 39.6% of cases, respectively.&#34;
+    explanation: &gt;-
+      Low abdominal pain was reported in 66.4% of cervical cancer
+      patients in this Botswana cohort, with the same study identifying
+      low abdominal pain as a significant predictor of locally
+      advanced disease at presentation.
 - category: Urinary
-  name: Urinary Symptoms
-  frequency: OCCASIONAL
+  name: Hematuria
+  frequency: FREQUENT
   description: &gt;-
-    Hematuria, dysuria, or urinary frequency may occur with bladder invasion
-    in advanced disease.
+    Hematuria is a frequent urinary manifestation in advanced cervical cancer
+    and may reflect bladder mucosal involvement.
   phenotype_term:
     preferred_term: Hematuria
     term:
       id: HP:0000790
       label: Hematuria
+  evidence:
+  - reference: PMID:23244084
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A total of 130 were patients included, 54 of which (41.5%) had hematuria.&#34;
+    explanation: &gt;-
+      Prospective study of 130 newly diagnosed cervical cancer
+      patients quantifies hematuria prevalence (41.5%), with hematuria
+      shown to be a sensitive screening test for urinary bladder
+      mucosal infiltration in advanced cervical cancer, supporting
+      classification as a frequent phenotype.
 biochemical:
 - name: HPV DNA Testing
   notes: &gt;-

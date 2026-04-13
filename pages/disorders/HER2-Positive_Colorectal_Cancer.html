@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2406,6 +2455,625 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">10</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s00432-022-04230-8" target="_blank">DOI:10.1007/s00432-022-04230-8</a>
+                        </div>
+                        
+                        <div class="reference-title">HER2 overexpression/amplification status in colorectal cancer: a comparison between immunohistochemistry and fluorescence in situ hybridization using five different immunohistochemical scoring criteria</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">HER2 overexpression/amplification status in colorectal cancer: a comparison between immunohistochemistry and fluorescence in situ hybridization using five different immunohistochemical scoring criteria</div>
+            
+            
+            <div class="reference-finding-supporting">"Although HER2 has gradually become an important therapeutic target for colorectal cancer (CRC), a unified and standard HER2 scoring system was still not established in CRC, and the debatable results of immunohistochemistry and fluorescence in situ hybridization (FISH) in CRC requires further exploration."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00432-022-04230-8" target="_blank">DOI:10.1007/s00432-022-04230-8</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Although HER2 has gradually become an important therapeutic target for colorectal cancer (CRC), a unified and standard HER2 scoring system was still not established in CRC, and the debatable results of immunohistochemistry and fluorescence in situ hybridization (FISH) in CRC requires further exploration."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41467-023-38032-4" target="_blank">DOI:10.1038/s41467-023-38032-4</a>
+                        </div>
+                        
+                        <div class="reference-title">Final results of DESTINY-CRC01 investigating trastuzumab deruxtecan in patients with HER2-expressing metastatic colorectal cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Final results of DESTINY-CRC01 investigating trastuzumab deruxtecan in patients with HER2-expressing metastatic colorectal cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"DESTINY-CRC01 (NCT03384940) was a multicenter, open-label, phase 2 trial assessing the efficacy and safety of trastuzumab deruxtecan (T-DXd) in patients with HER2-expressing metastatic colorectal cancer (mCRC) that progressed after ≥2 prior regimens; results of the primary analysis are published."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41467-023-38032-4" target="_blank">DOI:10.1038/s41467-023-38032-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"DESTINY-CRC01 (NCT03384940) was a multicenter, open-label, phase 2 trial assessing the efficacy and safety of trastuzumab deruxtecan (T-DXd) in patients with HER2-expressing metastatic colorectal cancer (mCRC) that progressed after ≥2 prior regimens; results of the primary analysis are published."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41467-024-53223-3" target="_blank">DOI:10.1038/s41467-024-53223-3</a>
+                        </div>
+                        
+                        <div class="reference-title">HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01</div>
+            
+            
+            <div class="reference-finding-supporting">"HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41598-024-62096-x" target="_blank">DOI:10.1038/s41598-024-62096-x</a>
+                        </div>
+                        
+                        <div class="reference-title">RAS/RAF mutations and microsatellite instability status in primary colorectal cancers according to HER2 amplification</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">HER2 amplification-associated molecular alterations and clinicopathologic features in colorectal cancers (CRCs) have not been well established.</div>
+            
+            
+            <div class="reference-finding-supporting">"HER2 amplification-associated molecular alterations and clinicopathologic features in colorectal cancers (CRCs) have not been well established."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41598-024-62096-x" target="_blank">DOI:10.1038/s41598-024-62096-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HER2 amplification-associated molecular alterations and clinicopathologic features in colorectal cancers (CRCs) have not been well established."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/jncics/pkad082" target="_blank">DOI:10.1093/jncics/pkad082</a>
+                        </div>
+                        
+                        <div class="reference-title">Systematic literature review and meta-analysis of HER2 amplification, overexpression, and positivity in colorectal cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Colorectal cancer (CRC) is the second most common cause of cancer death globally.</div>
+            
+            
+            <div class="reference-finding-supporting">"Colorectal cancer (CRC) is the second most common cause of cancer death globally."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/jncics/pkad082" target="_blank">DOI:10.1093/jncics/pkad082</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Colorectal cancer (CRC) is the second most common cause of cancer death globally."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-2581" target="_blank">DOI:10.1158/1078-0432.ccr-23-2581</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;i&gt;RAS/RAF&lt;/i&gt; Comutation and &lt;i&gt;ERBB2&lt;/i&gt; Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ERBB2-amplified colorectal cancer is a distinct molecular subtype with expanding treatments.</div>
+            
+            
+            <div class="reference-finding-supporting">"ERBB2-amplified colorectal cancer is a distinct molecular subtype with expanding treatments."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-2581" target="_blank">DOI:10.1158/1078-0432.ccr-23-2581</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ERBB2-amplified colorectal cancer is a distinct molecular subtype with expanding treatments."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.32604/or.2024.047309" target="_blank">DOI:10.32604/or.2024.047309</a>
+                        </div>
+                        
+                        <div class="reference-title">Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2</div>
+            
+            
+            <div class="reference-finding-supporting">"Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16162854" target="_blank">DOI:10.3390/cancers16162854</a>
+                        </div>
+                        
+                        <div class="reference-title">Resistance to Anti-HER2 Therapies in Gastrointestinal Malignancies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Human epidermal growth factor 2 (HER2) is a tyrosine kinase receptor that interacts with multiple signaling pathways related to cellular growth and proliferation.</div>
+            
+            
+            <div class="reference-finding-supporting">"Human epidermal growth factor 2 (HER2) is a tyrosine kinase receptor that interacts with multiple signaling pathways related to cellular growth and proliferation."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16162854" target="_blank">DOI:10.3390/cancers16162854</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Human epidermal growth factor 2 (HER2) is a tyrosine kinase receptor that interacts with multiple signaling pathways related to cellular growth and proliferation."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16183145" target="_blank">DOI:10.3390/cancers16183145</a>
+                        </div>
+                        
+                        <div class="reference-title">Prognostic and Predictive Roles of HER2 Status in Non-Breast and Non-Gastroesophageal Carcinomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The oncogene ERBB2, also known as HER2 or c-ERB2, is located on chromosome 17 (q12).</div>
+            
+            
+            <div class="reference-finding-supporting">"The oncogene ERBB2, also known as HER2 or c-ERB2, is located on chromosome 17 (q12)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16183145" target="_blank">DOI:10.3390/cancers16183145</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The oncogene ERBB2, also known as HER2 or c-ERB2, is located on chromosome 17 (q12)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.6004/jnccn.2023.7022" target="_blank">DOI:10.6004/jnccn.2023.7022</a>
+                        </div>
+                        
+                        <div class="reference-title">Real-World Treatment Patterns in Patients With HER2-Amplified Metastatic Colorectal Cancer: A Clinical-Genomic Database Study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">HER2 amplification (HER2+) occurs in approximately 3% of patients with metastatic colorectal cancer (mCRC).</div>
+            
+            
+            <div class="reference-finding-supporting">"HER2 amplification (HER2+) occurs in approximately 3% of patients with metastatic colorectal cancer (mCRC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.6004/jnccn.2023.7022" target="_blank">DOI:10.6004/jnccn.2023.7022</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"HER2 amplification (HER2+) occurs in approximately 3% of patients with metastatic colorectal cancer (mCRC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2456,6 +3124,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2526,6 +3195,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2556,6 +3226,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2606,6 +3277,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2973,17 +3645,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trastuzumab plus Lapatinib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab
@@ -3009,17 +3690,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trastuzumab plus Pertuzumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab
@@ -3045,17 +3735,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trastuzumab Deruxtecan (T-DXd)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab deruxtecan
@@ -3081,17 +3780,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Tucatinib plus Trastuzumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         trastuzumab
@@ -3117,14 +3825,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3220,14 +3937,17 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: HER2-Positive Colorectal Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:52:58Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
-  HER2-positive colorectal cancer is a molecularly defined subtype characterized by ERBB2
+  HER2-positive colorectal cancer is a molecularly defined subtype characterized by
+  ERBB2
   (HER2) amplification or overexpression, occurring in approximately 3-5% of metastatic
-  colorectal cancers. HER2 amplification is enriched in RAS/BRAF wild-type tumors and
+  colorectal cancers. HER2 amplification is enriched in RAS/BRAF wild-type tumors
+  and
   represents an emerging actionable target. Unlike breast and gastric cancer, HER2-positive
   CRC responds modestly to single-agent HER2-targeted therapy, but combination approaches
-  with HER2-directed agents and anti-EGFR therapy or dual HER2 blockade have shown promising
+  with HER2-directed agents and anti-EGFR therapy or dual HER2 blockade have shown
+  promising
   activity. HER2 amplification may also be a mechanism of acquired resistance to anti-EGFR
   therapy.
 categories:
@@ -3239,8 +3959,10 @@ parents:
 pathophysiology:
 - name: ERBB2 (HER2) Amplification and Overexpression
   description: &gt;-
-    ERBB2 gene amplification leads to overexpression of the HER2 receptor tyrosine kinase
-    on the cell surface. Amplified HER2 forms homodimers and heterodimers with other ERBB
+    ERBB2 gene amplification leads to overexpression of the HER2 receptor tyrosine
+    kinase
+    on the cell surface. Amplified HER2 forms homodimers and heterodimers with other
+    ERBB
     family members (particularly HER3), leading to ligand-independent receptor activation
     and downstream signaling.
   evidence:
@@ -3269,7 +3991,8 @@ pathophysiology:
   description: &gt;-
     HER2 receptor activation leads to recruitment of adaptor proteins (GRB2/SOS) that
     activate RAS, initiating the MAPK signaling cascade. This drives cell proliferation
-    and survival. The MAPK pathway is a major effector of HER2 oncogenic signaling in
+    and survival. The MAPK pathway is a major effector of HER2 oncogenic signaling
+    in
     colorectal cancer.
   biological_processes:
   - preferred_term: MAPK cascade
@@ -3385,8 +4108,10 @@ biochemical:
     scoring criteria have been proposed (HERACLES criteria) with stricter requirements.
 - name: HER2 FISH/ISH
   notes: &gt;-
-    Fluorescence in situ hybridization or other in situ hybridization methods detect ERBB2
-    gene amplification. HER2/CEP17 ratio greater than 2.0 or HER2 copy number greater than 6
+    Fluorescence in situ hybridization or other in situ hybridization methods detect
+    ERBB2
+    gene amplification. HER2/CEP17 ratio greater than 2.0 or HER2 copy number greater
+    than 6
     indicates amplification. Required for IHC 2+ cases.
 - name: Next-Generation Sequencing
   notes: &gt;-
@@ -3403,7 +4128,8 @@ genetic:
 - name: ERBB2 Activating Mutations
   association: Somatic Activating Mutation
   notes: &gt;-
-    Activating mutations in ERBB2 (e.g., S310F, L755S, V777L) occur in approximately 2%
+    Activating mutations in ERBB2 (e.g., S310F, L755S, V777L) occur in approximately
+    2%
     of CRC and may respond to HER2-targeted therapies. These are distinct from amplification
     and can co-occur with RAS mutations.
 - name: RAS/BRAF Wild-Type
@@ -3415,7 +4141,8 @@ genetic:
 treatments:
 - name: Trastuzumab plus Lapatinib
   description: &gt;-
-    Dual HER2 blockade with trastuzumab (anti-HER2 antibody) and lapatinib (HER1/HER2 TKI).
+    Dual HER2 blockade with trastuzumab (anti-HER2 antibody) and lapatinib (HER1/HER2
+    TKI).
     HERACLES trial demonstrated 30% objective response rate in chemotherapy-refractory,
     HER2-positive, RAS wild-type metastatic CRC.
   treatment_term:
@@ -3431,7 +4158,8 @@ treatments:
 - name: Trastuzumab plus Pertuzumab
   description: &gt;-
     Dual HER2 antibody blockade with trastuzumab and pertuzumab, which block different
-    HER2 epitopes and prevent HER2/HER3 heterodimerization. MyPathway basket trial showed
+    HER2 epitopes and prevent HER2/HER3 heterodimerization. MyPathway basket trial
+    showed
     activity in HER2-amplified CRC.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3445,7 +4173,8 @@ treatments:
         label: trastuzumab
 - name: Trastuzumab Deruxtecan (T-DXd)
   description: &gt;-
-    Antibody-drug conjugate consisting of anti-HER2 antibody linked to topoisomerase I
+    Antibody-drug conjugate consisting of anti-HER2 antibody linked to topoisomerase
+    I
     inhibitor payload. DESTINY-CRC01 showed promising activity in HER2-positive metastatic
     CRC with strong IHC 3+ expression.
   treatment_term:
@@ -3461,7 +4190,8 @@ treatments:
 - name: Tucatinib plus Trastuzumab
   description: &gt;-
     Combination of HER2-selective TKI tucatinib with trastuzumab. MOUNTAINEER trial
-    demonstrated significant activity in HER2-positive metastatic CRC, leading to FDA
+    demonstrated significant activity in HER2-positive metastatic CRC, leading to
+    FDA
     accelerated approval.
   treatment_term:
     preferred_term: pharmacotherapy
@@ -3494,6 +4224,133 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1007/s00432-022-04230-8
+  title: &#39;HER2 overexpression/amplification status in colorectal cancer: a comparison between immunohistochemistry and fluorescence in situ hybridization using five different immunohistochemical scoring criteria&#39;
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;HER2 overexpression/amplification status in colorectal cancer: a comparison between immunohistochemistry and fluorescence in situ hybridization using five different immunohistochemical scoring criteria&#39;
+    supporting_text: Although HER2 has gradually become an important therapeutic target for colorectal cancer (CRC), a unified and standard HER2 scoring system was still not established in CRC, and the debatable results of immunohistochemistry and fluorescence in situ hybridization (FISH) in CRC requires further exploration.
+    evidence:
+    - reference: DOI:10.1007/s00432-022-04230-8
+      reference_title: &#39;HER2 overexpression/amplification status in colorectal cancer: a comparison between immunohistochemistry and fluorescence in situ hybridization using five different immunohistochemical scoring criteria&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Although HER2 has gradually become an important therapeutic target for colorectal cancer (CRC), a unified and standard HER2 scoring system was still not established in CRC, and the debatable results of immunohistochemistry and fluorescence in situ hybridization (FISH) in CRC requires further exploration.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.1038/s41467-023-38032-4
+  title: Final results of DESTINY-CRC01 investigating trastuzumab deruxtecan in patients with HER2-expressing metastatic colorectal cancer
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Final results of DESTINY-CRC01 investigating trastuzumab deruxtecan in patients with HER2-expressing metastatic colorectal cancer
+    supporting_text: DESTINY-CRC01 (NCT03384940) was a multicenter, open-label, phase 2 trial assessing the efficacy and safety of trastuzumab deruxtecan (T-DXd) in patients with HER2-expressing metastatic colorectal cancer (mCRC) that progressed after ≥2 prior regimens; results of the primary analysis are published.
+    evidence:
+    - reference: DOI:10.1038/s41467-023-38032-4
+      reference_title: Final results of DESTINY-CRC01 investigating trastuzumab deruxtecan in patients with HER2-expressing metastatic colorectal cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: DESTINY-CRC01 (NCT03384940) was a multicenter, open-label, phase 2 trial assessing the efficacy and safety of trastuzumab deruxtecan (T-DXd) in patients with HER2-expressing metastatic colorectal cancer (mCRC) that progressed after ≥2 prior regimens; results of the primary analysis are published.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.1038/s41467-024-53223-3
+  title: &#39;HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01&#39;
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01&#39;
+    supporting_text: &#39;HER2-related biomarkers predict clinical outcomes with trastuzumab deruxtecan treatment in patients with HER2-expressing metastatic colorectal cancer: biomarker analyses of DESTINY-CRC01&#39;
+- reference: DOI:10.1038/s41598-024-62096-x
+  title: RAS/RAF mutations and microsatellite instability status in primary colorectal cancers according to HER2 amplification
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: HER2 amplification-associated molecular alterations and clinicopathologic features in colorectal cancers (CRCs) have not been well established.
+    supporting_text: HER2 amplification-associated molecular alterations and clinicopathologic features in colorectal cancers (CRCs) have not been well established.
+    evidence:
+    - reference: DOI:10.1038/s41598-024-62096-x
+      reference_title: RAS/RAF mutations and microsatellite instability status in primary colorectal cancers according to HER2 amplification
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: HER2 amplification-associated molecular alterations and clinicopathologic features in colorectal cancers (CRCs) have not been well established.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.1093/jncics/pkad082
+  title: Systematic literature review and meta-analysis of HER2 amplification, overexpression, and positivity in colorectal cancer
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Colorectal cancer (CRC) is the second most common cause of cancer death globally.
+    supporting_text: Colorectal cancer (CRC) is the second most common cause of cancer death globally.
+    evidence:
+    - reference: DOI:10.1093/jncics/pkad082
+      reference_title: Systematic literature review and meta-analysis of HER2 amplification, overexpression, and positivity in colorectal cancer
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Colorectal cancer (CRC) is the second most common cause of cancer death globally.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.1158/1078-0432.ccr-23-2581
+  title: &lt;i&gt;RAS/RAF&lt;/i&gt; Comutation and &lt;i&gt;ERBB2&lt;/i&gt; Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;ERBB2-amplified colorectal cancer is a distinct molecular subtype with expanding treatments.&#39;
+    supporting_text: &#39;ERBB2-amplified colorectal cancer is a distinct molecular subtype with expanding treatments.&#39;
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-23-2581
+      reference_title: &lt;i&gt;RAS/RAF&lt;/i&gt; Comutation and &lt;i&gt;ERBB2&lt;/i&gt; Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;ERBB2-amplified colorectal cancer is a distinct molecular subtype with expanding treatments.&#39;
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.32604/or.2024.047309
+  title: &#39;Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2&#39;
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2&#39;
+    supporting_text: &#39;Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2&#39;
+- reference: DOI:10.3390/cancers16162854
+  title: Resistance to Anti-HER2 Therapies in Gastrointestinal Malignancies
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Human epidermal growth factor 2 (HER2) is a tyrosine kinase receptor that interacts with multiple signaling pathways related to cellular growth and proliferation.
+    supporting_text: Human epidermal growth factor 2 (HER2) is a tyrosine kinase receptor that interacts with multiple signaling pathways related to cellular growth and proliferation.
+    evidence:
+    - reference: DOI:10.3390/cancers16162854
+      reference_title: Resistance to Anti-HER2 Therapies in Gastrointestinal Malignancies
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Human epidermal growth factor 2 (HER2) is a tyrosine kinase receptor that interacts with multiple signaling pathways related to cellular growth and proliferation.
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.3390/cancers16183145
+  title: Prognostic and Predictive Roles of HER2 Status in Non-Breast and Non-Gastroesophageal Carcinomas
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: The oncogene ERBB2, also known as HER2 or c-ERB2, is located on chromosome 17 (q12).
+    supporting_text: The oncogene ERBB2, also known as HER2 or c-ERB2, is located on chromosome 17 (q12).
+    evidence:
+    - reference: DOI:10.3390/cancers16183145
+      reference_title: Prognostic and Predictive Roles of HER2 Status in Non-Breast and Non-Gastroesophageal Carcinomas
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The oncogene ERBB2, also known as HER2 or c-ERB2, is located on chromosome 17 (q12).
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
+- reference: DOI:10.6004/jnccn.2023.7022
+  title: &#39;Real-World Treatment Patterns in Patients With HER2-Amplified Metastatic Colorectal Cancer: A Clinical-Genomic Database Study&#39;
+  found_in:
+  - HER2_Positive_Colorectal_Cancer-deep-research-falcon.md
+  findings:
+  - statement: HER2 amplification (HER2+) occurs in approximately 3% of patients with metastatic colorectal cancer (mCRC).
+    supporting_text: HER2 amplification (HER2+) occurs in approximately 3% of patients with metastatic colorectal cancer (mCRC).
+    evidence:
+    - reference: DOI:10.6004/jnccn.2023.7022
+      reference_title: &#39;Real-World Treatment Patterns in Patients With HER2-Amplified Metastatic Colorectal Cancer: A Clinical-Genomic Database Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: HER2 amplification (HER2+) occurs in approximately 3% of patients with metastatic colorectal cancer (mCRC).
+      explanation: Deep research cited this publication as relevant literature for HER2 Positive Colorectal Cancer.
 </pre>
             </div>
         </div>

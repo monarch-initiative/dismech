@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2406,6 +2455,602 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">11</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.canlet.2009.02.057" target="_blank">DOI:10.1016/j.canlet.2009.02.057</a>
+                        </div>
+                        
+                        <div class="reference-title">The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy</div>
+            
+            
+            <div class="reference-finding-supporting">"The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.ejca.2012.02.009" target="_blank">DOI:10.1016/j.ejca.2012.02.009</a>
+                        </div>
+                        
+                        <div class="reference-title">Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis</div>
+            
+            
+            <div class="reference-finding-supporting">"Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.jhep.2010.04.032" target="_blank">DOI:10.1016/j.jhep.2010.04.032</a>
+                        </div>
+                        
+                        <div class="reference-title">Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China</div>
+            
+            
+            <div class="reference-finding-supporting">"Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1055-9965.epi-05-0612" target="_blank">DOI:10.1158/1055-9965.epi-05-0612</a>
+                        </div>
+                        
+                        <div class="reference-title">Quantitative Analysis of Plasma TP53 249Ser-Mutated DNA by Electrospray Ionization Mass Spectrometry</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.</div>
+            
+            
+            <div class="reference-finding-supporting">"A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1055-9965.epi-05-0612" target="_blank">DOI:10.1158/1055-9965.epi-05-0612</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1055-9965.epi-08-1102" target="_blank">DOI:10.1158/1055-9965.epi-08-1102</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;i&gt;TP53 R249S&lt;/i&gt; Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.</div>
+            
+            
+            <div class="reference-finding-supporting">"Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1055-9965.epi-08-1102" target="_blank">DOI:10.1158/1055-9965.epi-08-1102</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1289/ehp.1103539" target="_blank">DOI:10.1289/ehp.1103539</a>
+                        </div>
+                        
+                        <div class="reference-title">Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection</div>
+            
+            
+            <div class="reference-finding-supporting">"Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0037707" target="_blank">DOI:10.1371/journal.pone.0037707</a>
+                        </div>
+                        
+                        <div class="reference-title">Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis</div>
+            
+            
+            <div class="reference-finding-supporting">"Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/toxins16110496" target="_blank">DOI:10.3390/toxins16110496</a>
+                        </div>
+                        
+                        <div class="reference-title">65 Years on—Aflatoxin Biomarkers Blossoming: Whither Next?</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.</div>
+            
+            
+            <div class="reference-finding-supporting">"Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/toxins16110496" target="_blank">DOI:10.3390/toxins16110496</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/toxins17020079" target="_blank">DOI:10.3390/toxins17020079</a>
+                        </div>
+                        
+                        <div class="reference-title">Fifty Years of Aflatoxin Research in Qidong, China: A Celebration of Team Science to Improve Public Health</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.</div>
+            
+            
+            <div class="reference-finding-supporting">"The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/toxins17020079" target="_blank">DOI:10.3390/toxins17020079</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/toxins18020061" target="_blank">DOI:10.3390/toxins18020061</a>
+                        </div>
+                        
+                        <div class="reference-title">Aflatoxin and Liver Cancer in China: The Evolving Research Landscape</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.</div>
+            
+            
+            <div class="reference-finding-supporting">"Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/toxins18020061" target="_blank">DOI:10.3390/toxins18020061</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/toxins18020090" target="_blank">DOI:10.3390/toxins18020090</a>
+                        </div>
+                        
+                        <div class="reference-title">Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mycotoxin contamination represents a major public health and economic burden worldwide.</div>
+            
+            
+            <div class="reference-finding-supporting">"Mycotoxin contamination represents a major public health and economic burden worldwide."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/toxins18020090" target="_blank">DOI:10.3390/toxins18020090</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Mycotoxin contamination represents a major public health and economic burden worldwide."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Aflatoxin Related HCC.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2455,6 +3100,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2485,6 +3131,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2557,6 +3204,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2623,6 +3271,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2653,6 +3302,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2703,6 +3353,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3087,14 +3738,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3111,14 +3771,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Liver Transplantation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0010039" target="_blank">
-                            MAXO:0010039
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">organ transplantation</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3135,14 +3804,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Locoregional Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3159,17 +3837,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Systemic Therapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         sorafenib
@@ -3225,14 +3912,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Aflatoxin Exposure Prevention
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0001017" target="_blank">
-                            MAXO:0001017
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">vaccination</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0001017" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001017</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3255,11 +3951,11 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">1</span>
             </div>
             
             <div class="item-box environmental-box">
-                <div class="item-name">Aflatoxin-Contaminated Maize</div>
+                <div class="item-name">Aflatoxin B1 Exposure</div>
                 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
                     
@@ -3272,78 +3968,11 @@
                     
                     
                     
-                    <span class="tag tag-bio">
-                        maize kernel
-                        
-                        <a href="http://purl.obolibrary.org/obo/FOODON_00003427" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
                 </div>
                 
                 
                 
-                <div class="item-desc">Aflatoxin B1 (AFB1) is produced by Aspergillus flavus and A. parasiticus fungi that contaminate stored maize and other grains during storage in warm, humid conditions. After ingestion, AFB1 is metabolized in the liver to a highly reactive epoxide that forms DNA adducts, preferentially at the third position of codon 249 in TP53, causing the characteristic G&gt;T transversion (R249S mutation).</div>
-                
-                
-    
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40863326" target="_blank">PMID:40863326</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                </div>
-                
-                <div class="evidence-snippet">"Exposure to aflatoxins, potent mycotoxins produced by Aspergillus fungi contaminating staple foods, and chronic hepatitis B virus (HBV) infection are major etiological factors, especially where they co-exist."</div>
-                
-                
-                <div class="evidence-explanation">This abstract identifies aflatoxin exposure as a major etiological factor for HCC, supporting the environmental risk described.</div>
-                
-            </div>
-            
-            
-        </div>
-    </details>
-    
-    
-            </div>
-            
-            <div class="item-box environmental-box">
-                <div class="item-name">Aflatoxin-Contaminated Peanuts</div>
-                
-                <div class="tag-list" style="margin: 10px 0 8px 0;">
-                    
-                    <span class="tag tag-env">
-                        exposure to aflatoxin
-                        
-                        <a href="http://purl.obolibrary.org/obo/ECTO_0001108" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                    
-                    
-                    <span class="tag tag-bio">
-                        peanut
-                        
-                        <a href="http://purl.obolibrary.org/obo/FOODON_00003206" target="_blank" class="linkout">link</a>
-                        
-                    </span>
-                    
-                </div>
-                
-                
-                
-                <div class="item-desc">Aflatoxin B1 (AFB1) also contaminates stored peanuts and other nuts in warm, humid conditions. After ingestion, AFB1 is metabolized in the liver to a highly reactive epoxide that forms DNA adducts, including the TP53 codon 249 hotspot lesion characteristic of aflatoxin-related HCC.</div>
+                <div class="item-desc">Aflatoxin B1 (AFB1) is produced by Aspergillus flavus and A. parasiticus fungi that contaminate corn, peanuts, and other crops during storage in warm, humid conditions. After ingestion, AFB1 is metabolized in the liver to a highly reactive epoxide that forms DNA adducts, preferentially at the third position of codon 249 in TP53, causing the characteristic G&gt;T transversion (R249S mutation).</div>
                 
                 
     
@@ -3457,7 +4086,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Aflatoxin-Related Hepatocellular Carcinoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-05T20:30:00Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   Aflatoxin-related hepatocellular carcinoma (HCC) is a form of liver cancer strongly
   associated with dietary exposure to aflatoxin B1 (AFB1), a mycotoxin produced by
@@ -3500,45 +4129,18 @@ infectious_agent:
       Review establishing HBV and aflatoxin as co-existing major risk factors
       in high-incidence HCC regions.
 environmental:
-- name: Aflatoxin-Contaminated Maize
+- name: Aflatoxin B1 Exposure
   exposure_term:
     preferred_term: exposure to aflatoxin
     term:
       id: ECTO:0001108
       label: exposure to aflatoxin
-  food_source:
-    preferred_term: maize kernel
-    term:
-      id: FOODON:00003427
-      label: maize kernel
   description: &gt;-
     Aflatoxin B1 (AFB1) is produced by Aspergillus flavus and A. parasiticus fungi
-    that contaminate stored maize and other grains during storage in warm, humid
+    that contaminate corn, peanuts, and other crops during storage in warm, humid
     conditions. After ingestion, AFB1 is metabolized in the liver to a highly
     reactive epoxide that forms DNA adducts, preferentially at the third position
     of codon 249 in TP53, causing the characteristic G&gt;T transversion (R249S mutation).
-  evidence:
-  - reference: PMID:40863326
-    reference_title: &#34;Cooperation Between Aflatoxin-Induced p53 Aberrations and Hepatitis B Virus in Hepatocellular Carcinoma.&#34;
-    supports: SUPPORT
-    snippet: Exposure to aflatoxins, potent mycotoxins produced by Aspergillus fungi contaminating staple foods, and chronic hepatitis B virus (HBV) infection are major etiological factors, especially where they co-exist.
-    explanation: This abstract identifies aflatoxin exposure as a major etiological factor for HCC, supporting the environmental risk described.
-- name: Aflatoxin-Contaminated Peanuts
-  exposure_term:
-    preferred_term: exposure to aflatoxin
-    term:
-      id: ECTO:0001108
-      label: exposure to aflatoxin
-  food_source:
-    preferred_term: peanut
-    term:
-      id: FOODON:00003206
-      label: peanut
-  description: &gt;-
-    Aflatoxin B1 (AFB1) also contaminates stored peanuts and other nuts in warm,
-    humid conditions. After ingestion, AFB1 is metabolized in the liver to a highly
-    reactive epoxide that forms DNA adducts, including the TP53 codon 249 hotspot
-    lesion characteristic of aflatoxin-related HCC.
   evidence:
   - reference: PMID:40863326
     reference_title: &#34;Cooperation Between Aflatoxin-Induced p53 Aberrations and Hepatitis B Virus in Hepatocellular Carcinoma.&#34;
@@ -3612,7 +4214,8 @@ pathophysiology:
       reflect dietary exposure to AFB1 than did the initially used food sampling
       and dietary questionnaires, cohort studies of patients with HCC in China
       and Taiwan have provided compelling evidence for a multiplicative or
-      sub-multiplicative interaction between HBV and AFB1 in the genesis of human HCC.
+      sub-multiplicative interaction between HBV and AFB1 in the genesis of human
+      HCC.
     explanation: &gt;-
       Review of cohort studies demonstrating synergistic hepatocarcinogenic
       interaction between HBV infection and aflatoxin exposure.
@@ -3856,6 +4459,126 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1016/j.canlet.2009.02.057
+  title: &#39;The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: &#39;The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy&#39;
+    supporting_text: &#39;The aflatoxin-induced TP53 mutation at codon 249 (R249S): Biomarker of exposure, early detection and target for therapy&#39;
+- reference: DOI:10.1016/j.ejca.2012.02.009
+  title: &#39;Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: &#39;Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis&#39;
+    supporting_text: &#39;Population attributable risk of aflatoxin-related liver cancer: Systematic review and meta-analysis&#39;
+- reference: DOI:10.1016/j.jhep.2010.04.032
+  title: Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China
+    supporting_text: Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China
+- reference: DOI:10.1158/1055-9965.epi-05-0612
+  title: Quantitative Analysis of Plasma TP53 249Ser-Mutated DNA by Electrospray Ionization Mass Spectrometry
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.
+    supporting_text: A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.
+    evidence:
+    - reference: DOI:10.1158/1055-9965.epi-05-0612
+      reference_title: Quantitative Analysis of Plasma TP53 249Ser-Mutated DNA by Electrospray Ionization Mass Spectrometry
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: A mutation in codon 249 of the TP53 gene (249Ser), related to aflatoxin B1 exposure, has previously been associated with hepatocellular carcinoma risk.
+      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
+- reference: DOI:10.1158/1055-9965.epi-08-1102
+  title: &lt;i&gt;TP53 R249S&lt;/i&gt; Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.
+    supporting_text: Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.
+    evidence:
+    - reference: DOI:10.1158/1055-9965.epi-08-1102
+      reference_title: &lt;i&gt;TP53 R249S&lt;/i&gt; Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Hepatocellular carcinoma (HCC) has a high mortality in East Asia and Sub-Saharan Africa, two regions where the main etiologic factors are chronic infections with hepatitis B virus and dietary exposure to aflatoxin.
+      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
+- reference: DOI:10.1289/ehp.1103539
+  title: Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection
+    supporting_text: Seasonal Variation in &lt;i&gt;TP53 R249S&lt;/i&gt; -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection
+- reference: DOI:10.1371/journal.pone.0037707
+  title: &#39;Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: &#39;Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis&#39;
+    supporting_text: &#39;Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis&#39;
+- reference: DOI:10.3390/toxins16110496
+  title: &#39;65 Years on—Aflatoxin Biomarkers Blossoming: Whither Next?&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.
+    supporting_text: Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.
+    evidence:
+    - reference: DOI:10.3390/toxins16110496
+      reference_title: &#39;65 Years on—Aflatoxin Biomarkers Blossoming: Whither Next?&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Aflatoxins are mycotoxins produced by Aspergillus flavus and several other related organisms and are common contaminants of numerous grains and nuts, especially maize (corn) and peanuts.
+      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
+- reference: DOI:10.3390/toxins17020079
+  title: &#39;Fifty Years of Aflatoxin Research in Qidong, China: A Celebration of Team Science to Improve Public Health&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.
+    supporting_text: The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.
+    evidence:
+    - reference: DOI:10.3390/toxins17020079
+      reference_title: &#39;Fifty Years of Aflatoxin Research in Qidong, China: A Celebration of Team Science to Improve Public Health&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The Qidong Liver Cancer Institute (QDLCI) and the Qidong Cancer Registry were established in 1972 with input from doctors, other medical practitioners, and non-medical investigators arriving from urban centers such as Shanghai and Nanjing.
+      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
+- reference: DOI:10.3390/toxins18020061
+  title: &#39;Aflatoxin and Liver Cancer in China: The Evolving Research Landscape&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.
+    supporting_text: Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.
+    evidence:
+    - reference: DOI:10.3390/toxins18020061
+      reference_title: &#39;Aflatoxin and Liver Cancer in China: The Evolving Research Landscape&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Aflatoxins, particularly aflatoxin B1 (AFB1), are among the most potent naturally occurring carcinogens and remain a major food-borne hazard in parts of Asia and Africa.
+      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
+- reference: DOI:10.3390/toxins18020090
+  title: &#39;Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies&#39;
+  found_in:
+  - Aflatoxin_Related_HCC-deep-research-falcon.md
+  findings:
+  - statement: Mycotoxin contamination represents a major public health and economic burden worldwide.
+    supporting_text: Mycotoxin contamination represents a major public health and economic burden worldwide.
+    evidence:
+    - reference: DOI:10.3390/toxins18020090
+      reference_title: &#39;Aflatoxins and Human Health: Global Exposure, Disease Burden, and One Health Strategies&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Mycotoxin contamination represents a major public health and economic burden worldwide.
+      explanation: Deep research cited this publication as relevant literature for Aflatoxin Related HCC.
 </pre>
             </div>
         </div>
