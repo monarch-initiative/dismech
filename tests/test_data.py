@@ -428,6 +428,35 @@ def test_experimental_model_mechanism_targets(filepath):
     )
 
 
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_computational_model_mechanism_targets(filepath):
+    """Computational model links should reference declared pathophysiology nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_targets = {
+        item["name"]
+        for item in data.get("pathophysiology", [])
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, model in enumerate(data.get("computational_models", [])):
+        for j, link in enumerate(model.get("modeled_mechanisms", [])):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"computational_models[{i}].modeled_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Computational model mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (
