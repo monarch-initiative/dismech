@@ -183,6 +183,57 @@ def test_environmental_food_source_slot_accepts_chebi_nutrient(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
+def test_subtype_ncit_mappings_validate(validator):
+    """Cancer subtype facets may carry MONDO/NCIT grounding without implying a local page."""
+    data = {
+        "name": "Test Pilocytic Astrocytoma",
+        "disease_term": {
+            "preferred_term": "pilocytic astrocytoma",
+            "term": {"id": "MONDO:0016691", "label": "pilocytic astrocytoma"},
+        },
+        "has_subtypes": [
+            {
+                "name": "Pilomyxoid",
+                "classification": "histology",
+                "subtype_term": {
+                    "preferred_term": "pilomyxoid astrocytoma",
+                    "term": {
+                        "id": "MONDO:0016692",
+                        "label": "pilomyxoid astrocytoma",
+                    },
+                },
+                "mappings": {
+                    "mondo_mappings": [
+                        {
+                            "term": {
+                                "id": "MONDO:0016692",
+                                "label": "pilomyxoid astrocytoma",
+                            },
+                            "mapping_predicate": "skos:exactMatch",
+                            "mapping_source": "MONDO",
+                        }
+                    ],
+                    "ncit_mappings": [
+                        {
+                            "term": {
+                                "id": "NCIT:C40315",
+                                "label": "Pilomyxoid Astrocytoma",
+                            },
+                            "mapping_predicate": "skos:exactMatch",
+                            "mapping_source": "NCIT",
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
 def test_infectious_agent_food_source_slot_validates(validator):
     """Infectious agents may annotate a food or beverage vehicle of exposure."""
     data = {
