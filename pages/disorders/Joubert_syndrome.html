@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2672,24 +2720,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 1
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 1</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0008944" target="_blank">MONDO:0008944</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0008944" target="_blank">MONDO:0008944</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2700,24 +2746,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 2
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 2</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0011963" target="_blank">MONDO:0011963</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0011963" target="_blank">MONDO:0011963</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2728,24 +2772,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 3
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 3</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012078" target="_blank">MONDO:0012078</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012078" target="_blank">MONDO:0012078</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2756,24 +2798,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome with renal defect
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome with renal defect</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012308" target="_blank">MONDO:0012308</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012308" target="_blank">MONDO:0012308</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2784,24 +2824,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 5
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 5</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012432" target="_blank">MONDO:0012432</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012432" target="_blank">MONDO:0012432</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2812,24 +2850,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 6
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 6</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012539" target="_blank">MONDO:0012539</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012539" target="_blank">MONDO:0012539</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2840,24 +2876,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 7
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 7</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012694" target="_blank">MONDO:0012694</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012694" target="_blank">MONDO:0012694</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2868,24 +2902,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 9
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 9</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012849" target="_blank">MONDO:0012849</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012849" target="_blank">MONDO:0012849</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2896,24 +2928,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 8
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 8</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0012855" target="_blank">MONDO:0012855</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012855" target="_blank">MONDO:0012855</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2924,24 +2954,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 13
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 13</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013608" target="_blank">MONDO:0013608</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013608" target="_blank">MONDO:0013608</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2952,24 +2980,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 14
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 14</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013745" target="_blank">MONDO:0013745</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013745" target="_blank">MONDO:0013745</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -2980,24 +3006,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 15
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 15</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013763" target="_blank">MONDO:0013763</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013763" target="_blank">MONDO:0013763</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3008,24 +3032,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 16
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 16</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013764" target="_blank">MONDO:0013764</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013764" target="_blank">MONDO:0013764</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3036,24 +3058,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 17
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 17</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013824" target="_blank">MONDO:0013824</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013824" target="_blank">MONDO:0013824</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3064,20 +3084,17 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 18
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 18</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013896" target="_blank">MONDO:0013896</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013896" target="_blank">MONDO:0013896</a>
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
@@ -3087,33 +3104,6 @@
                     
                     
                     
-    
-    
-                </div>
-                
-                
-                
-                
-                
-                <div class="item-box subtype-box">
-                    
-                    <div class="item-name">
-                        
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 20</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0013994" target="_blank">MONDO:0013994</a>
-                        
-                        
-                    </div>
-                    <div class="subtype-meta">
-                        
-                        
-                        
-                    </div>
-                    
-                    
                     
     
     
@@ -3122,24 +3112,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 20
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 21</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014288" target="_blank">MONDO:0014288</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013994" target="_blank">MONDO:0013994</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3150,24 +3138,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 21
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 22</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014297" target="_blank">MONDO:0014297</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014288" target="_blank">MONDO:0014288</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3178,24 +3164,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 22
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 23</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014664" target="_blank">MONDO:0014664</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014297" target="_blank">MONDO:0014297</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3206,24 +3190,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 23
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 24</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014724" target="_blank">MONDO:0014724</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014664" target="_blank">MONDO:0014664</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3234,24 +3216,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 24
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 25</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014770" target="_blank">MONDO:0014770</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014724" target="_blank">MONDO:0014724</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3262,24 +3242,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 25
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 26</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014771" target="_blank">MONDO:0014771</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014770" target="_blank">MONDO:0014770</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3290,24 +3268,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 26
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 27</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014927" target="_blank">MONDO:0014927</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014771" target="_blank">MONDO:0014771</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3318,24 +3294,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 27
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 28</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0014928" target="_blank">MONDO:0014928</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014927" target="_blank">MONDO:0014927</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3346,24 +3320,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 28
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 38</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0030353" target="_blank">MONDO:0030353</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014928" target="_blank">MONDO:0014928</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3374,24 +3346,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 38
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 39</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0030454" target="_blank">MONDO:0030454</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030353" target="_blank">MONDO:0030353</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3402,24 +3372,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 39
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 40</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0030462" target="_blank">MONDO:0030462</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030454" target="_blank">MONDO:0030454</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3430,24 +3398,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 40
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 37</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0030933" target="_blank">MONDO:0030933</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030462" target="_blank">MONDO:0030462</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3458,24 +3424,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 37
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 35</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0032570" target="_blank">MONDO:0032570</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030933" target="_blank">MONDO:0030933</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3486,24 +3450,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 35
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 36</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0032902" target="_blank">MONDO:0032902</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0032570" target="_blank">MONDO:0032570</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3514,24 +3476,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 36
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 30</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0033308" target="_blank">MONDO:0033308</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0032902" target="_blank">MONDO:0032902</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3542,24 +3502,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 30
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 32</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0033309" target="_blank">MONDO:0033309</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033308" target="_blank">MONDO:0033308</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3570,24 +3528,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 32
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 31</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0033310" target="_blank">MONDO:0033310</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033309" target="_blank">MONDO:0033309</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3598,24 +3554,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 31
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 33</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0033311" target="_blank">MONDO:0033311</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033310" target="_blank">MONDO:0033310</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3626,24 +3580,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 33
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 19</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0800363" target="_blank">MONDO:0800363</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0033311" target="_blank">MONDO:0033311</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3654,24 +3606,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 19
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 29</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0800372" target="_blank">MONDO:0800372</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0800363" target="_blank">MONDO:0800363</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3682,24 +3632,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 29
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 11</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0800382" target="_blank">MONDO:0800382</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0800372" target="_blank">MONDO:0800372</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
                     
                     
                     
@@ -3710,24 +3658,48 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Joubert syndrome 11
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Joubert syndrome 34</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0800383" target="_blank">MONDO:0800383</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0800382" target="_blank">MONDO:0800382</a>
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
+                    
+                    
+                    
+                    
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Joubert syndrome 34
+                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0800383" target="_blank">MONDO:0800383</a>
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
                     
                     
                     
@@ -3780,6 +3752,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3866,6 +3839,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3980,6 +3954,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4018,6 +3993,7 @@
                 <div class="item-name">Neurodevelopmental defects</div>
                 
                 <div class="item-desc">Disrupted ciliary biology impairs neurodevelopmental programs, contributing to mid-hindbrain and cerebellar developmental abnormalities.</div>
+                
                 
                 
                 
@@ -6589,14 +6565,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive care
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000950" target="_blank">
-                            MAXO:0000950
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6643,14 +6628,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000011" target="_blank">
-                            MAXO:0000011
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">physical therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6697,14 +6691,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Occupational therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0001351" target="_blank">
-                            MAXO:0001351
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">occupational therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0001351" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001351</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6751,14 +6754,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Speech therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000930" target="_blank">
-                            MAXO:0000930
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">speech therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000930" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000930</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6805,14 +6817,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Orthotic device usage
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000482" target="_blank">
-                            MAXO:0000482
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">orthotic device usage</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000482" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000482</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6859,14 +6880,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000079" target="_blank">
-                            MAXO:0000079
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic counseling</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6913,14 +6943,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Liver transplantation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0001175" target="_blank">
-                            MAXO:0001175
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">liver transplantation</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0001175" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001175</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6967,8 +7006,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nasobiliary drainage
-                    
                 </div>
+                
                 
                 
                 
@@ -7387,7 +7426,7 @@
             <div class="item-box differential-box">
                 <div class="item-name">
                     
-                    <a class="item-name-link" href="Bardet-Biedl_Syndrome.html">Bardet-Biedl syndrome</a>
+                    <a class="item-name-link" href="Bardet-Biedl_syndrome.html">Bardet-Biedl syndrome</a>
                     
                     
                     <span class="phenotype-id">
