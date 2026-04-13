@@ -2970,26 +2970,29 @@
                 {% endif %}
                 {% for subtype in subtypes_in_scheme %}
                 {% set subtype_term_id = subtype.subtype_term.term.id if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id else None %}
-                {% set subtype_is_mondo = subtype_term_id.startswith('MONDO:') if subtype_term_id else False %}
-                {% set subtype_has_local_page = (subtype_term_id | has_local_disorder_page) if subtype_is_mondo else False %}
-                {% set subtype_dismech_href = (subtype_term_id | dismech_page_url) if subtype_is_mondo else None %}
+                {% set subtype_term_ids = namespace(ids=[]) %}
+                {% if subtype_term_id %}
+                    {% set _ = subtype_term_ids.ids.append(subtype_term_id) %}
+                {% endif %}
+                {% if subtype.mappings %}
+                    {% for mapping in subtype.mappings.mondo_mappings or [] %}
+                        {% if mapping.term and mapping.term.id and mapping.term.id not in subtype_term_ids.ids %}
+                            {% set _ = subtype_term_ids.ids.append(mapping.term.id) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% for mapping in subtype.mappings.ncit_mappings or [] %}
+                        {% if mapping.term and mapping.term.id and mapping.term.id not in subtype_term_ids.ids %}
+                            {% set _ = subtype_term_ids.ids.append(mapping.term.id) %}
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
                 <div class="item-box subtype-box">
                     {% set subtype_display = subtype.display_name or subtype.name %}
                     <div class="item-name">
-                        {% if subtype_dismech_href %}
-                        <a class="item-name-link" href="{{ subtype_dismech_href }}">{{ subtype_display }}</a>
-                        {% elif subtype_is_mondo and not subtype_has_local_page %}
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">{{ subtype_display }}</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        {% else %}
                         {{ subtype_display }}
-                        {% endif %}
-                        {% if subtype_term_id %}
-                        <a class="subtype-term-link{% if subtype_is_mondo and not subtype_has_local_page %} missing-ontology-link{% endif %}" href="{{ subtype_term_id | curie_to_url }}" target="_blank">{{ subtype_term_id }}</a>
-                        {% endif %}
-                        {% if subtype_dismech_href %}
-                        <a class="dismech-inline-link" href="{{ subtype_dismech_href }}">Dismech</a>
-                        {% endif %}
+                        {% for term_id in subtype_term_ids.ids %}
+                        <a class="subtype-term-link" href="{{ term_id | curie_to_url }}" target="_blank">{{ term_id }}</a>
+                        {% endfor %}
                     </div>
                     <div class="subtype-meta">
                         {% if subtype.subtype_frequency %}
