@@ -3774,6 +3774,96 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Arrhythmogenic Cardiomyopathy",
+    "disease_id": "MONDO:0016587",
+    "category": "Genetic",
+    "parents": [
+      "Cardiomyopathy",
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-04-12T00:00:00Z",
+    "updated_date": "2026-04-12T22:56:02Z",
+    "subtypes": [
+      "Right-dominant ACM",
+      "Biventricular ACM",
+      "Left-dominant ACM"
+    ],
+    "description": "Arrhythmogenic cardiomyopathy (ACM) is a heritable myocardial disease characterized by electrical instability, ventricular arrhythmias, sudden cardiac death risk, and progressive fibrofatty replacement of ventricular myocardium. Although historically described as a predominantly right ventricular disorder, ACM is now recognized as a phenotypic spectrum that includes right-dominant, biventricular, and left-dominant forms. Pathogenic variants most commonly affect desmosomal genes, but non-desmosomal genes involved in cytoskeletal organization, nuclear architecture, and excitation-contraction coupling also contribute to disease susceptibility and phenotypic heterogeneity.",
+    "pathophysiology": [
+      "Desmosomal and Connexome Disruption",
+      "Gap Junction Remodeling",
+      "Fibro-Adipogenic Remodeling",
+      "Myocardial Inflammation",
+      "Ventricular Arrhythmias",
+      "Ventricular Dysfunction"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "adipocyte",
+      "fibroblast of cardiac tissue"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000136",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "desmosome organization",
+      "cell-cell adhesion",
+      "gap junction assembly",
+      "Wnt signaling pathway",
+      "hippo signaling",
+      "transforming growth factor beta receptor signaling pathway",
+      "fat cell differentiation",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Ventricular Arrhythmia",
+      "Sudden Cardiac Death",
+      "Syncope",
+      "Congestive Heart Failure",
+      "Myocarditis-Like Inflammatory Episodes"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004308",
+      "HP:0001645",
+      "HP:0001279",
+      "HP:0001635",
+      "HP:0012819"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PKP2 Pathogenic Variants",
+      "DSP Pathogenic Variants",
+      "DSG2 Pathogenic Variants",
+      "DSC2 Pathogenic Variants",
+      "JUP Pathogenic Variants",
+      "TMEM43 Pathogenic Variants"
+    ],
+    "treatments": [
+      "Implantable Cardioverter-Defibrillator"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Arrhythmogenic_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Arrhythmogenic_Cardiomyopathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 6,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Arsenic Poisoning",
     "disease_id": null,
     "category": "Environmental",
@@ -15514,15 +15604,16 @@ window.searchData = [
       "Autophagic vacuolar myopathies"
     ],
     "creation_date": "2026-02-03T19:04:58Z",
-    "updated_date": "2026-04-06T22:37:07Z",
+    "updated_date": "2026-04-12T22:17:10Z",
     "subtypes": [],
-    "description": "Danon disease is an X-linked dominant disorder caused by pathogenic variants in LAMP2 (lysosome-associated membrane protein 2), leading to defective autophagosome-lysosome fusion and accumulation of autophagic vacuoles in cardiac and skeletal muscle. The disease primarily manifests as the triad of hypertrophic cardiomyopathy, skeletal myopathy, and intellectual disability in affected males. Female carriers may develop milder cardiac manifestations later in life due to X-chromosome inactivation mosaicism. The prognosis is poor in males, with rapid progression towards heart failure, and only heart transplantation modifies the disease course.\n",
+    "description": "Danon disease is an X-linked dominant LAMP2-related lysosomal myopathy and cardiomyopathy in which loss of LAMP-2, especially the muscle-enriched LAMP-2B isoform, impairs autophagosome-lysosome fusion. The resulting block in autophagic flux drives accumulation of autophagic vacuoles, defective mitophagy, mitochondrial injury, metabolic remodeling, fibrosis, and progressive cardiac dysfunction. Affected males usually present in childhood or adolescence with hypertrophic cardiomyopathy, skeletal myopathy, and intellectual disability, whereas females tend to develop later and more variable, often cardiac-predominant disease.\n",
     "pathophysiology": [
       "LAMP2 protein deficiency",
       "Impaired autophagosome-lysosome fusion",
       "Autophagic vacuole accumulation",
       "Impaired mitophagy",
-      "Mitochondrial dysfunction and oxidative stress"
+      "Mitochondrial dysfunction and oxidative stress",
+      "Cardiac metabolic remodeling and fibrosis"
     ],
     "cell_types": [
       "cardiomyocyte",
@@ -15537,12 +15628,16 @@ window.searchData = [
       "macroautophagy",
       "autophagosome maturation",
       "mitophagy",
-      "response to oxidative stress"
+      "response to oxidative stress",
+      "glycolytic process",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Hypertrophic cardiomyopathy",
+      "Dilated cardiomyopathy",
       "Skeletal myopathy",
       "Intellectual disability",
+      "Arrhythmia",
       "Wolff-Parkinson-White syndrome",
       "Retinal dystrophy"
     ],
@@ -15555,8 +15650,10 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001639",
+      "HP:0001644",
       "HP:0003198",
       "HP:0001249",
+      "HP:0011675",
       "HP:0001716",
       "HP:0000556"
     ],
@@ -15567,18 +15664,18 @@ window.searchData = [
     ],
     "treatments": [
       "Heart transplantation",
-      "Gene therapy (AAV9.LAMP2B)"
+      "Gene therapy (RP-A501; AAV9.LAMP2B)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Danon_disease.yaml",
     "page_url": "../pages/disorders/Danon_disease.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "DeSanto-Shinawi syndrome",
@@ -16883,9 +16980,10 @@ window.searchData = [
       "Genetic Disorder"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-03-08T00:00:00Z",
+    "updated_date": "2026-04-12T22:13:03Z",
     "subtypes": [
       "Familial Dilated Cardiomyopathy",
+      "LMNA-related DCM",
       "Idiopathic Dilated Cardiomyopathy",
       "Peripartum Cardiomyopathy",
       "Alcoholic Cardiomyopathy",
@@ -16894,6 +16992,9 @@ window.searchData = [
     "description": "Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\n",
     "pathophysiology": [
       "Sarcomeric and Cytoskeletal Dysfunction",
+      "LMNA Haploinsufficiency",
+      "Atrioventricular Nodal Apoptosis",
+      "LMNA-related Dilative Myocardial Remodeling",
       "Neurohormonal Activation",
       "Myocardial Fibrosis",
       "RNA Splicing Dysregulation",
@@ -16911,6 +17012,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "cardiac muscle contraction",
+      "nuclear envelope organization",
+      "apoptotic process",
       "renin-angiotensin regulation of aldosterone production",
       "extracellular matrix organization",
       "mitochondrion organization"
@@ -16922,6 +17025,8 @@ window.searchData = [
       "Dyspnea",
       "Palpitations",
       "Arrhythmia",
+      "Atrioventricular block",
+      "Ventricular tachycardia",
       "Fatigue",
       "Peripheral edema"
     ],
@@ -16943,6 +17048,8 @@ window.searchData = [
       "HP:0002094",
       "HP:0001962",
       "HP:0011675",
+      "HP:0001678",
+      "HP:0004756",
       "HP:0012378",
       "HP:0012398"
     ],
@@ -16969,12 +17076,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Dilated_Cardiomyopathy.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Dorsalgia",
@@ -20202,9 +20309,9 @@ window.searchData = [
       "X-linked genetic disorders"
     ],
     "creation_date": "2026-01-08T17:12:45Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-12T22:56:30Z",
     "subtypes": [],
-    "description": "Fabry disease is an X-linked lysosomal storage disorder caused by pathogenic variants in GLA that reduce or abolish \u03b1-galactosidase A activity, leading to lysosomal accumulation of glycosphingolipids, principally globotriaosylceramide (Gb3) and its deacylated derivative globotriaosylsphingosine (lyso-Gb3). Substrate accumulation initiates a network of cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system.\n",
+    "description": "Fabry disease is an X-linked lysosomal storage disorder caused by pathogenic variants in GLA that reduce or abolish \u03b1-galactosidase A activity, leading to lysosomal accumulation of glycosphingolipids, principally globotriaosylceramide (Gb3) and its deacylated derivative globotriaosylsphingosine (lyso-Gb3). Substrate accumulation initiates a network of cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system. In the heart, Fabry disease typically progresses from pre-hypertrophic sphingolipid storage and coronary microvascular dysfunction to left ventricular hypertrophy, myocardial inflammation, replacement fibrosis, conduction disease, and heart failure.\n",
     "pathophysiology": [
       "Lysosomal alpha-galactosidase A deficiency and Gb3 accumulation",
       "Endoplasmic reticulum stress and unfolded protein response",
@@ -20212,13 +20319,30 @@ window.searchData = [
       "Autophagy impairment",
       "Innate immune activation and inflammation",
       "Endothelial dysfunction and vascular remodeling",
-      "Fibrosis and extracellular matrix remodeling"
+      "Fibrosis and extracellular matrix remodeling",
+      "Cardiomyocyte glycosphingolipid storage",
+      "Cardiomyocyte hypertrophic remodeling",
+      "Coronary microvascular dysfunction",
+      "Subendocardial ischemic injury",
+      "Myocardial inflammation",
+      "Myocardial fibrosis",
+      "Arrhythmogenic ventricular remodeling"
     ],
     "cell_types": [
-      "endothelial cell"
+      "endothelial cell",
+      "cardiomyocyte",
+      "blood vessel endothelial cell",
+      "blood vessel smooth muscle cell",
+      "macrophage",
+      "cardiac fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0000115"
+      "CL:0000115",
+      "CL:0000746",
+      "CL:0000071",
+      "CL:0019018",
+      "CL:0000235",
+      "CL:0002548"
     ],
     "biological_processes": [
       "glycosphingolipid metabolic process",
@@ -20232,7 +20356,9 @@ window.searchData = [
       "inflammatory response",
       "leukocyte adhesion to endothelial cells",
       "extracellular matrix organization",
-      "transforming growth factor beta signaling pathway"
+      "transforming growth factor beta signaling pathway",
+      "vasodilation",
+      "response to hypoxia"
     ],
     "phenotypes": [
       "Acrodystrophic neuropathic pain",
@@ -20240,7 +20366,10 @@ window.searchData = [
       "Proteinuria",
       "Chronic kidney disease",
       "Left ventricular hypertrophy",
+      "Myocardial fibrosis",
       "Cardiac arrhythmia",
+      "Cardiac conduction abnormality",
+      "Heart failure",
       "Stroke"
     ],
     "phenotype_categories": [
@@ -20262,8 +20391,11 @@ window.searchData = [
       "HP:0001014",
       "HP:0000093",
       "HP:0012622",
-      "HP:0001638",
+      "HP:0001712",
+      "HP:0001685",
       "HP:0011675",
+      "HP:0031546",
+      "HP:0001635",
       "HP:0001297"
     ],
     "frequencies": [
@@ -20286,12 +20418,12 @@ window.searchData = [
     ],
     "source_file": "Fabry_Disease.yaml",
     "page_url": "../pages/disorders/Fabry_disease.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Familial Adenomatous Polyposis",
@@ -29392,6 +29524,80 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Jervell and Lange-Nielsen Syndrome",
+    "disease_id": "MONDO:0002441",
+    "category": "Mendelian",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy",
+      "Syndromic Hearing Loss"
+    ],
+    "creation_date": "2026-04-12T22:04:32Z",
+    "updated_date": "2026-04-13T00:50:40Z",
+    "subtypes": [],
+    "description": "Jervell and Lange-Nielsen syndrome is a rare autosomal recessive cardioauditory channelopathy characterized by congenital bilateral sensorineural hearing impairment together with marked QT prolongation, syncope, torsade de pointes, and risk of sudden cardiac death. It is caused most often by biallelic pathogenic variants in KCNQ1 and less commonly in KCNE1, which disrupt the potassium currents required for ventricular repolarization in the heart and normal cochlear function in the inner ear.",
+    "pathophysiology": [
+      "IKs Channel Loss in Cardiomyocytes",
+      "Ventricular Repolarization Delay and Adrenergic Arrhythmia Susceptibility",
+      "Cochlear Dysfunction and Congenital Hearing Loss"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "membrane repolarization during cardiac muscle cell action potential",
+      "potassium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Profound Sensorineural Hearing Impairment",
+      "Prolonged QT Interval",
+      "Syncope",
+      "Torsade de pointes",
+      "Sudden Cardiac Death"
+    ],
+    "phenotype_categories": [
+      "Otolaryngologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011476",
+      "HP:0001657",
+      "HP:0001279",
+      "HP:0001664",
+      "HP:0001645"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Biallelic KCNQ1 loss-of-function variants",
+      "Biallelic KCNE1 loss-of-function variants"
+    ],
+    "treatments": [
+      "Beta-blocker Therapy",
+      "Atrial Pacing",
+      "Implantable Cardioverter-Defibrillator",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Jervell_and_Lange-Nielsen_Syndrome.yaml",
+    "page_url": "../pages/disorders/Jervell_and_Lange-Nielsen_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Jeune Asphyxiating Thoracic Dystrophy",
@@ -44162,6 +44368,175 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "PMM2-congenital disorder of glycosylation",
+    "disease_id": "MONDO:0008907",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder of Glycosylation",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-04-13T01:19:08Z",
+    "updated_date": "2026-04-13T01:19:08Z",
+    "subtypes": [],
+    "description": "PMM2-congenital disorder of glycosylation (PMM2-CDG; historical CDG-Ia) is the most common congenital disorder of glycosylation caused by biallelic pathogenic variants in PMM2, which encodes phosphomannomutase 2. PMM2 converts mannose-6-phosphate to mannose-1-phosphate, an upstream metabolite required for normal protein N-linked glycosylation. Reduced PMM2 activity lowers mannose flux into N-glycan biosynthesis and produces multisystem hypoglycosylation with a core neurologic phenotype of developmental delay, cerebellar atrophy, ataxia, seizures, hypotonia, and peripheral neuropathy, often accompanied by growth failure, liver involvement, and coagulation abnormalities.\n",
+    "pathophysiology": [
+      "PMM2 enzymatic activity deficiency",
+      "Reduced mannose-1-phosphate production",
+      "Impaired protein N-linked glycosylation",
+      "Decreased activation of protein C",
+      "Endothelial barrier dysfunction"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "mannose metabolic process",
+      "protein N-linked glycosylation",
+      "blood coagulation",
+      "cell adhesion"
+    ],
+    "phenotypes": [
+      "Developmental delay",
+      "Ataxia",
+      "Cerebellar atrophy",
+      "Hypotonia",
+      "Peripheral neuropathy",
+      "Seizures",
+      "Stroke-like episodes",
+      "Growth delay",
+      "Abnormality of coagulation",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Hematologic",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001251",
+      "HP:0001272",
+      "HP:0001252",
+      "HP:0009830",
+      "HP:0001250",
+      "HP:0002401",
+      "HP:0001510",
+      "HP:0001928",
+      "HP:0002240"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PMM2 pathogenic variants causing PMM2-CDG"
+    ],
+    "treatments": [
+      "Acetazolamide",
+      "Liver transplantation",
+      "Liposomal mannose-1-phosphate (GLM101)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PMM2-congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/PMM2-congenital_disorder_of_glycosylation.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "PRKAG2-related cardiomyopathy",
+    "disease_id": "MONDO:0800484",
+    "category": "Genetic",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-04-12T22:29:21Z",
+    "updated_date": "2026-04-12T22:52:03Z",
+    "subtypes": [],
+    "description": "PRKAG2-related cardiomyopathy, also referred to as PRKAG2 cardiac syndrome, is an autosomal dominant metabolic cardiomyopathy caused by pathogenic variants in PRKAG2, which encodes the gamma-2 regulatory subunit of AMP-activated protein kinase (AMPK). The disorder combines left ventricular hypertrophy, ventricular preexcitation, and progressive conduction system disease, and differs from sarcomeric hypertrophic cardiomyopathy through its glycogen storage phenotype and its relative paucity of myocardial fibrosis before end-stage disease.",
+    "pathophysiology": [
+      "Dysregulated AMPK signaling and metabolic remodeling",
+      "Glycogen-filled cardiomyocytes disrupt atrioventricular insulation",
+      "Increased insulin-AKT signaling drives cardiomyocyte hypertrophy",
+      "Attenuated TGF-beta signaling limits myocardial fibrosis"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "glycogen metabolic process",
+      "glucose metabolic process",
+      "insulin receptor signaling pathway",
+      "negative regulation of transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Left ventricular hypertrophy",
+      "Ventricular preexcitation",
+      "Wolff-Parkinson-White syndrome",
+      "Atrioventricular block",
+      "Bradycardia",
+      "Atrial fibrillation",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001712",
+      "HP:0004309",
+      "HP:0001716",
+      "HP:0001678",
+      "HP:0001662",
+      "HP:0005110",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRKAG2 activating variants"
+    ],
+    "treatments": [
+      "Permanent Pacemaker Placement",
+      "Heart Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PRKAG2-related_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/PRKAG2-related_cardiomyopathy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "PRPH2-Related Retinopathy",
     "disease_id": "MONDO:1040055",
     "category": "Mendelian",
@@ -45694,147 +46069,101 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
-    "name": "Peroxisome Biogenesis Disorder",
+    "name": "Zellweger Spectrum Disorder",
     "disease_id": "MONDO:0019234",
-    "category": "Genetic",
+    "category": "Mendelian",
     "parents": [
       "Inborn Error of Metabolism",
       "Peroxisomal Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-13T01:27:06Z",
     "subtypes": [],
-    "description": "Mutations in PEX genes disrupt the assembly and function of peroxisomes, leading to impaired metabolic processes.",
+    "description": "Zellweger spectrum disorder (ZSD) is an autosomal recessive peroxisome biogenesis disease continuum caused by biallelic pathogenic variants in 13 PEX genes. The core mechanism is failure of peroxisome assembly and matrix protein import, which produces global peroxisomal dysfunction with downstream defects in very-long-chain fatty acid oxidation, ether lipid synthesis, and bile acid side-chain shortening. Clinical expression ranges from severe neonatal multisystem disease to attenuated adolescent/adult presentations with progressive white matter disease, sensory loss, adrenal insufficiency, and liver involvement.",
     "pathophysiology": [
-      "Peroxisome Biogenesis Defect",
-      "Accumulation of Toxic Metabolites",
-      "Deficiency of Essential Compounds",
-      "Neurological Dysfunction",
-      "Hepatic Dysfunction",
-      "Skeletal Abnormalities",
-      "Multisystem Involvement",
-      "Microglial Dysfunction and Neuroinflammation",
-      "Peroxisome-Organelle Crosstalk Disruption",
-      "Retinal Pigment Epithelium Dysfunction",
-      "Impaired Peroxisome Biogenesis and Import"
+      "Impaired peroxisome biogenesis and matrix protein import",
+      "Loss of functional peroxisomes",
+      "Reduced peroxisomal beta-oxidation",
+      "Impaired ether lipid biosynthesis",
+      "C27-bile acid intermediate accumulation",
+      "Abnormal neuronal migration",
+      "Cerebral and cerebellar white matter disease",
+      "Retinal degeneration",
+      "Progressive liver disease"
     ],
     "cell_types": [
-      "oligodendrocyte",
       "hepatocyte",
-      "microglial cell",
-      "retinal pigment epithelial cell",
-      "photoreceptor cell"
+      "oligodendrocyte",
+      "photoreceptor cell",
+      "retinal pigment epithelial cell"
     ],
     "cell_type_ids": [
-      "CL:0000128",
       "CL:0000182",
-      "CL:0000129",
-      "CL:0002586",
-      "CL:0000210"
+      "CL:0000128",
+      "CL:0000210",
+      "CL:0002586"
     ],
     "biological_processes": [
+      "protein import into peroxisome matrix",
+      "peroxisome organization",
       "fatty acid beta-oxidation",
-      "very long-chain fatty acid metabolic process",
       "ether lipid biosynthetic process",
       "bile acid biosynthetic process",
-      "protein import into peroxisome matrix",
-      "peroxisome organization"
+      "neuron migration"
     ],
     "phenotypes": [
       "Hypotonia",
-      "Developmental Delay",
-      "Seizures",
-      "Leukodystrophy",
+      "Seizure",
+      "Global developmental delay",
+      "Retinal dystrophy",
+      "Sensorineural hearing impairment",
       "Hepatomegaly",
-      "Cholestasis",
-      "Renal Dysfunction",
-      "Retinopathy",
-      "Hearing Loss",
-      "Craniofacial Dysmorphism",
-      "Adrenal Insufficiency",
-      "Chondrodysplasia Punctata",
-      "Thrombocytopenia",
-      "Cardiomyopathy",
-      "Heart Failure"
+      "Abnormal cerebral white matter morphology",
+      "Gait disturbance",
+      "Primary adrenal insufficiency"
     ],
-    "phenotype_categories": [
-      "Neurologic",
-      "Hepatobiliary",
-      "Renal",
-      "Visual",
-      "Auditory",
-      "Craniofacial",
-      "Endocrine",
-      "Musculoskeletal",
-      "Hematologic",
-      "Cardiac",
-      "Cardiovascular"
-    ],
+    "phenotype_categories": [],
     "phenotype_hpo_categories": [
-      "Blood",
-      "Cardiovascular",
       "Digestive",
       "Ear",
       "Endocrine",
       "Eye",
-      "Genitourinary",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001252",
-      "HP:0001263",
       "HP:0001250",
-      "HP:0002415",
+      "HP:0001263",
+      "HP:0000556",
+      "HP:0000407",
       "HP:0002240",
-      "HP:0001396",
-      "HP:0012622",
-      "HP:0000488",
-      "HP:0000365",
-      "HP:0000846",
-      "HP:0001873",
-      "HP:0001638",
-      "HP:0001635"
+      "HP:0002500",
+      "HP:0001288",
+      "HP:0008207"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "PEX1",
-      "PEX6",
-      "PEX13",
-      "PEX26",
-      "PEX2",
-      "PEX10",
-      "PEX12",
-      "PEX5",
-      "PEX7",
-      "Other PEX Genes"
+      "Other ZSD-associated PEX genes"
     ],
     "treatments": [
-      "Symptomatic Management",
-      "Nutritional Support",
-      "Liver Transplant",
-      "Genetic Counseling"
+      "Supportive and surveillance-based care",
+      "Cholic acid"
     ],
-    "environmental": [
-      "Not Applicable"
-    ],
+    "environmental": [],
     "biochemical": [
-      "Very Long Chain Fatty Acids (VLCFA)",
-      "Plasmalogens",
-      "Bile Acid Intermediates"
+      "Very long-chain fatty acids",
+      "C27-bile acid intermediates"
     ],
     "source_file": "Peroxisome_Biogenesis_Disorder.yaml",
-    "page_url": "../pages/disorders/Peroxisome_Biogenesis_Disorder.html",
-    "num_phenotypes": 15,
-    "num_pathophysiology": 11,
-    "num_genes": 10,
-    "num_treatments": 4,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "page_url": "../pages/disorders/Zellweger_Spectrum_Disorder.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Peutz-Jeghers polyp",
@@ -49344,7 +49673,7 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
-    "name": "RYR2 CPVT",
+    "name": "Catecholaminergic Polymorphic Ventricular Tachycardia",
     "disease_id": "MONDO:0017990",
     "category": "Genetic",
     "parents": [
@@ -49352,14 +49681,14 @@ window.searchData = [
       "Channelopathy"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-04-07T02:36:25Z",
+    "updated_date": "2026-04-12T22:14:30Z",
     "subtypes": [],
-    "description": "RYR2-related catecholaminergic polymorphic ventricular tachycardia (CPVT) is a heritable cardiac channelopathy caused by gain-of-function pathogenic variants in the RYR2 gene encoding the cardiac ryanodine receptor. The hallmark is exercise- or emotion-triggered bidirectional or polymorphic ventricular tachycardia in the setting of a structurally normal heart and normal resting ECG. If untreated, mortality rates of 30-50% by age 40 have been reported. RYR2 variants are found in about 95% of patients with a genetically confirmed diagnosis of CPVT. Estimated prevalence is 1:5,000 to 1:10,000. This entry absorbs 4 Gene2Phenotype rows for RYR2: definitive CPVT, limited CPVT with intellectual disability, refuted ARVC (noted only), and limited HCM (noted only).",
+    "description": "Catecholaminergic polymorphic ventricular tachycardia (CPVT) is a rare, heritable cardiac channelopathy that usually presents in children and young adults with exercise- or emotion-triggered bidirectional or polymorphic ventricular tachycardia in the setting of a structurally normal heart and a normal resting electrocardiogram. Established genetic causes converge on abnormal sarcoplasmic reticulum calcium handling, leading to delayed after-depolarizations and triggered ventricular arrhythmias during adrenergic stress. RYR2 is the most common cause, but CASQ2, CALM1, CALM2, CALM3, TRDN, and TECRL are also established disease genes. If untreated, CPVT can progress from syncope to ventricular fibrillation, cardiac arrest, and sudden cardiac death.",
     "pathophysiology": [
-      "RYR2 Gain-of-Function Calcium Leak",
+      "Defective Sarcoplasmic Reticulum Calcium Release Control",
       "Delayed After-Depolarizations",
-      "Triggered Ventricular Arrhythmia",
-      "Syncope and Sudden Cardiac Death"
+      "Catecholamine-Triggered Ventricular Arrhythmia",
+      "Syncope, Cardiac Arrest, and Sudden Death"
     ],
     "cell_types": [
       "cardiomyocyte"
@@ -49369,20 +49698,17 @@ window.searchData = [
     ],
     "biological_processes": [
       "release of sequestered calcium ion into cytosol by sarcoplasmic reticulum",
-      "calcium ion transport"
+      "calcium ion homeostasis"
     ],
     "phenotypes": [
-      "Bidirectional Ventricular Tachycardia",
+      "Exercise- or Emotion-Triggered Ventricular Tachycardia",
       "Syncope",
-      "Sudden Cardiac Death",
-      "Palpitations",
       "Ventricular Fibrillation",
       "Cardiac Arrest",
-      "Epilepsy"
+      "Sudden Cardiac Death"
     ],
     "phenotype_categories": [
-      "Cardiovascular",
-      "Neurological"
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -49392,11 +49718,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0004756",
       "HP:0001279",
-      "HP:0001645",
-      "HP:0001962",
       "HP:0001663",
       "HP:0001695",
-      "HP:0001250"
+      "HP:0001645"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -49404,23 +49728,30 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "RYR2 gain-of-function variants"
+      "RYR2 pathogenic variants",
+      "CASQ2 pathogenic variants",
+      "CALM1 pathogenic variants",
+      "CALM2 pathogenic variants",
+      "CALM3 pathogenic variants",
+      "TRDN pathogenic variants",
+      "TECRL pathogenic variants"
     ],
     "treatments": [
-      "Beta-Blocker Therapy (Nadolol)",
+      "Nonselective Beta-Blocker Therapy",
       "Flecainide",
-      "Implantable Cardioverter-Defibrillator (ICD)",
+      "Left Cardiac Sympathetic Denervation",
+      "Implantable Cardioverter-Defibrillator",
       "Exercise Restriction"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "RYR2_CPVT.yaml",
-    "page_url": "../pages/disorders/RYR2_CPVT.html",
-    "num_phenotypes": 7,
+    "page_url": "../pages/disorders/Catecholaminergic_Polymorphic_Ventricular_Tachycardia.html",
+    "num_phenotypes": 5,
     "num_pathophysiology": 4,
-    "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "4",
+    "num_genes": 7,
+    "num_treatments": 5,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -50862,6 +51193,77 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Sanfilippo syndrome type A",
+    "disease_id": "MONDO:0009655",
+    "category": "Mendelian",
+    "parents": [
+      "Mucopolysaccharidosis",
+      "Lysosomal storage disorder",
+      "Neurodegeneration"
+    ],
+    "creation_date": "2026-04-13T01:14:50Z",
+    "updated_date": "2026-04-13T01:14:50Z",
+    "subtypes": [],
+    "description": "Sanfilippo syndrome type A, also called mucopolysaccharidosis type IIIA (MPS IIIA), is an autosomal recessive lysosomal storage disorder caused by biallelic SGSH loss with sulfamidase deficiency. Failure to remove the terminal sulfate from heparan sulfate causes lysosomal accumulation of partially degraded heparan sulfate with a predominantly central nervous system phenotype marked by early developmental slowing, hyperactivity, sleep disturbance, developmental regression, and progressive neurodegeneration. Somatic manifestations are usually milder than in other mucopolysaccharidoses.",
+    "pathophysiology": [
+      "SGSH (sulfamidase) deficiency",
+      "Lysosomal heparan sulfate accumulation",
+      "Brain lysosomal dysfunction",
+      "Neuroimmune response",
+      "Progressive neurodegeneration"
+    ],
+    "cell_types": [
+      "neuron",
+      "microglial cell",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000129",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "glycosaminoglycan catabolic process",
+      "neuroinflammatory response"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Developmental regression",
+      "Hyperactivity",
+      "Sleep disturbance"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0000752",
+      "HP:0002360"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SGSH pathogenic variants"
+    ],
+    "treatments": [
+      "Investigational intracerebroventricular recombinant sulfamidase"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sanfilippo_syndrome_type_A.yaml",
+    "page_url": "../pages/disorders/Sanfilippo_syndrome_type_A.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Sarcoidosis",
@@ -58320,6 +58722,110 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Wolfram syndrome",
+    "disease_id": "MONDO:0018105",
+    "category": "Mendelian",
+    "parents": [
+      "Monogenic Diabetes",
+      "Neurodegenerative Disease"
+    ],
+    "creation_date": "2026-04-13T01:07:25Z",
+    "updated_date": "2026-04-13T01:52:00Z",
+    "subtypes": [
+      "Type 1",
+      "Type 2"
+    ],
+    "description": "Wolfram syndrome is a rare autosomal recessive syndromic monogenic diabetes and neurodegenerative disorder defined clinically by juvenile-onset insulin-deficient diabetes mellitus, optic atrophy, and progressive neurological involvement with frequent sensorineural hearing impairment. Classic type 1 disease is caused by biallelic WFS1 variants, whereas type 2 disease is caused by biallelic CISD2 variants. Across the syndrome, the main mechanistic theme is failure of endoplasmic-reticulum and mitochondria- associated membrane homeostasis, especially calcium handling, with downstream ER stress, mitochondrial dysfunction, selective pancreatic beta-cell vulnerability, optic pathway degeneration, and progressive brain involvement.",
+    "pathophysiology": [
+      "WFS1 loss and ER calcium homeostasis dysregulation",
+      "CISD2 loss and ER-mitochondrial calcium transfer impairment",
+      "ER stress activation",
+      "Impaired ER-mitochondria calcium signaling",
+      "Mitochondrial dysfunction and stress vulnerability",
+      "Sterile beta-cell inflammation",
+      "Pancreatic beta-cell dysfunction and loss",
+      "Optic pathway dysfunction and retinal ER stress",
+      "Early white matter hypomyelination",
+      "Progressive brainstem and cerebellar neurodegeneration"
+    ],
+    "cell_types": [
+      "pancreatic beta cell",
+      "neuron",
+      "retinal ganglion cell",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000169",
+      "CL:0000540",
+      "CL:0000740",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum calcium ion homeostasis",
+      "autophagy",
+      "mitochondrion organization",
+      "response to endoplasmic reticulum stress",
+      "apoptotic process",
+      "inflammatory response",
+      "insulin secretion",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Diabetes mellitus",
+      "Optic atrophy",
+      "Sensorineural hearing impairment",
+      "Neurodegeneration",
+      "Diabetes insipidus",
+      "Peptic ulcer",
+      "Impaired platelet aggregation"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Ophthalmologic",
+      "Hearing",
+      "Neurological",
+      "Gastrointestinal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000819",
+      "HP:0000648",
+      "HP:0000407",
+      "HP:0002180",
+      "HP:0000873",
+      "HP:0004398",
+      "HP:0003540"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WFS1",
+      "CISD2"
+    ],
+    "treatments": [
+      "Insulin treatment",
+      "Multidisciplinary supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Wolfram_Syndrome.yaml",
+    "page_url": "../pages/disorders/Wolfram_syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "X-Linked Hypophosphatemia",
     "disease_id": "MONDO:0010619",
     "category": "Mendelian",
@@ -58395,6 +58901,102 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "X-linked adrenoleukodystrophy",
+    "disease_id": "MONDO:0018544",
+    "category": "Mendelian",
+    "parents": [
+      "Peroxisomal Disorder",
+      "Leukodystrophy"
+    ],
+    "creation_date": "2026-04-13T01:07:40Z",
+    "updated_date": "2026-04-13T01:31:25Z",
+    "subtypes": [
+      "Cerebral ALD",
+      "Adrenomyeloneuropathy"
+    ],
+    "description": "X-linked adrenoleukodystrophy (X-ALD) is an ABCD1-related peroxisomal disease spectrum in which defective peroxisomal import and degradation of very long-chain fatty acids causes systemic VLCFA accumulation. The disease-level term is used here because the core biochemical defect is shared across the spectrum, while the main mechanistic branches diverge into slowly progressive spinal cord axonopathy/adrenomyeloneuropathy, adrenal insufficiency, and a risk of cerebral inflammatory demyelination. Heterozygous women are not asymptomatic by default and often develop later AMN-like myelopathy and/or peripheral neuropathy.",
+    "pathophysiology": [
+      "ABCD1-mediated peroxisomal VLCFA import failure",
+      "Very-long-chain fatty acid accumulation",
+      "Oxidative stress in axons",
+      "Microglial phagocytic priming",
+      "Spinal cord axonopathy",
+      "Impaired macrophage plasticity",
+      "Cerebral inflammatory demyelination",
+      "Adrenal cortical dysfunction"
+    ],
+    "cell_types": [
+      "microglial cell",
+      "neuron",
+      "monocyte",
+      "macrophage",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000129",
+      "CL:0000540",
+      "CL:0000576",
+      "CL:0000235",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "long-chain fatty acid import into peroxisome",
+      "very long-chain fatty acid beta-oxidation",
+      "very long-chain fatty acid metabolic process",
+      "cellular response to oxidative stress",
+      "phagocytosis",
+      "complement activation",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Primary adrenal insufficiency",
+      "Spastic paraparesis",
+      "Peripheral neuropathy",
+      "Leukodystrophy",
+      "Cognitive impairment"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008207",
+      "HP:0002313",
+      "HP:0009830",
+      "HP:0002415",
+      "HP:0100543"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ABCD1 pathogenic variants"
+    ],
+    "treatments": [
+      "Early allogeneic hematopoietic stem cell transplantation",
+      "Autologous hematopoietic stem-cell gene therapy",
+      "Glucocorticoid replacement for primary adrenal insufficiency"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very long-chain fatty acids"
+    ],
+    "source_file": "X-linked_Adrenoleukodystrophy.yaml",
+    "page_url": "../pages/disorders/X-linked_adrenoleukodystrophy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "YWHAG Syndrome",
@@ -58592,11 +59194,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 636,
-  "total_unique_evidence_sources": 11167,
+  "total_disorder_pages": 643,
+  "total_unique_evidence_sources": 11193,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 138,
-  "total_pathographs": 627,
-  "total_unique_pathological_events": 2706
+  "total_pathographs": 634,
+  "total_unique_pathological_events": 2754
 };
 window.dispatchEvent(new Event('searchDataReady'));
