@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2179,27 +2227,27 @@
 </head>
 <body>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+    
 
+    
 
+    
+    
 
+    
+    
 
+    
 
+    
 
+    
 
+    
 
+    
 
-
-
-
-
-
-
-
-
-
-
-
-
+    
 
     <div class="container">
         <nav class="breadcrumb">
@@ -2211,1281 +2259,1384 @@
         <header class="page-header">
             <h1>Malignant Peritoneal Mesothelioma</h1>
             <div class="header-meta">
-
-
+                
+                
                 <span class="badge badge-mondo">
                     <a href="http://purl.obolibrary.org/obo/MONDO_0005512" target="_blank">
                         MONDO:0005512
                     </a>
                 </span>
-
-
+                
+                
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
-
-
+                
+                
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Malignant Mesothelioma</span>
-
+                
             </div>
-
+            
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; opacity: 0.95; position: relative;">
                 Malignant peritoneal mesothelioma (MPeM) is a rare aggressive mesothelial cancer of the peritoneal lining characterized by locoregional abdominal progression, frequent BAP1 loss, and clinical management centered on cytoreductive surgery with hyperthermic intraperitoneal chemotherapy in selected resectable patients. Compared with pleural mesothelioma, peritoneal disease shows less consistent asbestos attribution, relatively lower CDKN2A/CDKN2B/MTAP loss, and rare site-restricted ALK rearrangements.
             </p>
-
+            
         </header>
 
         <!-- Stats bar -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+            
+                
+            
+        
+            
+                
+            
+        
+            
+                
+            
+        
         <div class="stats-bar">
-
+            
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-value">3</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
-
-
+            
+            
             <div class="stat-item">
                 <div class="stat-value">0</div>
                 <div class="stat-label">Definitions</div>
             </div>
-
-
+            
+            
             <div class="stat-item">
                 <div class="stat-value">0</div>
                 <div class="stat-label">Inheritance</div>
             </div>
-
-
+            
+            
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
-
-
+            
+            
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-value">3</div>
                 <div class="stat-label">Histopathology</div>
             </div>
             </a>
-
-
+            
+            
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
-
-
+            
+            
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
-
-
+            
+            
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
-
-
+            
+            
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-value">4</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
-
-
+            
+            
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-value">5</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
-
-
+            
+            
             <div class="stat-item">
                 <div class="stat-value">0</div>
                 <div class="stat-label">Differentials</div>
             </div>
-
-
+            
+            
             <div class="stat-item">
                 <div class="stat-value">0</div>
                 <div class="stat-label">Datasets</div>
             </div>
-
-
+            
+            
             <div class="stat-item">
                 <div class="stat-value">0</div>
                 <div class="stat-label">Trials</div>
             </div>
-
-
+            
+            
             <div class="stat-item">
                 <div class="stat-value">0</div>
                 <div class="stat-label">Models</div>
             </div>
-
-
+            
+            
             <a class="stat-link" href="#literature-summaries">
             <div class="stat-item">
                 <div class="stat-value">1</div>
                 <div class="stat-label">Literature</div>
             </div>
             </a>
-
-
+            
+            
         </div>
 
         <!-- Classifications -->
-
+        
 
         <!-- Mappings -->
-
+        
         <div class="card" id="mappings">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
-
+            
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
-
-
-
-
+                
+                
+                
+                
                 <div class="mapping-item">
                     <div class="mapping-title">
-
+                        
                         <a href="http://purl.obolibrary.org/obo/MONDO_0005512" target="_blank">MONDO:0005512</a>
-
-
+                        
+                        
                         <span class="mapping-label">malignant peritoneal mesothelioma</span>
-
-
-
+                        
+                        
+                        
                     </div>
                     <div class="tag-list">
-
+                        
                         <span class="tag tag-classification">skos:exactMatch</span>
-
-
+                        
+                        
                         <span class="tag tag-parent">MONDO</span>
-
-
+                        
+                        
                     </div>
-
+                    
                     <div class="mapping-notes">Primary MONDO disease identifier for this curation.</div>
-
+                    
                 </div>
-
+                
             </div>
-
-
-            <div class="mapping-section">
-                <div class="classification-category">ICD-10-CM</div>
-
-                <div class="mapping-item">
-                    <div class="mapping-title">
-
-                        <a href="http://purl.obolibrary.org/obo/ICD10CM_C45.1" target="_blank">ICD10CM:C45.1</a>
-
-
-                        <span class="mapping-label">Mesothelioma of peritoneum</span>
-
-                    </div>
-                    <div class="tag-list">
-
-                        <span class="tag tag-classification">skos:exactMatch</span>
-
-
-                        <span class="tag tag-parent">ICD-10-CM</span>
-
-
-                    </div>
-
-                    <div class="mapping-notes">ICD-10-CM C45.1 is the direct topographic code for mesothelioma arising in the peritoneum.</div>
-
-
-                    <ul class="mapping-tree">
-
-                        <li style="padding-left: 0px;">
-
-
-                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C00-D49" target="_blank">Neoplasms (C00-D49)</a>
-
-
-                        </li>
-
-                        <li style="padding-left: 14px;">
-
-
-                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C45-C49" target="_blank">Malignant neoplasms of mesothelial and soft tissue (C45-C49)</a>
-
-
-                        </li>
-
-                        <li style="padding-left: 28px;">
-
-
-                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C45" target="_blank">Mesothelioma</a>
-
-
-                        </li>
-
-                        <li style="padding-left: 42px;">
-
-
-                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C45.1" target="_blank">Mesothelioma of peritoneum</a>
-
-
-                        </li>
-
-                    </ul>
-
-                </div>
-
-            </div>
-
-
-
+            
+            
             <div class="mapping-section">
                 <div class="classification-category">NCIT</div>
-
+                
                 <div class="mapping-item">
                     <div class="mapping-title">
-
+                        
                         <a href="http://purl.obolibrary.org/obo/NCIT_C9350" target="_blank">NCIT:C9350</a>
-
-
+                        
+                        
                         <span class="mapping-label">Peritoneal Malignant Mesothelioma</span>
-
+                        
                     </div>
                     <div class="tag-list">
-
+                        
                         <span class="tag tag-classification">skos:exactMatch</span>
-
-
+                        
+                        
                         <span class="tag tag-parent">NCIT</span>
-
-
+                        
+                        
                     </div>
-
+                    
                     <div class="mapping-notes">NCIT provides an exact oncology-specific concept for malignant mesothelioma arising from the peritoneum.</div>
-
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            <span class="mapping-ellipsis">...</span>
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C156711" target="_blank">Malignant Peritoneal and Retroperitoneal Neoplasm</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 56px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C3538" target="_blank">Malignant Peritoneal Neoplasm</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 70px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C9350" target="_blank">Peritoneal Malignant Mesothelioma</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
                 </div>
-
+                
             </div>
-
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">ICD-10-CM</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/ICD10CM_C45.1" target="_blank">ICD10CM:C45.1</a>
+                        
+                        
+                        <span class="mapping-label">Mesothelioma of peritoneum</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">ICD-10-CM</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">ICD-10-CM C45.1 is the direct topographic code for mesothelioma arising in the peritoneum.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C00-D49" target="_blank">Neoplasms (C00-D49)</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C45-C49" target="_blank">Malignant neoplasms of mesothelial and soft tissue (C45-C49)</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C45" target="_blank">Mesothelioma</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C45.1" target="_blank">Mesothelioma of peritoneum</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+            </div>
+            
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9350" target="_blank">NCIT:C9350</a>
+                        
+                        
+                        <span class="mapping-label">Peritoneal Malignant Mesothelioma</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">NCIT provides an exact oncology-specific concept for malignant mesothelioma arising from the peritoneum.</div>
+                    
+                </div>
+                
+            </div>
+            
         </div>
-
+        
 
         <!-- Definitions -->
-
+        
 
         <!-- Inheritance -->
-
+        
 
         <!-- Subtypes -->
-
+        
         <div class="card" id="subtypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
                 <span class="card-count">5</span>
             </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            
+            
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                    
+                
+                
+            
+            
+                
                 <div class="classification-header">histological</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
                 <div class="item-box subtype-box">
-
+                    
                     <div class="item-name">
-
                         Epithelioid Malignant Peritoneal Mesothelioma
-
-
-
-
-
-
+                        
+                        
+                        
+                                
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C162940" target="_blank">NCIT:C162940</a>
-
-
-
-
+                                
+                        
                     </div>
                     <div class="subtype-meta">
-
-
-
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C162940" target="_blank">NCIT NCIT:C162940</a>
+                            
+                        
                     </div>
-
+                    
                     <div class="item-desc">Histologic subtype composed of epithelioid mesothelial cells, often with tubulopapillary, microglandular, or sheet-like architecture, and associated with better survival than nonepithelioid disease.</div>
-
-
-
-
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Peritoneal Epithelioid Mesothelioma
+                            
+                            (skos:exactMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C162940" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C162940</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33060816" target="_blank">PMID:33060816</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"absence of necrosis (P = 0.007), and epithelioid histotype (P &lt; 0.0001)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Large multi-institutional clinicopathologic analysis identifies epithelioid histotype as a favorable prognostic histologic subtype.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
                 </div>
-
-
-
-
-
+                
+                
+                
+                
                 <div class="item-box subtype-box">
-
+                    
                     <div class="item-name">
-
                         Biphasic Malignant Peritoneal Mesothelioma
-
-
-
-
-
-
+                        
+                        
+                        
+                                
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C168805" target="_blank">NCIT:C168805</a>
-
-
-
-
+                                
+                        
                     </div>
                     <div class="subtype-meta">
-
-
-
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C168805" target="_blank">NCIT NCIT:C168805</a>
+                            
+                        
                     </div>
-
+                    
                     <div class="item-desc">Histologic subtype containing both epithelioid and sarcomatoid components. Recent profiling studies group biphasic tumors with sarcomatoid tumors as nonepithelioid mesothelioma.</div>
-
-
-
-
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Peritoneal Biphasic Mesothelioma
+                            
+                            (skos:exactMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C168805" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C168805</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35704798" target="_blank">PMID:35704798</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Compared with epithelioid MPM, nonepithelioid (ie, biphasic and sarcomatoid) MPM had identical tumor mutational burden (median 1.25 mut/Mb, P = .63), more commonly expressed PD-L1 (74% v 51%, P = .02), and was more likely to harbor MTAP, CDKN2A, and CDKN2B copy loss (P &lt; .05)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Molecular profiling explicitly groups biphasic peritoneal mesothelioma within the nonepithelioid class and distinguishes it from epithelioid tumors.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
                 </div>
-
-
-
-
-
+                
+                
+                
+                
                 <div class="item-box subtype-box">
-
+                    
                     <div class="item-name">
-
                         Sarcomatoid Malignant Peritoneal Mesothelioma
-
-
-
-
-
-
+                        
+                        
+                        
+                                
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C168804" target="_blank">NCIT:C168804</a>
-
-
-
-
+                                
+                        
                     </div>
                     <div class="subtype-meta">
-
-
-
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C168804" target="_blank">NCIT NCIT:C168804</a>
+                            
+                        
                     </div>
-
+                    
                     <div class="item-desc">Spindle-cell histologic subtype with aggressive behavior; grouped with biphasic tumors as nonepithelioid mesothelioma in modern molecular studies.</div>
-
-
-
-
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Peritoneal Sarcomatoid Mesothelioma
+                            
+                            (skos:exactMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C168804" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C168804</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35704798" target="_blank">PMID:35704798</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Compared with epithelioid MPM, nonepithelioid (ie, biphasic and sarcomatoid) MPM had identical tumor mutational burden (median 1.25 mut/Mb, P = .63), more commonly expressed PD-L1 (74% v 51%, P = .02), and was more likely to harbor MTAP, CDKN2A, and CDKN2B copy loss (P &lt; .05)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Molecular profiling explicitly groups sarcomatoid peritoneal mesothelioma within the nonepithelioid class and distinguishes it from epithelioid tumors.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
                 </div>
-
-
-
+                
+            
+                
                 <div class="classification-header">molecular</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
                 <div class="item-box subtype-box">
-
+                    
                     <div class="item-name">
-
                         ALK-Rearranged Malignant Peritoneal Mesothelioma
-
-
-
-
-
+                        
+                        
+                        
                     </div>
                     <div class="subtype-meta">
-
-
-
+                        
+                        
+                            
                             <span class="subtype-gene-tag">ALK</span>
-
-
-
+                            
+                        
+                        
+                        
+                        
                     </div>
-
+                    
                     <div class="item-desc">Rare molecular subtype defined by ALK rearrangement. Reported series suggest that ALK rearrangements are a site-restricted finding within peritoneal mesothelioma rather than pleural mesothelioma.</div>
-
-
-
-
+                    
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35704798" target="_blank">PMID:35704798</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"ALK rearrangements were only observed in MPeM."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Large-scale profiling identifies ALK rearrangements as a rare but site-restricted molecular subtype of peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
                 </div>
-
-
-
+                
+            
+                
                 <div class="classification-header">predisposition context</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
                 <div class="item-box subtype-box">
-
+                    
                     <div class="item-name">
-
                         BAP1 Tumor Predisposition Syndrome-Associated Malignant Peritoneal Mesothelioma
-
-
-
-
-
+                        
+                        
+                                
                         <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013692" target="_blank">MONDO:0013692</a>
-
-
-
-
-
+                                
+                        
+                        
                     </div>
                     <div class="subtype-meta">
-
-
-
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013692" target="_blank">MONDO MONDO:0013692</a>
+                            
+                        
+                        
                     </div>
-
+                    
                     <div class="item-desc">Predisposition-context subtype occurring in the setting of inherited BAP1-related tumor predisposition syndrome. This axis captures host susceptibility context rather than a separate disease-level causal program.</div>
-
-
-
-
+                    
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30001711" target="_blank">PMID:30001711</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Germline mutations in the BRCA-1 associated tumor protein 1 (BAP1) increase susceptibility to mesothelioma and other cancers. We describe a patient with a family history of peritoneal mesothelioma, who developed malignant peritoneal mesothelioma at age 45 in the absence of known asbestos exposure."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Case-based clinical evidence supports a germline BAP1 predisposition context for a subset of malignant peritoneal mesothelioma cases.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
                 </div>
-
-
+                
+            
         </div>
-
+        
 
         <!-- Comorbidities -->
-
+        
 
         <!-- References -->
-
+        
 
         <!-- Pathophysiology -->
-
+        
         <div class="card" id="pathophysiology">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
                 <span class="card-count">5</span>
             </div>
-
+            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bap1-tumor-suppressor-inactivation">
                 <div class="item-name">BAP1 Tumor Suppressor Inactivation</div>
-
+                
                 <div class="item-desc">BAP1 loss is the dominant recurrent genomic event in peritoneal mesothelioma, often occurring through biallelic inactivation and accompanied by loss of nuclear BAP1 expression.</div>
-
-
-
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-gene">
                         BAP1
-
+                        
                         <a href="https://bioregistry.io/hgnc:950" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
+                    
                 </div>
-
-
-
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-bio">
                         chromatin organization
-
+                        
                         <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
+                    
+    
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-
-
-
+    
+    
+                    
                 </div>
-
-
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-bio">
                         deubiquitinase activity
-
+                        
                         <a href="http://purl.obolibrary.org/obo/GO_0101005" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
+                    
+    
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
-
-
-
+    
+    
+                    
                 </div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27813512" target="_blank">PMID:27813512</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"The most frequent genetic alteration was biallelic inactivation of the BAP1 gene, which occurred in 9/13 cases, with an additional two cases demonstrating monoallelic loss of BAP1."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Targeted sequencing identifies BAP1 loss as the most common recurrent driver lesion in malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28034829" target="_blank">PMID:28034829</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Overall, 73% of the malignant peritoneal mesotheliomas analyzed carried at least one inactivated BAP1 allele, but only 57% had a complete loss of its protein nuclear expression."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Independent cohort data confirm that BAP1 inactivation is highly prevalent in malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-deregulation">
                 <div class="item-name">Epigenetic Deregulation</div>
-
+                
                 <div class="item-desc">Peritoneal mesothelioma recurrently alters epigenetic regulators including BAP1, SETD2, and DDX3X, supporting a transcriptionally deregulated disease program.</div>
-
-
-
-
-
+                
+                
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-bio">
                         epigenetic regulation of gene expression
-
+                        
                         <a href="http://purl.obolibrary.org/obo/GO_0040029" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
+                    
+    
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-
-
-
+    
+    
+                    
                     <span class="tag tag-bio">
                         chromatin organization
-
+                        
                         <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
+                    
+    
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
-
-
-
+    
+    
+                    
                 </div>
-
-
-
-
-
-
-
+                
+                
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27813512" target="_blank">PMID:27813512</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Together, these findings demonstrate the importance of epigenetic modifiers including BAP1, SETD2, and DDX3X in mesothelial tumorigenesis and suggest opportunities for targeted therapies."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Human tumor profiling supports epigenetic dysregulation as a core mechanistic layer in malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-mtor-signaling-activation">
                 <div class="item-name">PI3K-AKT-mTOR Signaling Activation</div>
-
+                
                 <div class="item-desc">Overactive PI3K-AKT-mTOR pathway signaling is a recurrent proliferative program in diffuse malignant peritoneal mesothelioma and provides a mechanistic rationale for targeted therapy development.</div>
-
-
-
-
-
+                
+                
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-bio">
                         TOR signaling
-
+                        
                         <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
+                    
+    
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-
-
-
+    
+    
+                    
                 </div>
-
-
-
-
-
-
-
+                
+                
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36684194" target="_blank">PMID:36684194</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"The overexpression of the phosphatidylinositol 3-kinase (PI3K)/AKT serine/threonine kinase 1 (AKT)/mammalian target of rapamycin (mTOR) signaling pathway drives the malignant phenotype of DMPM"</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review synthesis identifies PI3K-AKT-mTOR pathway activation as a recurring proliferative program in diffuse malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesothelial-cell-proliferation">
                 <div class="item-name">Mesothelial Cell Proliferation</div>
-
+                
                 <div class="item-desc">Malignant peritoneal mesothelioma expands along the peritoneal surface through progressive proliferation of transformed mesothelial cells.</div>
-
-
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-cell">
                         mesothelial cell
-
+                        
                         <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
-
-
+                    
+    
+    
+                    
                 </div>
-
-
-
-
+                
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-bio">
                         positive regulation of cell population proliferation
-
+                        
                         <a href="http://purl.obolibrary.org/obo/GO_0008284" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
+                    
+    
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
-
-
-
+    
+    
+                    
                 </div>
-
-
-
-
+                
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-location">
                         peritoneum
-
+                        
                         <a href="http://purl.obolibrary.org/obo/UBERON_0002358" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
+                    
                 </div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36684194" target="_blank">PMID:36684194</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The overexpression of the phosphatidylinositol 3-kinase (PI3K)/AKT serine/threonine kinase 1 (AKT)/mammalian target of rapamycin (mTOR) signaling pathway drives the malignant phenotype of DMPM"</div>
-
-
-                <div class="evidence-explanation">This review-level evidence supports a proliferative malignant program in diffuse malignant peritoneal mesothelioma.</div>
-
+                
+                
+                
+                
+    
+    
             </div>
-
-
-        </div>
-    </details>
-
-
-            </div>
-
+            
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-locoregional-peritoneal-tumor-expansion">
                 <div class="item-name">Locoregional Peritoneal Tumor Expansion</div>
-
+                
                 <div class="item-desc">Disease morbidity is dominated by progressive locoregional tumor effects within the abdomen rather than early distant metastasis.</div>
-
-
-
-
-
-
-
-
+                
+                
+                
+                
+                
+                
+                
+                
                 <div class="item-meta">
-
+                    
                     <span class="tag tag-location">
                         abdominal cavity
-
+                        
                         <a href="http://purl.obolibrary.org/obo/UBERON_0003684" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
+                    
                 </div>
-
-
-
-
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32206577" target="_blank">PMID:32206577</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Morbidity and mortality of the disease are related to progressive locoregional effects within the abdominal cavity, such as distention, pain, early satiety, and decreased oral intake that can ultimately lead to bowel obstruction and cachexia."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review synthesis identifies locoregional intraperitoneal tumor expansion as the proximate cause of the dominant clinical phenotype set.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
         </div>
-
+        
 
         <!-- Histopathology -->
-
+        
         <div class="card" id="histopathology">
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
                 <span class="card-count">3</span>
             </div>
-
+            
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Epithelioid Histotype
-
+                    
                 </div>
-
+                
                 <div class="item-desc">Epithelioid histology is the prognostically favored peritoneal mesothelioma subtype.</div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33060816" target="_blank">PMID:33060816</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"absence of necrosis (P = 0.007), and epithelioid histotype (P &lt; 0.0001)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Multi-institutional outcome analysis identifies epithelioid histotype as a favorable histopathologic subtype.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Composite Nuclear Grade
-
+                    
                 </div>
-
+                
                 <div class="item-desc">Composite nuclear grade is a validated prognostic histopathologic feature in epithelioid malignant peritoneal mesothelioma.</div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33060816" target="_blank">PMID:33060816</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"On multivariate analyses, the low composite nuclear grade was independently associated with longer overall and disease-free survival (P &lt; 0.0001)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Validates nuclear grade as a prognostically relevant histopathologic variable in epithelioid peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box histopathology-box">
                 <div class="item-name">
                     Tumor Necrosis
-
+                    
                 </div>
-
+                
                 <div class="item-desc">Necrosis is an adverse histopathologic feature; its absence correlates with better survival.</div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33060816" target="_blank">PMID:33060816</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"absence of necrosis (P = 0.007), and epithelioid histotype (P &lt; 0.0001)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">The inverse association of necrosis absence with survival supports necrosis as an adverse histopathologic feature.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
         </div>
-
+        
 
         <!-- Causal Graph (Pathograph) -->
-
+        
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0e7ff; color: #4f46e5;">⬡</div>
                 <h2 class="card-title">Pathograph</h2>
             </div>
             <div class="graph-note">Use the checkboxes to hide or show graph categories. Hover nodes for evidence and cross-linked metadata.</div>
-
+            
             <div class="pathograph-container" id="pathograph">
                 <div class="pathograph-legend" id="pathograph-legend"></div>
                 <svg id="pathograph-svg" role="img">
@@ -3496,380 +3647,380 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Distention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive intraperitoneal tumor growth commonly causes abdominal distention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003270\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain is a common presenting symptom of peritoneal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002027\"}}, {\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAP1\"], \"association\": \"Recurrent Loss-of-Function Alteration\"}}, {\"id\": \"BAP1 Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAP1 loss is the dominant recurrent genomic event in peritoneal mesothelioma, often occurring through biallelic inactivation and accompanied by loss of nuclear BAP1 expression.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"deubiquitinase activity\"], \"genes\": [\"BAP1\"]}}, {\"id\": \"Early Satiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early satiety reflects locoregional abdominal tumor effects.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033842\"}}, {\"id\": \"Epigenetic Deregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peritoneal mesothelioma recurrently alters epigenetic regulators including BAP1, SETD2, and DDX3X, supporting a transcriptionally deregulated disease program.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epigenetic regulation of gene expression\", \"chromatin organization\"]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced locoregional disease can culminate in bowel obstruction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005214\"}}, {\"id\": \"Locoregional Peritoneal Tumor Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease morbidity is dominated by progressive locoregional tumor effects within the abdomen rather than early distant metastasis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"abdominal cavity\"]}}, {\"id\": \"Mesothelial Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant peritoneal mesothelioma expands along the peritoneal surface through progressive proliferation of transformed mesothelial cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mesothelial cell\"], \"biological_processes\": [\"positive regulation of cell population proliferation\"], \"locations\": [\"peritoneum\"]}}, {\"id\": \"PI3K-AKT-mTOR Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overactive PI3K-AKT-mTOR pathway signaling is a recurrent proliferative program in diffuse malignant peritoneal mesothelioma and provides a mechanistic rationale for targeted therapy development.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"BAP1 Tumor Suppressor Inactivation\", \"target\": \"Epigenetic Deregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epigenetic Deregulation\", \"target\": \"Mesothelial Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT-mTOR Signaling Activation\", \"target\": \"Mesothelial Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mesothelial Cell Proliferation\", \"target\": \"Locoregional Peritoneal Tumor Expansion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Abdominal Distention\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Early Satiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BAP1\", \"target\": \"BAP1 Tumor Suppressor Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Distention\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive intraperitoneal tumor growth commonly causes abdominal distention.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003270\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain is a common presenting symptom of peritoneal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002027\"}}, {\"id\": \"BAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAP1\"], \"association\": \"Recurrent Loss-of-Function Alteration\"}}, {\"id\": \"BAP1 Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BAP1 loss is the dominant recurrent genomic event in peritoneal mesothelioma, often occurring through biallelic inactivation and accompanied by loss of nuclear BAP1 expression.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"deubiquitinase activity\"], \"genes\": [\"BAP1\"]}}, {\"id\": \"Early Satiety\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early satiety reflects locoregional abdominal tumor effects.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033842\"}}, {\"id\": \"Epigenetic Deregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peritoneal mesothelioma recurrently alters epigenetic regulators including BAP1, SETD2, and DDX3X, supporting a transcriptionally deregulated disease program.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epigenetic regulation of gene expression\", \"chromatin organization\"]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Advanced locoregional disease can culminate in bowel obstruction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005214\"}}, {\"id\": \"Locoregional Peritoneal Tumor Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disease morbidity is dominated by progressive locoregional tumor effects within the abdomen rather than early distant metastasis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"abdominal cavity\"]}}, {\"id\": \"Mesothelial Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant peritoneal mesothelioma expands along the peritoneal surface through progressive proliferation of transformed mesothelial cells.\", \"meta\": {\"cell_types\": [\"mesothelial cell\"], \"biological_processes\": [\"positive regulation of cell population proliferation\"], \"locations\": [\"peritoneum\"]}}, {\"id\": \"PI3K-AKT-mTOR Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overactive PI3K-AKT-mTOR pathway signaling is a recurrent proliferative program in diffuse malignant peritoneal mesothelioma and provides a mechanistic rationale for targeted therapy development.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"BAP1 Tumor Suppressor Inactivation\", \"target\": \"Epigenetic Deregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Epigenetic Deregulation\", \"target\": \"Mesothelial Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT-mTOR Signaling Activation\", \"target\": \"Mesothelial Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mesothelial Cell Proliferation\", \"target\": \"Locoregional Peritoneal Tumor Expansion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Abdominal Distention\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Early Satiety\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Locoregional Peritoneal Tumor Expansion\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BAP1\", \"target\": \"BAP1 Tumor Suppressor Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
         </div>
-
+        
 
         <!-- Phenotypes -->
-
+        
         <div class="card" id="phenotypes">
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
                 <span class="card-count">6</span>
             </div>
-
-
+            
+            
             <div class="pheno-toc">
-
+                
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(4)</span></button>
-
+                
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
-
+                
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Growth<span class="pill-count">(1)</span></button>
-
+                
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
-
-
+            
+            
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">4</span>
                 </summary>
-
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Ascites
-
-
+                        
+                        
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank">
                                 Ascites
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001541)</span>
                         </span>
-
+                        
                     </div>
-
-
-
-
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22104079" target="_blank">PMID:22104079</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Presenting symptoms in these patients include: ascites, abdominal pain, asthenia, weight loss, anorexia, abdominal mass, fever, diarrhea and vomiting."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review-level clinical synthesis lists ascites among common presenting manifestations of diffuse malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
-
-
-
+    
+    
+                    
+    
+    
                 </div>
-
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abdominal Distention
-
-
+                        
+                        
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank">
                                 Abdominal distention
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0003270)</span>
                         </span>
-
+                        
                     </div>
-
-
-
-
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36059360" target="_blank">PMID:36059360</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Malignant peritoneal mesothelioma (MPM) is a rare and very aggressive malignancy of serosal membranes, which typically presents with abdominal pain, distension, and ascites."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Case-based clinical summary explicitly lists abdominal distension as a typical presenting manifestation of malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
-
-
-
+    
+    
+                    
+    
+    
                 </div>
-
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Early Satiety
-
-
+                        
+                        
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0033842" target="_blank">
                                 Early satiety
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033842)</span>
                         </span>
-
+                        
                     </div>
-
-
-
-
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32206577" target="_blank">PMID:32206577</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Morbidity and mortality of the disease are related to progressive locoregional effects within the abdominal cavity, such as distention, pain, early satiety, and decreased oral intake that can ultimately lead to bowel obstruction and cachexia."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review-level clinical synthesis identifies early satiety as part of the dominant locoregional abdominal phenotype cluster.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
-
-
-
+    
+    
+                    
+    
+    
                 </div>
-
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Intestinal Obstruction
-
-
+                        
+                        
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank">
                                 Intestinal obstruction
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0005214)</span>
                         </span>
-
+                        
                     </div>
-
-
-
-
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32206577" target="_blank">PMID:32206577</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Morbidity and mortality of the disease are related to progressive locoregional effects within the abdominal cavity, such as distention, pain, early satiety, and decreased oral intake that can ultimately lead to bowel obstruction and cachexia."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review-level clinical synthesis identifies bowel obstruction as a late consequence of locoregional peritoneal tumor progression.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
-
-
-
+    
+    
+                    
+    
+    
                 </div>
-
+                
             </details>
-
+            
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
-
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Abdominal Pain
-
-
+                        
+                        
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank">
                                 Abdominal pain
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0002027)</span>
                         </span>
-
+                        
                     </div>
-
-
-
-
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22104079" target="_blank">PMID:22104079</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Presenting symptoms in these patients include: ascites, abdominal pain, asthenia, weight loss, anorexia, abdominal mass, fever, diarrhea and vomiting."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review-level clinical synthesis lists abdominal pain among common presenting manifestations of diffuse malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
-
-
-
+    
+    
+                    
+    
+    
                 </div>
-
+                
             </details>
-
+            
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
-
+                
                 <div class="item-box phenotype-box">
                     <div class="item-name">
                         Weight Loss
-
-
+                        
+                        
                         <span class="phenotype-id">
                             <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank">
                                 Weight loss
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0001824)</span>
                         </span>
-
+                        
                     </div>
-
-
-
-
+                    
+                    
+                    
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22104079" target="_blank">PMID:22104079</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Presenting symptoms in these patients include: ascites, abdominal pain, asthenia, weight loss, anorexia, abdominal mass, fever, diarrhea and vomiting."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review-level clinical synthesis lists weight loss among common presenting manifestations of diffuse malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
-
-
-
+    
+    
+                    
+    
+    
                 </div>
-
+                
             </details>
-
+            
             <script>
             (function() {
                 // TOC pill click: expand target group and scroll to it
@@ -3894,730 +4045,770 @@
                 }
             })();
             </script>
-
+            
         </div>
-
+        
 
         <!-- Genetic Associations -->
-
+        
         <div class="card" id="genetic">
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
                 <span class="card-count">5</span>
             </div>
-
+            
             <div class="item-box genetic-box">
                 <div class="item-name">
                     BAP1
-
+                    
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Recurrent Loss-of-Function Alteration)</span>
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28034829" target="_blank">PMID:28034829</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Overall, 73% of the malignant peritoneal mesotheliomas analyzed carried at least one inactivated BAP1 allele"</div>
-
-
+                
+                
                 <div class="evidence-explanation">Large peritoneal mesothelioma series confirms that BAP1 alteration is a dominant recurrent genetic event.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box genetic-box">
                 <div class="item-name">
                     SETD2
-
+                    
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Recurrent Epigenetic Regulator Alteration)</span>
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27813512" target="_blank">PMID:27813512</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Additional recurrently mutated genes in this cohort of malignant peritoneal mesotheliomas included NF2 (3/13), SETD2 (2/13), and DDX3X (2/13)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Human tumor profiling identifies SETD2 as a recurrently mutated epigenetic regulator in malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box genetic-box">
                 <div class="item-name">
                     PBRM1
-
+                    
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Site-Enriched Alteration)</span>
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35704798" target="_blank">PMID:35704798</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"The molecular profile of MPeM was similar to MPM, with the distinction that PBRM1 alterations occurred at higher frequency (16% v 7%, P &lt; .01)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Large-scale molecular profiling identifies PBRM1 alteration as a site-enriched genomic feature of peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box genetic-box">
                 <div class="item-name">
                     ALK
-
+                    
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Rare Recurrent Rearrangement)</span>
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35704798" target="_blank">PMID:35704798</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"ALK rearrangements were only observed in MPeM."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Large-scale profiling identifies ALK rearrangement as a site-restricted molecular feature of malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box genetic-box">
                 <div class="item-name">
                     CDKN2A
-
+                    
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Less-Prevalent Copy-Number Loss than Pleural Disease)</span>
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26853494" target="_blank">PMID:26853494</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Losses in 3p (BAP1 gene), 9p (CDKN2A) and 22q (NF2) were seen in tumors from both tumor sites, although CDKN2A and NF2 losses were seen at a higher rate in pleural disease (p&lt;0.01)."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Comparative genomic profiling shows that CDKN2A loss occurs in peritoneal mesothelioma but is relatively less frequent than in pleural disease.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
         </div>
-
+        
 
         <!-- Treatments -->
-
+        
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
                 <span class="card-count">4</span>
             </div>
-
+            
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cytoreductive Surgery
-
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C132068" target="_blank">
-                            NCIT:C132068
-                        </a>
-                    </span>
-
                 </div>
-
-
-
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">cytoreductive surgery</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cytoreductive Surgery</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C132068" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C132068</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                
+                
                 <div class="item-desc">Upfront maximal cytoreduction is favored when complete or near-complete resection is achievable in carefully selected patients.</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27472649" target="_blank">PMID:27472649</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Upfront CRS and HIPEC should be considered when achievable, waiting for stronger level of scientific evidence."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Multi-institutional retrospective data support upfront cytoreductive surgery as part of curative-intent management when feasible.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hyperthermic Intraperitoneal Chemotherapy
-
-                    <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/NCIT_C91835" target="_blank">
-                            NCIT:C91835
-                        </a>
-                    </span>
-
                 </div>
-
-
-
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">hyperthermic intraperitoneal chemotherapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hyperthermic Intraperitoneal Chemotherapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C91835" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C91835</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                
+                
                 <div class="item-desc">HIPEC is paired with cytoreductive surgery in carefully selected resectable diffuse peritoneal mesothelioma and is part of the accepted locoregional standard-of-care strategy.</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39609952" target="_blank">PMID:39609952</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"The panel unanimously recommended CRS-HIPEC for a carefully selected subset of DMPM patients, emphasizing that this approach offers the best potential for improved survival compared to systemic chemotherapy alone."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Multisocietal consensus recommends HIPEC as part of the preferred locoregional treatment strategy for selected patients with diffuse malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pemetrexed Plus Cisplatin
-
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
-
                 </div>
-
+                
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
-
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
                     <span class="tag tag-treatment">
                         pemetrexed
-
+                        
                         <a href="http://purl.obolibrary.org/obo/CHEBI_63616" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-
+                        
                     </span>
-
+                    
                     <span class="tag tag-treatment">
                         cisplatin
-
+                        
                         <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-
+                        
                     </span>
-
+                    
                 </div>
-
-
-
+                
+                
+                
                 <div class="item-desc">Platinum-antifolate chemotherapy is an active systemic option for unresectable disease and for patients who are not candidates for curative locoregional treatment.</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/28594258" target="_blank">PMID:28594258</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Overall response rate and disease control rate were 45.8% and 91.7%, respectively. Median progression-free survival and median overall survival were 11.0 months and 15.8 months, respectively."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Retrospective first-line series demonstrates meaningful disease control with pemetrexed-cisplatin in malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Atezolizumab Plus Bevacizumab
-
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-
                 </div>
-
+                
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
-
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
                     <span class="tag tag-treatment">
                         atezolizumab
-
+                        
                         <a href="http://purl.obolibrary.org/obo/NCIT_C106250" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-
+                        
                     </span>
-
+                    
                     <span class="tag tag-treatment">
                         bevacizumab
-
+                        
                         <a href="http://purl.obolibrary.org/obo/NCIT_C2039" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
-
+                        
                     </span>
-
+                    
                 </div>
-
-
-
+                
+                
+                
                 <div class="item-desc">Combined PD-L1 and VEGF blockade has shown activity in advanced unresectable malignant peritoneal mesothelioma after prior platinum-pemetrexed chemotherapy.</div>
-
-
-
-
-
-
+                
+                
+                
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34261675" target="_blank">PMID:34261675</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"AtezoBev showed promising and durable efficacy in patients with advanced MPeM with an acceptable safety profile."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Phase II trial data support atezolizumab-bevacizumab as an active systemic option in previously treated advanced malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
         </div>
-
+        
 
         <!-- Environmental Factors -->
-
+        
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
                 <span class="card-count">1</span>
             </div>
-
+            
             <div class="item-box environmental-box">
                 <div class="item-name">Asbestos Exposure</div>
-
+                
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
-
+                    
                     <span class="tag tag-env">
                         exposure to asbestos
-
+                        
                         <a href="http://purl.obolibrary.org/obo/ECTO_9000033" target="_blank" class="linkout">link</a>
-
+                        
                     </span>
-
-
-
+                    
+                    
+                    
                 </div>
-
-
-
+                
+                
+                
                 <div class="item-desc">Asbestos exposure is a recognized but less consistent risk factor for peritoneal mesothelioma than for pleural mesothelioma.</div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27813512" target="_blank">PMID:27813512</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"Most pleural mesotheliomas arise in patients with a history of asbestos exposure, whereas the association of peritoneal mesotheliomas with exposure to asbestos and other potential carcinogens is less clear"</div>
-
-
+                
+                
                 <div class="evidence-explanation">Supports asbestos exposure as a relevant but less consistently attributable risk factor in the peritoneal disease site.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
         </div>
-
+        
 
         <!-- Biochemical Markers -->
-
+        
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
                 <span class="card-count">2</span>
             </div>
-
+            
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     Loss of Nuclear BAP1 Staining
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27813512" target="_blank">PMID:27813512</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"All 11 of these cases demonstrated loss of BAP1 nuclear staining by immunohistochemistry, whereas two tumors without BAP1 alteration and all 42 cases of histologic mimics in peritoneum"</div>
-
-
+                
+                
                 <div class="evidence-explanation">Human tumor profiling supports BAP1 loss of nuclear expression as a diagnostically useful biomarker of malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36684194" target="_blank">PMID:36684194</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"with the advancements in the immunohistochemical analysis of BRCA1-Associated Protein 1 (BAP1) the lack of BAP1 expression shows the diagnosis of malignancy."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review-level synthesis supports BAP1 loss as a marker that favors malignant over benign mesothelial proliferations.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
             <div class="item-box biochemical-box">
                 <div class="item-name">
                     WT1 Positive Immunostaining
-
+                    
                 </div>
-
-
-
+                
+                
+    
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
+            
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36684194" target="_blank">PMID:36684194</a>
                     </span>
-
+                    
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
+                    
+                    
                     <span class="evidence-source source-OTHER">Other</span>
-
+                    
                 </div>
-
+                
                 <div class="evidence-snippet">"In addition, the most sensitive immunohistochemical markers of DMPM include WT 1, D2-40, and calmodulin."</div>
-
-
+                
+                
                 <div class="evidence-explanation">Review synthesis identifies WT1 among the most sensitive diagnostic immunohistochemical markers used in diffuse malignant peritoneal mesothelioma.</div>
-
+                
             </div>
-
-
+            
+            
         </div>
     </details>
-
-
+    
+    
             </div>
-
+            
         </div>
-
+        
 
         <!-- Differential Diagnoses -->
-
+        
 
         <!-- Datasets -->
-
+        
 
         <!-- Clinical Trials -->
-
+        
 
         <!-- Experimental Models -->
-
+        
 
         <!-- Computational Models -->
-
+        
 
         <!-- Literature Summaries -->
-
+        
         <div class="card" id="literature-summaries">
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfeff; color: #0f766e;">📚</div>
                 <h2 class="card-title">Literature Summaries</h2>
                 <span class="card-count">1</span>
             </div>
-
+            
             <div style="margin-bottom: 4px;">
                 <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
                     <span>Codex</span>
                     <span class="toggle-indicator" style="font-size: 0.9rem;">▸</span>
                 </div>
                 <div class="report-body">
-
+                    
                     <div class="report-meta">
-
+                        
                         <div class="report-subtitle">Malignant Peritoneal Mesothelioma Research Notes</div>
-
-
+                        
+                        
                         <span class="report-badge">gpt-5.4</span>
-
-
+                        
+                        
                         <span class="report-badge">13 citations</span>
-
-
+                        
+                        
                         <span class="report-meta-text">2026-04-13T05:58:00Z</span>
-
+                        
                     </div>
-
+                    
                     <div class="report-content">
                         <h1>Malignant Peritoneal Mesothelioma Research Notes</h1>
 <h2>Scope</h2>
@@ -4695,12 +4886,12 @@
                     </div>
                 </div>
             </div>
-
+            
         </div>
-
+        
 
         <!-- Reports -->
-
+        
 
         <!-- YAML Source -->
         <div class="card">
@@ -5061,18 +5252,6 @@ pathophysiology:
     term:
       id: GO:0008284
       label: positive regulation of cell population proliferation
-  evidence:
-  - reference: PMID:36684194
-    reference_title: &#34;Diffuse malignant peritoneal mesothelioma: A review.&#34;
-    supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &gt;-
-      The overexpression of the phosphatidylinositol 3-kinase (PI3K)/AKT
-      serine/threonine kinase 1 (AKT)/mammalian target of rapamycin (mTOR)
-      signaling pathway drives the malignant phenotype of DMPM
-    explanation: &gt;-
-      This review-level evidence supports a proliferative malignant program in
-      diffuse malignant peritoneal mesothelioma.
   downstream:
   - target: Locoregional Peritoneal Tumor Expansion
     description: Progressive mesothelial proliferation produces diffuse serosal tumor burden.
