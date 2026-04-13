@@ -19,7 +19,7 @@ The curation uses a small number of atomic nodes rather than bundled mechanisms:
 
 1. `ABCD1-mediated peroxisomal VLCFA import failure`
 2. `Very-long-chain fatty acid accumulation`
-3. `Oxidative stress and mitochondrial dysfunction`
+3. `Oxidative stress in axons`
 4. `Microglial phagocytic priming`
 5. `Spinal cord axonopathy`
 6. `Impaired macrophage plasticity`
@@ -84,8 +84,6 @@ This framing reflects the literature better than a single omnibus "ABCD1 deficie
   - used for human cohorts, human reviews synthesizing clinical/pathologic disease knowledge, and direct human tissue studies.
 - `MODEL_ORGANISM`
   - `PMID:21786300` for antioxidant rescue / oxidative-stress causality in X-AMN mouse models.
-- `OTHER`
-  - used selectively for mixed human+mouse abstract language in `PMID:29059709` where the quoted sentence itself explicitly spans both species.
 
 ## Deep-research workflow actually used
 
