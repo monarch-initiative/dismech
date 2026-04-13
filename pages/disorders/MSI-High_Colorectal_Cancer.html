@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2255,12 +2303,22 @@
         
         
         
+            
+                
+            
+        
+            
+                
+            
+        
         <div class="stats-bar">
             
+            <a class="stat-link" href="#mappings">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Mappings</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2394,6 +2452,199 @@
 
         <!-- Mappings -->
         
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+            
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+                
+                
+                
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0005575" target="_blank" class="missing-ontology-link">MONDO:0005575</a>
+                        
+                        
+                        <span class="mapping-label missing-disease-name" title="No Dismech page yet for this disease">colorectal cancer</span>
+                        
+                        
+                        <span class="curation-gap-badge">Not Yet Curated</span>
+                        
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:closeMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">MONDO</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">MONDO currently provides the broader colorectal cancer anchor, but does not capture the MSI-high qualifier in the local ontology snapshot.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C2955" target="_blank">NCIT:C2955</a>
+                        
+                        
+                        <span class="mapping-label">Colorectal Carcinoma</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:closeMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">NCIT provides a close morphology/site anchor for colorectal carcinoma, but not a disease term that fully captures the MSI-high qualifier.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            <span class="mapping-ellipsis">...</span>
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C215202" target="_blank">Malignant Large Intestinal Neoplasm</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 56px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C4978" target="_blank">Malignant Colorectal Neoplasm</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 70px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C2955" target="_blank">Colorectal Carcinoma</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C36318" target="_blank">NCIT:C36318</a>
+                        
+                        
+                        <span class="mapping-label">Microsatellite Instability</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:relatedMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">NCIT represents microsatellite instability as a disease-relevant finding rather than as a standalone colorectal cancer subtype.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C3910" target="_blank">Molecular Abnormality</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C97926" target="_blank">Molecular Sequence Variation</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C36391" target="_blank">Molecular Genetic Variation</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C48189" target="_blank">Genomic Instability</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 56px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C36318" target="_blank">Microsatellite Instability</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+            </div>
+            
+            
+            
+        </div>
+        
 
         <!-- Definitions -->
         
@@ -2428,23 +2679,41 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Lynch Syndrome-Associated MSI-H CRC
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C8494" target="_blank">NCIT NCIT:C8494</a>
+                            
+                        
                     </div>
                     
                     <div class="item-desc">Hereditary MSI-H colorectal cancer caused by germline mutations in MMR genes (MLH1, MSH2, MSH6, PMS2) or EPCAM deletions affecting MSH2. Accounts for approximately 3% of all CRC. Younger age at onset, right-sided predominance, and risk of synchronous/metachronous cancers.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Lynch Syndrome
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C8494" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C8494</a>
+                        
+                        
+                    </div>
                     
                     
                     
@@ -2483,23 +2752,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Sporadic MSI-H CRC
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Non-hereditary MSI-H colorectal cancer caused by biallelic MLH1 promoter hypermethylation, often with concurrent BRAF V600E mutation. Typically occurs in older patients, predominantly female, with right-sided tumors.</div>
+                    
                     
                     
                     
@@ -3249,6 +3517,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3306,6 +3575,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3342,6 +3612,7 @@
                 <div class="item-name">Hypermutation and High TMB</div>
                 
                 <div class="item-desc">MSI-H tumors accumulate 10-100 times more somatic mutations than microsatellite stable tumors, resulting in tumor mutational burden often exceeding 10-20 mutations per megabase. This creates abundant neoantigens derived from mutant peptides presented on MHC molecules.</div>
+                
                 
                 
                 
@@ -3416,6 +3687,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -3466,6 +3738,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -3496,6 +3769,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3892,17 +4166,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pembrolizumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         pembrolizumab
@@ -4004,17 +4287,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nivolumab plus Ipilimumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         nivolumab
@@ -4123,17 +4415,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dostarlimab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         dostarlimab
@@ -4235,14 +4536,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4366,7 +4676,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: MSI-High Colorectal Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-11T21:17:25Z&#39;
+updated_date: &#39;2026-04-13T02:29:43Z&#39;
 description: &gt;-
   Microsatellite instability-high (MSI-H) colorectal cancer is a molecularly defined
   subtype
@@ -4408,6 +4718,14 @@ has_subtypes:
     explanation: &gt;-
       Study confirms that MSI-H colorectal cancers can arise from hereditary (HNPCC/Lynch
       syndrome) or sporadic causes.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C8494
+        label: Lynch Syndrome
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT provides a closely related hereditary syndrome term for the germline etiology underlying this MSI-H CRC subtype.
 - name: Sporadic MSI-H CRC
   description: &gt;-
     Non-hereditary MSI-H colorectal cancer caused by biallelic MLH1 promoter hypermethylation,
@@ -4834,6 +5152,27 @@ disease_term:
   term:
     id: MONDO:0005575
     label: colorectal cancer
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0005575
+      label: colorectal cancer
+    mapping_predicate: skos:closeMatch
+    mapping_source: MONDO
+    mapping_justification: MONDO currently provides the broader colorectal cancer anchor, but does not capture the MSI-high qualifier in the local ontology snapshot.
+  ncit_mappings:
+  - term:
+      id: NCIT:C2955
+      label: Colorectal Carcinoma
+    mapping_predicate: skos:closeMatch
+    mapping_source: NCIT
+    mapping_justification: NCIT provides a close morphology/site anchor for colorectal carcinoma, but not a disease term that fully captures the MSI-high qualifier.
+  - term:
+      id: NCIT:C36318
+      label: Microsatellite Instability
+    mapping_predicate: skos:relatedMatch
+    mapping_source: NCIT
+    mapping_justification: NCIT represents microsatellite instability as a disease-relevant finding rather than as a standalone colorectal cancer subtype.
 
 classifications:
   icdo_morphology:

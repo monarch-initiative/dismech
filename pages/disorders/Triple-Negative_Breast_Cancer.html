@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2255,12 +2303,22 @@
         
         
         
+            
+                
+            
+        
+            
+                
+            
+        
         <div class="stats-bar">
             
+            <a class="stat-link" href="#mappings">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Mappings</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2394,6 +2452,131 @@
 
         <!-- Mappings -->
         
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+            
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+                
+                
+                
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank">MONDO:0005494</a>
+                        
+                        
+                        <span class="mapping-label">triple-negative breast carcinoma</span>
+                        
+                        
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">MONDO</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">MONDO provides an exact disease term for triple-negative breast carcinoma.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C71428" target="_blank">NCIT:C71428</a>
+                        
+                        
+                        <span class="mapping-label">Triple-Negative Breast Cancer Finding</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:closeMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">NCIT models triple-negative breast cancer primarily as a receptor-status finding rather than as a full disease entity.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C3367" target="_blank">Finding</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C77140" target="_blank">Clinical Test Result</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C35681" target="_blank">Negative Test Result</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 56px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C165233" target="_blank">Expression Negative</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 70px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C71428" target="_blank">Triple-Negative Breast Cancer Finding</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+            </div>
+            
+            
+            
+        </div>
+        
 
         <!-- Definitions -->
         
@@ -2436,23 +2619,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Basal-like TNBC
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">The most common TNBC subtype (50-75%), characterized by expression of basal cytokeratins (CK5/6, CK14, CK17), EGFR expression, high proliferation, and frequent TP53 and BRCA1 mutations. Overlaps significantly with BRCA1-associated breast cancer.</div>
+                    
                     
                     
                     
@@ -2491,23 +2673,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Mesenchymal TNBC
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Characterized by epithelial-mesenchymal transition features, enrichment in cell motility and differentiation pathways. May respond to PI3K/mTOR inhibition.</div>
+                    
                     
                     
                     
@@ -2546,23 +2727,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Luminal Androgen Receptor (LAR) TNBC
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Despite being ER/PR-negative, LAR tumors express androgen receptor and have luminal gene expression patterns. May benefit from androgen receptor-targeted therapy. Often have PIK3CA mutations.</div>
+                    
                     
                     
                     
@@ -2601,23 +2781,22 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Immunomodulatory TNBC
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Characterized by immune cell infiltration and immune checkpoint expression. Best responders to immune checkpoint inhibitor therapy.</div>
+                    
                     
                     
                     
@@ -2680,9 +2859,29 @@
                         
                     </div>
                     
+                    <span class="reference-summary">1 finding</span>
+                    
                 </div>
                 
-                <div class="reference-empty">No top-level findings curated for this source.</div>
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">TNBC is defined by absence of ER, PR, and HER2 and remains clinically aggressive despite growing therapeutic options.</div>
+            
+            
+            <div class="reference-finding-supporting">"Diagnosis, Prognosis, and Treatment of Triple-Negative Breast Cancer: A Review"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
                 
             </div>
             
@@ -2697,9 +2896,29 @@
                         
                     </div>
                     
+                    <span class="reference-summary">1 finding</span>
+                    
                 </div>
                 
-                <div class="reference-empty">No top-level findings curated for this source.</div>
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Contemporary TNBC management is increasingly shaped by immunotherapy, antibody-drug conjugates, and molecular stratification, but heterogeneity remains a central obstacle.</div>
+            
+            
+            <div class="reference-finding-supporting">"Advancements and challenges in triple-negative breast cancer: a comprehensive review of therapeutic and diagnostic strategies"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
                 
             </div>
             
@@ -2714,9 +2933,29 @@
                         
                     </div>
                     
+                    <span class="reference-summary">1 finding</span>
+                    
                 </div>
                 
-                <div class="reference-empty">No top-level findings curated for this source.</div>
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">EMT-associated plasticity is a major contributor to TNBC progression, metastatic behavior, and therapy resistance.</div>
+            
+            
+            <div class="reference-finding-supporting">"Triple-Negative Breast Cancer Progression and Drug Resistance in the Context of Epithelial–Mesenchymal Transition"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
                 
             </div>
             
@@ -2731,9 +2970,29 @@
                         
                     </div>
                     
+                    <span class="reference-summary">1 finding</span>
+                    
                 </div>
                 
-                <div class="reference-empty">No top-level findings curated for this source.</div>
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Multiple signaling pathways remain mechanistically relevant in TNBC and motivate continued pathway-directed therapeutic exploration.</div>
+            
+            
+            <div class="reference-finding-supporting">"Triple Negative Breast Cancer (TNBC): Signalling pathways-Role of plant-based inhibitors"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
                 
             </div>
             
@@ -2781,6 +3040,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2791,18 +3051,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41518487" target="_blank">PMID:41518487</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35987766" target="_blank">PMID:35987766</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
-                <div class="evidence-snippet">"Triple-negative breast cancer (TNBC), characterized by the absence of estrogen receptor (ER), progesterone receptor (PR), and human epidermal growth factor receptor 2 (HER2) expression, remains clinically challenging due to the lack of effective targeted therapies."</div>
+                <div class="evidence-snippet">"Triple negative breast cancer (TNBC) is characterized by the lack of estrogen and progesterone receptor expression and lacks HER2 overexpression or gene amplification."</div>
                 
                 
-                <div class="evidence-explanation">This abstract defines TNBC by the absence of ER, PR, and HER2 expression, matching the mechanism described.</div>
+                <div class="evidence-explanation">This review abstract defines TNBC by absent ER and PR expression with absent HER2 overexpression, directly supporting loss of hormone receptor signaling as a defining mechanistic feature.</div>
                 
             </div>
             
@@ -2859,6 +3121,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2895,6 +3158,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2925,6 +3189,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3177,6 +3442,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
                     
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
                 </div>
                 
                 <div class="evidence-snippet">"Triple negative breast cancer (TNBC) is characterized by the lack of estrogen and progesterone receptor expression and lacks HER2 overexpression or gene amplification."</div>
@@ -3337,14 +3604,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Neoadjuvant Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3389,17 +3665,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pembrolizumab Plus Chemotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         pembrolizumab
@@ -3453,14 +3738,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     PARP Inhibitors
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3505,17 +3799,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Sacituzumab Govitecan
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         sacituzumab govitecan
@@ -3569,14 +3872,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Platinum Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3689,7 +4001,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Triple-Negative Breast Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:53:05Z&#39;
+updated_date: &#39;2026-04-13T02:29:43Z&#39;
 description: &gt;-
   Triple-negative breast cancer (TNBC) is a molecularly-defined subtype of breast
   cancer characterized by the absence of estrogen receptor (ER), progesterone
@@ -3779,15 +4091,18 @@ pathophysiology:
     that drive most breast cancers. This absence removes a key therapeutic target
     but also indicates fundamentally different tumor biology.
   evidence:
-  - reference: PMID:41518487
-    reference_title: &#34;The ethyl acetate extract from Trichoderma viride fermentation acts by downregulating the leukocyte transendothelial migration signaling pathway to induce ferroptosis in triple-negative breast cancer cells.&#34;
+  - reference: PMID:35987766
+    reference_title: &#34;Triple negative breast cancer: Pitfalls and progress.&#34;
     supports: SUPPORT
-    snippet: Triple-negative breast cancer (TNBC), characterized by the absence
-      of estrogen receptor (ER), progesterone receptor (PR), and human epidermal
-      growth factor receptor 2 (HER2) expression, remains clinically challenging
-      due to the lack of effective targeted therapies.
-    explanation: This abstract defines TNBC by the absence of ER, PR, and HER2
-      expression, matching the mechanism described.
+    evidence_source: OTHER
+    snippet: &gt;-
+      Triple negative breast cancer (TNBC) is characterized by the lack of
+      estrogen and progesterone receptor expression and lacks HER2 overexpression
+      or gene amplification.
+    explanation: &gt;-
+      This review abstract defines TNBC by absent ER and PR expression with
+      absent HER2 overexpression, directly supporting loss of hormone receptor
+      signaling as a defining mechanistic feature.
   biological_processes:
   - preferred_term: estrogen receptor signaling pathway
     modifier: ABSENT
@@ -3842,10 +4157,8 @@ pathophysiology:
   - reference: PMID:35987766
     reference_title: &#34;Triple negative breast cancer: Pitfalls and progress.&#34;
     supports: SUPPORT
-    snippet: &#34;It accounts for 10-15% of incident breast cancers and carries the worst
-      prognosis.&#34;
-    explanation: &#34;Abstract states TNBC carries the worst prognosis, supporting aggressive
-      behavior.&#34;
+    snippet: &#34;It accounts for 10-15% of incident breast cancers and carries the worst prognosis.&#34;
+    explanation: &#34;Abstract states TNBC carries the worst prognosis, supporting aggressive behavior.&#34;
   biological_processes:
   - preferred_term: cell population proliferation
     modifier: INCREASED
@@ -3860,15 +4173,13 @@ histopathology:
       id: NCIT:C4194
       label: Invasive Breast Carcinoma of No Special Type
   frequency: VERY_FREQUENT
-  description: Invasive ductal carcinoma is the most common type of breast
-    cancer.
+  description: Invasive ductal carcinoma is the most common type of breast cancer.
   evidence:
   - reference: PMID:39806949
     reference_title: &#34;An Overview of Invasive Ductal Carcinoma (IDC) in Women&#39;s Breast Cancer.&#34;
     supports: PARTIAL
     snippet: &#34;Invasive ductal carcinoma (IDC) is the most common type of breast cancer,&#34;
-    explanation: Abstract states that invasive ductal carcinoma is the most
-      common breast cancer type.
+    explanation: Abstract states that invasive ductal carcinoma is the most common breast cancer type.
 
 phenotypes:
 - category: Neoplastic
@@ -3907,11 +4218,9 @@ phenotypes:
   - reference: PMID:35987766
     reference_title: &#34;Triple negative breast cancer: Pitfalls and progress.&#34;
     supports: SUPPORT
-    snippet: &#34;Triple negative breast cancer (TNBC) is characterized by the lack of
-      estrogen and progesterone receptor expression and lacks HER2 overexpression
-      or gene amplification.&#34;
-    explanation: &#34;Abstract defines TNBC by lack of ER/PR and HER2, matching the diagnostic
-      phenotype.&#34;
+    evidence_source: OTHER
+    snippet: &#34;Triple negative breast cancer (TNBC) is characterized by the lack of estrogen and progesterone receptor expression and lacks HER2 overexpression or gene amplification.&#34;
+    explanation: &#34;Abstract defines TNBC by lack of ER/PR and HER2, matching the diagnostic phenotype.&#34;
   phenotype_term:
     preferred_term: Neoplasm
     term:
@@ -3941,10 +4250,8 @@ genetic:
   - reference: PMID:31045815
     reference_title: &#34;Association of p53 expression with poor prognosis in patients with triple-negative breast invasive ductal carcinoma.&#34;
     supports: SUPPORT
-    snippet: &#34;TP53 gene is mutated in approximately 80% of triple-negative breast
-      cancer (TNBC).&#34;
-    explanation: &#34;Abstract reports TP53 mutation frequency in TNBC, supporting this
-      genetic association.&#34;
+    snippet: &#34;TP53 gene is mutated in approximately 80% of triple-negative breast cancer (TNBC).&#34;
+    explanation: &#34;Abstract reports TP53 mutation frequency in TNBC, supporting this genetic association.&#34;
 - name: BRCA1
   association: Germline and Somatic Mutations
   inheritance:
@@ -4082,6 +4389,21 @@ disease_term:
   term:
     id: MONDO:0005494
     label: triple-negative breast carcinoma
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0005494
+      label: triple-negative breast carcinoma
+    mapping_predicate: skos:exactMatch
+    mapping_source: MONDO
+    mapping_justification: MONDO provides an exact disease term for triple-negative breast carcinoma.
+  ncit_mappings:
+  - term:
+      id: NCIT:C71428
+      label: Triple-Negative Breast Cancer Finding
+    mapping_predicate: skos:closeMatch
+    mapping_source: NCIT
+    mapping_justification: NCIT models triple-negative breast cancer primarily as a receptor-status finding rather than as a full disease entity.
 
 classifications:
   icdo_morphology:
@@ -4091,21 +4413,33 @@ classifications:
   - classification_value: solid tumor
 references:
 - reference: DOI:10.2147/bctt.s516542
-  title: &#39;Diagnosis, Prognosis, and Treatment of Triple-Negative Breast Cancer: A
-    Review&#39;
-  findings: []
+  title: &#39;Diagnosis, Prognosis, and Treatment of Triple-Negative Breast Cancer: A Review&#39;
+  found_in:
+  - Triple_Negative_Breast_Cancer-deep-research-falcon.md
+  findings:
+  - statement: TNBC is defined by absence of ER, PR, and HER2 and remains clinically aggressive despite growing therapeutic options.
+    supporting_text: &#39;Diagnosis, Prognosis, and Treatment of Triple-Negative Breast Cancer: A Review&#39;
 - reference: DOI:10.3389/fonc.2024.1405491
-  title: &#39;Advancements and challenges in triple-negative breast cancer: a comprehensive
-    review of therapeutic and diagnostic strategies&#39;
-  findings: []
+  title: &#39;Advancements and challenges in triple-negative breast cancer: a comprehensive review of therapeutic and diagnostic strategies&#39;
+  found_in:
+  - Triple_Negative_Breast_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Contemporary TNBC management is increasingly shaped by immunotherapy, antibody-drug conjugates, and molecular stratification, but heterogeneity remains a central obstacle.
+    supporting_text: &#39;Advancements and challenges in triple-negative breast cancer: a comprehensive review of therapeutic and diagnostic strategies&#39;
 - reference: DOI:10.3390/cancers17020228
-  title: Triple-Negative Breast Cancer Progression and Drug Resistance in the
-    Context of Epithelial–Mesenchymal Transition
-  findings: []
+  title: Triple-Negative Breast Cancer Progression and Drug Resistance in the Context of Epithelial–Mesenchymal Transition
+  found_in:
+  - Triple_Negative_Breast_Cancer-deep-research-falcon.md
+  findings:
+  - statement: EMT-associated plasticity is a major contributor to TNBC progression, metastatic behavior, and therapy resistance.
+    supporting_text: &#39;Triple-Negative Breast Cancer Progression and Drug Resistance in the Context of Epithelial–Mesenchymal Transition&#39;
 - reference: DOI:10.53022/oarjbp.2024.10.2.0013
-  title: &#39;Triple Negative Breast Cancer (TNBC): Signalling pathways-Role of plant-based
-    inhibitors&#39;
-  findings: []
+  title: &#39;Triple Negative Breast Cancer (TNBC): Signalling pathways-Role of plant-based inhibitors&#39;
+  found_in:
+  - Triple_Negative_Breast_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Multiple signaling pathways remain mechanistically relevant in TNBC and motivate continued pathway-directed therapeutic exploration.
+    supporting_text: &#39;Triple Negative Breast Cancer (TNBC): Signalling pathways-Role of plant-based inhibitors&#39;
 </pre>
             </div>
         </div>

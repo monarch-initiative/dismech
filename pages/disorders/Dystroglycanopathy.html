@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2527,20 +2575,17 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Type A (Walker-Warburg syndrome / Muscle-Eye-Brain disease)
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Type A (Walker-Warburg syndrome / Muscle-Eye-Brain disease)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0000171" target="_blank">MONDO:0000171</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0000171" target="_blank">MONDO:0000171</a>
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
@@ -2548,6 +2593,7 @@
                     
                     <div class="item-desc">Most severe form with congenital muscular dystrophy, cobblestone lissencephaly, and eye anomalies. Near-complete loss of alpha-DG glycosylation. Typically fatal in the first years of life. Any of the 14 MDDG genes can cause type A when both alleles are severely hypomorphic or null.
 </div>
+                    
                     
                     
                     
@@ -2588,20 +2634,17 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Type B (Congenital muscular dystrophy with intellectual disability)
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Type B (Congenital muscular dystrophy with intellectual disability)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0000172" target="_blank">MONDO:0000172</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0000172" target="_blank">MONDO:0000172</a>
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
@@ -2612,6 +2655,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -2619,20 +2663,17 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Type C (Limb-girdle muscular dystrophy)
                         
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">Type C (Limb-girdle muscular dystrophy)</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        
-                        
-                        <a class="subtype-term-link missing-ontology-link" href="http://purl.obolibrary.org/obo/MONDO_0000173" target="_blank">MONDO:0000173</a>
-                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0000173" target="_blank">MONDO:0000173</a>
                         
                     </div>
                     <div class="subtype-meta">
+                        
+                        
                         
                         
                         
@@ -2640,6 +2681,7 @@
                     
                     <div class="item-desc">Mildest form presenting as limb-girdle muscular dystrophy with onset in childhood or adulthood. Brain and eye involvement are generally absent. Some residual alpha-DG glycosylation is preserved. Substantial residual enzyme activity permits partial matriglycan synthesis.
 </div>
+                    
                     
                     
                     
@@ -2685,14 +2727,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG1 (POMT1)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -2703,9 +2741,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">POMT1 encodes protein O-mannosyltransferase 1, catalyzing the first step of alpha-DG O-mannosylation in complex with POMT2. Biallelic truncating mutations cause type A (WWS); at least one missense allele with residual activity causes milder type B or C. Most common cause of type A dystroglycanopathy. Documented severity types: A1, B1, C1.</div>
+                    
                     
                     
                     
@@ -2746,14 +2787,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG2 (POMT2)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -2764,9 +2801,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">POMT2 forms an obligate heterodimer with POMT1 for O-mannosylation initiation. Mutations cause the full severity spectrum. POMT2 mutations are the second most common cause of type A dystroglycanopathy after POMT1. Documented severity types: A2, B2, C2.</div>
+                    
                     
                     
                     
@@ -2777,14 +2817,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG3 (POMGNT1)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -2795,9 +2831,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">POMGNT1 catalyzes addition of GlcNAc to O-mannose in the M1 glycan branch. Originally identified as the gene for muscle-eye-brain disease (MEB), a Finnish founder mutation disorder. Can cause all three severity types. Documented severity types: A3, B3, C3.</div>
+                    
                     
                     
                     
@@ -2808,14 +2847,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG4 (FKTN)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -2826,9 +2861,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Fukutin transfers the first ribitol-phosphate onto the core M3 glycan. Originally identified as the gene for Fukuyama congenital muscular dystrophy (FCMD), the most common muscular dystrophy in Japan due to a founder retrotransposon insertion. Can cause all three severity types. Documented severity types: A4, B4, C4.</div>
+                    
                     
                     
                     
@@ -2869,14 +2907,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG5 (FKRP)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -2887,9 +2921,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">FKRP transfers the second ribitol-phosphate. The most common cause of dystroglycanopathy in European populations. The L276I founder mutation is associated with milder LGMD2I (type C5) phenotype and is the most prevalent FKRP allele. Severity ranges from WWS to adult-onset LGMD. Primary target for ribitol supplementation therapy and AAV gene therapy. Documented severity types: A5, B5, C5.</div>
+                    
                     
                     
                     
@@ -2930,14 +2967,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG6 (LARGE1)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -2948,9 +2981,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">LARGE1 is the bifunctional xylosyl- and glucuronyltransferase that polymerizes the terminal matriglycan repeat on alpha-DG. Mutations can cause all three severity types. LARGE1 overexpression has been explored as a therapeutic strategy for multiple dystroglycanopathies. Documented severity types: A6, B6, C6.</div>
+                    
                     
                     
                     
@@ -2991,14 +3027,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG7 (CRPPA)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3009,9 +3041,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">CRPPA (formerly ISPD) synthesizes CDP-ribitol, the donor substrate for fukutin and FKRP. Mutations cause severe type A and milder type C phenotypes. No type B cases have been formally classified. Documented severity types: A7, C7.</div>
+                    
                     
                     
                     
@@ -3052,14 +3087,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG8 (POMGNT2)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3070,9 +3101,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">POMGNT2 adds GlcNAc to O-mannose in the core M3 glycan branch, initiating the pathway that leads to matriglycan. Mutations predominantly cause severe type A; milder type C (LGMD) cases have also been reported. Documented severity types: A8, C8.</div>
+                    
                     
                     
                     
@@ -3083,14 +3117,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG9 (DAG1)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3101,9 +3131,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">DAG1 encodes dystroglycan itself. Rare missense mutations in the mucin-like domain of alpha-DG disrupt glycosylation sites, causing primary dystroglycanopathy. One of the rarest forms. Can cause type A or type C. Documented severity types: A9, C9.</div>
+                    
                     
                     
                     
@@ -3114,14 +3147,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG10 (RXYLT1)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3132,9 +3161,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">RXYLT1 (formerly TMEM5) is a xylosyltransferase involved in the linker region between core M3 and matriglycan. Mutations cause predominantly severe type A phenotypes. Very rare. Documented severity types: A10.</div>
+                    
                     
                     
                     
@@ -3145,14 +3177,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG11 (B3GALNT2)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3163,9 +3191,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">B3GALNT2 adds GalNAc to the core M3 glycan. Mutations cause predominantly severe type A phenotypes with cobblestone lissencephaly and eye anomalies. Very rare. Documented severity types: A11.</div>
+                    
                     
                     
                     
@@ -3176,14 +3207,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG12 (POMK)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3194,9 +3221,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">POMK phosphorylates O-mannose on the core M3 glycan, a prerequisite for LARGE1 to extend matriglycan to full length. Mutations cause type A and milder LGMD phenotypes. Documented severity types: A12, C12.</div>
+                    
                     
                     
                     
@@ -3237,14 +3267,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG13 (B4GAT1)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3255,9 +3281,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">B4GAT1 (formerly B3GNT1) is a glucuronyltransferase that adds the priming glucuronic acid in the linker region, initiating LARGE1-mediated matriglycan polymerization. Mutations cause severe type A phenotypes. Very rare. Documented severity types: A13.</div>
+                    
                     
                     
                     
@@ -3268,14 +3297,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         MDDG14 (GMPPB)
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3286,9 +3311,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">GMPPB synthesizes GDP-mannose, the sugar donor for POMT1/POMT2-mediated O-mannosylation. Mutations cause the full severity spectrum. Milder forms may present with congenital myasthenic syndrome-like features with fatigable weakness, in addition to dystrophic changes. Documented severity types: A14, B14, C14.</div>
+                    
                     
                     
                     
@@ -3299,14 +3327,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         DPM1-related dystroglycanopathy
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3317,9 +3341,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">DPM1 encodes the catalytic subunit of dolichol-phosphate mannose synthase, which provides the mannose donor for multiple glycosylation pathways including O-mannosylation of alpha-DG. Mutations cause congenital disorder of glycosylation (CDG) with secondary dystroglycanopathy features. Phenotype includes muscular dystrophy, seizures, and intellectual disability, often with additional CDG features such as coagulopathy. Not assigned a formal MDDG number as the primary classification is CDG (DPM1-CDG).</div>
+                    
                     
                     
                     
@@ -3330,14 +3357,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         DPM2-related dystroglycanopathy
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3348,9 +3371,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">DPM2 encodes a regulatory subunit of dolichol-phosphate mannose synthase. Mutations cause CDG with secondary dystroglycanopathy. Extremely rare with very few reported patients. Clinical features include severe muscular dystrophy, seizures, and intellectual disability with broader CDG manifestations. Not assigned a formal MDDG number (DPM2-CDG).</div>
+                    
                     
                     
                     
@@ -3361,14 +3387,10 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         DPM3-related dystroglycanopathy
-                        
-                        
                         
                     </div>
                     <div class="subtype-meta">
@@ -3379,9 +3401,12 @@
                             
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">DPM3 encodes a stabilizing subunit of dolichol-phosphate mannose synthase. Mutations cause CDG with secondary dystroglycanopathy. Extremely rare. Phenotype includes muscular dystrophy with dilated cardiomyopathy as a distinguishing feature. Not assigned a formal MDDG number (DPM3-CDG).</div>
+                    
                     
                     
                     
@@ -3445,6 +3470,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3581,6 +3607,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3689,6 +3716,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3777,6 +3805,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3851,6 +3880,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -3878,6 +3908,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4835,14 +4866,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive care and rehabilitation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000950" target="_blank">
-                            MAXO:0000950
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4860,14 +4900,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000011" target="_blank">
-                            MAXO:0000011
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">physical therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4885,14 +4934,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic counseling
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000079" target="_blank">
-                            MAXO:0000079
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic counseling</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4910,14 +4968,25 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ribitol supplementation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">ribitol supplementation</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4935,14 +5004,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     AAV gene therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0001001" target="_blank">
-                            MAXO:0001001
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">gene therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0001001" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001001</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
