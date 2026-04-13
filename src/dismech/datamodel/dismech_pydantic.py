@@ -1225,9 +1225,9 @@ class DiseaseTerm(str):
     pass
 
 
-class NcitDiseaseTerm(str):
+class NCITDiseaseOrFindingTerm(str):
     """
-    An NCIT disease or neoplasm term used as an external mapping for cancer-oriented disease and subtype grounding
+    An NCIT disease, disorder, neoplasm, disease-level finding, or closely related molecular abnormality term used for cancer-oriented external mappings at the disease or subtype level
     """
     pass
 
@@ -4590,7 +4590,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                       'assertion, not just the node label',
                       'Kept intentionally lightweight so it can later align more '
                       'explicitly with NAMO relations'],
-         'domain_of': ['ExperimentalModel']} })
+         'domain_of': ['ExperimentalModel', 'ComputationalModel']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
          'domain_of': ['Dataset',
                        'ExperimentalModel',
@@ -4996,6 +4996,14 @@ class ComputationalModel(ConfiguredBaseModel):
     base_model: Optional[str] = Field(default=None, description="""Parent/base model this is derived from (e.g., Recon3D, Harvey 1.0)""", json_schema_extra = { "linkml_meta": {'alias': 'base_model', 'domain_of': ['ComputationalModel']} })
     perturbations: Optional[list[GeneDescriptor]] = Field(default=None, description="""Gene knockouts, reaction deletions, or parameter changes modeling the disease""", json_schema_extra = { "linkml_meta": {'alias': 'perturbations', 'domain_of': ['ComputationalModel']} })
     variables: Optional[list[ModelVariable]] = Field(default=None, description="""Variables/outputs of a computational model with ontology mappings""", json_schema_extra = { "linkml_meta": {'alias': 'variables', 'domain_of': ['ComputationalModel']} })
+    modeled_mechanisms: Optional[list[ModelMechanismLink]] = Field(default=None, description="""Pathophysiology mechanism nodes/assertions that this experimental model is intended to recapitulate, perturb, or measure within the disease pathograph.""", json_schema_extra = { "linkml_meta": {'alias': 'modeled_mechanisms',
+         'comments': ['Target names should match pathophysiology entry names in the '
+                      'same disease file',
+                      'Use description to capture the specific assayable or modeled '
+                      'assertion, not just the node label',
+                      'Kept intentionally lightweight so it can later align more '
+                      'explicitly with NAMO relations'],
+         'domain_of': ['ExperimentalModel', 'ComputationalModel']} })
     model_software: Optional[str] = Field(default=None, description="""Software/toolbox for running the model (e.g., COBRApy, COBRA Toolbox)""", json_schema_extra = { "linkml_meta": {'alias': 'model_software', 'domain_of': ['ComputationalModel']} })
     model_format: Optional[str] = Field(default=None, description="""File format (e.g., SBML, MATLAB, JSON, ONNX)""", json_schema_extra = { "linkml_meta": {'alias': 'model_format', 'domain_of': ['ComputationalModel']} })
     publication: Optional[str] = Field(default=None, description="""Associated publication (PMID)""", json_schema_extra = { "linkml_meta": {'alias': 'publication',
@@ -11683,20 +11691,20 @@ class MondoMapping(TermMapping):
                                 'bacteria can be spread to others.'}]} })
 
 
-class NcitMapping(TermMapping):
+class NCITMapping(TermMapping):
     """
-    NCIT disease ontology mapping
+    NCIT disease or finding ontology mapping
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'REQUIRED',
-                                               'range': 'NcitDiseaseTerm'}],
+                                               'range': 'NCITDiseaseOrFindingTerm'}],
                                  'name': 'term'}}})
 
     term: Term = Field(default=..., description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'alias': 'term',
          'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
-                       'range': 'NcitDiseaseTerm'}],
+                       'range': 'NCITDiseaseOrFindingTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -11817,7 +11825,7 @@ class DiseaseMappings(ConfiguredBaseModel):
     icd10cm_mappings: Optional[list[ICD10CMMapping]] = Field(default=None, description="""ICD-10-CM code mappings for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'icd10cm_mappings', 'domain_of': ['DiseaseMappings']} })
     icd11f_mappings: Optional[list[ICD11FMapping]] = Field(default=None, description="""ICD-11 Foundation code mappings for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'icd11f_mappings', 'domain_of': ['DiseaseMappings']} })
     mondo_mappings: Optional[list[MondoMapping]] = Field(default=None, description="""MONDO disease ontology mappings for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'mondo_mappings', 'domain_of': ['DiseaseMappings']} })
-    ncit_mappings: Optional[list[NcitMapping]] = Field(default=None, description="""NCIT disease ontology mappings for this disease or subtype""", json_schema_extra = { "linkml_meta": {'alias': 'ncit_mappings', 'domain_of': ['DiseaseMappings']} })
+    ncit_mappings: Optional[list[NCITMapping]] = Field(default=None, description="""NCIT disease or finding mappings for this disease or subtype""", json_schema_extra = { "linkml_meta": {'alias': 'ncit_mappings', 'domain_of': ['DiseaseMappings']} })
 
 
 class ConditionDescriptor(Descriptor):
@@ -12819,7 +12827,7 @@ TermMapping.model_rebuild()
 ICD10CMMapping.model_rebuild()
 ICD11FMapping.model_rebuild()
 MondoMapping.model_rebuild()
-NcitMapping.model_rebuild()
+NCITMapping.model_rebuild()
 MappingConsistency.model_rebuild()
 DiseaseMappings.model_rebuild()
 ConditionDescriptor.model_rebuild()
