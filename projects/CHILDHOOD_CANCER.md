@@ -88,13 +88,43 @@ The most likely extension points are:
 3. A repeatable export pattern for graph edges linking genomic calls to
    mechanisms, phenotypes, and treatments.
 
+## Cancer Curation Conventions
+
+This project should use Wilms tumor and issue `#1198` as the working pattern
+for pediatric oncology curation.
+
+1. A dismech entry is the mechanism-graph curation unit, not every ontology
+   subclass. Split into separate disease files only when a subgroup has a
+   genuinely distinct causal program, such as pathway-defined medulloblastoma
+   groups or fusion-defined sarcomas.
+2. Keep `disease_term` MONDO-first whenever a suitable MONDO disease class
+   exists. Add disease-level `ncit_mappings` routinely for pediatric cancer
+   entries so the same entry is grounded in both MONDO and oncology-native
+   NCIT concepts.
+3. Model cancer refinements as flat subtype axes rather than nested lattices or
+   one-file-per-subclass. Common axes include histology, stage, laterality, age
+   group, and predisposition context.
+4. Treat `subtype_term` and subtype `mappings` as ontology grounding only.
+   They should not imply a separate dismech page or a "Not Yet Curated" badge.
+5. Prefer NCIT over MAXO when NCIT provides materially better oncology
+   specificity, especially for histopathology, disease/subtype mappings,
+   biomarkers, and cancer procedures or therapeutic concepts.
+6. When a subtype axis is introduced, keep it as explicit and as close to
+   closed as practical. For example, hereditary-predisposition-associated
+   should usually be complemented by `sporadic`, not `somatic`.
+
+The current Wilms entry already follows this pattern: MONDO-first disease
+anchor, disease-level NCIT mapping, flat subtype axes, ontology-grounded
+subtypes that do not imply separate pages, and NCIT-first oncology treatment
+terms where they are more precise than MAXO.
+
 ## Priority curation targets
 
 | Target | Why now | CCDI / MCI fit |
 |--------|---------|----------------|
 | **Hepatoblastoma** | Major missing embryonal tumor with strong developmental biology | Good pediatric solid-tumor pilot for WES + methylation + histology alignment |
 | **Medulloblastoma Group 3 / Group 4** | Obvious adjacent gap next to existing SHH / WNT entries | Direct test of subgroup and methylation modeling |
-| **Ependymoma molecular subtypes** | Pediatric CNS entity where molecular classification strongly matters | Strong methylation-driven use case |
+| **Ependymoma molecular subtypes** | Pediatric CNS entity where molecular classification strongly matters; likely needs a file-vs-facet decision by subgroup | Strong methylation-driven use case |
 | **Atypical teratoid / rhabdoid tumor (ATRT)** | Rare but mechanism-clear SMARCB1 / SMARCA4-driven tumor | Excellent rare-cancer + epigenetic mechanism fit |
 | **Ph-like ALL / KMT2A-rearranged infant leukemia / JMML** | High clinical need with actionable signaling or fusion biology | Strong WES / fusion integration target |
 | **Infantile fibrosarcoma and related rare fusion sarcomas** | Very strong fusion-to-mechanism use case | Good demonstration of rare cancer alignment |
@@ -104,8 +134,10 @@ The most likely extension points are:
 1. Use claim extraction work, including the planned extraction pipeline in issue
    `#1100`, to turn pediatric cancer literature and reports into structured
    mechanism claims.
-2. Normalize entities to MONDO, HGNC, GENO, GO, CL, MAXO, and NCIT so the
-   output is interoperable with CCDI resources.
+2. Normalize disease entries MONDO-first, add NCIT disease/subtype mappings for
+   cancer-specific grounding, and use HGNC, GENO, GO, CL, and NCIT-first
+   oncology intervention terms so the output is interoperable with CCDI
+   resources.
 3. Convert curated mechanism chains into graph edges or triples such as
    alteration -> gene product -> pathway -> cell state -> phenotype /
    histopathology / treatment response.
@@ -146,6 +178,7 @@ A practical alignment strategy:
 - [ ] Add a rare-cancer target crosswalk once the Rare Cancer Study list is explicit
 - [ ] Draft an MCI-to-dismech field mapping for WES, fusions, methylation, and pathology
 - [ ] Select 5 pilot pediatric cancers for deep mechanism curation
+- [ ] Audit current pediatric entries for MONDO-first disease anchors, disease-level NCIT mappings, and flat subtype axes
 - [ ] Audit current pediatric entries for `datasets`, `clinical_trials`, and molecular subgroup completeness
 
 ### Tier 2: Medium Effort (new entries and backfill)
@@ -153,7 +186,7 @@ A practical alignment strategy:
 - [ ] Create Hepatoblastoma
 - [ ] Create Medulloblastoma Group 3
 - [ ] Create Medulloblastoma Group 4
-- [ ] Create ependymoma molecular subtype entries
+- [ ] Decide which ependymoma molecular groups merit separate files versus subtype axes
 - [ ] Create ATRT as a distinct CNS entry if the existing Rhabdoid Tumor entry is too broad
 - [ ] Create at least one pediatric rare leukemia entry (JMML, KMT2A-rearranged infant leukemia, or Ph-like ALL)
 - [ ] Backfill existing pediatric entries with MCI-relevant `datasets` and `histopathology`
@@ -197,6 +230,7 @@ A practical alignment strategy:
 
 - [ ] Draft MCI mapping for WES / fusion / methylation / pathology inputs
 - [ ] Record schema extension decision for molecular classification and assay provenance
+- [x] Record Wilms / `#1198` cancer curation conventions for pediatric oncology entries
 - [ ] Draft AI-ready export plan for pediatric mechanism graphs
 - [ ] Draft RADIANCE integration concept
 
@@ -230,3 +264,22 @@ A practical alignment strategy:
 6. The gap list in this file is intentionally preliminary and should be
    validated against official CCDI / COG disease inventories before curation
    priorities are frozen.
+
+### 2026-04-12 (Cancer Curation Conventions from Wilms / #1198)
+
+**Modeling decisions carried forward into this project:**
+
+1. Use one disease file per coherent mechanism graph, not one file per NCIT or
+   MONDO subclass.
+2. Keep `disease_term` MONDO-first and add disease-level NCIT mappings
+   routinely for pediatric cancer entries.
+3. Model cancer refinements as flat subtype axes such as histology, stage,
+   laterality, age group, and predisposition context.
+4. Treat `subtype_term` and subtype mappings as ontology grounding only rather
+   than signals that a separate dismech page should exist.
+5. Prefer NCIT over MAXO where NCIT gives meaningfully better oncology
+   specificity, especially for cancer procedures, histopathology, and
+   disease/subtype mapping.
+6. Use Wilms tumor as the worked example for future childhood-cancer curation,
+   especially when deciding whether a subgroup should be a separate file or a
+   facet within one entry.
