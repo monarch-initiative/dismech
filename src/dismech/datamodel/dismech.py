@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-13T02:22:11
+# Generation date: 2026-04-13T02:53:07
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -4031,7 +4031,7 @@ class MondoMapping(TermMapping):
 @dataclass(repr=False)
 class NCITMapping(TermMapping):
     """
-    NCIT disease or disease/finding ontology mapping for cancer entries
+    NCIT disease, subtype, or disease/finding ontology mapping for cancer entries
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -4088,7 +4088,7 @@ class MappingConsistency(YAMLRoot):
 @dataclass(repr=False)
 class DiseaseMappings(YAMLRoot):
     """
-    Container for external identifier mappings for a disease
+    Container for external identifier mappings for a disease or subtype
     """
     _inherited_slots: ClassVar[list[str]] = []
 
