@@ -32,6 +32,8 @@
 - NF1 predisposition context:
   - `PMID:35945463`: "The first harbored biallelic NF1 inactivation only, occurred primarily during childhood, followed a more indolent clinical course, and had a unique epigenetic signature for which we propose the terminology "pilocytic astrocytoma, arising in the setting of NF1"."
   - This supports retaining NF1 in the genetics section and notes, not splitting a separate dismech page.
+  - `PMID:38837168`: "the loss of the NF1 gene activates 3 distinct Ras effector pathways, including the PI3K/AKT/mTOR pathway, the MEK/ERK pathway, and the cAMP pathway, which mediate glioma tumorigenesis"
+  - This supports adding explicit NF1-backed evidence to the MAPK-activation node, rather than relying only on BRAF/RAF1 evidence.
 
 ## Histopathology
 
@@ -49,9 +51,11 @@
   - `PMID:14683543`: "Sixteen patients with PMAs (76%) experienced local recurrence, and three of those patients demonstrated evidence of cerebrospinal fluid dissemination."
 - Cerebellar site:
   - `PMID:37021292`: "79 patients had hydrocephalus at diagnosis and 48% required preoperative treatment."
+  - `PMID:16998597`: "demonstrated predilection for posterior fossa (61.7%)."
 - Optic pathway / hypothalamic morbidity:
   - `PMID:38837168`: "OPGs in individuals with NF1 primarily affect the optic pathway and lead to visual disturbance."
   - `PMID:37033188`: "The main risks are to threaten vision loss by progressive tumor damage to optic pathways; furthermore, invasion of the hypothalamus can lead to diencephalic syndrome in infancy and hypopituitarism later in life."
+  - Because this establishes association rather than a quantitative rate, hypopituitarism is modeled without a frequency band.
 
 ## Treatments
 
@@ -89,6 +93,11 @@
   - `GO:0000165` MAPK cascade
   - `GO:0090398` cellular senescence
   - `GO:0008285` negative regulation of cell population proliferation
+- Genetics:
+  - `hgnc:1097` BRAF
+  - `hgnc:22219` KIAA1549
+  - `hgnc:9829` RAF1
+  - `hgnc:7765` NF1
 - Treatments:
   - `NCIT:C131672` Gross Total Resection
   - `MAXO:0000647` chemotherapy + `CHEBI:31355` carboplatin + `CHEBI:28445` vincristine
