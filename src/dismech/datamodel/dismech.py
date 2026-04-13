@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-12T23:16:24
+# Generation date: 2026-04-13T02:22:11
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -663,6 +663,28 @@ class DiseaseDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:DiseaseDescriptor"
     class_name: ClassVar[str] = "DiseaseDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.DiseaseDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class SubtypeDescriptor(Descriptor):
+    """
+    A descriptor for disease subtypes, bindable to MONDO disease terms or NCIT oncology subtype terms.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["SubtypeDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:SubtypeDescriptor"
+    class_name: ClassVar[str] = "SubtypeDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.SubtypeDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -1622,7 +1644,7 @@ class Subtype(YAMLRoot):
 
     name: Union[str, SubtypeName] = None
     display_name: Optional[str] = None
-    subtype_term: Optional[Union[dict, DiseaseDescriptor]] = None
+    subtype_term: Optional[Union[dict, SubtypeDescriptor]] = None
     mappings: Optional[Union[dict, "DiseaseMappings"]] = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
@@ -1644,8 +1666,8 @@ class Subtype(YAMLRoot):
         if self.display_name is not None and not isinstance(self.display_name, str):
             self.display_name = str(self.display_name)
 
-        if self.subtype_term is not None and not isinstance(self.subtype_term, DiseaseDescriptor):
-            self.subtype_term = DiseaseDescriptor(**as_dict(self.subtype_term))
+        if self.subtype_term is not None and not isinstance(self.subtype_term, SubtypeDescriptor):
+            self.subtype_term = SubtypeDescriptor(**as_dict(self.subtype_term))
 
         if self.mappings is not None and not isinstance(self.mappings, DiseaseMappings):
             self.mappings = DiseaseMappings(**as_dict(self.mappings))
@@ -4009,7 +4031,7 @@ class MondoMapping(TermMapping):
 @dataclass(repr=False)
 class NCITMapping(TermMapping):
     """
-    NCIT disease or finding ontology mapping
+    NCIT disease or disease/finding ontology mapping for cancer entries
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -4066,7 +4088,7 @@ class MappingConsistency(YAMLRoot):
 @dataclass(repr=False)
 class DiseaseMappings(YAMLRoot):
     """
-    Container for external identifier mappings for a disease or subtype
+    Container for external identifier mappings for a disease
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -5299,12 +5321,21 @@ class DiseaseTerm(EnumDefinitionImpl):
 
 class NCITDiseaseOrFindingTerm(EnumDefinitionImpl):
     """
-    An NCIT disease, disorder, neoplasm, disease-level finding, or closely related molecular abnormality term used for
-    cancer-oriented external mappings at the disease or subtype level
+    An NCIT disease-oriented oncology term used for disease-level cancer mappings and subtype grounding, including
+    neoplasm-by-morphology, special-category neoplasm, and clinically used disease/finding boundary concepts.
     """
     _defn = EnumDefinition(
         name="NCITDiseaseOrFindingTerm",
-        description="""An NCIT disease, disorder, neoplasm, disease-level finding, or closely related molecular abnormality term used for cancer-oriented external mappings at the disease or subtype level""",
+        description="""An NCIT disease-oriented oncology term used for disease-level cancer mappings and subtype grounding, including neoplasm-by-morphology, special-category neoplasm, and clinically used disease/finding boundary concepts.""",
+    )
+
+class DiseaseOrSubtypeTerm(EnumDefinitionImpl):
+    """
+    A MONDO disease term or NCIT cancer disease/subtype term used to ground a disease subtype or cancer facet value.
+    """
+    _defn = EnumDefinition(
+        name="DiseaseOrSubtypeTerm",
+        description="""A MONDO disease term or NCIT cancer disease/subtype term used to ground a disease subtype or cancer facet value.""",
     )
 
 class ICD10CMTerm(EnumDefinitionImpl):
@@ -6868,7 +6899,7 @@ slots.diagnosis_term = Slot(uri=DISMECH.diagnosis_term, name="diagnosis_term", c
                    model_uri=DISMECH.diagnosis_term, domain=None, range=Optional[Union[dict, TreatmentDescriptor]])
 
 slots.subtype_term = Slot(uri=DISMECH.subtype_term, name="subtype_term", curie=DISMECH.curie('subtype_term'),
-                   model_uri=DISMECH.subtype_term, domain=None, range=Optional[Union[dict, DiseaseDescriptor]])
+                   model_uri=DISMECH.subtype_term, domain=None, range=Optional[Union[dict, SubtypeDescriptor]])
 
 slots.infectious_agent_term = Slot(uri=DISMECH.infectious_agent_term, name="infectious_agent_term", curie=DISMECH.curie('infectious_agent_term'),
                    model_uri=DISMECH.infectious_agent_term, domain=None, range=Optional[Union[dict, OrganismDescriptor]])
@@ -7579,6 +7610,9 @@ slots.TriggerDescriptor_term = Slot(uri=DISMECH.term, name="TriggerDescriptor_te
 
 slots.DiseaseDescriptor_term = Slot(uri=DISMECH.term, name="DiseaseDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.DiseaseDescriptor_term, domain=DiseaseDescriptor, range=Optional[Union[dict, Term]])
+
+slots.SubtypeDescriptor_term = Slot(uri=DISMECH.term, name="SubtypeDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.SubtypeDescriptor_term, domain=SubtypeDescriptor, range=Optional[Union[dict, Term]])
 
 slots.BiomarkerDescriptor_term = Slot(uri=DISMECH.term, name="BiomarkerDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.BiomarkerDescriptor_term, domain=BiomarkerDescriptor, range=Optional[Union[dict, Term]])

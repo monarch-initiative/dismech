@@ -1227,7 +1227,14 @@ class DiseaseTerm(str):
 
 class NCITDiseaseOrFindingTerm(str):
     """
-    An NCIT disease, disorder, neoplasm, disease-level finding, or closely related molecular abnormality term used for cancer-oriented external mappings at the disease or subtype level
+    An NCIT disease-oriented oncology term used for disease-level cancer mappings and subtype grounding, including neoplasm-by-morphology, special-category neoplasm, and clinically used disease/finding boundary concepts.
+    """
+    pass
+
+
+class DiseaseOrSubtypeTerm(str):
+    """
+    A MONDO disease term or NCIT cancer disease/subtype term used to ground a disease subtype or cancer facet value.
     """
     pass
 
@@ -2889,6 +2896,82 @@ class DiseaseDescriptor(Descriptor):
          'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'DiseaseTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
+         'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class SubtypeDescriptor(Descriptor):
+    """
+    A descriptor for disease subtypes, bindable to MONDO disease terms or NCIT oncology subtype terms.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'DiseaseOrSubtypeTerm'}],
+                                 'description': 'MONDO or NCIT term reference for a '
+                                                'subtype/facet value',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'alias': 'preferred_term', 'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""MONDO or NCIT term reference for a subtype/facet value""", json_schema_extra = { "linkml_meta": {'alias': 'term',
+         'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'DiseaseOrSubtypeTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -5598,8 +5681,8 @@ class Subtype(ConfiguredBaseModel):
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'alias': 'display_name', 'domain_of': ['Subtype']} })
-    subtype_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO term for a disease subtype""", json_schema_extra = { "linkml_meta": {'alias': 'subtype_term', 'domain_of': ['Subtype']} })
-    mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
+    subtype_term: Optional[SubtypeDescriptor] = Field(default=None, description="""The ontology term grounding this subtype or cancer facet value. Prefer MONDO when available; use NCIT for oncology-specific subtype refinement when needed.""", json_schema_extra = { "linkml_meta": {'alias': 'subtype_term', 'domain_of': ['Subtype']} })
+    mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -8286,7 +8369,7 @@ class Disease(ConfiguredBaseModel):
     computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'computational_models', 'domain_of': ['Disease']} })
     classifications: Optional[DiseaseClassifications] = Field(default=None, description="""Classification assignments for this disease from various nosologies""", json_schema_extra = { "linkml_meta": {'alias': 'classifications', 'domain_of': ['Disease']} })
     definitions: Optional[list[Definition]] = Field(default=None, description="""Definitions or diagnostic criteria for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'definitions', 'domain_of': ['Disease']} })
-    mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
+    mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
     external_assertions: Optional[list[ExternalAssertion]] = Field(default=None, description="""External curated assertions or registry records relevant to this entity""", json_schema_extra = { "linkml_meta": {'alias': 'external_assertions', 'domain_of': ['Disease', 'Variant']} })
     tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
@@ -11693,7 +11776,7 @@ class MondoMapping(TermMapping):
 
 class NCITMapping(TermMapping):
     """
-    NCIT disease or finding ontology mapping
+    NCIT disease or disease/finding ontology mapping for cancer entries
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
@@ -11818,14 +11901,14 @@ class MappingConsistency(ConfiguredBaseModel):
 
 class DiseaseMappings(ConfiguredBaseModel):
     """
-    Container for external identifier mappings for a disease or subtype
+    Container for external identifier mappings for a disease
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     icd10cm_mappings: Optional[list[ICD10CMMapping]] = Field(default=None, description="""ICD-10-CM code mappings for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'icd10cm_mappings', 'domain_of': ['DiseaseMappings']} })
     icd11f_mappings: Optional[list[ICD11FMapping]] = Field(default=None, description="""ICD-11 Foundation code mappings for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'icd11f_mappings', 'domain_of': ['DiseaseMappings']} })
     mondo_mappings: Optional[list[MondoMapping]] = Field(default=None, description="""MONDO disease ontology mappings for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'mondo_mappings', 'domain_of': ['DiseaseMappings']} })
-    ncit_mappings: Optional[list[NCITMapping]] = Field(default=None, description="""NCIT disease or finding mappings for this disease or subtype""", json_schema_extra = { "linkml_meta": {'alias': 'ncit_mappings', 'domain_of': ['DiseaseMappings']} })
+    ncit_mappings: Optional[list[NCITMapping]] = Field(default=None, description="""NCIT disease or disease/finding mappings""", json_schema_extra = { "linkml_meta": {'alias': 'ncit_mappings', 'domain_of': ['DiseaseMappings']} })
 
 
 class ConditionDescriptor(Descriptor):
@@ -12753,6 +12836,7 @@ ProteinComplexDescriptor.model_rebuild()
 AssayDescriptor.model_rebuild()
 TriggerDescriptor.model_rebuild()
 DiseaseDescriptor.model_rebuild()
+SubtypeDescriptor.model_rebuild()
 BiomarkerDescriptor.model_rebuild()
 GeneProductDescriptor.model_rebuild()
 HistopathologyFindingDescriptor.model_rebuild()
