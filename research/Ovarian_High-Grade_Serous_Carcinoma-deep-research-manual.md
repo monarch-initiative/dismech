@@ -23,7 +23,9 @@ This note distills the literature and modeling decisions used for the
   and HE4.
 - Treated subtype handling as a **flat facet axis** rather than as separate causal programs.
   In the YAML, BRCA-associated versus BRCA-wild-type HGSOC is represented as a disease
-  facet inside one graph, not as separate disease pages.
+  facet inside one graph, not as separate disease pages. I did not force a
+  `subtype_term` for the BRCA-associated facet once review confirmed that
+  `MONDO:0003582` denotes a predisposition syndrome rather than a carcinoma subtype.
 - Kept pathophysiology nodes **atomic**. The old entry bundled origin, TP53, HRD, and
   genomic instability into broad blocks; the revised entry separates tubal origin,
   early TP53-mutant precursor state, STIC, HRD, copy-number instability, and CCNE1-linked
