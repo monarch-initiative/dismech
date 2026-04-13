@@ -135,6 +135,58 @@ def test_rendered_stargardt_pathograph_payload_includes_treatments_and_genetics(
     assert f">Pathograph {len(graph_data['nodes'])}</a>" in html
 
 
+def test_rendered_pdac_pathograph_payload_includes_histopathology_metadata(
+    tmp_path: Path,
+) -> None:
+    """PDAC pathograph should surface histopathology and computational model links."""
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = (
+        repo_root / "kb" / "disorders" / "Pancreatic_Ductal_Adenocarcinoma.yaml"
+    )
+    output_path = (
+        tmp_path / "pages" / "disorders" / "Pancreatic_Ductal_Adenocarcinoma.html"
+    )
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+    graph_data = _extract_graph_data(html)
+    node_meta = {node["id"]: node.get("meta", {}) for node in graph_data["nodes"]}
+    node_types = {node["id"]: node["node_type"] for node in graph_data["nodes"]}
+    edges = {(edge["source"], edge["target"]) for edge in graph_data["edges"]}
+
+    assert "Histopath:" in html
+    assert "Computational models" in html
+    assert (
+        "PDAC CAF-Mediated Invasion PhysiCell Model",
+        "Desmoplastic Stroma",
+    ) in edges
+    assert (
+        "PDAC Immunotherapy PhysiCell Model",
+        "Immune Evasion",
+    ) in edges
+    assert (
+        node_types["PDAC CAF-Mediated Invasion PhysiCell Model"]
+        == "computational_model"
+    )
+    assert node_meta["Desmoplastic Stroma"]["histopathology_terms"] == [
+        {
+            "name": "Desmoplastic Stroma",
+            "preferred_term": "desmoplastic stroma",
+            "term_id": "NCIT:C36178",
+            "term_label": "Fibrotic Stroma Formation",
+        }
+    ]
+    assert node_meta["Desmoplastic Stroma"]["computational_models"] == [
+        {
+            "name": "PDAC CAF-Mediated Invasion PhysiCell Model",
+            "model_type": "AGENT_BASED",
+            "model_software": "PhysiCell",
+            "model_format": "C++/XML/CSV",
+            "description": "Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.",
+        }
+    ]
+
+
 def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyped(
     tmp_path: Path,
 ) -> None:
