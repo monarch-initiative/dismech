@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2753,6 +2801,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -2766,9 +2816,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Nonsense mutations, frameshift mutations, and canonical splice site mutations that result in premature termination codons and no functional CFTR protein production due to mRNA degradation via nonsense-mediated decay. Examples include G542X, W1282X, R553X, and 621+1G&gt;T. Class I mutations cause severe disease with pancreatic insufficiency.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -2820,6 +2873,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -2833,9 +2888,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Mutations causing CFTR protein misfolding, endoplasmic reticulum retention, and proteasomal degradation. The most important example is F508del, present in nearly 90% of CF patients. Misfolded protein is recognized by ER quality control and targeted for ubiquitin-proteasome degradation, resulting in minimal CFTR at the cell surface. Corrector drugs (lumacaftor, tezacaftor, elexacaftor) partially rescue F508del trafficking.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -2887,6 +2945,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -2900,9 +2960,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">CFTR protein reaches the cell surface normally but channel gating is severely impaired, resulting in very low open probability. The prototypical example is G551D. Potentiator drugs (ivacaftor) increase channel open probability and produce dramatic clinical benefit.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -2954,6 +3017,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -2967,9 +3032,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">CFTR reaches the cell surface and channel opens, but chloride conductance through the channel pore is reduced. Typically associated with milder phenotype and pancreatic sufficiency. Examples include R117H, R334W, and R347P.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3021,6 +3089,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -3034,9 +3104,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Mutations that reduce the amount of normal CFTR protein produced, such as alternative splice site mutations that produce some normal transcript alongside aberrant transcript. Typically associated with milder phenotype and pancreatic sufficiency. Examples include 3849+10kbC&gt;T and A455E.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3086,6 +3159,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -3099,9 +3174,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">CFTR protein reaches the cell surface and functions but has accelerated turnover and reduced plasma membrane stability. Rescued F508del protein (after corrector therapy) exhibits this additional defect, necessitating combination therapy with correctors and potentiators.</div>
+                    
                     
                     
                     
@@ -3148,6 +3226,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -3161,9 +3241,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Severe disease phenotype with two severe CFTR mutations, pancreatic insufficiency, progressive bronchiectasis, elevated sweat chloride (&gt;=60 mmol/L), and male infertility due to CBAVD. Represents the majority of CF patients.</div>
+                    
                     
                     
                     
@@ -3205,6 +3288,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -3218,9 +3303,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Milder disease phenotype, often with at least one CFTR mutation conferring residual function (Class IV, V). May present with pancreatic sufficiency, milder lung disease, borderline or normal sweat chloride, and later age of diagnosis. Some patients are not diagnosed until adulthood.</div>
+                    
                     
                     
                     
@@ -3282,6 +3370,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -3295,9 +3385,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Designation for infants identified by newborn screening who do not meet diagnostic criteria for CF but have some evidence of CFTR dysfunction. Defined as either intermediate sweat chloride (30-59 mmol/L) with fewer than two CF-causing CFTR mutations, or normal sweat chloride (&lt;30 mmol/L) with two CFTR mutations of which at least one has unclear clinical significance. A small proportion may evolve to a CF diagnosis over time. Requires longitudinal monitoring.</div>
+                    
                     
                     
                     
@@ -3364,6 +3457,8 @@
                 
                 
                 
+                
+                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
@@ -3377,15 +3472,20 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Isolated congenital bilateral absence of the vas deferens causing obstructive azoospermia and male infertility, without other features of classic CF. Found in approximately 1-2% of infertile males. Most affected men carry at least one CFTR mutation, often including the 5T poly-T variant or R117H. Sweat chloride is typically normal or borderline. Lung and pancreatic function are preserved.</div>
                     
                     
                     
+                    
     
     
                 </div>
+                
+                
                 
                 
                 
@@ -3404,15 +3504,20 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Recurrent acute or chronic pancreatitis in individuals carrying one or two CFTR mutations with residual function, without meeting diagnostic criteria for CF. CFTR dysfunction impairs bicarbonate secretion in pancreatic ducts, predisposing to ductal obstruction and pancreatitis. Sweat chloride is typically normal or borderline.</div>
                     
                     
                     
+                    
     
     
                 </div>
+                
+                
                 
                 
                 
@@ -3431,9 +3536,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Diffuse bronchiectasis in individuals carrying CFTR mutations who do not meet diagnostic criteria for CF. Sweat chloride may be normal or borderline. Represents the milder end of the CFTR dysfunction spectrum affecting the airways.</div>
+                    
                     
                     
                     
@@ -3545,6 +3653,7 @@
                         
                     </div>
                 </div>
+                
                 
                 
     
@@ -3664,6 +3773,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3772,6 +3882,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3855,6 +3966,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3935,6 +4047,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3991,6 +4104,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -4075,6 +4189,7 @@
                         
                     </div>
                 </div>
+                
                 
                 
     
@@ -4171,6 +4286,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4231,6 +4347,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4314,6 +4431,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4373,6 +4491,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4411,6 +4530,7 @@
                 <div class="item-name">Respiratory Failure</div>
                 
                 <div class="item-desc">End-stage CF lung disease results in progressive respiratory failure with hypoxemia, hypercapnia, and cor pulmonale. Respiratory failure is the leading cause of death in CF patients and the primary indication for lung transplantation.</div>
+                
                 
                 
                 
@@ -4512,6 +4632,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4603,6 +4724,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4641,6 +4763,7 @@
                 <div class="item-name">Exocrine Pancreatic Insufficiency</div>
                 
                 <div class="item-desc">Destruction of exocrine pancreatic tissue causes insufficient production of digestive enzymes including lipase, amylase, and proteases. Present in 85-90% of CF patients, pancreatic insufficiency causes fat and protein malabsorption leading to steatorrhea, failure to thrive, and fat-soluble vitamin deficiency (vitamins A, D, E, K). Pancreatic sufficiency is more common in patients with at least one mild (class IV-V) CFTR mutation.</div>
+                
                 
                 
                 
@@ -4717,6 +4840,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4765,6 +4889,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4803,6 +4928,7 @@
                 <div class="item-name">Protein-Calorie Malnutrition</div>
                 
                 <div class="item-desc">Combined effects of pancreatic insufficiency, increased metabolic demands from chronic infection and inflammation, and poor appetite lead to protein-calorie malnutrition, failure to thrive in children, and poor weight maintenance in adults. Nutritional status is strongly correlated with lung function and survival.</div>
+                
                 
                 
                 
@@ -4886,6 +5012,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4924,6 +5051,7 @@
                 <div class="item-name">Intestinal Obstruction</div>
                 
                 <div class="item-desc">Dehydrated intestinal secretions cause bowel obstruction at different ages. Meconium ileus occurs in 15-20% of CF neonates due to inspissated meconium in the distal ileum. In older children and adults, distal intestinal obstruction syndrome (DIOS) presents with similar pathophysiology in the ileocecal region. Constipation is also common due to dehydrated intestinal contents.</div>
+                
                 
                 
                 
@@ -5007,6 +5135,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5073,6 +5202,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5111,6 +5241,7 @@
                 <div class="item-name">Hyponatremic Dehydration</div>
                 
                 <div class="item-desc">Excessive sweat sodium and chloride loss can produce clinically significant hyponatremic dehydration, especially with heat stress or inadequate salt intake.</div>
+                
                 
                 
                 
@@ -5169,6 +5300,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5217,6 +5349,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5255,6 +5388,7 @@
                 <div class="item-name">CF Bone Disease</div>
                 
                 <div class="item-desc">CF-related bone disease results from multiple converging mechanisms including vitamin D deficiency from fat malabsorption, chronic systemic inflammation with elevated cytokines (IL-6, TNF-alpha) that promote osteoclast activity, reduced physical activity, delayed puberty with reduced sex steroids, glucocorticoid use, and possibly direct CFTR effects on osteoblast function. Osteopenia and osteoporosis are common in adults with CF.</div>
+                
                 
                 
                 
@@ -7057,17 +7191,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Elexacaftor-Tezacaftor-Ivacaftor (Trikafta/Kaftrio)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         elexacaftor
@@ -7157,17 +7300,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ivacaftor (Kalydeco)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         ivacaftor
@@ -7223,14 +7375,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Airway Clearance Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000011" target="_blank">
-                            MAXO:0000011
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">physical therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000011" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000011</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7277,17 +7438,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dornase Alfa (Pulmozyme)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         dornase alfa
@@ -7343,14 +7513,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hypertonic Saline (7%)
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7397,14 +7576,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Inhaled Antibiotics
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7451,14 +7639,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Systemic Antibiotics
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7505,14 +7702,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pancreatic Enzyme Replacement Therapy (PERT)
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7559,14 +7765,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Nutritional Support
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000088" target="_blank">
-                            MAXO:0000088
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">dietary intervention</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000088</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7613,14 +7828,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Insulin Therapy for CFRD
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7667,14 +7891,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Ursodeoxycholic Acid
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7721,14 +7954,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Lung Transplantation
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0010039" target="_blank">
-                            MAXO:0010039
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">organ transplantation</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0010039" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0010039</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -7775,14 +8017,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000079" target="_blank">
-                            MAXO:0000079
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic counseling</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
