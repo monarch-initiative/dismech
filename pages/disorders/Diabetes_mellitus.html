@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2746,6 +2794,7 @@
                     <div class="item-desc">Autoimmune-predominant diabetes with progressive beta-cell loss.</div>
                     
                     
+                    
                     <ul class="subtype-children">
                         
                         <li>latent autoimmune diabetes in adults</li>
@@ -2833,6 +2882,7 @@
                     <div class="item-desc">Diabetes with dominant insulin resistance and relative insulin deficiency.</div>
                     
                     
+                    
                     <ul class="subtype-children">
                         
                         <li>lipoatrophic diabetes</li>
@@ -2867,6 +2917,7 @@
                     </div>
                     
                     <div class="item-desc">Pregnancy-associated diabetes characterized by glucose intolerance first emerging or first recognized during pregnancy, typically driven by pregnancy-induced insulin resistance with inadequate beta-cell compensation.</div>
+                    
                     
                     
                     
@@ -2969,6 +3020,7 @@
                     </div>
                     
                     <div class="item-desc">Inherited single-gene forms of diabetes spanning neonatal diabetes, MODY subtypes, and related syndromic/mitochondrial presentations.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3082,6 +3134,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3109,6 +3162,7 @@
                     </div>
                     
                     <div class="item-desc">Recently formalized diabetes class (often framed as malnutrition-related diabetes) with insulin-deficient phenotypes in undernourished populations, while some contemporary literature frames overlapping cases as pancreatogenic fibro-inflammatory disease; classification boundaries remain under active debate.</div>
+                    
                     
                     
                     
@@ -3214,6 +3268,7 @@
                     
                     
                     
+                    
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3279,6 +3334,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3309,6 +3365,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3336,6 +3393,7 @@
                     </div>
                     
                     <div class="item-desc">Monogenic diabetes presenting in early infancy.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3447,6 +3505,7 @@
                     
                     
                     
+                    
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3507,6 +3566,7 @@
                     
                     
                     
+                    
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3564,6 +3624,7 @@
                     </div>
                     
                     <div class="item-desc">Monogenic diabetes group classically characterized by early-onset non-ketotic diabetes.</div>
+                    
                     
                     
                     <ul class="subtype-children">
@@ -3659,6 +3720,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3686,6 +3748,7 @@
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3719,6 +3782,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3746,6 +3810,7 @@
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3779,6 +3844,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3806,6 +3872,7 @@
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3839,6 +3906,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3866,6 +3934,7 @@
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3899,6 +3968,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3926,6 +3996,7 @@
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -3959,6 +4030,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -3986,6 +4058,7 @@
                     </div>
                     
                     <div class="item-desc">MONDO-defined MODY subtype.</div>
+                    
                     
                     
                     
@@ -4019,6 +4092,7 @@
                     
                     
                     
+                    
     
     
                 </div>
@@ -4046,6 +4120,7 @@
                     </div>
                     
                     <div class="item-desc">Syndromic form overlapping MODY-related monogenic diabetes spectrum.</div>
+                    
                     
                     
                     
@@ -4123,6 +4198,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4269,6 +4345,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4386,6 +4463,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4466,6 +4544,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4586,6 +4665,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4660,6 +4740,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4760,6 +4841,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4910,6 +4992,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4984,6 +5067,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5121,6 +5205,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5205,6 +5290,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5302,6 +5388,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5393,6 +5480,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5473,6 +5561,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5511,6 +5600,7 @@
                 <div class="item-name">Increased lipolysis and ketogenesis</div>
                 
                 <div class="item-desc">Severe insulin deficiency drives adipose lipolysis and hepatic ketone body production, predisposing to ketoacidosis.</div>
+                
                 
                 
                 
@@ -5601,6 +5691,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5667,6 +5758,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5727,6 +5819,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5813,6 +5906,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -5910,6 +6004,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6001,6 +6096,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6082,6 +6178,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6169,6 +6266,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6253,6 +6351,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6327,6 +6426,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6427,6 +6527,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6501,6 +6602,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6581,6 +6683,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6655,6 +6758,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6746,6 +6850,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -6857,6 +6962,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -7002,6 +7108,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -9299,17 +9406,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Insulin therapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000259" target="_blank">
-                            MAXO:0000259
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">insulin treatment</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000259" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000259</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         insulin
@@ -9365,17 +9481,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Metformin
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         metformin
@@ -9431,14 +9556,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dietary intervention
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000088" target="_blank">
-                            MAXO:0000088
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">dietary intervention</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000088" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000088</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -9505,14 +9639,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Physical activity increase
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000065" target="_blank">
-                            MAXO:0000065
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">aerobic exercise therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000065" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000065</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -9579,17 +9722,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     GLP-1 receptor agonists
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         semaglutide
@@ -9652,17 +9804,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     SGLT2 inhibitors
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         empagliflozin
@@ -9732,17 +9893,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     GLP-1/GIP dual agonists
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         tirzepatide
@@ -9798,17 +9968,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Teplizumab immunotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         monoclonal antibody
@@ -9864,8 +10043,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Blood glucose monitoring
-                    
                 </div>
+                
                 
                 
                 
@@ -9912,8 +10091,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Continuous glucose monitoring
-                    
                 </div>
+                
                 
                 
                 
@@ -11482,7 +11661,7 @@
                 <span class="card-count">4</span>
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-pancreatic-beta-cell-genome-scale-metabolic-model">
                 <div class="item-name">
                     Pancreatic Beta Cell Genome-Scale Metabolic Model
                     
@@ -11501,6 +11680,7 @@
                     
                     
                 </div>
+                
                 
                 
     
@@ -11543,7 +11723,7 @@
     
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-whole-body-human-metabolic-model-for-diabetes">
                 <div class="item-name">
                     Whole-Body Human Metabolic Model for Diabetes
                     
@@ -11566,6 +11746,7 @@
                     <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: Recon3D</span>
                     
                 </div>
+                
                 
                 
     
@@ -11608,7 +11789,7 @@
     
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-agora2-gut-microbiome-metabolic-models">
                 <div class="item-name">
                     AGORA2 Gut Microbiome Metabolic Models
                     
@@ -11629,6 +11810,7 @@
                     
                     
                 </div>
+                
                 
                 
     
@@ -11671,7 +11853,7 @@
     
             </div>
             
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-micom-community-metabolic-model">
                 <div class="item-name">
                     MICOM Community Metabolic Model
                     
@@ -11692,6 +11874,7 @@
                     
                     
                 </div>
+                
                 
                 
     
