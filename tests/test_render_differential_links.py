@@ -24,7 +24,9 @@ def test_render_differential_links_to_local_disorder_page(tmp_path: Path) -> Non
             "differential_diagnoses": [
                 {
                     "name": "Rosacea",
-                    "disease_term": {"term": {"id": "MONDO:0000002", "label": "rosacea"}},
+                    "disease_term": {
+                        "term": {"id": "MONDO:0000002", "label": "rosacea"}
+                    },
                 }
             ],
         },
@@ -102,7 +104,9 @@ def test_render_differential_skips_ambiguous_resolution(tmp_path: Path) -> None:
         tmp_path / "Rosacea_Alternate.yaml",
         {
             "name": "Rosacea Alternate",
-            "disease_term": {"term": {"id": "MONDO:0000002", "label": "rosacea alternate"}},
+            "disease_term": {
+                "term": {"id": "MONDO:0000002", "label": "rosacea alternate"}
+            },
         },
     )
 
@@ -272,8 +276,10 @@ def test_render_subtype_links_to_local_disorder_page(tmp_path: Path) -> None:
     assert "Not Yet Curated" not in html
 
 
-def test_render_subtype_highlights_missing_disorder_page(tmp_path: Path) -> None:
-    """Subtype disease names should be flagged when MONDO has no local page."""
+def test_render_subtype_keeps_missing_disorder_page_as_external_link(
+    tmp_path: Path,
+) -> None:
+    """Subtype MONDO terms should remain external-only when no local page exists."""
     acne_path = tmp_path / "Acne_Vulgaris.yaml"
     _write_disorder(
         acne_path,
@@ -295,7 +301,7 @@ def test_render_subtype_highlights_missing_disorder_page(tmp_path: Path) -> None
     render_disorder(acne_path, output_path=output_path)
 
     html = output_path.read_text()
-    assert "missing-disease-name" in html
-    assert "Not Yet Curated" in html
-    assert "missing-ontology-link" in html
+    assert 'class="missing-disease-name"' not in html
+    assert "Not Yet Curated" not in html
+    assert 'class="subtype-term-link missing-ontology-link"' not in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
