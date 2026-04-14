@@ -2,7 +2,7 @@
 
 **Query:** Pathophysiology and clinical mechanisms of Brugada syndrome. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.
 **Provider:** asta
-**Generated:** 2026-04-13T13:54:04.195672
+**Generated:** 2026-04-14T00:42:58.164436
 
 1. Richa Tambi, Reem Abdel Hameid, Asma R. Bankapur, Nasna Nassir, G. Begum et al. (2021). Single Cell Transcriptomics Trajectory and Molecular Convergence of Clinically Relevant Mutations in Brugada Syndrome.. American journal of physiology. Heart and circulatory physiology. https://www.semanticscholar.org/paper/4458fe1e74cb382da1dc5c596ed05dee7dbae385
 2. E. Selga, F. Sendfeld, R. Martínez-Moreno, Claire N. Medine, O. Tura-Ceide et al. (2018). Sodium channel current loss of function in induced pluripotent stem cell-derived cardiomyocytes from a Brugada syndrome patient. Journal of Molecular and Cellular Cardiology. https://www.semanticscholar.org/paper/58904fb4a8370cf03af046e5fa2828965e5dbf62
