@@ -566,6 +566,7 @@ enums:
     reachable_from:
       source_nodes:
         - NCIT:C15697  ## Treatment Regimen
+        - NCIT:C62634  ## Chemo/immuno/hormone Therapy Regimen
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -644,6 +645,38 @@ enums:
       source_nodes:
         - MONDO:0000001  ## disease
         - MONDO:0020573  ## inherited disease susceptibility
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  NCITDiseaseOrFindingTerm:
+    description: >-
+      An NCIT disease-oriented oncology term used for disease-level cancer
+      mappings and subtype grounding, including neoplasm-by-morphology,
+      special-category neoplasm, and clinically used disease/finding boundary
+      concepts.
+    comments:
+      - Prefer MONDO for disease_term and subtype_term when an appropriate MONDO class exists.
+      - Use this range for supplemental NCIT disease mappings on cancer entries.
+      - Use this range for cancer subtype grounding when MONDO lacks the needed oncology refinement.
+      - Broad rooting across NCIT disease and neoplasm branches accommodates clinically important labels such as CMML-0/1/2.
+    reachable_from:
+      source_nodes:
+        - NCIT:C2991  ## Disease or Disorder
+        - NCIT:C4741  ## Neoplasm by Morphology
+        - NCIT:C7062  ## Neoplasm by Special Category
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
+  DiseaseOrSubtypeTerm:
+    description: >-
+      A MONDO disease term or NCIT cancer disease/subtype term used to ground a
+      disease subtype or cancer facet value.
+    reachable_from:
+      source_nodes:
+        - MONDO:0000001  ## disease
+        - NCIT:C2991  ## Disease or Disorder
+        - NCIT:C4741  ## Neoplasm by Morphology
+        - NCIT:C7062  ## Neoplasm by Special Category
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -1507,8 +1540,11 @@ slots:
       - MAXO includes diagnostic procedures under medical actions
       - Use qualifiers with UBERON terms to specify anatomical location (e.g., right heart catheterization)
   subtype_term:
-    description: The MONDO term for a disease subtype
-    range: DiseaseDescriptor
+    description: >-
+      The ontology term grounding this subtype or cancer facet value. Prefer
+      MONDO when available; use NCIT for oncology-specific subtype refinement
+      when needed.
+    range: SubtypeDescriptor
     inlined: true
   infectious_agent_term:
     description: The NCBITaxon term for this infectious agent
@@ -2100,7 +2136,7 @@ slots:
     range: Definition
     inlined_as_list: true
   mappings:
-    description: External identifier mappings for this disease (SSSOM-inspired)
+    description: External identifier mappings for this disease or subtype (SSSOM-inspired)
     range: DiseaseMappings
     inlined: true
   # Classification assignment slots
@@ -2147,6 +2183,11 @@ slots:
     description: MONDO disease ontology mappings for this disease
     multivalued: true
     range: MondoMapping
+    inlined_as_list: true
+  ncit_mappings:
+    description: NCIT disease, subtype, or disease/finding mappings
+    multivalued: true
+    range: NCITMapping
     inlined_as_list: true
   mapping_predicate:
     description: Relationship between this disease and the mapped term (e.g., skos:exactMatch)
@@ -2647,6 +2688,19 @@ classes:
             range: DiseaseTerm
             obligation_level: REQUIRED
 
+  SubtypeDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for disease subtypes, bindable to MONDO disease terms or
+      NCIT oncology subtype terms.
+    slot_usage:
+      term:
+        description: MONDO or NCIT term reference for a subtype/facet value
+        bindings:
+          - binds_value_of: id
+            range: DiseaseOrSubtypeTerm
+            obligation_level: REQUIRED
+
   BiomarkerDescriptor:
     is_a: Descriptor
     description: A descriptor for biomarkers, bindable to NCIT
@@ -2994,6 +3048,7 @@ classes:
       - base_model
       - perturbations
       - variables
+      - modeled_mechanisms
       - model_software
       - model_format
       - publication
@@ -3083,6 +3138,7 @@ classes:
       - name
       - display_name
       - subtype_term
+      - mappings
       - description
       - evidence
       - review_notes
@@ -3768,6 +3824,16 @@ classes:
             range: DiseaseTerm
             obligation_level: REQUIRED
 
+  NCITMapping:
+    is_a: TermMapping
+    description: NCIT disease, subtype, or disease/finding ontology mapping for cancer entries
+    slot_usage:
+      term:
+        bindings:
+          - binds_value_of: id
+            range: NCITDiseaseOrFindingTerm
+            obligation_level: REQUIRED
+
   MappingConsistency:
     description: Consistency assertion for a mapping relative to another source
     slots:
@@ -3783,11 +3849,12 @@ classes:
         required: true
 
   DiseaseMappings:
-    description: Container for external identifier mappings for a disease
+    description: Container for external identifier mappings for a disease or subtype
     slots:
       - icd10cm_mappings
       - icd11f_mappings
       - mondo_mappings
+      - ncit_mappings
 
   ConditionDescriptor:
     is_a: Descriptor
