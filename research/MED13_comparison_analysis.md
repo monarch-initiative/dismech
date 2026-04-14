@@ -1,89 +1,195 @@
-# MED13 comparison analysis
+# MED13 three-way comparison analysis
 
 Date: 2026-04-14
-PR under review: https://github.com/monarch-initiative/dismech/pull/1304
-Compared sources:
-- Nico PR branch `kb/disorders/MED13_Syndrome.yaml`
-- Nico PR branch `research/MED13_Syndrome-deep-research-perplexity.md`
-- Our prior research docs in `/Users/cjm/worktrees/dismech-med13/research/`
-  - `MED13-related_Neurodevelopmental_Disorder-deep-research-codex.md`
-  - `MED13-related_Neurodevelopmental_Disorder-deep-research-codex.md.citations.md`
-  - `MED13-related_Neurodevelopmental_Disorder-curation-notes.md`
+
+## What Is Being Compared
+
+This is now a **three-way** comparison among three different kinds of MED13 work:
+
+1. **Nico PR `#1304`**
+   - `kb/disorders/MED13_Syndrome.yaml`
+   - `research/MED13_Syndrome-deep-research-perplexity.md`
+   - This is a **standalone MED13 disorder YAML proposal**.
+
+2. **Our historical MED13 research branch**
+   - branch: `research/med13`
+   - now exposed as draft PR `#1320`
+   - files:
+     - `research/MED13-related_Neurodevelopmental_Disorder-deep-research-codex.md`
+     - `research/MED13-related_Neurodevelopmental_Disorder-deep-research-codex.md.citations.md`
+     - `research/MED13-related_Neurodevelopmental_Disorder-curation-notes.md`
+   - This is **docs-only research and curation guidance**, not a YAML entry.
+
+3. **What is actually merged on `main`**
+   - `kb/disorders/Mediator_Complex_Neurodevelopmental_Disorder.yaml`
+   - This is **not** a standalone MED13 disorder entry.
+   - It is a **grouping / mediatoropathy entry** that already contains:
+     - a MED13 subtype anchored to `MONDO:0032485`
+     - MED13-relevant phenotype contexts
+     - a MED13-specific cortical neuron pathophysiology node
 
 ## Bottom line
 
-The two efforts are substantially aligned on the high-level disease story: MED13 is a Mediator/CDK8 kinase-module disease gene, and the core syndrome is a dominantly inherited neurodevelopmental disorder with intellectual disability, developmental delay, speech impairment, hypotonia, and behavioral features.
+The original comparison I wrote was incomplete because it compared Nico's PR against our older MED13 research docs, not against the already merged mediator-complex entry on `main`.
 
-The main difference is emphasis. Nico's YAML is broader on observed human phenotype coverage and already shaped like a dismech entry. Our earlier research is narrower, more conservative on phenotype boundaries, and stronger on the disease anchor decision and on a cortical-neurodevelopment mechanism trunk. The best merged entry would keep Nico's human phenotype breadth and genetics/treatment scaffolding, but replace the disease mapping and re-center the pathophysiology on the more specific cortical-development framing from our research.
+Once the merged entry is included, the picture changes:
 
-## 1. Mechanism framing
+- Our historical `research/med13` branch was **not orphaned**. It was a pushed branch with docs-only MED13 research, and it is now visible as PR `#1320`.
+- Much of the strongest content from that historical branch has **already been absorbed into the merged mediator-complex grouping entry** on `main`.
+- The real remaining delta is therefore mostly between:
+  - Nico's **standalone MED13 YAML**
+  - the **already merged grouped mediatoropathy model**
 
-| Aspect | Nico PR YAML | Our prior research | Comparison |
+So the comparison is not just "Nico vs us." It is really:
+
+- **Nico's standalone MED13 entry**
+- **our older docs-only standalone thinking**
+- **the current grouped implementation already merged into the knowledge base**
+
+## What each artifact is trying to do
+
+| Artifact | Primary goal | Strength | Limitation |
 |---|---|---|---|
-| Core disease concept | "MED13 syndrome" as a rare AD neurodevelopmental disorder | "MED13-related neurodevelopmental disorder" / `intellectual developmental disorder 61` | Similar syndrome concept, but our framing is more ontology-specific |
-| Primary mechanistic center | Disrupted Mediator complex transcriptional regulation | Dosage-sensitive Mediator kinase-module dysfunction causing developmental transcriptional dysregulation | Strong overlap |
-| Downstream biological specificity | Generic neurodevelopment and transcription | Explicit cortical neuron migration, contralateral projection, dendritic maturation, and cortical circuit formation | Our framing is more mechanistically specific |
-| Variant-specific mechanism | Separate phosphodegron / SCF-Fbw7 turnover node | Missense-vs-truncating mechanism treated as unresolved; phosphodegron mechanism acknowledged but not made the central trunk | Nico is stronger on allele-specific detail |
-| Phenotype-boundary stance | More inclusive phenotype inventory | Conservative core-vs-spectrum split; severe cardiac/mitochondrial findings treated as possible outliers or allele-specific extensions | Our framing is more cautious |
+| Nico PR `#1304` | Create a standalone MED13 disease YAML | Broad MED13-specific phenotype coverage; genetics/treatments scaffolded | Disease mapping is off; mechanism is less specific than current `main` |
+| Historical `research/med13` branch / PR `#1320` | Establish anchor choice and mechanism framing for MED13 | Strong on disease identity, boundary-setting, and cortical-development mechanism | Docs only; not YAML-grade; some repo-state assumptions are now stale |
+| Merged `Mediator_Complex_Neurodevelopmental_Disorder.yaml` on `main` | Represent mediatoropathies as a grouped disorder with subtypes | Already integrates MED13 subtype and MED13 cortical-neuron mechanism into the knowledge base | Not a standalone MED13 entry; some MED13-specific phenotype granularity is flattened into the group model |
 
-### Interpretation
+## Mechanism framing
 
-Both approaches agree that the disease should be modeled as a transcriptional-regulation disorder in the Mediator kinase module rather than as a primary mitochondrial disorder or isolated malformation syndrome.
+### Nico PR `#1304`
 
-The strongest difference is that our prior work adds a sharper causal chain:
+Nico's MED13 entry uses two main mechanism nodes:
+
+1. `Disrupted Mediator complex transcriptional regulation`
+2. `MED13 phosphodegron disruption and impaired protein turnover`
+
+This is directionally right. It captures:
+
+- Mediator / CDK8 kinase module biology
+- RNA polymerase II transcription
+- an allele-specific phosphodegron / SCF-Fbw7 degradation hypothesis
+
+What it does **not** do well is localize the disease trunk downstream into specific neurodevelopmental processes such as cortical neuron migration, callosal projection, and dendritic maturation.
+
+### Historical `research/med13` branch / PR `#1320`
+
+Our older research branch framed MED13 as:
 
 1. heterozygous pathogenic `MED13` variation
-2. altered MED13 dosage/function in the `MED12`-`MED13`-`CDK8`-`CCNC` module
-3. dysregulated RNA polymerase II-associated developmental transcription
-4. impaired cortical neuron migration/projection/maturation
+2. altered dosage/function in the `MED12`-`MED13`-`CDK8`-`CCNC` module
+3. dysregulated developmental transcription
+4. impaired cortical neuron migration, projection, and maturation
 5. core neurodevelopmental phenotypes
 
-Nico's YAML instead uses:
+This was more specific than Nico's YAML on the **disease trunk**. It also explicitly argued that:
 
-1. disrupted Mediator complex transcriptional regulation
-2. phosphodegron disruption and impaired protein turnover
-3. clinical phenotypes
+- MED13 should not be framed as a primary mitochondrial disease
+- severe cardiac / mitochondrial presentations should be treated cautiously
+- the strongest first mechanism is cortical-developmental, not a broad phenotype list
 
-That second Nico node is useful, but it reads more like a variant-class branch than the universal disease trunk.
+### Merged `main` entry
 
-## 2. Evidence overlap and divergence
+The merged mediator-complex entry already contains much of this historical framing:
 
-### Overlap
+- `CDK8 Kinase Module Dysfunction`
+- `Neurodevelopmental Transcriptional Dysregulation`
+- `Cortical Neuron Migration and Projection Defects`
 
-Both efforts rely on the same core human disease papers:
+It also already includes the key MED13 model-organism evidence:
 
-- `PMID:29740699` - syndrome-defining cohort
-- `PMID:36087421` - epileptic encephalopathy / infantile spasms spectrum expansion
-- `PMID:38745205` - severe congenital-anomaly case
-- `PMID:41561257` - hearing-loss case and truncating-variant haploinsufficiency interpretation
+- `PMID:41663567` supporting impaired radial migration, contralateral projection, and dendritic complexity in cortical neurons
 
-### Nico-only evidence in the YAML
+### Mechanism comparison
 
-- `PMID:33258286` - Kabuki-like / dysmorphism-oriented case framing
-- `PMID:33390853` - review on MED13 in cardiac disease, used for structural/phosphodegron mechanism context
+| Aspect | Nico PR `#1304` | Historical `research/med13` | Merged `main` entry |
+|---|---|---|---|
+| Mediator / CDK8 module framing | Yes | Yes | Yes |
+| Cortical neuron migration / projection specificity | No | Yes | Yes |
+| Phosphodegron / turnover mechanism | Yes | Acknowledged but not central | No explicit dedicated MED13 phosphodegron node |
+| Shared mediatoropathy framing | No | No, disease-specific | Yes |
+
+## Disease anchoring
+
+This is the clearest modeling difference.
+
+### Nico PR `#1304`
+
+Uses:
+
+- `disease_term: MONDO:0001071`
+- label: `intellectual disability`
+
+This is too broad for a MED13 disorder entry. `MONDO:0001071` is a parent disease class, not the MED13-specific disease concept.
+
+### Historical `research/med13`
+
+Argued for:
+
+- `MONDO:0032485` `intellectual developmental disorder 61`
+
+and documented the split between:
+
+- G2P: MED13-specific disorder anchor `MONDO:0032485`
+- ClinGen cache: broader umbrella `MONDO:0100038` `complex neurodevelopmental disorder`
+
+### Merged `main` entry
+
+The grouped mediatoropathy entry already uses this distinction correctly at the subtype level:
+
+- MED13 subtype term: `MONDO:0032485`
+
+At the top level, the grouped entry uses the broader placeholder:
+
+- `MONDO:0002320` `congenital nervous system disorder`
+
+That top-level mapping is broad, but in this case it is a deliberate compromise because the notes explicitly say a dedicated MONDO grouping class is pending.
+
+## Evidence overlap and divergence
+
+### Shared across Nico PR and historical branch
+
+- `PMID:29740699`
+- `PMID:36087421`
+- `PMID:38745205`
+- `PMID:41561257`
+
+These remain the core human MED13 evidence set.
+
+### Nico-only evidence in the standalone YAML
+
+- `PMID:33258286` - Kabuki-like / dysmorphism-focused case framing
+- `PMID:33390853` - review used for cardiac/phosphodegron mechanism context
 - `PMID:38854223` - ASD-focused case report
-- `PMID:41195223` - later review/family report used for prevalence and inheritance summary
+- `PMID:41195223` - later review / family report used for rarity and inheritance summary
 
-### Our-only evidence or source context
+### Historical `research/med13` branch additions
 
-- `PMID:41130977` - severe case with infantile spasms, cardiomyopathy, hepatomegaly, and mitochondrial abnormalities; our notes treat this as important but not yet a safe core-mechanism anchor
-- DOI `10.1038/s42003-026-09704-w` - cortical-neuron mechanistic study linking Med13 loss to radial migration and contralateral projection defects via `PLXNA4`
-- Local repo context that Nico's YAML does not use:
-  - `docs/research/g2p_all_genes_row_triage_2026_03_28.tsv` identifies `MED13-related neurodevelopmental disorder` at `MONDO:0032485`
-  - `cache/clingen/gene_validity.csv` points to broader `MONDO:0100038` `complex neurodevelopmental disorder`
+- `PMID:41130977` - severe case with mitochondrial/cardiomyopathy/hepatomegaly features, treated cautiously
+- DOI `10.1038/s42003-026-09704-w` - cortical-neuron mechanistic paper
+- repo-specific G2P / ClinGen context
 
-### Assessment
+### What merged `main` already uses
 
-Nico's evidence set is better for expanding the human phenotype list. Our evidence set is better for deciding how to anchor and structure the disease mechanistically.
+The merged grouped entry already absorbed several of the most important MED13-specific citations, including:
 
-## 3. Phenotype, cell type, and biological process coverage
+- `PMID:29740699`
+- `PMID:36087421`
+- `PMID:38745205`
+- `PMID:41195223`
+- `PMID:41663567`
+- `PMID:33258286`
 
-### Nico PR YAML
+That means the strongest historical MED13 thinking is no longer only in the old docs branch. A substantial fraction is already in production content on `main`.
 
-Phenotypes covered:
+## Phenotype coverage
+
+### Nico PR `#1304`
+
+Nico's standalone MED13 YAML is stronger on **MED13-specific phenotype granularity**. It explicitly models:
+
 - intellectual disability
 - global developmental delay
-- delayed speech and language development
+- speech/language delay
 - hypotonia
 - facial dysmorphism
 - congenital heart defects
@@ -96,137 +202,162 @@ Phenotypes covered:
 - sensorineural hearing loss
 - Duane anomaly
 
-Cell types covered:
-- neuron
+It also includes a genetics section and supportive-care treatment placeholders.
 
-Biological processes covered:
-- transcription by RNA polymerase II
-- nervous system development
-- SCF-dependent proteasomal ubiquitin-dependent protein catabolic process
-- protein ubiquitination
+### Historical `research/med13`
 
-### Our prior research
+Our older docs separated phenotypes into:
 
-Phenotypes explicitly recommended as core:
-- developmental delay / global developmental delay
-- intellectual disability
-- speech and language impairment
+- **core**: ID, developmental delay, speech impairment, hypotonia, behavioral/autism-spectrum features
+- **secondary/spectrum-expanding**: seizures, heart disease, hearing loss, ocular findings, corpus callosum abnormalities, dysmorphism, growth issues
+
+This was a cautious framing document rather than a complete phenotype inventory.
+
+### Merged `main` entry
+
+The grouped mediatoropathy entry already covers many MED13-relevant phenotypes, but usually in one of two ways:
+
+1. as shared group phenotypes with subtype contexts
+2. as broader mediatoropathy phenotype classes with MED13 notes
+
+For MED13 specifically, `main` already carries or references:
+
+- speech and language delay
+- autism spectrum disorder
+- ADHD
 - hypotonia
-- autism-spectrum or behavioral abnormalities
-
-Phenotypes treated as secondary or spectrum-expanding:
-- seizures, including infantile spasms
-- congenital heart disease or cardiomyopathy
+- seizures
 - hearing impairment
-- ocular abnormalities
 - corpus callosum abnormalities
-- growth restriction or feeding difficulty
-- mild dysmorphic facial features
+- ocular anomalies
+- congenital heart defects
+- growth restriction
+- skeletal involvement
+- constipation / obstipation
 
-Cell types proposed:
-- neural progenitor cell
-- neuron
-- cerebral cortex neuron
+### Phenotype comparison
 
-Biological processes proposed:
-- regulation of transcription by RNA polymerase II
-- cerebral cortex development
-- neuron migration
-- neuron projection development
-- dendrite development
+| Feature | Nico PR `#1304` | Historical `research/med13` | Merged `main` entry |
+|---|---|---|---|
+| MED13-specific granularity | Strongest | Moderate | Moderate |
+| Core-vs-spectrum distinction | Weak | Strongest | Moderate |
+| Shared mediatoropathy context | None | None | Strongest |
+| Individual rare ocular findings like Duane anomaly / optic nerve abnormalities | Explicit | Only as grouped ocular expansion | Mostly folded into broader ocular / phenotype-context framing |
 
-### Comparison
+## What Nico still contributes beyond current `main`
 
-Nico covers more observed phenotype breadth. Our research covers more disease-relevant cell and process specificity.
+Even after looking at the merged grouped entry, Nico's PR still contributes real information:
 
-If the goal is a robust dismech pathophysiology model rather than a phenotype checklist, the missing pieces in Nico's YAML are not more symptoms; they are the cortical-neurodevelopment nodes and cell/process annotations that connect MED13 dysfunction to the phenotype trunk.
+1. **A standalone MED13 YAML shape**
+   - If the repo eventually wants a dedicated MED13 disease entry, Nico's PR is closer to that artifact type than the grouped mediatoropathy entry.
 
-## 4. What Nico has that ours does not
+2. **A dedicated phosphodegron / protein-turnover branch**
+   - Current `main` does not have an explicit MED13 phosphodegron node.
 
-- A nearly complete first-pass dismech entry with genetics and treatment sections already scaffolded.
-- Better direct coverage of later human phenotype-expansion papers.
-- Explicit supportive-care/treatment placeholders:
-  - speech therapy
-  - genetic counseling
-  - supportive care
-- A useful variant-specific phosphodegron / Fbw7 turnover hypothesis node.
-- Cleaner phenotype-level evidence blocks for ASD, Duane anomaly, optic nerve abnormalities, and hearing loss.
+3. **More explicit MED13-specific phenotype naming**
+   - especially `sensorineural hearing loss`, `optic nerve abnormalities`, `Duane anomaly`, and a direct standalone MED13 phenotype list
 
-## 5. What ours has that Nico does not
+4. **Supportive-care treatment placeholders**
+   - speech therapy
+   - genetic counseling
+   - supportive care
 
-- A defendable disease anchor strategy:
-  - use `MONDO:0032485` `intellectual developmental disorder 61`
-  - keep `MONDO:0100038` `complex neurodevelopmental disorder` only as broader ClinGen context
-- Stronger mechanistic specificity around cortical development and neuronal connectivity.
-- Explicit recognition that severe cardiac / mitochondrial presentations may be spectrum extensions or allele-specific outliers, not the core default disease frame.
-- Candidate cell types and processes that are much closer to how the ideal pathophysiology graph should be structured.
-- Explicit preservation of unresolved modeling decisions for future curators.
+## What current `main` already covers that reduces the novelty of Nico's PR
 
-## 6. Quality issues
+The merged mediator-complex entry already captures several points that originally came from the older MED13 research effort and that now matter more than Nico's current generic transcription node:
 
-### Nico YAML: substantive issues
+1. **Correct MED13 subtype anchor**
+   - `MONDO:0032485`
 
-1. **Disease ontology mapping is too broad and likely wrong for the disorder entry.**
-   The YAML uses `MONDO:0001071` `intellectual disability`, which is a broad parent concept, not the MED13-specific disease. Our prior research and the local G2P row both point to `MONDO:0032485` `intellectual developmental disorder 61` as the better disease anchor.
+2. **A better disease trunk**
+   - CDK8 kinase module dysfunction
+   - neurodevelopmental transcriptional dysregulation
+   - cortical neuron migration and projection defects
 
-2. **The mechanism is under-specified downstream of Mediator dysfunction.**
-   The YAML captures "transcriptional regulation" and a phosphodegron node, but it misses the stronger cortical-neurodevelopment bridge from our prior research: cortical neuron migration, projection, and dendritic maturation.
+3. **MED13-specific cortical-development evidence**
+   - `PMID:41663567`
 
-3. **Frequency bands may be more confident than the supplied evidence snippets justify.**
-   Several frequencies are plausible, but the quoted snippets often support association only, not the exact `VERY_FREQUENT` / `FREQUENT` / `OCCASIONAL` band.
+4. **Subtype-aware phenotype modeling**
+   - MED13 as one subtype among overlapping mediatoropathies rather than an isolated entry with no system-level context
 
-4. **Some phenotype mappings are broad parent terms.**
-   Examples include `Facial dysmorphism` mapped to `HP:0000271` `Abnormality of the face` and `Congenital heart defects` mapped to `HP:0001627` `Abnormal heart morphology`. These are not necessarily invalid, but they leave specificity on the table.
+## Quality issues
 
-### Nico PR branch: research markdown issues
+### Nico PR `#1304`
 
-The accompanying `research/MED13_Syndrome-deep-research-perplexity.md` is not reliable provenance in its current form. It contains:
+1. **Wrong / too-broad disease mapping**
+   - `MONDO:0001071` should not anchor a MED13 disorder entry.
 
-- large blocks of prompt/template boilerplate
-- a wrong MONDO identifier: `MONDO:0700197`, which is `porcine leukemia`
-- a wrong HGNC identifier: `HGNC:6974`, which is `MDM4`, not `MED13`
+2. **Mechanism is less specific than current `main`**
+   - The merged grouped entry already has a better MED13 cortical-neuron mechanism trunk.
 
-Those problems do not all appear in the YAML itself, but they are important because they show the branch's research artifact is contaminated and should not be treated as trustworthy support for future curation.
+3. **Frequency confidence may exceed snippet support**
+   - Several bands look plausible, but many evidence snippets support association more directly than exact frequency bins.
 
-### Our prior research: limitations
+4. **The branch research markdown is unreliable**
+   - `research/MED13_Syndrome-deep-research-perplexity.md` contains template boilerplate and wrong identifiers, including:
+     - `MONDO:0700197` = porcine leukemia
+     - `HGNC:6974` = MDM4, not MED13
 
-1. **It is strategy-grade, not YAML-grade.**
-   Our documents do not yet contain validator-ready evidence snippets, final ontology mappings, or treatment sections.
+### Historical `research/med13` branch / PR `#1320`
 
-2. **Phenotype breadth is intentionally conservative.**
-   That makes the disease trunk cleaner, but it means Nico's YAML is better than our notes at capturing the broader published human phenotype spectrum.
+1. **Docs only, no YAML**
+   - It is research-grade, not ingest-ready.
 
-3. **The strongest new mechanistic paper still needs dismech-style evidence packaging.**
-   We cite the 2026 cortical-neuron study by DOI and use it conceptually, but it still needs exact evidence extraction and formal integration into a future YAML entry.
+2. **Repo-state assumptions are now stale**
+   - For example, the docs say the repo had no relevant disorder entry; that is no longer true because the mediator-complex grouping entry is now merged.
 
-## 7. Best synthesis
+3. **Standalone-entry bias**
+   - The docs assume the right destination is a MED13-specific first disease anchor, whereas the repo has since implemented a grouped mediatoropathy strategy.
 
-The ideal merged MED13 entry would look like this:
+### Merged `main` entry
 
-1. Use `MONDO:0032485` `intellectual developmental disorder 61` as the disease anchor, with a note that ClinGen validity sits on broader `MONDO:0100038`.
-2. Keep Nico's genetics section, including de novo predominance, truncating-versus-missense spectrum, and haploinsufficiency support.
-3. Keep Nico's broad human phenotype coverage, but split it into:
-   - core phenotypes: ID, developmental delay, speech/language delay, hypotonia, behavioral/autism-spectrum features
-   - secondary/spectrum phenotypes: seizures, heart disease, hearing loss, optic/ocular findings, corpus callosum abnormalities, microcephaly, Duane anomaly
-4. Replace the current generic pathophysiology center with a more specific trunk:
-   - MED13 kinase-module dysfunction
-   - dysregulated developmental transcription
-   - impaired cortical neuron migration/projection/dendritic maturation
-   - neurodevelopmental phenotypes
-5. Keep the phosphodegron / impaired turnover mechanism, but clearly position it as an allele-specific or missense-enriched branch rather than the whole disease mechanism.
-6. Add richer cell/process annotations from our research:
-   - cell types: neural progenitor cell, neuron, cerebral cortex neuron
-   - processes: regulation of transcription by RNA polymerase II, cerebral cortex development, neuron migration, neuron projection development, dendrite development
-7. Use Nico's treatment placeholders as supportive management content.
-8. Revisit phenotype frequency tags only where there is direct quantitative support.
+1. **Not a standalone MED13 disease**
+   - This is a strength for grouping, but a limitation if users want direct MED13 disease pages and YAMLs.
+
+2. **Some MED13-specific details are flattened into the group model**
+   - Nico's dedicated phenotype list is more immediately readable as a MED13-centered artifact.
+
+3. **Top-level MONDO term is broad**
+   - but this appears intentional and documented pending a proper grouping term.
+
+## Best synthesis
+
+The best synthesis depends on the modeling direction the repo wants.
+
+### If the grouped mediatoropathy model remains the preferred design
+
+Then the best next step is **not** to merge Nico's PR as-is. It is to mine it for additions to the existing grouped entry:
+
+- add a MED13-specific phosphodegron / turnover branch if desired
+- consider whether MED13-specific treatment/supportive-care content belongs in subtype contexts
+- pull in any MED13 phenotype granularity currently missing from `main`
+
+### If the repo wants a future standalone MED13 entry
+
+Then the ideal standalone MED13 YAML would combine:
+
+- Nico's phenotype breadth and treatment placeholders
+- the historical branch's anchor decision and core-vs-spectrum caution
+- the merged `main` entry's better cortical-development pathophysiology
+
+In that case the standalone entry should:
+
+1. use `MONDO:0032485`
+2. keep the cortical neuron migration / projection / dendrite trunk
+3. retain the phosphodegron node as an allele-specific branch
+4. clearly distinguish core phenotypes from spectrum-expanding ones
+5. avoid relying on the contaminated Perplexity research markdown
 
 ## Final assessment
 
-Nico's PR is not redundant in the sense of "nothing to learn here." It contributes real value on phenotype breadth, genetics scaffolding, and practical entry completeness. Our earlier research contributes the stronger disease anchor, the stronger mechanistic trunk, and the more careful boundary-setting around what is core versus spectrum-extending.
+The important clarification is that we do **not** have just a duplicate standalone MED13 effort versus another duplicate standalone MED13 effort.
 
-If we merge the strongest parts of both, the result should be a MED13 entry that is:
+We have:
 
-- anchored to the right disease term
-- broader than our initial conservative notes on phenotype coverage
-- more mechanistically specific than Nico's current YAML
-- explicit about unresolved allele-specific and spectrum-boundary questions
+- a historical docs-only MED13 branch, now transparent as PR `#1320`
+- a merged grouped mediatoropathy entry on `main` that already absorbed much of that historical work
+- Nico's standalone MED13 YAML PR `#1304`, which still adds some useful MED13-specific granularity but is no longer novel on the core mechanism or disease anchor
+
+So the strongest current conclusion is:
+
+- **Nico's PR is most valuable as a source of MED13-specific additions to the already merged grouped entry, not as a clean standalone entry ready to merge unchanged.**
