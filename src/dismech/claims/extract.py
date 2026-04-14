@@ -19,9 +19,12 @@ SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "dismech.yaml"
 _STRUCTURAL_SLOT_NAMES = {
     "name",
     "description",
+    "conforms_to",
+    "consequence",
     "evidence",
     "notes",
     "review_notes",
+    "role",
     "examples",
     "synonyms",
     "findings",

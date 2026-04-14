@@ -187,6 +187,27 @@ def test_extracts_pathophysiology_claim() -> None:
     assert row.claim_text == "Test Disease has pathophysiology Airway Inflammation"
 
 
+def test_pathophysiology_structural_fields_do_not_emit_qualifier_rows() -> None:
+    disease = _claim_fixture()
+    disease["pathophysiology"][0].update(
+        {
+            "conforms_to": "fibrotic_response#Mesenchymal Cell Activation",
+            "consequence": "Leads to downstream airway remodeling.",
+            "role": "Primary",
+        }
+    )
+
+    rows = [
+        row
+        for row in extract_claim_rows(disease)
+        if row.claim_type == "pathophysiology" and row.evidence_reference == "PMID:222"
+    ]
+
+    assert len(rows) == 1
+    assert not rows[0].is_subclaim
+    assert rows[0].qualifier_name == ""
+
+
 def test_extracts_treatment_claim() -> None:
     rows = extract_claim_rows(_claim_fixture())
 
