@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2767,6 +2815,56 @@
                 {% endfor %}
             </div>
             {% endif %}
+            {% if disorder.mappings.ncit_mappings %}
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                {% for mapping in disorder.mappings.ncit_mappings %}
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        {% if mapping.term and mapping.term.id %}
+                        <a href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.term.id }}</a>
+                        {% endif %}
+                        {% if mapping.term and mapping.term.label %}
+                        <span class="mapping-label">{{ mapping.term.label }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="tag-list">
+                        {% if mapping.mapping_predicate %}
+                        <span class="tag tag-classification">{{ mapping.mapping_predicate }}</span>
+                        {% endif %}
+                        {% if mapping.mapping_source %}
+                        <span class="tag tag-parent">{{ mapping.mapping_source }}</span>
+                        {% endif %}
+                        {% if mapping.consistency %}
+                        {% for c in mapping.consistency %}
+                        <span class="tag tag-mechanistic">{{ c.reference }}: {{ c.consistent }}</span>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% if mapping.mapping_justification %}
+                    <div class="mapping-notes">{{ mapping.mapping_justification }}</div>
+                    {% endif %}
+                    {% if mapping.hierarchy_path %}
+                    <ul class="mapping-tree">
+                        {% for node in mapping.hierarchy_path %}
+                        <li style="padding-left: {{ loop.index0 * 14 }}px;">
+                            {% if node.is_ellipsis %}
+                            <span class="mapping-ellipsis">{{ node.label }}</span>
+                            {% else %}
+                            {% if node.id %}
+                            <a href="{{ node.id | curie_to_url }}" target="_blank">{{ node.label }}</a>
+                            {% else %}
+                            {{ node.label }}
+                            {% endif %}
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% if disorder.mappings.icd10cm_mappings %}
             <div class="mapping-section">
                 <div class="classification-category">ICD-10-CM</div>
@@ -2821,6 +2919,39 @@
             <div class="mapping-section">
                 <div class="classification-category">ICD-11 Foundation</div>
                 {% for mapping in disorder.mappings.icd11f_mappings %}
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        {% if mapping.term and mapping.term.id %}
+                        <a href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.term.id }}</a>
+                        {% endif %}
+                        {% if mapping.term and mapping.term.label %}
+                        <span class="mapping-label">{{ mapping.term.label }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="tag-list">
+                        {% if mapping.mapping_predicate %}
+                        <span class="tag tag-classification">{{ mapping.mapping_predicate }}</span>
+                        {% endif %}
+                        {% if mapping.mapping_source %}
+                        <span class="tag tag-parent">{{ mapping.mapping_source }}</span>
+                        {% endif %}
+                        {% if mapping.consistency %}
+                        {% for c in mapping.consistency %}
+                        <span class="tag tag-mechanistic">{{ c.reference }}: {{ c.consistent }}</span>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% if mapping.mapping_justification %}
+                    <div class="mapping-notes">{{ mapping.mapping_justification }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if disorder.mappings.ncit_mappings %}
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                {% for mapping in disorder.mappings.ncit_mappings %}
                 <div class="mapping-item">
                     <div class="mapping-title">
                         {% if mapping.term and mapping.term.id %}
@@ -2970,26 +3101,25 @@
                 {% endif %}
                 {% for subtype in subtypes_in_scheme %}
                 {% set subtype_term_id = subtype.subtype_term.term.id if subtype.subtype_term and subtype.subtype_term.term and subtype.subtype_term.term.id else None %}
-                {% set subtype_is_mondo = subtype_term_id.startswith('MONDO:') if subtype_term_id else False %}
-                {% set subtype_has_local_page = (subtype_term_id | has_local_disorder_page) if subtype_is_mondo else False %}
-                {% set subtype_dismech_href = (subtype_term_id | dismech_page_url) if subtype_is_mondo else None %}
+                {% set subtype_mondo_mappings = subtype.mappings.mondo_mappings if subtype.mappings and subtype.mappings.mondo_mappings else [] %}
+                {% set subtype_ncit_mappings = subtype.mappings.ncit_mappings if subtype.mappings and subtype.mappings.ncit_mappings else [] %}
                 <div class="item-box subtype-box">
                     {% set subtype_display = subtype.display_name or subtype.name %}
                     <div class="item-name">
-                        {% if subtype_dismech_href %}
-                        <a class="item-name-link" href="{{ subtype_dismech_href }}">{{ subtype_display }}</a>
-                        {% elif subtype_is_mondo and not subtype_has_local_page %}
-                        <span class="missing-disease-name" title="No Dismech page yet for this disease">{{ subtype_display }}</span>
-                        <span class="curation-gap-badge">Not Yet Curated</span>
-                        {% else %}
                         {{ subtype_display }}
-                        {% endif %}
                         {% if subtype_term_id %}
-                        <a class="subtype-term-link{% if subtype_is_mondo and not subtype_has_local_page %} missing-ontology-link{% endif %}" href="{{ subtype_term_id | curie_to_url }}" target="_blank">{{ subtype_term_id }}</a>
+                        <a class="subtype-term-link" href="{{ subtype_term_id | curie_to_url }}" target="_blank">{{ subtype_term_id }}</a>
                         {% endif %}
-                        {% if subtype_dismech_href %}
-                        <a class="dismech-inline-link" href="{{ subtype_dismech_href }}">Dismech</a>
-                        {% endif %}
+                        {% for mapping in subtype_mondo_mappings %}
+                                {% if mapping.term and mapping.term.id and mapping.term.id != subtype_term_id %}
+                        <a class="subtype-term-link" href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.term.id }}</a>
+                                {% endif %}
+                        {% endfor %}
+                        {% for mapping in subtype_ncit_mappings %}
+                                {% if mapping.term and mapping.term.id %}
+                        <a class="subtype-term-link" href="{{ mapping.term.id | curie_to_url }}" target="_blank">{{ mapping.term.id }}</a>
+                                {% endif %}
+                        {% endfor %}
                     </div>
                     <div class="subtype-meta">
                         {% if subtype.subtype_frequency %}
@@ -3005,9 +3135,35 @@
                             <span class="subtype-inheritance-tag">{{ inheritance_item.inheritance_term.preferred_term if inheritance_item.inheritance_term else inheritance_item }}</span>
                             {% endfor %}
                         {% endif %}
+                        {% for mapping in subtype_mondo_mappings %}
+                            {% if mapping.term and mapping.term.id and mapping.term.id != subtype_term_id %}
+                            <a class="subtype-term-link" href="{{ mapping.term.id | curie_to_url }}" target="_blank">MONDO {{ mapping.term.id }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        {% for mapping in subtype_ncit_mappings %}
+                            {% if mapping.term and mapping.term.id %}
+                            <a class="subtype-term-link" href="{{ mapping.term.id | curie_to_url }}" target="_blank">NCIT {{ mapping.term.id }}</a>
+                            {% endif %}
+                        {% endfor %}
                     </div>
                     {% if subtype.description %}
                     <div class="item-desc">{{ subtype.description }}</div>
+                    {% endif %}
+                    {% if subtype.mappings and subtype.mappings.ncit_mappings %}
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        {% for mapping in subtype.mappings.ncit_mappings %}
+                        <span class="tag tag-classification">
+                            {{ mapping.term.label }}
+                            {% if mapping.mapping_predicate %}
+                            ({{ mapping.mapping_predicate }})
+                            {% endif %}
+                        </span>
+                        {% if mapping.term and mapping.term.id %}
+                        <a href="{{ mapping.term.id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">{{ mapping.term.id }}</a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
                     {% endif %}
                     {% if subtype.children %}
                     <ul class="subtype-children">
@@ -3196,6 +3352,27 @@
                             <a href="#{{ link.model_anchor }}">{{ link.model_name }}</a>
                             {% if link.experimental_model_type %}
                             <span class="crosslink-meta">{{ link.experimental_model_type | replace('_', ' ') }}</span>
+                            {% endif %}
+                            {% if link.description %}
+                            <span class="crosslink-desc">{{ link.description }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if patho._computational_model_links %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Computational models</div>
+                    <div class="crosslink-list">
+                        {% for link in patho._computational_model_links %}
+                        <div class="crosslink-item">
+                            <a href="#{{ link.model_anchor }}">{{ link.model_name }}</a>
+                            {% if link.model_type %}
+                            <span class="crosslink-meta">{{ link.model_type | replace('_', ' ') }}</span>
+                            {% endif %}
+                            {% if link.model_software %}
+                            <span class="crosslink-meta">{{ link.model_software }}</span>
                             {% endif %}
                             {% if link.description %}
                             <span class="crosslink-desc">{{ link.description }}</span>
@@ -3435,17 +3612,40 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     {{ tx.name }}
+                </div>
+                {% if (tx.treatment_term and tx.treatment_term.term) or (tx.regimen_term and tx.regimen_term.term) %}
+                <div class="item-meta">
                     {% if tx.treatment_term and tx.treatment_term.term %}
-                    <span class="phenotype-id">
-                        <a href="{{ tx.treatment_term.term.id | curie_to_url }}" target="_blank">
-                            {{ tx.treatment_term.term.id }}
-                        </a>
-                    </span>
+                    {% set tx_term_id = tx.treatment_term.term.id %}
+                    {% set tx_term_label = tx.treatment_term.term.label %}
+                    {% set tx_term_display = tx.treatment_term.preferred_term or tx_term_label %}
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">{{ tx_term_display }}</span>
+                    {% if tx_term_label and tx_term_display and tx_term_label != tx_term_display %}
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ tx_term_label }}</span>
+                    {% endif %}
+                    {% if tx_term_id %}
+                    <a href="{{ tx_term_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ tx_term_id }}</a>
+                    {% endif %}
+                    {% endif %}
+                    {% if tx.regimen_term and tx.regimen_term.term %}
+                    {% set regimen_id = tx.regimen_term.term.id %}
+                    {% set regimen_label = tx.regimen_term.term.label %}
+                    {% set regimen_display = tx.regimen_term.preferred_term or regimen_label %}
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
+                    <span class="tag tag-treatment">{{ regimen_display }}</span>
+                    {% if regimen_label and regimen_display and regimen_label != regimen_display %}
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: {{ regimen_label }}</span>
+                    {% endif %}
+                    {% if regimen_id %}
+                    <a href="{{ regimen_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ regimen_id }}</a>
+                    {% endif %}
                     {% endif %}
                 </div>
+                {% endif %}
                 {% if tx.treatment_term and tx.treatment_term.therapeutic_agent %}
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     {% for agent in tx.treatment_term.therapeutic_agent %}
                     <span class="tag tag-treatment">
                         {{ agent.preferred_term or agent.term.label }}
@@ -3946,7 +4146,7 @@
                 <span class="card-count">{{ computational_models | length }}</span>
             </div>
             {% for model in computational_models %}
-            <div class="item-box comp-model-box">
+            <div class="item-box comp-model-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %}>
                 <div class="item-name">
                     {{ model.name }}
                     {% if model.model_format %}
@@ -4048,6 +4248,22 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                {% endif %}
+                {% if model._modeled_mechanisms_resolved %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        {% for link in model._modeled_mechanisms_resolved %}
+                        <div class="crosslink-item">
+                            <a href="#{{ link._target_anchor }}">{{ link.target }}</a>
+                            {% if link.description %}
+                            <span class="crosslink-desc">{{ link.description }}</span>
+                            {% endif %}
+                            {{ render_evidence(link.evidence, max_visible=1) }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
                 {% endif %}
                 {{ render_findings(model.findings) }}
                 {% if model.notes %}
