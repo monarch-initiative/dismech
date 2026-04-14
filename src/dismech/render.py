@@ -89,6 +89,11 @@ STRICT_HIERARCHIES = {
         "root": "ICD10CM:ICD-10-CM",
         "label": "ICD-10-CM",
     },
+    "NCIT": {
+        "adapter": "sqlite:obo:ncit",
+        "root": "NCIT:C7057",
+        "label": "NCIT",
+    },
 }
 
 
@@ -344,7 +349,7 @@ def _annotate_internal_differential_links(
             diff["dismech_page_href"] = href
 
 
-def _annotate_experimental_model_links(disorder: dict) -> None:
+def _annotate_model_links(disorder: dict) -> None:
     """Attach in-page anchors and bidirectional model-to-pathophysiology links."""
     pathophysiology_items = disorder.get("pathophysiology") or []
     if not isinstance(pathophysiology_items, list):
@@ -359,47 +364,85 @@ def _annotate_experimental_model_links(disorder: dict) -> None:
             continue
         item["_anchor_id"] = _make_anchor_id("pathophysiology", name)
         item["_experimental_model_links"] = []
+        item["_computational_model_links"] = []
         patho_by_name[str(name)] = item
 
     experimental_models = disorder.get("experimental_models") or []
-    if not isinstance(experimental_models, list):
-        return
-
-    for model in experimental_models:
-        if not isinstance(model, dict):
-            continue
-        model_name = model.get("name")
-        if not model_name:
-            continue
-
-        model["_anchor_id"] = _make_anchor_id("experimental-model", model_name)
-        resolved_links: list[dict] = []
-
-        for link in model.get("modeled_mechanisms") or []:
-            if not isinstance(link, dict):
+    if isinstance(experimental_models, list):
+        for model in experimental_models:
+            if not isinstance(model, dict):
                 continue
-            target = link.get("target")
-            if not target:
+            model_name = model.get("name")
+            if not model_name:
                 continue
 
-            resolved_link = dict(link)
-            target_item = patho_by_name.get(str(target))
-            if target_item is None:
+            model["_anchor_id"] = _make_anchor_id("experimental-model", model_name)
+            resolved_links: list[dict] = []
+
+            for link in model.get("modeled_mechanisms") or []:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                if not target:
+                    continue
+
+                resolved_link = dict(link)
+                target_item = patho_by_name.get(str(target))
+                if target_item is None:
+                    continue
+
+                resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                resolved_links.append(resolved_link)
+                target_item["_experimental_model_links"].append(
+                    {
+                        "model_name": model_name,
+                        "model_anchor": model["_anchor_id"],
+                        "description": link.get("description"),
+                        "experimental_model_type": model.get("experimental_model_type"),
+                        "namo_type": model.get("namo_type"),
+                    }
+                )
+
+            model["_modeled_mechanisms_resolved"] = resolved_links
+
+    computational_models = disorder.get("computational_models") or []
+    if isinstance(computational_models, list):
+        for model in computational_models:
+            if not isinstance(model, dict):
+                continue
+            model_name = model.get("name")
+            if not model_name:
                 continue
 
-            resolved_link["_target_anchor"] = target_item["_anchor_id"]
-            resolved_links.append(resolved_link)
-            target_item["_experimental_model_links"].append(
-                {
-                    "model_name": model_name,
-                    "model_anchor": model["_anchor_id"],
-                    "description": link.get("description"),
-                    "experimental_model_type": model.get("experimental_model_type"),
-                    "namo_type": model.get("namo_type"),
-                }
-            )
+            model["_anchor_id"] = _make_anchor_id("computational-model", model_name)
+            resolved_links: list[dict] = []
 
-        model["_modeled_mechanisms_resolved"] = resolved_links
+            for link in model.get("modeled_mechanisms") or []:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                if not target:
+                    continue
+
+                resolved_link = dict(link)
+                target_item = patho_by_name.get(str(target))
+                if target_item is None:
+                    continue
+
+                resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                resolved_links.append(resolved_link)
+                target_item["_computational_model_links"].append(
+                    {
+                        "model_name": model_name,
+                        "model_anchor": model["_anchor_id"],
+                        "description": link.get("description"),
+                        "model_type": model.get("model_type"),
+                        "model_software": model.get("model_software"),
+                        "model_format": model.get("model_format"),
+                    }
+                )
+
+            model["_modeled_mechanisms_resolved"] = resolved_links
 
 
 def load_disorder(yaml_path: Path) -> dict:
@@ -913,7 +956,7 @@ def render_disorder(
         current_page_filename=output_path.name,
         disorders_dir=yaml_path.parent,
     )
-    _annotate_experimental_model_links(disorder)
+    _annotate_model_links(disorder)
 
     # Set up Jinja2 environment
     if template_path is None:
