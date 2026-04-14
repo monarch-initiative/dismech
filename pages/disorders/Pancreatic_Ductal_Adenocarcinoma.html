@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2220,7 +2268,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">pancreatic cancer</span>
@@ -2255,12 +2303,26 @@
         
         
         
+            
+                
+            
+        
+            
+                
+            
+        
+            
+                
+            
+        
         <div class="stats-bar">
             
+            <a class="stat-link" href="#mappings">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Mappings</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2277,16 +2339,18 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
             
             
+            <a class="stat-link" href="#histopathology">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Histopathology</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#phenotypes">
@@ -2299,7 +2363,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2335,10 +2399,12 @@
             </div>
             
             
+            <a class="stat-link" href="#datasets">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Datasets</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2347,10 +2413,12 @@
             </div>
             
             
+            <a class="stat-link" href="#models">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
+            </a>
             
             
             <a class="stat-link" href="#literature-summaries">
@@ -2365,8 +2433,256 @@
 
         <!-- Classifications -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison's Chapter</div>
+                <div class="tag-list">
+                    
+                    <span class="tag tag-classification">cancer</span>
+                    
+                    <span class="tag tag-classification">solid tumor</span>
+                    
+                </div>
+            </div>
+            
+            
+            
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">ICD-O Morphology</div>
+                <div class="tag-list">
+                    <span class="tag tag-classification">Adenocarcinoma</span>
+                </div>
+            </div>
+            
+            
+            
+            
+        </div>
+        
 
         <!-- Mappings -->
+        
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+            
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+                
+                
+                
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0005184" target="_blank">MONDO:0005184</a>
+                        
+                        
+                        <span class="mapping-label">pancreatic ductal adenocarcinoma</span>
+                        
+                        
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">MONDO</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">MONDO provides an exact disease term for pancreatic ductal adenocarcinoma.</div>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9120" target="_blank">NCIT:C9120</a>
+                        
+                        
+                        <span class="mapping-label">Pancreatic Ductal Adenocarcinoma</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">NCIT provides an exact neoplasm term for pancreatic ductal adenocarcinoma.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            <span class="mapping-ellipsis">...</span>
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C210140" target="_blank">Digestive System Adenocarcinoma</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 56px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C8294" target="_blank">Pancreatic Adenocarcinoma</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 70px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C9120" target="_blank">Pancreatic Ductal Adenocarcinoma</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">ICD-10-CM</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/ICD10CM_C25.3" target="_blank">ICD10CM:C25.3</a>
+                        
+                        
+                        <span class="mapping-label">Malignant neoplasm of pancreatic duct</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">ICD-10-CM</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">ICD-10-CM provides an exact malignant neoplasm code for pancreatic duct.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C00-D49" target="_blank">Neoplasms (C00-D49)</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C15-C26" target="_blank">Malignant neoplasms of digestive organs (C15-C26)</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C25" target="_blank">Malignant neoplasm of pancreas</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/ICD10CM_C25.3" target="_blank">Malignant neoplasm of pancreatic duct</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+            </div>
+            
+            
+            
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9120" target="_blank">NCIT:C9120</a>
+                        
+                        
+                        <span class="mapping-label">Pancreatic Ductal Adenocarcinoma</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">NCIT provides an exact neoplasm term for pancreatic ductal adenocarcinoma.</div>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
         
 
         <!-- Definitions -->
@@ -2402,11 +2718,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Classical Subtype
                         
                         
@@ -2416,9 +2730,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Characterized by expression of epithelial differentiation genes and transcription factors such as GATA6. Generally associated with better prognosis compared to basal-like subtype.</div>
+                    
                     
                     
                     
@@ -2459,11 +2776,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Basal-like Subtype
                         
                         
@@ -2473,9 +2788,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Characterized by expression of basal/squamous markers and loss of GATA6. Associated with worse prognosis, higher metastatic potential, and resistance to chemotherapy.</div>
+                    
                     
                     
                     
@@ -2522,6 +2840,89 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1146/annurev-pathmechdis-031621-024600" target="_blank">DOI:10.1146/annurev-pathmechdis-031621-024600</a>
+                        </div>
+                        
+                        <div class="reference-title">Tumor Microenvironment in Pancreatic Ductal Adenocarcinoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">PDAC has a prominent and spatially heterogeneous stromal microenvironment that meaningfully shapes treatment resistance.</div>
+            
+            
+            <div class="reference-finding-supporting">"Pancreatic ductal adenocarcinoma (PDAC) features a prominent stromal microenvironment with remarkable cellular and spatial heterogeneity that meaningfully impacts disease biology and treatment resistance."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/2159-8290.CD-23-0428" target="_blank">DOI:10.1158/2159-8290.CD-23-0428</a>
+                        </div>
+                        
+                        <div class="reference-title">Senescence Defines a Distinct Subset of Myofibroblasts that Orchestrates Immunosuppression in Pancreatic Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Functionally distinct fibroblast states are part of the immunosuppressive circuitry of pancreatic cancer.</div>
+            
+            
+            <div class="reference-finding-supporting">"Senescence defines a distinct subset of myofibroblasts that orchestrates immunosuppression in pancreatic cancer."</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2529,7 +2930,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-kras-oncogene-activation">
@@ -2600,6 +3001,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2720,6 +3122,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2814,6 +3217,27 @@
                 
                 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Computational models</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#computational-model-pdac-caf-mediated-invasion-physicell-model">PDAC CAF-Mediated Invasion PhysiCell Model</a>
+                            
+                            <span class="crosslink-meta">AGENT BASED</span>
+                            
+                            
+                            <span class="crosslink-meta">PhysiCell</span>
+                            
+                            
+                            <span class="crosslink-desc">Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2864,6 +3288,81 @@
             
         </div>
     </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-caf-mediated-t-cell-exclusion">
+                <div class="item-name">CAF-Mediated T Cell Exclusion</div>
+                
+                <div class="item-desc">Distinct cancer-associated fibroblast states within PDAC stroma secrete extracellular matrix and chemokine programs that trap or exclude effector T cells from tumor nests. This stromal immune exclusion helps explain the poor activity of checkpoint blockade in unselected PDAC and is a natural mechanistic bridge between desmoplasia and immune escape.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        pancreatic stellate cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0002410" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        CD8-positive, alpha-beta T cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        chemokine-mediated signaling pathway
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        Negative Regulation of T Cell Mediated Immunity
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
     
     
             </div>
@@ -2922,6 +3421,27 @@
                 
                 
                 
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Computational models</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#computational-model-pdac-immunotherapy-physicell-model">PDAC Immunotherapy PhysiCell Model</a>
+                            
+                            <span class="crosslink-meta">AGENT BASED</span>
+                            
+                            
+                            <span class="crosslink-meta">PhysiCell</span>
+                            
+                            
+                            <span class="crosslink-desc">Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
                 
     
@@ -2983,6 +3503,45 @@
 
         <!-- Histopathology -->
         
+        <div class="card" id="histopathology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
+                <h2 class="card-title">Histopathology</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box histopathology-box">
+                <div class="item-name">
+                    Pancreatic Ductal Adenocarcinoma
+                    
+                    <span class="histopathology-freq">VERY_FREQUENT</span>
+                    
+                </div>
+                
+                <div class="item-desc">Malignant gland-forming ductal adenocarcinoma is the dominant histopathologic pattern in PDAC.</div>
+                
+                
+    
+    
+            </div>
+            
+            <div class="item-box histopathology-box">
+                <div class="item-name">
+                    Desmoplastic Stroma
+                    
+                    <span class="histopathology-freq">VERY_FREQUENT</span>
+                    
+                </div>
+                
+                <div class="item-desc">Dense collagen-rich fibrotic stroma surrounding malignant glands is a defining histopathologic feature of PDAC.</div>
+                
+                
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Causal Graph (Pathograph) -->
         
@@ -3003,7 +3562,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Desmoplastic Stroma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDAC is characterized by a dense desmoplastic stroma comprising up to 80% of tumor mass. Pancreatic stellate cells (PSCs) are activated by tumor-derived signals (TGF-beta, PDGF, sonic hedgehog) and differentiate into myofibroblasts that deposit abundant extracellular matrix including collagen and hyaluronan. This stroma creates high interstitial pressure, impairs drug delivery, promotes immune exclusion, and provides survival signals to tumor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic stellate cell\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen biosynthetic process\"]}}, {\"id\": \"KRAS Oncogene Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in KRAS (predominantly G12D, G12V, G12R) occur in approximately 90% of PDAC and are considered the initiating oncogenic event. Mutant KRAS is constitutively GTP-bound, driving aberrant activation of RAF-MEK-ERK and PI3K-AKT-mTOR signaling cascades that promote cell proliferation, survival, and metabolic reprogramming.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic ductal cell\"], \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"cell population proliferation\"]}}, {\"id\": \"Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive inactivation of key tumor suppressors drives PDAC progression. TP53 mutations (~75%) disable DNA damage checkpoints and apoptosis. CDKN2A loss (~90%) removes cell cycle inhibition via p16INK4a. SMAD4 inactivation (~55%) disrupts TGF-beta tumor-suppressive signaling. These losses cooperate with KRAS activation to enable genomic instability and malignant transformation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"apoptotic process\", \"DNA damage response\"]}}], \"edges\": [{\"source\": \"KRAS Oncogene Activation\", \"target\": \"Tumor Suppressor Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tumor Suppressor Inactivation\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CAF-Mediated T Cell Exclusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Distinct cancer-associated fibroblast states within PDAC stroma secrete extracellular matrix and chemokine programs that trap or exclude effector T cells from tumor nests. This stromal immune exclusion helps explain the poor activity of checkpoint blockade in unselected PDAC and is a natural mechanistic bridge between desmoplasia and immune escape.\", \"meta\": {\"cell_types\": [\"pancreatic stellate cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"chemokine-mediated signaling pathway\", \"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Desmoplastic Stroma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDAC is characterized by a dense desmoplastic stroma comprising up to 80% of tumor mass. Pancreatic stellate cells (PSCs) are activated by tumor-derived signals (TGF-beta, PDGF, sonic hedgehog) and differentiate into myofibroblasts that deposit abundant extracellular matrix including collagen and hyaluronan. This stroma creates high interstitial pressure, impairs drug delivery, promotes immune exclusion, and provides survival signals to tumor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic stellate cell\"], \"biological_processes\": [\"extracellular matrix organization\", \"collagen biosynthetic process\"], \"histopathology_terms\": [{\"name\": \"Desmoplastic Stroma\", \"preferred_term\": \"desmoplastic stroma\", \"term_id\": \"NCIT:C36178\", \"term_label\": \"Fibrotic Stroma Formation\"}], \"computational_models\": [{\"name\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"description\": \"Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.\"}]}}, {\"id\": \"Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PDAC creates a profoundly immunosuppressive tumor microenvironment. The desmoplastic stroma physically excludes cytotoxic T cells. Regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages accumulate and suppress anti-tumor immunity. PDAC tumors also exhibit low mutational burden and poor neoantigen presentation, contributing to resistance to immunotherapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"regulatory T cell\", \"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"], \"computational_models\": [{\"name\": \"PDAC Immunotherapy PhysiCell Model\", \"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"description\": \"Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.\"}]}}, {\"id\": \"KRAS Oncogene Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in KRAS (predominantly G12D, G12V, G12R) occur in approximately 90% of PDAC and are considered the initiating oncogenic event. Mutant KRAS is constitutively GTP-bound, driving aberrant activation of RAF-MEK-ERK and PI3K-AKT-mTOR signaling cascades that promote cell proliferation, survival, and metabolic reprogramming.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic ductal cell\"], \"biological_processes\": [\"MAPK cascade\", \"phosphatidylinositol 3-kinase signaling\", \"cell population proliferation\"]}}, {\"id\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Grammar-based PhysiCell agent-based model of pancreatic ductal adenocarcinoma neoplastic cells and cancer-associated fibroblasts. The model encodes fibroblast-mediated invasion, epithelial-mesenchymal state switching, and ECM-dependent motility tradeoffs using human-interpretable cell rules informed by PDAC spatial transcriptomics and coculture data.\", \"meta\": {\"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"publication\": \"DOI:10.1016/j.cell.2025.06.048\"}}, {\"id\": \"PDAC Immunotherapy PhysiCell Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states and is a strong executable analogue of PDAC immune-excluded ecology.\", \"meta\": {\"model_type\": \"AGENT_BASED\", \"model_software\": \"PhysiCell\", \"model_format\": \"C++/XML/CSV\", \"publication\": \"DOI:10.1016/j.cell.2025.06.048\"}}, {\"id\": \"Tumor Suppressor Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive inactivation of key tumor suppressors drives PDAC progression. TP53 mutations (~75%) disable DNA damage checkpoints and apoptosis. CDKN2A loss (~90%) removes cell cycle inhibition via p16INK4a. SMAD4 inactivation (~55%) disrupts TGF-beta tumor-suppressive signaling. These losses cooperate with KRAS activation to enable genomic instability and malignant transformation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of cell cycle\", \"apoptotic process\", \"DNA damage response\"]}}], \"edges\": [{\"source\": \"KRAS Oncogene Activation\", \"target\": \"Tumor Suppressor Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Tumor Suppressor Inactivation\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Desmoplastic Stroma\", \"target\": \"CAF-Mediated T Cell Exclusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CAF-Mediated T Cell Exclusion\", \"target\": \"Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PDAC CAF-Mediated Invasion PhysiCell Model\", \"target\": \"Desmoplastic Stroma\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PDAC Immunotherapy PhysiCell Model\", \"target\": \"Immune Evasion\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3149,7 +3708,7 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32593337" target="_blank">PMID:32593337</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36776324" target="_blank">PMID:36776324</a>
                     </span>
                     
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -3159,10 +3718,10 @@
                     
                 </div>
                 
-                <div class="evidence-snippet">"Surgical resection represents the only chance for cure, and advancements in adjuvant chemotherapy have improved long-term outcomes in these patients."</div>
+                <div class="evidence-snippet">"There was a highest incidence of liver metastases from pancreatic cancer (2387,74.36%), followed by lung (625,19.47%), bone (190,5.92%), and brain (8,0.25%)."</div>
                 
                 
-                <div class="evidence-explanation">The Lancet seminar describes PDAC staging categories including metastatic disease, for which surgery is not curative, consistent with the high frequency of hepatic metastases in advanced disease.</div>
+                <div class="evidence-explanation">This population-based study of metastatic PDAC directly identifies liver metastases as the most common distant metastatic site at diagnosis.</div>
                 
             </div>
             
@@ -3667,14 +4226,25 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection (Whipple Procedure)
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pancreaticoduodenectomy (Whipple procedure)</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Whipple Procedure</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15356" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15356</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3721,14 +4291,35 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     FOLFIRINOX Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
+                    <span class="tag tag-treatment">modified FOLFIRINOX regimen</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Folfirinox Regimen</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C11764" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C11764</a>
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3775,14 +4366,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Gemcitabine-Based Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3829,14 +4429,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     PARP Inhibitor Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4120,6 +4729,271 @@
 
         <!-- Datasets -->
         
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Integrating microarray-based spatial transcriptomics and single-cell RNA-seq reveals tissue architecture in pancreatic ductal adenocarcinomas
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE111672" target="_blank">geo:GSE111672</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Multimodal PDAC dataset combining spatial transcriptomics and single-cell RNA-seq from primary pancreatic tumors. Useful for resolving how malignant ductal cells, macrophages, dendritic cells, and fibroblast states are spatially organized within the tumor microenvironment.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">human</span>
+                    
+                    
+                    <span class="tag tag-datatype">MULTI OMICS</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=23</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        pancreatic tumor tissue
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">primary pancreatic ductal adenocarcinoma</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31932730" target="_blank" style="color: var(--secondary);">PMID:31932730</a>
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">GEO reports six primary pancreatic cancer patients with matched single-cell and spatial transcriptomic profiling. Particularly relevant for spatial initialization and cell-neighborhood constraints in PhysiCell-style TME models.</div>
+                
+                
+    
+    
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single-cell transcriptomics analysis of pancreatic primary tumor and metastatic biopsy tissues
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE154778" target="_blank">geo:GSE154778</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Single-cell RNA-seq of 10 pancreatic primary tumors and 6 metastatic biopsies. Captures tumor, stromal, and immune programs across primary and metastatic disease, making it useful for modeling dissemination and metastatic niche adaptation in PDAC.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">human</span>
+                    
+                    
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=16</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        pancreatic tumor tissue
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">primary pancreatic ductal adenocarcinoma</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">metastatic pancreatic ductal adenocarcinoma</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/32988401" target="_blank" style="color: var(--secondary);">PMID:32988401</a>
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">GEO reports 10 primary tumors and 6 metastatic lesion biopsies profiled on the 10x Genomics Chromium platform. High-value bridge dataset between primary-tumor ecology and metastatic evolution.</div>
+                
+                
+    
+    
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Multimodal Mapping of the Tumor and Peripheral Blood Immune Landscape in Human Pancreatic Cancer
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE155698" target="_blank">geo:GSE155698</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Single-cell immune-focused PDAC resource spanning tumor tissue, adjacent normal pancreas, and peripheral blood mononuclear cells from pancreatic cancer patients, plus healthy-donor PBMC controls. Especially useful for linking the local TME to the systemic macroenvironment.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">human</span>
+                    
+                    
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=41</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        pancreatic tumor tissue
+                        
+                    </span>
+                    
+                    <span class="tag tag-cell">
+                        adjacent normal pancreatic tissue
+                        
+                    </span>
+                    
+                    <span class="tag tag-cell">
+                        peripheral blood
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">pancreatic ductal adenocarcinoma tumor tissue</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">adjacent normal pancreas</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">pancreatic cancer patient PBMCs</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">healthy donor PBMCs</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/34296197" target="_blank" style="color: var(--secondary);">PMID:34296197</a>
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">GEO reports 16 PDAC tissue samples, 3 adjacent normal pancreas samples, 16 patient PBMC samples, and 4 healthy-donor PBMC samples. This is a strong anchor for modeling immune composition across tumor and circulation.</div>
+                
+                
+    
+    
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Microarray gene-expression profiles of 69 pancreatic tumors and 61 adjacent non-tumor tissue from patients with pancreatic ductal adenocarcinoma
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62452" target="_blank">geo:GSE62452</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">Large paired bulk expression cohort of PDAC tumors and adjacent non-tumor tissue. Useful as a broader transcriptomic reference set for tumor-versus-normal contrasts and for anchoring subtype-level or pathway-level signatures in a larger patient cohort.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">human</span>
+                    
+                    
+                    <span class="tag tag-datatype">MICROARRAY</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=130</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        pancreatic tumor tissue
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">pancreatic ductal adenocarcinoma tumor tissue</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">adjacent non-tumor pancreatic tissue</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/27197190" target="_blank" style="color: var(--secondary);">PMID:27197190</a>
+                </div>
+                
+                
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">GEO reports 69 pancreatic tumors and 61 adjacent non-tumor tissues, with earlier Affymetrix data from GSE28735 incorporated into the merged normalized cohort. Useful as a bulk-expression complement to the single-cell and spatial resources above.</div>
+                
+                
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Clinical Trials -->
         
@@ -4128,6 +5002,819 @@
         
 
         <!-- Computational Models -->
+        
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
+                <h2 class="card-title">Computational Models</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box comp-model-box anchor-target" id="computational-model-pdac-caf-mediated-invasion-physicell-model">
+                <div class="item-name">
+                    PDAC CAF-Mediated Invasion PhysiCell Model
+                    
+                    <span class="tag tag-format">C++/XML/CSV</span>
+                    
+                    
+                    <span class="tag tag-software">PhysiCell</span>
+                    
+                    
+                    <span class="tag tag-model-type">AGENT_BASED</span>
+                    
+                </div>
+                
+                <div class="item-desc">Grammar-based PhysiCell agent-based model of pancreatic ductal adenocarcinoma neoplastic cells and cancer-associated fibroblasts. The model encodes fibroblast-mediated invasion, epithelial-mesenchymal state switching, and ECM-dependent motility tradeoffs using human-interpretable cell rules informed by PDAC spatial transcriptomics and coculture data.</div>
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    
+                    <a href="https://github.com/PhysiCell-Models/grammar_samples/tree/v2.0.1/user_projects/epi_caf_invasion" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
+                    
+                    
+                    <a href="https://bioregistry.io/DOI:10.1016/j.cell.2025.06.048" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">DOI:10.1016/j.cell.2025.06.048 ↗</a>
+                    
+                    
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: PhysiCell grammar manuscript release DOI:10.5281/zenodo.16285252</span>
+                    
+                </div>
+                
+                <table class="model-variables-table">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Model ID</th>
+                            <th>Unit</th>
+                            <th>Ontology Mappings</th>
+                            <th>Phenotype Thresholds</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">inflammatory_signal</div>
+                                
+                                <div class="model-var-desc">Generic inflammatory signaling field used to bias migration and mesenchymal-to-epithelial state transitions.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">inflammatory_signal</code>
+                                
+                            </td>
+                            <td>dimensionless field</td>
+                            <td>
+                                
+                            </td>
+                            <td>
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">ecm</div>
+                                
+                                <div class="model-var-desc">Extracellular-matrix density field driving stromal invasion and epithelial-mesenchymal plasticity.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">ecm</code>
+                                
+                            </td>
+                            <td>dimensionless field</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank">Extracellular matrix</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">epithelial_normal_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of non-malignant epithelial agents in the coculture invasion simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">epithelial_normal</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank">epithelial cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">mesenchymal_normal_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of non-malignant mesenchymal-state agents in the invasion simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">mesenchymal_normal</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank">mesenchymal cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">fibroblast_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of fibroblast / CAF-like agents in the invasion simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">fibroblast</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank">fibroblast</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">epithelial_tumor_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of epithelial-state malignant agents in the invasion simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">epithelial_tumor</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank">epithelial tumor cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">mesenchymal_tumor_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of mesenchymal-state malignant agents in the invasion simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">mesenchymal_tumor</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0008019" target="_blank">mesenchymal tumor cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-desmoplastic-stroma">Desmoplastic Stroma</a>
+                            
+                            <span class="crosslink-desc">Implements ECM-driven fibroblast motility and epithelial-mesenchymal state switching encoded in `config/cell_rules.csv` for the stromal invasion program.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">ECM increases epithelial-to-mesenchymal switching of tumor epithelial cells in the executable PDAC invasion model.</div>
+            
+            
+            <div class="finding-supporting">"epithelial_tumor,ecm,increases,transform to mesenchymal_tumor,0.01,0.01,4,0"</div>
+            
+            
+    
+    
+        </div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Fibroblast migration is explicitly controlled by ECM-dependent rules in the invasion model.</div>
+            
+            
+            <div class="finding-supporting">"fibroblast,ecm,increases,migration speed,3.470551875,9.999679617,1.153017946,0"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`.</div>
+                
+                
+    
+    
+            </div>
+            
+            <div class="item-box comp-model-box anchor-target" id="computational-model-pdac-immunotherapy-physicell-model">
+                <div class="item-name">
+                    PDAC Immunotherapy PhysiCell Model
+                    
+                    <span class="tag tag-format">C++/XML/CSV</span>
+                    
+                    
+                    <span class="tag tag-software">PhysiCell</span>
+                    
+                    
+                    <span class="tag tag-model-type">AGENT_BASED</span>
+                    
+                </div>
+                
+                <div class="item-desc">Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized from PDAC tissue compositions. The model simulates combination therapy with GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment states and is a strong executable analogue of PDAC immune-excluded ecology.</div>
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    
+                    <a href="https://github.com/PhysiCell-Models/grammar_samples/tree/v2.0.1/user_projects/pdac_therapy" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
+                    
+                    
+                    <a href="https://bioregistry.io/DOI:10.1016/j.cell.2025.06.048" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">DOI:10.1016/j.cell.2025.06.048 ↗</a>
+                    
+                    
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Base model: PhysiCell grammar manuscript release DOI:10.5281/zenodo.16285252</span>
+                    
+                </div>
+                
+                <table class="model-variables-table">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Model ID</th>
+                            <th>Unit</th>
+                            <th>Ontology Mappings</th>
+                            <th>Phenotype Thresholds</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">oxygen</div>
+                                
+                                <div class="model-var-desc">Diffusible oxygen field used to control tumor proliferation, macrophage polarization logic, and necrotic stress.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">oxygen</code>
+                                
+                            </td>
+                            <td>substrate density</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CHEBI_15379" target="_blank">dioxygen</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">debris</div>
+                                
+                                <div class="model-var-desc">Extracellular dead-cell debris field that attracts macrophages and reflects local cell death burden.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">debris</code>
+                                
+                            </td>
+                            <td>substrate density</td>
+                            <td>
+                                
+                            </td>
+                            <td>
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">pro_inflammatory_factor</div>
+                                
+                                <div class="model-var-desc">Generic pro-inflammatory signaling field that boosts T-cell attack and chemotaxis in the model.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">pro-inflammatory factor</code>
+                                
+                            </td>
+                            <td>substrate density</td>
+                            <td>
+                                
+                            </td>
+                            <td>
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">anti_inflammatory_factor</div>
+                                
+                                <div class="model-var-desc">Generic anti-inflammatory signaling field that suppresses T-cell migration and attack in the model.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">anti-inflammatory factor</code>
+                                
+                            </td>
+                            <td>substrate density</td>
+                            <td>
+                                
+                            </td>
+                            <td>
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-L1lo_tumor_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-L1-low malignant epithelial agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-L1lo_tumor</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank">epithelial tumor cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-L1hi_tumor_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-L1-high malignant epithelial agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-L1hi_tumor</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank">epithelial tumor cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/NCIT_C96024" target="_blank">Programmed cell death 1 ligand 1</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">macrophages</div>
+                                
+                                <div class="model-var-desc">Abundance of macrophage agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">macrophage</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank">macrophage</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-1hi_CD137lo_CD8_T_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-1-high CD137-low CD8 T-cell agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-1hi_CD137lo_CD8_Tcell</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank">PD-1-high CD137-low CD8 T cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-1lo_CD137lo_CD8_T_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-1-low CD137-low CD8 T-cell agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-1lo_CD137lo_CD8_Tcell</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank">PD-1-low CD137-low CD8 T cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-1hi_CD137hi_CD8_T_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-1-high CD137-high CD8 T-cell agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-1hi_CD137hi_CD8_Tcell</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank">PD-1-high CD137-high CD8 T cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-1lo_CD137hi_CD8_T_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-1-low CD137-high CD8 T-cell agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-1lo_CD137hi_CD8_Tcell</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank">PD-1-low CD137-high CD8 T cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-1hi_CD4_T_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-1-high CD4 T-cell agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-1hi_CD4_Tcell</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank">PD-1-high CD4 T cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td>
+                                <div class="model-var-name">PD-1lo_CD4_T_cells</div>
+                                
+                                <div class="model-var-desc">Abundance of PD-1-low CD4 T-cell agents in the PDAC immunotherapy simulation.</div>
+                                
+                            </td>
+                            <td>
+                                
+                                <code class="model-var-id">PD-1lo_CD4_Tcell</code>
+                                
+                            </td>
+                            <td>cells</td>
+                            <td>
+                                
+                                    
+                                    <span class="ontology-mapping-tag">
+                                        
+                                        <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank">PD-1-low CD4 T cell</a>
+                                        
+                                    </span>
+                                    
+                                
+                            </td>
+                            <td>
+                                
+                                    
+                                
+                            </td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+                
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-immune-evasion">Immune Evasion</a>
+                            
+                            <span class="crosslink-desc">Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities, plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.</span>
+                            
+                            
+    
+    
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                
+    
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Contact with PD-L1-high tumor cells reduces CD8 T-cell migration in the executable PDAC immunotherapy model.</div>
+            
+            
+            <div class="finding-supporting">"PD-1lo_CD137lo_CD8_Tcell,contact with PD-L1hi_tumor,decreases,migration speed,0,0.1,2,0"</div>
+            
+            
+    
+    
+        </div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Anti-inflammatory signals decrease CD8 T-cell attack against tumor cells in the executable PDAC immunotherapy model.</div>
+            
+            
+            <div class="finding-supporting">"PD-1lo_CD137hi_CD8_Tcell,anti-inflammatory factor,decreases,attack PD-L1hi_tumor,0,2.5,2,0"</div>
+            
+            
+    
+    
+        </div>
+        
+        <div class="finding-item">
+            
+            <div class="finding-statement">Macrophage oxygen sensing controls pro- versus anti-inflammatory factor secretion in the executable PDAC immunotherapy model.</div>
+            
+            
+            <div class="finding-supporting">"macrophage,oxygen,decreases,anti-inflammatory factor secretion,0,5,4,0"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`.</div>
+                
+                
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Literature Summaries -->
@@ -4698,7 +6385,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Pancreatic Ductal Adenocarcinoma
 creation_date: &#34;2026-03-06T00:00:00Z&#34;
-updated_date: &#34;2026-03-07T12:00:00Z&#34;
+updated_date: &#34;2026-04-13T02:29:43Z&#34;
 description: &gt;-
   Pancreatic ductal adenocarcinoma (PDAC) is the most common form of pancreatic cancer,
   accounting for approximately 90% of pancreatic malignancies. It is characterized by
@@ -4911,6 +6598,39 @@ pathophysiology:
     term:
       id: GO:0032964
       label: collagen biosynthetic process
+  downstream:
+  - target: CAF-Mediated T Cell Exclusion
+    description: Activated fibroblast states and ECM-rich niches spatially exclude effector T cells and reinforce immune suppression
+- name: CAF-Mediated T Cell Exclusion
+  description: &gt;-
+    Distinct cancer-associated fibroblast states within PDAC stroma secrete extracellular
+    matrix and chemokine programs that trap or exclude effector T cells from tumor nests.
+    This stromal immune exclusion helps explain the poor activity of checkpoint blockade
+    in unselected PDAC and is a natural mechanistic bridge between desmoplasia and
+    immune escape.
+  cell_types:
+  - preferred_term: pancreatic stellate cell
+    term:
+      id: CL:0002410
+      label: pancreatic stellate cell
+  - preferred_term: CD8-positive, alpha-beta T cell
+    term:
+      id: CL:0000625
+      label: CD8-positive, alpha-beta T cell
+  biological_processes:
+  - preferred_term: chemokine-mediated signaling pathway
+    modifier: INCREASED
+    term:
+      id: GO:0070098
+      label: chemokine-mediated signaling pathway
+  - preferred_term: Negative Regulation of T Cell Mediated Immunity
+    modifier: INCREASED
+    term:
+      id: GO:0002710
+      label: negative regulation of T cell mediated immunity
+  downstream:
+  - target: Immune Evasion
+    description: Stromal chemokines and fibroblast-rich exclusion zones reduce effective anti-tumor T cell contact with malignant glands
 - name: Immune Evasion
   description: &gt;-
     PDAC creates a profoundly immunosuppressive tumor microenvironment. The desmoplastic
@@ -4955,6 +6675,27 @@ pathophysiology:
     term:
       id: GO:0006955
       label: immune response
+histopathology:
+- name: Pancreatic Ductal Adenocarcinoma
+  finding_term:
+    preferred_term: Pancreatic ductal adenocarcinoma
+    term:
+      id: NCIT:C9120
+      label: Pancreatic Ductal Adenocarcinoma
+  frequency: VERY_FREQUENT
+  description: &gt;-
+    Malignant gland-forming ductal adenocarcinoma is the dominant histopathologic
+    pattern in PDAC.
+- name: Desmoplastic Stroma
+  finding_term:
+    preferred_term: desmoplastic stroma
+    term:
+      id: NCIT:C36178
+      label: Fibrotic Stroma Formation
+  frequency: VERY_FREQUENT
+  description: &gt;-
+    Dense collagen-rich fibrotic stroma surrounding malignant glands is a defining
+    histopathologic feature of PDAC.
 phenotypes:
 - category: Neoplastic
   name: Pancreatic Adenocarcinoma
@@ -5067,17 +6808,17 @@ phenotypes:
     The liver is the most common site of distant metastasis in PDAC, present in
     the majority of patients with advanced disease.
   evidence:
-  - reference: PMID:32593337
-    reference_title: &#34;Pancreatic cancer.&#34;
+  - reference: PMID:36776324
+    reference_title: &#34;A population-based study of synchronous distant metastases and prognosis in patients with PDAC at initial diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Surgical resection represents the only chance for cure, and advancements in
-      adjuvant chemotherapy have improved long-term outcomes in these patients.
+      There was a highest incidence of liver metastases from pancreatic cancer
+      (2387,74.36%), followed by lung (625,19.47%), bone (190,5.92%), and brain
+      (8,0.25%).
     explanation: &gt;-
-      The Lancet seminar describes PDAC staging categories including metastatic disease,
-      for which surgery is not curative, consistent with the high frequency of hepatic
-      metastases in advanced disease.
+      This population-based study of metastatic PDAC directly identifies liver
+      metastases as the most common distant metastatic site at diagnosis.
   phenotype_term:
     preferred_term: Hepatic metastasis
     term:
@@ -5289,10 +7030,10 @@ treatments:
       for PDAC, confirming surgical resection as a standard treatment approach with
       adjuvant chemotherapy improving outcomes.
   treatment_term:
-    preferred_term: surgical procedure
+    preferred_term: pancreaticoduodenectomy (Whipple procedure)
     term:
-      id: MAXO:0000004
-      label: surgical procedure
+      id: NCIT:C15356
+      label: Whipple Procedure
 - name: FOLFIRINOX Chemotherapy
   description: &gt;-
     Combination of fluorouracil, leucovorin, irinotecan, and oxaliplatin. Used as
@@ -5317,6 +7058,11 @@ treatments:
     term:
       id: MAXO:0000647
       label: chemotherapy
+  regimen_term:
+    preferred_term: modified FOLFIRINOX regimen
+    term:
+      id: NCIT:C11764
+      label: Folfirinox Regimen
 - name: Gemcitabine-Based Chemotherapy
   description: &gt;-
     Gemcitabine monotherapy or in combination with nab-paclitaxel is a standard
@@ -5369,7 +7115,403 @@ disease_term:
   term:
     id: MONDO:0005184
     label: pancreatic ductal adenocarcinoma
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0005184
+      label: pancreatic ductal adenocarcinoma
+    mapping_predicate: skos:exactMatch
+    mapping_source: MONDO
+    mapping_justification: MONDO provides an exact disease term for pancreatic ductal adenocarcinoma.
+  icd10cm_mappings:
+  - term:
+      id: ICD10CM:C25.3
+      label: Malignant neoplasm of pancreatic duct
+    mapping_predicate: skos:exactMatch
+    mapping_source: ICD-10-CM
+    mapping_justification: ICD-10-CM provides an exact malignant neoplasm code for pancreatic duct.
+  ncit_mappings:
+  - term:
+      id: NCIT:C9120
+      label: Pancreatic Ductal Adenocarcinoma
+    mapping_predicate: skos:exactMatch
+    mapping_source: NCIT
+    mapping_justification: NCIT provides an exact neoplasm term for pancreatic ductal adenocarcinoma.
 datasets:
+- accession: geo:GSE111672
+  title: Integrating microarray-based spatial transcriptomics and single-cell RNA-seq reveals tissue architecture in pancreatic ductal adenocarcinomas
+  description: &gt;-
+    Multimodal PDAC dataset combining spatial transcriptomics and single-cell RNA-seq
+    from primary pancreatic tumors. Useful for resolving how malignant ductal cells,
+    macrophages, dendritic cells, and fibroblast states are spatially organized within
+    the tumor microenvironment.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MULTI_OMICS
+  sample_types:
+  - preferred_term: pancreatic tumor tissue
+    tissue_term:
+      preferred_term: pancreas
+      term:
+        id: UBERON:0001264
+        label: pancreas
+  sample_count: 23
+  conditions:
+  - primary pancreatic ductal adenocarcinoma
+  publication: PMID:31932730
+  notes: &gt;-
+    GEO reports six primary pancreatic cancer patients with matched single-cell and
+    spatial transcriptomic profiling. Particularly relevant for spatial initialization
+    and cell-neighborhood constraints in PhysiCell-style TME models.
+- accession: geo:GSE154778
+  title: Single-cell transcriptomics analysis of pancreatic primary tumor and metastatic biopsy tissues
+  description: &gt;-
+    Single-cell RNA-seq of 10 pancreatic primary tumors and 6 metastatic biopsies.
+    Captures tumor, stromal, and immune programs across primary and metastatic disease,
+    making it useful for modeling dissemination and metastatic niche adaptation in PDAC.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_types:
+  - preferred_term: pancreatic tumor tissue
+    tissue_term:
+      preferred_term: pancreas
+      term:
+        id: UBERON:0001264
+        label: pancreas
+  sample_count: 16
+  conditions:
+  - primary pancreatic ductal adenocarcinoma
+  - metastatic pancreatic ductal adenocarcinoma
+  publication: PMID:32988401
+  notes: &gt;-
+    GEO reports 10 primary tumors and 6 metastatic lesion biopsies profiled on the
+    10x Genomics Chromium platform. High-value bridge dataset between primary-tumor
+    ecology and metastatic evolution.
+- accession: geo:GSE155698
+  title: Multimodal Mapping of the Tumor and Peripheral Blood Immune Landscape in Human Pancreatic Cancer
+  description: &gt;-
+    Single-cell immune-focused PDAC resource spanning tumor tissue, adjacent normal
+    pancreas, and peripheral blood mononuclear cells from pancreatic cancer patients,
+    plus healthy-donor PBMC controls. Especially useful for linking the local TME to
+    the systemic macroenvironment.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_types:
+  - preferred_term: pancreatic tumor tissue
+    tissue_term:
+      preferred_term: pancreas
+      term:
+        id: UBERON:0001264
+        label: pancreas
+  - preferred_term: adjacent normal pancreatic tissue
+    tissue_term:
+      preferred_term: pancreas
+      term:
+        id: UBERON:0001264
+        label: pancreas
+  - preferred_term: peripheral blood
+    tissue_term:
+      preferred_term: blood
+      term:
+        id: UBERON:0000178
+        label: blood
+  sample_count: 41
+  conditions:
+  - pancreatic ductal adenocarcinoma tumor tissue
+  - adjacent normal pancreas
+  - pancreatic cancer patient PBMCs
+  - healthy donor PBMCs
+  publication: PMID:34296197
+  notes: &gt;-
+    GEO reports 16 PDAC tissue samples, 3 adjacent normal pancreas samples, 16
+    patient PBMC samples, and 4 healthy-donor PBMC samples. This is a strong anchor
+    for modeling immune composition across tumor and circulation.
+- accession: geo:GSE62452
+  title: Microarray gene-expression profiles of 69 pancreatic tumors and 61 adjacent non-tumor tissue from patients with pancreatic ductal adenocarcinoma
+  description: &gt;-
+    Large paired bulk expression cohort of PDAC tumors and adjacent non-tumor tissue.
+    Useful as a broader transcriptomic reference set for tumor-versus-normal contrasts
+    and for anchoring subtype-level or pathway-level signatures in a larger patient cohort.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_types:
+  - preferred_term: pancreatic tumor tissue
+    tissue_term:
+      preferred_term: pancreas
+      term:
+        id: UBERON:0001264
+        label: pancreas
+  sample_count: 130
+  conditions:
+  - pancreatic ductal adenocarcinoma tumor tissue
+  - adjacent non-tumor pancreatic tissue
+  publication: PMID:27197190
+  notes: &gt;-
+    GEO reports 69 pancreatic tumors and 61 adjacent non-tumor tissues, with earlier
+    Affymetrix data from GSE28735 incorporated into the merged normalized cohort.
+    Useful as a bulk-expression complement to the single-cell and spatial resources above.
+computational_models:
+- name: PDAC CAF-Mediated Invasion PhysiCell Model
+  description: &gt;-
+    Grammar-based PhysiCell agent-based model of pancreatic ductal adenocarcinoma
+    neoplastic cells and cancer-associated fibroblasts. The model encodes
+    fibroblast-mediated invasion, epithelial-mesenchymal state switching, and
+    ECM-dependent motility tradeoffs using human-interpretable cell rules
+    informed by PDAC spatial transcriptomics and coculture data.
+  model_type: AGENT_BASED
+  repository_url: https://github.com/PhysiCell-Models/grammar_samples/tree/v2.0.1/user_projects/epi_caf_invasion
+  model_id: grammar_samples:v2.0.1/user_projects/epi_caf_invasion
+  base_model: PhysiCell grammar manuscript release DOI:10.5281/zenodo.16285252
+  model_software: PhysiCell
+  model_format: C++/XML/CSV
+  publication: DOI:10.1016/j.cell.2025.06.048
+  modeled_mechanisms:
+  - target: Desmoplastic Stroma
+    description: &gt;-
+      Implements ECM-driven fibroblast motility and epithelial-mesenchymal state
+      switching encoded in `config/cell_rules.csv` for the stromal invasion program.
+  findings:
+  - statement: ECM increases epithelial-to-mesenchymal switching of tumor epithelial cells in the executable PDAC invasion model.
+    supporting_text: epithelial_tumor,ecm,increases,transform to mesenchymal_tumor,0.01,0.01,4,0
+  - statement: Fibroblast migration is explicitly controlled by ECM-dependent rules in the invasion model.
+    supporting_text: fibroblast,ecm,increases,migration speed,3.470551875,9.999679617,1.153017946,0
+  variables:
+  - name: inflammatory_signal
+    dataset_identifier: inflammatory_signal
+    description: Generic inflammatory signaling field used to bias migration and mesenchymal-to-epithelial state transitions.
+    unit: dimensionless field
+  - name: ecm
+    dataset_identifier: ecm
+    description: Extracellular-matrix density field driving stromal invasion and epithelial-mesenchymal plasticity.
+    unit: dimensionless field
+    mappings_list:
+    - preferred_term: Extracellular matrix
+      term:
+        id: GO:0031012
+        label: extracellular matrix
+  - name: epithelial_normal_cells
+    dataset_identifier: epithelial_normal
+    description: Abundance of non-malignant epithelial agents in the coculture invasion simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: epithelial cell
+      term:
+        id: CL:0000066
+        label: epithelial cell
+  - name: mesenchymal_normal_cells
+    dataset_identifier: mesenchymal_normal
+    description: Abundance of non-malignant mesenchymal-state agents in the invasion simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: mesenchymal cell
+      term:
+        id: CL:0008019
+        label: mesenchymal cell
+  - name: fibroblast_cells
+    dataset_identifier: fibroblast
+    description: Abundance of fibroblast / CAF-like agents in the invasion simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: fibroblast
+      term:
+        id: CL:0000057
+        label: fibroblast
+  - name: epithelial_tumor_cells
+    dataset_identifier: epithelial_tumor
+    description: Abundance of epithelial-state malignant agents in the invasion simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: epithelial tumor cell
+      term:
+        id: CL:0000066
+        label: epithelial cell
+  - name: mesenchymal_tumor_cells
+    dataset_identifier: mesenchymal_tumor
+    description: Abundance of mesenchymal-state malignant agents in the invasion simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: mesenchymal tumor cell
+      term:
+        id: CL:0008019
+        label: mesenchymal cell
+  notes: &gt;-
+    Manuscript-synced sample model from the official PhysiCell grammar_samples
+    release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`,
+    the rule table in `config/cell_rules.csv`, and coculture initial conditions
+    under `config/ics/`.
+- name: PDAC Immunotherapy PhysiCell Model
+  description: &gt;-
+    Grammar-based PhysiCell agent-based PDAC tumor-immune model initialized
+    from PDAC tissue compositions. The model simulates combination therapy with
+    GVAX, nivolumab, and urelumab across heterogeneous baseline microenvironment
+    states and is a strong executable analogue of PDAC immune-excluded ecology.
+  model_type: AGENT_BASED
+  repository_url: https://github.com/PhysiCell-Models/grammar_samples/tree/v2.0.1/user_projects/pdac_therapy
+  model_id: grammar_samples:v2.0.1/user_projects/pdac_therapy
+  base_model: PhysiCell grammar manuscript release DOI:10.5281/zenodo.16285252
+  model_software: PhysiCell
+  model_format: C++/XML/CSV
+  publication: DOI:10.1016/j.cell.2025.06.048
+  modeled_mechanisms:
+  - target: Immune Evasion
+    description: &gt;-
+      Encodes PD-L1-dependent suppression of T-cell motility and attack probabilities,
+      plus macrophage inflammatory-state rules, in `config/cell_rules.csv`.
+  findings:
+  - statement: Contact with PD-L1-high tumor cells reduces CD8 T-cell migration in the executable PDAC immunotherapy model.
+    supporting_text: PD-1lo_CD137lo_CD8_Tcell,contact with PD-L1hi_tumor,decreases,migration speed,0,0.1,2,0
+  - statement: Anti-inflammatory signals decrease CD8 T-cell attack against tumor cells in the executable PDAC immunotherapy model.
+    supporting_text: PD-1lo_CD137hi_CD8_Tcell,anti-inflammatory factor,decreases,attack PD-L1hi_tumor,0,2.5,2,0
+  - statement: Macrophage oxygen sensing controls pro- versus anti-inflammatory factor secretion in the executable PDAC immunotherapy model.
+    supporting_text: macrophage,oxygen,decreases,anti-inflammatory factor secretion,0,5,4,0
+  variables:
+  - name: oxygen
+    dataset_identifier: oxygen
+    description: Diffusible oxygen field used to control tumor proliferation, macrophage polarization logic, and necrotic stress.
+    unit: substrate density
+    mappings_list:
+    - preferred_term: dioxygen
+      term:
+        id: CHEBI:15379
+        label: dioxygen
+  - name: debris
+    dataset_identifier: debris
+    description: Extracellular dead-cell debris field that attracts macrophages and reflects local cell death burden.
+    unit: substrate density
+  - name: pro_inflammatory_factor
+    dataset_identifier: pro-inflammatory factor
+    description: Generic pro-inflammatory signaling field that boosts T-cell attack and chemotaxis in the model.
+    unit: substrate density
+  - name: anti_inflammatory_factor
+    dataset_identifier: anti-inflammatory factor
+    description: Generic anti-inflammatory signaling field that suppresses T-cell migration and attack in the model.
+    unit: substrate density
+  - name: PD-L1lo_tumor_cells
+    dataset_identifier: PD-L1lo_tumor
+    description: Abundance of PD-L1-low malignant epithelial agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: epithelial tumor cell
+      term:
+        id: CL:0000066
+        label: epithelial cell
+  - name: PD-L1hi_tumor_cells
+    dataset_identifier: PD-L1hi_tumor
+    description: Abundance of PD-L1-high malignant epithelial agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: epithelial tumor cell
+      term:
+        id: CL:0000066
+        label: epithelial cell
+    - preferred_term: Programmed cell death 1 ligand 1
+      term:
+        id: NCIT:C96024
+        label: Programmed Cell Death 1 Ligand 1
+  - name: macrophages
+    dataset_identifier: macrophage
+    description: Abundance of macrophage agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: macrophage
+      term:
+        id: CL:0000235
+        label: macrophage
+  - name: PD-1hi_CD137lo_CD8_T_cells
+    dataset_identifier: PD-1hi_CD137lo_CD8_Tcell
+    description: Abundance of PD-1-high CD137-low CD8 T-cell agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: PD-1-high CD137-low CD8 T cell
+      term:
+        id: CL:0000625
+        label: CD8-positive, alpha-beta T cell
+  - name: PD-1lo_CD137lo_CD8_T_cells
+    dataset_identifier: PD-1lo_CD137lo_CD8_Tcell
+    description: Abundance of PD-1-low CD137-low CD8 T-cell agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: PD-1-low CD137-low CD8 T cell
+      term:
+        id: CL:0000625
+        label: CD8-positive, alpha-beta T cell
+  - name: PD-1hi_CD137hi_CD8_T_cells
+    dataset_identifier: PD-1hi_CD137hi_CD8_Tcell
+    description: Abundance of PD-1-high CD137-high CD8 T-cell agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: PD-1-high CD137-high CD8 T cell
+      term:
+        id: CL:0000625
+        label: CD8-positive, alpha-beta T cell
+  - name: PD-1lo_CD137hi_CD8_T_cells
+    dataset_identifier: PD-1lo_CD137hi_CD8_Tcell
+    description: Abundance of PD-1-low CD137-high CD8 T-cell agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: PD-1-low CD137-high CD8 T cell
+      term:
+        id: CL:0000625
+        label: CD8-positive, alpha-beta T cell
+  - name: PD-1hi_CD4_T_cells
+    dataset_identifier: PD-1hi_CD4_Tcell
+    description: Abundance of PD-1-high CD4 T-cell agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: PD-1-high CD4 T cell
+      term:
+        id: CL:0000624
+        label: CD4-positive, alpha-beta T cell
+  - name: PD-1lo_CD4_T_cells
+    dataset_identifier: PD-1lo_CD4_Tcell
+    description: Abundance of PD-1-low CD4 T-cell agents in the PDAC immunotherapy simulation.
+    unit: cells
+    mappings_list:
+    - preferred_term: PD-1-low CD4 T cell
+      term:
+        id: CL:0000624
+        label: CD4-positive, alpha-beta T cell
+  notes: &gt;-
+    Manuscript-synced sample model from the official PhysiCell grammar_samples
+    release. Therapy-specific initial-condition files are stored in
+    `config/ic_cells/`, and the core executable interaction logic is in
+    `config/cell_rules.csv`.
+references:
+- reference: DOI:10.1146/annurev-pathmechdis-031621-024600
+  title: Tumor Microenvironment in Pancreatic Ductal Adenocarcinoma
+  found_in:
+  - Pancreatic_Ductal_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: PDAC has a prominent and spatially heterogeneous stromal microenvironment that meaningfully shapes treatment resistance.
+    supporting_text: Pancreatic ductal adenocarcinoma (PDAC) features a prominent stromal microenvironment with remarkable cellular and spatial heterogeneity that meaningfully impacts disease biology and treatment resistance.
+- reference: DOI:10.1158/2159-8290.CD-23-0428
+  title: Senescence Defines a Distinct Subset of Myofibroblasts that Orchestrates Immunosuppression in Pancreatic Cancer
+  found_in:
+  - Pancreatic_Ductal_Adenocarcinoma-deep-research-falcon.md
+  findings:
+  - statement: Functionally distinct fibroblast states are part of the immunosuppressive circuitry of pancreatic cancer.
+    supporting_text: Senescence defines a distinct subset of myofibroblasts that orchestrates immunosuppression in pancreatic cancer.
+classifications:
+  icdo_morphology:
+    classification_value: Adenocarcinoma
+  harrisons_chapter:
+  - classification_value: cancer
+  - classification_value: solid tumor
 </pre>
             </div>
         </div>
