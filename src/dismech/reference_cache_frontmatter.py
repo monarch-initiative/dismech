@@ -118,7 +118,13 @@ def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
         .replace("=", "_")
         + ".md"
     )
-    if path.name != expected_name:
+    matches_filename = path.name == expected_name
+    # DOI identifiers are case-insensitive in practice, and the tracked cache
+    # corpus contains mixed-case DOI filenames. Match those names
+    # case-insensitively so Linux CI agrees with the repo's existing files.
+    if frontmatter.reference_id.startswith("DOI:"):
+        matches_filename = path.name.casefold() == expected_name.casefold()
+    if not matches_filename:
         reasons.append(f"filename must match reference_id ({expected_name})")
 
     return reasons

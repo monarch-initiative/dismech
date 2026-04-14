@@ -90,6 +90,18 @@ def test_check_cache_file_requires_filename_to_match_reference_id(tmp_path: Path
     assert any("filename must match" in reason for reason in finding.reasons)
 
 
+def test_check_cache_file_allows_mixed_case_doi_filename(tmp_path: Path):
+    doi = tmp_path / "DOI_10.1272_jnms.JNMS.2023_90-104.md"
+    doi.write_text(
+        "---\n"
+        'reference_id: "DOI:10.1272/jnms.jnms.2023_90-104"\n'
+        "content_type: unavailable\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(doi) is None
+
+
 @pytest.mark.skipif(not CACHE_DIR.is_dir(), reason="references_cache/ not present")
 def test_existing_repo_caches_match_frontmatter_contract():
     findings = scan_cache_dir(CACHE_DIR)
