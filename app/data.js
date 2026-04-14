@@ -9898,7 +9898,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-02-10T22:52:02Z",
-    "updated_date": "2026-02-13T22:51:36Z",
+    "updated_date": "2026-04-14T20:47:00Z",
     "subtypes": [
       "Acute",
       "Chronic"
@@ -21151,7 +21151,7 @@ window.searchData = [
       "Psychiatric Disease"
     ],
     "creation_date": "2026-01-26T17:51:15Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-14T20:40:00Z",
     "subtypes": [],
     "description": "This entry describes the psychiatric PICS-F concept in ICU family members. Note: MONDO:0978296 refers to a genetic dysmorphology syndrome (OMIM 621193), not the PICS-F condition described here.\n",
     "pathophysiology": [],
@@ -26988,7 +26988,7 @@ window.searchData = [
       "Viral Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-14T20:47:00Z",
     "subtypes": [],
     "description": "Hepatitis B is a viral infection caused by Hepatitis B Virus (HBV) that primarily affects the liver. It can cause both acute and chronic disease, with chronic infection leading to cirrhosis, liver failure, and hepatocellular carcinoma. Transmission occurs through blood, sexual contact, and from mother to child during birth.",
     "pathophysiology": [
@@ -28374,7 +28374,7 @@ window.searchData = [
       "Renal Disease"
     ],
     "creation_date": "2026-03-09T12:00:00Z",
-    "updated_date": "2026-03-12T12:00:00Z",
+    "updated_date": "2026-04-14T20:40:00Z",
     "subtypes": [
       "Sepsis-Associated AKI",
       "Nephrotoxic AKI",
@@ -36590,7 +36590,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-04-13T01:16:34Z",
-    "updated_date": "2026-04-14T04:21:44Z",
+    "updated_date": "2026-04-14T11:30:00Z",
     "subtypes": [
       "Early onset",
       "Late onset"
@@ -46959,13 +46959,13 @@ window.searchData = [
       "neurodegenerative disease"
     ],
     "creation_date": "2026-04-13T04:00:00Z",
-    "updated_date": "2026-04-13T23:45:00Z",
+    "updated_date": "2026-04-14T11:20:00Z",
     "subtypes": [],
     "description": "PHARC syndrome is an autosomal recessive neurodegenerative disorder caused by biallelic ABHD12 loss of function. The syndrome combines polyneuropathy, hearing loss, ataxia, retinitis pigmentosa, and cataract, reflecting progressive involvement of peripheral nerves, retina, auditory pathways, and cerebellar systems. Current mechanistic models implicate dysregulated lysophosphatidylserine metabolism and lipid-driven neuroinflammation.",
     "pathophysiology": [
       "ABHD12 loss of lipid hydrolase activity",
       "Abnormal lysophosphatidylserine signaling",
-      "Progressive neuroretinal degeneration",
+      "Progressive multisystem neurodegeneration",
       "Peripheral nerve degeneration",
       "Cerebellar degeneration",
       "Retinal degeneration"
@@ -59325,7 +59325,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-03-17T21:02:44Z",
-    "updated_date": "2026-03-25T23:02:47Z",
+    "updated_date": "2026-04-14T20:55:00Z",
     "subtypes": [
       "Acute Thallium Poisoning",
       "Delayed neurocutaneous thallium poisoning"
@@ -63063,7 +63063,7 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 692,
-  "total_unique_evidence_sources": 11605,
+  "total_unique_evidence_sources": 11606,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 140,
   "total_pathographs": 683,
