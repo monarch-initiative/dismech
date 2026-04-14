@@ -9898,7 +9898,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-02-10T22:52:02Z",
-    "updated_date": "2026-02-13T22:51:36Z",
+    "updated_date": "2026-04-14T20:47:00Z",
     "subtypes": [
       "Acute",
       "Chronic"
@@ -21151,7 +21151,7 @@ window.searchData = [
       "Psychiatric Disease"
     ],
     "creation_date": "2026-01-26T17:51:15Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-14T20:40:00Z",
     "subtypes": [],
     "description": "This entry describes the psychiatric PICS-F concept in ICU family members. Note: MONDO:0978296 refers to a genetic dysmorphology syndrome (OMIM 621193), not the PICS-F condition described here.\n",
     "pathophysiology": [],
@@ -26988,7 +26988,7 @@ window.searchData = [
       "Viral Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-14T20:47:00Z",
     "subtypes": [],
     "description": "Hepatitis B is a viral infection caused by Hepatitis B Virus (HBV) that primarily affects the liver. It can cause both acute and chronic disease, with chronic infection leading to cirrhosis, liver failure, and hepatocellular carcinoma. Transmission occurs through blood, sexual contact, and from mother to child during birth.",
     "pathophysiology": [
@@ -28374,7 +28374,7 @@ window.searchData = [
       "Renal Disease"
     ],
     "creation_date": "2026-03-09T12:00:00Z",
-    "updated_date": "2026-03-12T12:00:00Z",
+    "updated_date": "2026-04-14T20:40:00Z",
     "subtypes": [
       "Sepsis-Associated AKI",
       "Nephrotoxic AKI",
@@ -36590,7 +36590,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-04-13T01:16:34Z",
-    "updated_date": "2026-04-14T04:21:44Z",
+    "updated_date": "2026-04-14T11:30:00Z",
     "subtypes": [
       "Early onset",
       "Late onset"
@@ -38758,6 +38758,95 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Membranous nephropathy",
+    "disease_id": "MONDO:0005376",
+    "category": "Complex",
+    "parents": [
+      "Kidney Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-04-14T00:00:00Z",
+    "updated_date": "2026-04-14T00:00:00Z",
+    "subtypes": [
+      "Primary membranous nephropathy",
+      "Secondary membranous nephropathy"
+    ],
+    "description": "Immune-complex glomerular disease characterized by subepithelial deposits along the glomerular basement membrane, podocyte injury, proteinuria, and nephrotic manifestations. This entry is anchored to the MONDO disease term for membranous glomerulonephritis but uses the clinically preferred synonym \"Membranous nephropathy\" for display and curation.",
+    "pathophysiology": [
+      "Autoantibody production against podocyte antigens",
+      "In situ subepithelial immune complex deposition",
+      "Complement activation at the glomerular capillary wall",
+      "Podocyte structural injury",
+      "Glomerular filtration barrier failure and proteinuria",
+      "Progressive kidney function decline"
+    ],
+    "cell_types": [
+      "B cell",
+      "plasma cell",
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "B cell activation",
+      "immunoglobulin production",
+      "complement activation",
+      "actin cytoskeleton organization",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Nephrotic syndrome",
+      "Proteinuria",
+      "Edema",
+      "Hypoalbuminemia",
+      "Hyperlipidemia",
+      "Renal insufficiency"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Biochemical",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000100",
+      "HP:0000093",
+      "HP:0000969",
+      "HP:0003073",
+      "HP:0003077",
+      "HP:0000083"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PLA2R1 susceptibility locus",
+      "HLA-DQA1 susceptibility locus"
+    ],
+    "treatments": [
+      "Rituximab",
+      "Cyclophosphamide-based immunosuppression",
+      "Supportive CKD therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Anti-PLA2R autoantibodies",
+      "Anti-THSD7A autoantibodies"
+    ],
+    "source_file": "Membranous_Nephropathy.yaml",
+    "page_url": "../pages/disorders/Membranous_nephropathy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Meniere's Disease",
     "disease_id": "MONDO:0007972",
     "category": "Complex",
@@ -40415,14 +40504,15 @@ window.searchData = [
       "Nephrotic Syndrome"
     ],
     "creation_date": "2026-04-13T00:00:00Z",
-    "updated_date": "2026-04-13T00:00:00Z",
+    "updated_date": "2026-04-14T20:27:54Z",
     "subtypes": [],
-    "description": "MCD is driven by immune dysregulation involving both T-cell and B-cell compartments. Dysregulated T cells produce circulating permeability factors that target podocytes. Cytokine abnormalities include elevated GM-CSF, TRANCE, and urinary CD80 levels, indicating Th1/Th2/Th17 imbalance. The dramatic response to corticosteroids and rituximab supports an immune-mediated pathogenesis.\n",
+    "description": "MCD is best framed as an immune-mediated podocytopathy in which adaptive immune dysregulation is implicated, but no single upstream circulating factor explains all cases. Human relapse cohorts show cytokine perturbations and urinary CD80 elevation, while review literature supports interacting T-cell, B-cell, and podocyte pathways rather than one definitive proximal mediator.\n",
     "pathophysiology": [
       "Immune Dysregulation",
-      "Anti-Nephrin Autoantibody-Mediated Injury",
+      "Anti-Nephrin Autoantibody-Associated Podocyte Injury",
       "Podocyte Foot Process Effacement",
-      "Nephrotic Syndrome Complications",
+      "Glomerular Filtration Barrier Failure",
+      "Nephrotic Syndrome Manifestations",
       "MCD to FSGS Progression"
     ],
     "cell_types": [
@@ -40468,7 +40558,7 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "HLA-DQA1/DQB1"
+      "HLA class II risk alleles"
     ],
     "treatments": [
       "Corticosteroid Therapy",
@@ -40482,11 +40572,11 @@ window.searchData = [
     "source_file": "Minimal_Change_Disease.yaml",
     "page_url": "../pages/disorders/Minimal_Change_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mitochondrial Trifunctional Protein Deficiency",
@@ -46959,13 +47049,13 @@ window.searchData = [
       "neurodegenerative disease"
     ],
     "creation_date": "2026-04-13T04:00:00Z",
-    "updated_date": "2026-04-13T23:45:00Z",
+    "updated_date": "2026-04-14T11:20:00Z",
     "subtypes": [],
     "description": "PHARC syndrome is an autosomal recessive neurodegenerative disorder caused by biallelic ABHD12 loss of function. The syndrome combines polyneuropathy, hearing loss, ataxia, retinitis pigmentosa, and cataract, reflecting progressive involvement of peripheral nerves, retina, auditory pathways, and cerebellar systems. Current mechanistic models implicate dysregulated lysophosphatidylserine metabolism and lipid-driven neuroinflammation.",
     "pathophysiology": [
       "ABHD12 loss of lipid hydrolase activity",
       "Abnormal lysophosphatidylserine signaling",
-      "Progressive neuroretinal degeneration",
+      "Progressive multisystem neurodegeneration",
       "Peripheral nerve degeneration",
       "Cerebellar degeneration",
       "Retinal degeneration"
@@ -59325,7 +59415,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-03-17T21:02:44Z",
-    "updated_date": "2026-03-25T23:02:47Z",
+    "updated_date": "2026-04-14T20:55:00Z",
     "subtypes": [
       "Acute Thallium Poisoning",
       "Delayed neurocutaneous thallium poisoning"
@@ -63062,11 +63152,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 692,
-  "total_unique_evidence_sources": 11605,
+  "total_disorder_pages": 693,
+  "total_unique_evidence_sources": 11622,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 140,
-  "total_pathographs": 683,
-  "total_unique_pathological_events": 2997
+  "total_pathographs": 684,
+  "total_unique_pathological_events": 3004
 };
 window.dispatchEvent(new Event('searchDataReady'));
