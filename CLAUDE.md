@@ -488,12 +488,17 @@ just validate kb/disorders/MyDisease.yaml
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
-**Hallucination heuristics (dismech#871):** `just check-reference-heuristics`
-scans `references_cache/` for LLM placeholder author lists (alphabetised
-top-50 English surnames, sequential two-letter initials like
-`Smith AB, Johnson CD, Williams EF, ...`). It runs as part of `just qc`.
-Heuristics are a defence-in-depth layer only — `just fetch-reference` fetching
-real PubMed metadata is still the primary safeguard.
+**Deterministic cache contract check (dismech#871):**
+`just check-reference-cache-frontmatter` validates that every
+`references_cache/*.md` file has parseable YAML frontmatter matching the local
+`linkml-reference-validator` cache contract and filename/reference_id mapping.
+It runs as part of `just qc` before the heavier validators. This is still only
+a structural check — `validate-references` remains the last defence against a
+snippet matching the wrong cached paper.
+
+**Agent guardrail:** Claude Code and Codex must never create or hand-edit
+`references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
+with `just fetch-reference <ID>` instead of patching the frontmatter manually.
 
 ## Git Best Practices
 
