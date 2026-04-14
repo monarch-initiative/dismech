@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-10T18:06:56
+# Generation date: 2026-04-13T02:53:07
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -675,6 +675,28 @@ class DiseaseDescriptor(Descriptor):
 
 
 @dataclass(repr=False)
+class SubtypeDescriptor(Descriptor):
+    """
+    A descriptor for disease subtypes, bindable to MONDO disease terms or NCIT oncology subtype terms.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["SubtypeDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:SubtypeDescriptor"
+    class_name: ClassVar[str] = "SubtypeDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.SubtypeDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class BiomarkerDescriptor(Descriptor):
     """
     A descriptor for biomarkers, bindable to NCIT
@@ -811,7 +833,7 @@ class InheritanceDescriptor(Descriptor):
 @dataclass(repr=False)
 class TreatmentDescriptor(Descriptor):
     """
-    A descriptor for treatments/medical actions, bindable to Medical Action Ontology (MAXO)
+    A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinical interventions
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -1391,6 +1413,7 @@ class ComputationalModel(YAMLRoot):
     base_model: Optional[str] = None
     perturbations: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
     variables: Optional[Union[dict[Union[str, ModelVariableName], Union[dict, "ModelVariable"]], list[Union[dict, "ModelVariable"]]]] = empty_dict()
+    modeled_mechanisms: Optional[Union[Union[dict, "ModelMechanismLink"], list[Union[dict, "ModelMechanismLink"]]]] = empty_list()
     model_software: Optional[str] = None
     model_format: Optional[str] = None
     publication: Optional[str] = None
@@ -1424,6 +1447,10 @@ class ComputationalModel(YAMLRoot):
         self.perturbations = [v if isinstance(v, GeneDescriptor) else GeneDescriptor(**as_dict(v)) for v in self.perturbations]
 
         self._normalize_inlined_as_list(slot_name="variables", slot_type=ModelVariable, key_name="name", keyed=True)
+
+        if not isinstance(self.modeled_mechanisms, list):
+            self.modeled_mechanisms = [self.modeled_mechanisms] if self.modeled_mechanisms is not None else []
+        self.modeled_mechanisms = [v if isinstance(v, ModelMechanismLink) else ModelMechanismLink(**as_dict(v)) for v in self.modeled_mechanisms]
 
         if self.model_software is not None and not isinstance(self.model_software, str):
             self.model_software = str(self.model_software)
@@ -1617,7 +1644,8 @@ class Subtype(YAMLRoot):
 
     name: Union[str, SubtypeName] = None
     display_name: Optional[str] = None
-    subtype_term: Optional[Union[dict, DiseaseDescriptor]] = None
+    subtype_term: Optional[Union[dict, SubtypeDescriptor]] = None
+    mappings: Optional[Union[dict, "DiseaseMappings"]] = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
     review_notes: Optional[str] = None
@@ -1638,8 +1666,11 @@ class Subtype(YAMLRoot):
         if self.display_name is not None and not isinstance(self.display_name, str):
             self.display_name = str(self.display_name)
 
-        if self.subtype_term is not None and not isinstance(self.subtype_term, DiseaseDescriptor):
-            self.subtype_term = DiseaseDescriptor(**as_dict(self.subtype_term))
+        if self.subtype_term is not None and not isinstance(self.subtype_term, SubtypeDescriptor):
+            self.subtype_term = SubtypeDescriptor(**as_dict(self.subtype_term))
+
+        if self.mappings is not None and not isinstance(self.mappings, DiseaseMappings):
+            self.mappings = DiseaseMappings(**as_dict(self.mappings))
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -3998,6 +4029,30 @@ class MondoMapping(TermMapping):
 
 
 @dataclass(repr=False)
+class NCITMapping(TermMapping):
+    """
+    NCIT disease, subtype, or disease/finding ontology mapping for cancer entries
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["NCITMapping"]
+    class_class_curie: ClassVar[str] = "dismech:NCITMapping"
+    class_name: ClassVar[str] = "NCITMapping"
+    class_model_uri: ClassVar[URIRef] = DISMECH.NCITMapping
+
+    mapping_predicate: Union[str, URIorCURIE] = None
+    term: Union[dict, Term] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.term):
+            self.MissingRequiredField("term")
+        if not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class MappingConsistency(YAMLRoot):
     """
     Consistency assertion for a mapping relative to another source
@@ -4033,7 +4088,7 @@ class MappingConsistency(YAMLRoot):
 @dataclass(repr=False)
 class DiseaseMappings(YAMLRoot):
     """
-    Container for external identifier mappings for a disease
+    Container for external identifier mappings for a disease or subtype
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -4045,6 +4100,7 @@ class DiseaseMappings(YAMLRoot):
     icd10cm_mappings: Optional[Union[Union[dict, ICD10CMMapping], list[Union[dict, ICD10CMMapping]]]] = empty_list()
     icd11f_mappings: Optional[Union[Union[dict, ICD11FMapping], list[Union[dict, ICD11FMapping]]]] = empty_list()
     mondo_mappings: Optional[Union[Union[dict, MondoMapping], list[Union[dict, MondoMapping]]]] = empty_list()
+    ncit_mappings: Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if not isinstance(self.icd10cm_mappings, list):
@@ -4058,6 +4114,10 @@ class DiseaseMappings(YAMLRoot):
         if not isinstance(self.mondo_mappings, list):
             self.mondo_mappings = [self.mondo_mappings] if self.mondo_mappings is not None else []
         self.mondo_mappings = [v if isinstance(v, MondoMapping) else MondoMapping(**as_dict(v)) for v in self.mondo_mappings]
+
+        if not isinstance(self.ncit_mappings, list):
+            self.ncit_mappings = [self.ncit_mappings] if self.ncit_mappings is not None else []
+        self.ncit_mappings = [v if isinstance(v, NCITMapping) else NCITMapping(**as_dict(v)) for v in self.ncit_mappings]
 
         super().__post_init__(**kwargs)
 
@@ -5149,11 +5209,11 @@ class AnatomicalEntityTerm(EnumDefinitionImpl):
 
 class TreatmentActionTerm(EnumDefinitionImpl):
     """
-    A term representing a medical action or treatment (from MAXO)
+    A term representing a medical action or treatment (from MAXO or NCIT)
     """
     _defn = EnumDefinition(
         name="TreatmentActionTerm",
-        description="A term representing a medical action or treatment (from MAXO)",
+        description="A term representing a medical action or treatment (from MAXO or NCIT)",
     )
 
 class RegimenTerm(EnumDefinitionImpl):
@@ -5257,6 +5317,25 @@ class DiseaseTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="DiseaseTerm",
         description="""A MONDO disease, inherited disease susceptibility, or related medical condition term used to anchor a curated disorder entry""",
+    )
+
+class NCITDiseaseOrFindingTerm(EnumDefinitionImpl):
+    """
+    An NCIT disease-oriented oncology term used for disease-level cancer mappings and subtype grounding, including
+    neoplasm-by-morphology, special-category neoplasm, and clinically used disease/finding boundary concepts.
+    """
+    _defn = EnumDefinition(
+        name="NCITDiseaseOrFindingTerm",
+        description="""An NCIT disease-oriented oncology term used for disease-level cancer mappings and subtype grounding, including neoplasm-by-morphology, special-category neoplasm, and clinically used disease/finding boundary concepts.""",
+    )
+
+class DiseaseOrSubtypeTerm(EnumDefinitionImpl):
+    """
+    A MONDO disease term or NCIT cancer disease/subtype term used to ground a disease subtype or cancer facet value.
+    """
+    _defn = EnumDefinition(
+        name="DiseaseOrSubtypeTerm",
+        description="""A MONDO disease term or NCIT cancer disease/subtype term used to ground a disease subtype or cancer facet value.""",
     )
 
 class ICD10CMTerm(EnumDefinitionImpl):
@@ -6820,7 +6899,7 @@ slots.diagnosis_term = Slot(uri=DISMECH.diagnosis_term, name="diagnosis_term", c
                    model_uri=DISMECH.diagnosis_term, domain=None, range=Optional[Union[dict, TreatmentDescriptor]])
 
 slots.subtype_term = Slot(uri=DISMECH.subtype_term, name="subtype_term", curie=DISMECH.curie('subtype_term'),
-                   model_uri=DISMECH.subtype_term, domain=None, range=Optional[Union[dict, DiseaseDescriptor]])
+                   model_uri=DISMECH.subtype_term, domain=None, range=Optional[Union[dict, SubtypeDescriptor]])
 
 slots.infectious_agent_term = Slot(uri=DISMECH.infectious_agent_term, name="infectious_agent_term", curie=DISMECH.curie('infectious_agent_term'),
                    model_uri=DISMECH.infectious_agent_term, domain=None, range=Optional[Union[dict, OrganismDescriptor]])
@@ -7256,6 +7335,9 @@ slots.icd11f_mappings = Slot(uri=DISMECH.icd11f_mappings, name="icd11f_mappings"
 slots.mondo_mappings = Slot(uri=DISMECH.mondo_mappings, name="mondo_mappings", curie=DISMECH.curie('mondo_mappings'),
                    model_uri=DISMECH.mondo_mappings, domain=None, range=Optional[Union[Union[dict, MondoMapping], list[Union[dict, MondoMapping]]]])
 
+slots.ncit_mappings = Slot(uri=DISMECH.ncit_mappings, name="ncit_mappings", curie=DISMECH.curie('ncit_mappings'),
+                   model_uri=DISMECH.ncit_mappings, domain=None, range=Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]])
+
 slots.mapping_predicate = Slot(uri=DISMECH.mapping_predicate, name="mapping_predicate", curie=DISMECH.curie('mapping_predicate'),
                    model_uri=DISMECH.mapping_predicate, domain=None, range=Optional[Union[str, URIorCURIE]])
 
@@ -7529,6 +7611,9 @@ slots.TriggerDescriptor_term = Slot(uri=DISMECH.term, name="TriggerDescriptor_te
 slots.DiseaseDescriptor_term = Slot(uri=DISMECH.term, name="DiseaseDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.DiseaseDescriptor_term, domain=DiseaseDescriptor, range=Optional[Union[dict, Term]])
 
+slots.SubtypeDescriptor_term = Slot(uri=DISMECH.term, name="SubtypeDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.SubtypeDescriptor_term, domain=SubtypeDescriptor, range=Optional[Union[dict, Term]])
+
 slots.BiomarkerDescriptor_term = Slot(uri=DISMECH.term, name="BiomarkerDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.BiomarkerDescriptor_term, domain=BiomarkerDescriptor, range=Optional[Union[dict, Term]])
 
@@ -7731,6 +7816,9 @@ slots.ICD11FMapping_term = Slot(uri=DISMECH.term, name="ICD11FMapping_term", cur
 
 slots.MondoMapping_term = Slot(uri=DISMECH.term, name="MondoMapping_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.MondoMapping_term, domain=MondoMapping, range=Union[dict, Term])
+
+slots.NCITMapping_term = Slot(uri=DISMECH.term, name="NCITMapping_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.NCITMapping_term, domain=NCITMapping, range=Union[dict, Term])
 
 slots.MappingConsistency_reference = Slot(uri=DISMECH.reference, name="MappingConsistency_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.MappingConsistency_reference, domain=MappingConsistency, range=str)
