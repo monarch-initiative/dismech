@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2048,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2057,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2078,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2436,11 +2484,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Classic Kaposi Sarcoma
                         
                         
@@ -2450,9 +2496,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Indolent form occurring in elderly men of Mediterranean, Eastern European, or Middle Eastern descent. Typically confined to lower extremities with slow progression over years to decades. Not associated with immunosuppression.</div>
+                    
                     
                     
                     
@@ -2463,11 +2512,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Endemic Kaposi Sarcoma
                         
                         
@@ -2477,9 +2524,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Occurs in sub-Saharan Africa, predating the HIV epidemic. Includes a lymphadenopathic variant affecting children that is rapidly progressive and often fatal. More aggressive than classic form.</div>
+                    
                     
                     
                     
@@ -2490,11 +2540,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Iatrogenic Kaposi Sarcoma
                         
                         
@@ -2504,9 +2552,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Occurs in organ transplant recipients and others on immunosuppressive therapy. May regress with reduction of immunosuppression. Risk correlates with degree of T-cell immunosuppression.</div>
+                    
                     
                     
                     
@@ -2517,11 +2568,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         AIDS-Associated Kaposi Sarcoma
                         
                         
@@ -2531,9 +2580,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Most common malignancy in AIDS patients, particularly in men who have sex with men. More aggressive with visceral involvement. Incidence has declined dramatically with effective antiretroviral therapy but remains an AIDS-defining illness.</div>
+                    
                     
                     
                     
@@ -2596,6 +2648,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2666,6 +2719,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2696,6 +2750,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2738,6 +2793,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2774,6 +2830,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2804,6 +2861,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2854,6 +2912,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3116,7 +3175,7 @@
                 <div class="evidence-snippet">"Gastrointestinal lesions were found in 17 cases (51%): 5 patients (15%) had both upper and lower GI tract involvement, 8 patients (24%) had only gastroduodenal lesions, and 4 (12%) only lower tract disease."</div>
                 
                 
-                <div class="evidence-explanation">Prospective study of 33 AIDS patients with Kaposi sarcoma identified gastrointestinal lesions in 51% of cases (FREQUENT per HPO frequency bins); 80% of lesions were clinically silent.</div>
+                <div class="evidence-explanation">Prospective study of 33 AIDS patients with Kaposi sarcoma identified gastrointestinal lesions in 51% of cases (FREQUENT per HPO frequency bins), with 80% clinically silent.</div>
                 
             </div>
             
@@ -3389,14 +3448,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Antiretroviral Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3413,17 +3481,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Chemotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         doxorubicin
@@ -3456,14 +3533,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Local Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000014" target="_blank">
-                            MAXO:0000014
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">radiation therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000014</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3480,14 +3566,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Reduction of Immunosuppression
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3572,7 +3667,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Kaposi Sarcoma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-12T16:46:13Z&#39;
+updated_date: &#39;2026-04-10T00:00:00Z&#39;
 description: &gt;-
   Kaposi sarcoma (KS) is a vascular neoplasm caused by Human Herpesvirus 8 (HHV-8),
   also known as Kaposi sarcoma-associated herpesvirus (KSHV). The tumor arises from
@@ -3860,7 +3955,7 @@ phenotypes:
     explanation: &gt;-
       Prospective study of 33 AIDS patients with Kaposi sarcoma
       identified gastrointestinal lesions in 51% of cases (FREQUENT
-      per HPO frequency bins); 80% of lesions were clinically silent.
+      per HPO frequency bins), with 80% clinically silent.
 - category: Pulmonary
   name: Pulmonary Involvement
   frequency: FREQUENT

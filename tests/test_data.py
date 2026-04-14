@@ -183,6 +183,57 @@ def test_environmental_food_source_slot_accepts_chebi_nutrient(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
+def test_subtype_ncit_mappings_validate(validator):
+    """Cancer subtype facets may carry MONDO/NCIT grounding without implying a local page."""
+    data = {
+        "name": "Test Pilocytic Astrocytoma",
+        "disease_term": {
+            "preferred_term": "pilocytic astrocytoma",
+            "term": {"id": "MONDO:0016691", "label": "pilocytic astrocytoma"},
+        },
+        "has_subtypes": [
+            {
+                "name": "Pilomyxoid",
+                "classification": "histology",
+                "subtype_term": {
+                    "preferred_term": "pilomyxoid astrocytoma",
+                    "term": {
+                        "id": "MONDO:0016692",
+                        "label": "pilomyxoid astrocytoma",
+                    },
+                },
+                "mappings": {
+                    "mondo_mappings": [
+                        {
+                            "term": {
+                                "id": "MONDO:0016692",
+                                "label": "pilomyxoid astrocytoma",
+                            },
+                            "mapping_predicate": "skos:exactMatch",
+                            "mapping_source": "MONDO",
+                        }
+                    ],
+                    "ncit_mappings": [
+                        {
+                            "term": {
+                                "id": "NCIT:C40315",
+                                "label": "Pilomyxoid Astrocytoma",
+                            },
+                            "mapping_predicate": "skos:exactMatch",
+                            "mapping_source": "NCIT",
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
 def test_infectious_agent_food_source_slot_validates(validator):
     """Infectious agents may annotate a food or beverage vehicle of exposure."""
     data = {
@@ -424,6 +475,35 @@ def test_experimental_model_mechanism_targets(filepath):
 
     assert not errors, (
         f"Experimental model mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_computational_model_mechanism_targets(filepath):
+    """Computational model links should reference declared pathophysiology nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    valid_targets = {
+        item["name"]
+        for item in data.get("pathophysiology", [])
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, model in enumerate(data.get("computational_models", [])):
+        for j, link in enumerate(model.get("modeled_mechanisms", [])):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"computational_models[{i}].modeled_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Computational model mechanism mismatches in {Path(filepath).name}. "
         f"Valid targets: {valid_targets}. Bad refs: {errors}"
     )
 
