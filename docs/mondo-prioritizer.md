@@ -30,6 +30,27 @@ uv run dismech-mondo-prioritize \
   --output /tmp/mondo_priority.tsv
 ```
 
+Generate the static website dashboard from the same scoring logic:
+
+```bash
+just gen-priority-dashboard
+```
+
+This writes `dashboard/priority.html` and `dashboard/priority.json`, and patches
+`dashboard/index.html` with a link when that dashboard index already exists.
+
+For a local-only run across all MONDO disease descendants currently missing from
+`kb/disorders/`, use:
+
+```bash
+just gen-priority-dashboard-all-mondo
+```
+
+That flow first exports candidate rows from the local MONDO sqlite database at
+`~/.data/oaklib/mondo.db`, then writes the resulting dashboard under
+`tmp/priority-dashboard-all-mondo/`. The `tmp/` tree is gitignored so these
+large artifacts stay out of GitHub by default.
+
 ## Expected Input
 
 The prioritizer accepts `tsv`, `csv`, `json`, or `jsonl` candidate rows. The
