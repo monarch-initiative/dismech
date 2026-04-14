@@ -36,6 +36,8 @@ conservative treatment claims.
 - Included one disease-modifying treatment entry:
   `Idursulfase enzyme replacement therapy`.
   Reason: standard of care with direct human clinical trial evidence.
+  Structured therapeutic agent term verified locally against the repo OAK NCIT
+  adapter as `NCIT:C65883` / `Idursulfase`.
 
 - Included one downstream management entry:
   `Multidisciplinary supportive care`.
@@ -57,21 +59,23 @@ conservative treatment claims.
 
 1. `Iduronate-2-sulfatase deficiency`
 2. `Heparan sulfate and dermatan sulfate lysosomal accumulation`
-3. `Lysosomal dysfunction and secondary cellular injury`
-4. `Neuronopathic central nervous system dysfunction`
-5. `Connective tissue and skeletal-muscle dysfunction`
-6. `Airway soft-tissue disease`
-7. `Cardiac valve thickening and dysfunction`
+3. `Lysosomal dysfunction`
+4. `Secondary neuronal injury`
+5. `Neuronopathic central nervous system dysfunction`
+6. `Connective tissue and skeletal-muscle dysfunction`
+7. `Airway soft-tissue disease`
+8. `Cardiac valvular thickening and dysfunction`
 
 Graph logic:
 
 - `IDS` deficiency directly causes `heparan sulfate and dermatan sulfate`
   storage.
-- Storage burden progresses into broader `lysosomal dysfunction and secondary
-  cellular injury`.
-- That node then branches into the major tissue-level outcomes needed for a
-  clinically coherent Hunter syndrome graph: CNS disease, connective tissue /
-  skeletal disease, airway disease, and valve disease.
+- Storage burden progresses into broader `lysosomal dysfunction`.
+- `Lysosomal dysfunction` feeds a separate `secondary neuronal injury` node
+  before overt neuronopathic CNS dysfunction, while also branching into the
+  major non-CNS tissue-level outcomes needed for a clinically coherent Hunter
+  syndrome graph: connective tissue / skeletal disease, airway disease, and
+  valve disease.
 - `Idursulfase` targets the proximal enzyme deficiency and the substrate-storage
   node.
 - `Supportive care` targets downstream phenotype burden rather than upstream
