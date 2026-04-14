@@ -24,7 +24,9 @@ def test_render_differential_links_to_local_disorder_page(tmp_path: Path) -> Non
             "differential_diagnoses": [
                 {
                     "name": "Rosacea",
-                    "disease_term": {"term": {"id": "MONDO:0000002", "label": "rosacea"}},
+                    "disease_term": {
+                        "term": {"id": "MONDO:0000002", "label": "rosacea"}
+                    },
                 }
             ],
         },
@@ -102,7 +104,9 @@ def test_render_differential_skips_ambiguous_resolution(tmp_path: Path) -> None:
         tmp_path / "Rosacea_Alternate.yaml",
         {
             "name": "Rosacea Alternate",
-            "disease_term": {"term": {"id": "MONDO:0000002", "label": "rosacea alternate"}},
+            "disease_term": {
+                "term": {"id": "MONDO:0000002", "label": "rosacea alternate"}
+            },
         },
     )
 
@@ -234,8 +238,8 @@ def test_render_mondo_mapping_highlights_missing_disorder_page(tmp_path: Path) -
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
 
 
-def test_render_subtype_links_to_local_disorder_page(tmp_path: Path) -> None:
-    """Subtype disease names should link to local pages when MONDO resolves locally."""
+def test_render_subtype_terms_are_grounding_only(tmp_path: Path) -> None:
+    """Subtype ontology grounding should not imply local disorder pages."""
     acne_path = tmp_path / "Acne_Vulgaris.yaml"
     rosacea_path = tmp_path / "Rosacea.yaml"
 
@@ -249,6 +253,18 @@ def test_render_subtype_links_to_local_disorder_page(tmp_path: Path) -> None:
                     "name": "Rosacea-like subtype",
                     "subtype_term": {
                         "term": {"id": "MONDO:0000002", "label": "rosacea"}
+                    },
+                    "mappings": {
+                        "ncit_mappings": [
+                            {
+                                "term": {
+                                    "id": "NCIT:C12345",
+                                    "label": "Rosacea-like subtype",
+                                },
+                                "mapping_predicate": "skos:exactMatch",
+                                "mapping_source": "NCIT",
+                            }
+                        ]
                     },
                 }
             ],
@@ -266,14 +282,16 @@ def test_render_subtype_links_to_local_disorder_page(tmp_path: Path) -> None:
     render_disorder(acne_path, output_path=output_path)
 
     html = output_path.read_text()
-    assert 'href="Rosacea.html">Rosacea-like subtype</a>' in html
+    assert "Rosacea-like subtype" in html
+    assert 'href="Rosacea.html"' not in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0000002"' in html
-    assert ">Dismech</a>" in html
+    assert 'href="http://purl.obolibrary.org/obo/NCIT_C12345"' in html
+    assert ">Dismech</a>" not in html
     assert "Not Yet Curated" not in html
 
 
-def test_render_subtype_highlights_missing_disorder_page(tmp_path: Path) -> None:
-    """Subtype disease names should be flagged when MONDO has no local page."""
+def test_render_subtype_missing_pages_are_not_flagged(tmp_path: Path) -> None:
+    """Subtype ontology grounding should not be treated as missing disorder pages."""
     acne_path = tmp_path / "Acne_Vulgaris.yaml"
     _write_disorder(
         acne_path,
@@ -295,7 +313,8 @@ def test_render_subtype_highlights_missing_disorder_page(tmp_path: Path) -> None
     render_disorder(acne_path, output_path=output_path)
 
     html = output_path.read_text()
-    assert "missing-disease-name" in html
-    assert "Not Yet Curated" in html
-    assert "missing-ontology-link" in html
+    assert '<span class="missing-disease-name"' not in html
+    assert "Not Yet Curated" not in html
+    assert '<span class="curation-gap-badge"' not in html
+    assert "subtype-term-link missing-ontology-link" not in html
     assert 'href="http://purl.obolibrary.org/obo/MONDO_0099999"' in html
