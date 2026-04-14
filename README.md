@@ -4,7 +4,7 @@ A curated knowledge base of disease pathophysiology, with structured evidence fr
 
 ## Browse the Knowledge Base
 
-**[View all disorders online](https://dismech.monarchinitiative.org/app/)** | **[QC Dashboard](https://dismech.monarchinitiative.org/dashboard/)**
+**[View all disorders online](https://dismech.monarchinitiative.org/app/)** | **[QC Dashboard](https://dismech.monarchinitiative.org/dashboard/)** | **[Priority Dashboard](https://dismech.monarchinitiative.org/dashboard/priority.html)**
 
 Each disorder page includes:
 - Disease mechanisms and pathophysiology
@@ -120,8 +120,24 @@ This creates `dashboard/index.html` with:
 - Detailed views of the 10 lowest-compliance files (priority curation targets)
 - Full table of all files sorted by compliance
 - A dedicated `not_yet_curated.html` report listing referenced MONDO diseases that do not yet have local DisMech pages
+- A dedicated `priority.html` report ranking MONDO curation candidates with action recommendations and coverage summaries
 
 View online: [QC Dashboard](https://dismech.monarchinitiative.org/dashboard/) or locally: `open dashboard/index.html`
+
+Generate only the MONDO curation priority view:
+
+```bash
+just gen-priority-dashboard
+```
+
+Generate a local-only dashboard across all uncurated MONDO disease descendants:
+
+```bash
+just gen-priority-dashboard-all-mondo
+```
+
+This writes large artifacts under `tmp/priority-dashboard-all-mondo/` so they remain
+gitignored and do not get committed to GitHub by accident.
 
 ### HTML Generation
 
