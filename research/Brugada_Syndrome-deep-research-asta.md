@@ -2,14 +2,14 @@
 provider: asta
 model: Asta Scientific Corpus Retrieval
 cached: false
-start_time: '2026-04-13T13:53:58.241633'
-end_time: '2026-04-13T13:54:04.195672'
-duration_seconds: 5.95
+start_time: '2026-04-14T00:42:54.741272'
+end_time: '2026-04-14T00:42:58.164436'
+duration_seconds: 3.42
 template_file: templates/disease_pathophysiology_research_asta.md
 template_variables:
   disease_name: Brugada syndrome
   mondo_id: ''
-  category: Mendelian
+  category: Genetic
 provider_config:
   timeout: null
   max_retries: 3
