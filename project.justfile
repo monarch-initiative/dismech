@@ -261,9 +261,9 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation + modules + deep-research report checks)
+# Run all QC checks (cache contract + validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all validate-modules qc-deep-research
+qc: check-reference-cache-frontmatter validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -392,6 +392,13 @@ gen-priority-dashboard-all-mondo:
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Deterministically validate reference cache frontmatter against the
+# linkml-reference-validator cache contract before the heavier data validators.
+[group('QC')]
+check-reference-cache-frontmatter:
+    @just fix-references-cache
+    uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
