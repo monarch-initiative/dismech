@@ -388,6 +388,141 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "46,XY complete gonadal dysgenesis",
+    "disease_id": "MONDO:0010765",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of sex development",
+      "Gonadal development disorder",
+      "Amenorrhea disorder"
+    ],
+    "creation_date": "2026-04-14T12:00:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "46,XY complete gonadal dysgenesis is a genetically heterogeneous disorder of sex development in which individuals with a 46,XY karyotype develop a female phenotype because testis determination fails. The shared disease mechanism is severe impairment of testis-determining and gonadal differentiation pathways, producing streak gonads, absent or markedly reduced sex-steroid production, delayed puberty, primary amenorrhea, hypergonadotropic hypogonadism, and a substantial risk of gonadoblastoma or dysgerminoma in dysgenetic gonads.",
+    "pathophysiology": [
+      "Failure of testis-determining signaling",
+      "Streak gonads and gonadal failure",
+      "Hypergonadotropic pubertal failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "steroid hormone biosynthetic process",
+      "steroid hormone mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Gonadal dysgenesis",
+      "Delayed puberty",
+      "Primary amenorrhea",
+      "Hypergonadotropic hypogonadism",
+      "Female phenotype with 46,XY karyotype"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth"
+    ],
+    "phenotype_ids": [
+      "HP:0000133",
+      "HP:0000823",
+      "HP:0000786",
+      "HP:0000815",
+      "HP:0008730"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SRY",
+      "DHH",
+      "NR5A1"
+    ],
+    "treatments": [
+      "Prophylactic gonadectomy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "46_XY_complete_gonadal_dysgenesis.yaml",
+    "page_url": "../pages/disorders/46,XY_complete_gonadal_dysgenesis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "ADan amyloidosis",
+    "disease_id": "MONDO:0007297",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "amyloidosis"
+    ],
+    "creation_date": "2026-04-14T12:05:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "ADan amyloidosis is an autosomal dominant cerebral amyloidosis caused by pathogenic ITM2B variants that generate the amyloidogenic ADan peptide. The disease was first recognized as familial Danish dementia and is characterized by cataracts, hearing loss, progressive ataxia, and dementia together with widespread cerebral amyloid angiopathy and neurofibrillary degeneration.",
+    "pathophysiology": [
+      "ITM2B frameshift generates the ADan amyloidogenic peptide",
+      "Cerebral amyloid deposition",
+      "Neurofibrillary degeneration",
+      "Synaptic BRI2 loss",
+      "Impaired glutamatergic transmission"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "synaptic signaling"
+    ],
+    "phenotypes": [
+      "Cataract",
+      "Sensorineural hearing impairment",
+      "Ataxia",
+      "Dementia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Otologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000518",
+      "HP:0000407",
+      "HP:0001251",
+      "HP:0000726"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "ITM2B"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ADan_amyloidosis.yaml",
+    "page_url": "../pages/disorders/ADan_amyloidosis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "ALDH18A1-Related Autosomal Dominant Cutis Laxa Type 3",
     "disease_id": "MONDO:0014706",
     "category": "Mendelian",
@@ -2000,6 +2135,120 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Aicardi Syndrome",
+    "disease_id": "MONDO:0010568",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorders",
+      "Corpus Callosum Disorders"
+    ],
+    "creation_date": "2026-04-14T00:00:00Z",
+    "updated_date": "2026-04-15T00:11:35Z",
+    "subtypes": [],
+    "description": "Aicardi syndrome is a rare neurodevelopmental disorder characterized by the classic triad of agenesis of the corpus callosum, chorioretinal lacunae, and infantile spasms. It occurs almost exclusively in females and is thought to result from a de novo X-linked dominant mutation that is lethal in males. The causative gene has not been definitively identified, though recent studies suggest genetic heterogeneity with candidate variants in genes such as KMT2B, SLF1, SMARCB1, SZT2, and WNT8B. Patients present with severe intellectual disability, seizures that are typically refractory to treatment, and characteristic ophthalmologic findings. Additional features include cortical malformations (polymicrogyria, heterotopia), intracranial cysts, vertebral anomalies, microphthalmia, and optic disc coloboma. Incidence is estimated at approximately 1 per 93,000 to 110,000 live births. Median survival from birth exceeds 30 years, with mortality estimated at 6% by age 1 and 17% by age 5.\n",
+    "pathophysiology": [
+      "Agenesis of Corpus Callosum",
+      "Cortical Migration Abnormalities",
+      "Chorioretinal Lacunae Formation",
+      "Infantile Spasms",
+      "Seizure Evolution and Intractability",
+      "Genetic Heterogeneity and Cortical Development Disruption"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Radial glial cell",
+      "Retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000681",
+      "CL:0002586"
+    ],
+    "biological_processes": [
+      "Corpus callosum morphogenesis",
+      "Neuron migration",
+      "Retinal pigment epithelium development",
+      "Synaptic transmission",
+      "Cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Agenesis of Corpus Callosum",
+      "Infantile Spasms",
+      "Chorioretinal Lacunae",
+      "Intellectual Disability",
+      "Polymicrogyria",
+      "Periventricular Heterotopia",
+      "Intracranial Cysts",
+      "Ventriculomegaly",
+      "Optic Disc Coloboma",
+      "Microphthalmia",
+      "Scoliosis",
+      "Seizures",
+      "Hypotonia",
+      "Global Developmental Delay",
+      "Microcephaly",
+      "Cerebellar Vermis Hypoplasia",
+      "Dysphagia",
+      "EEG Abnormality"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001274",
+      "HP:0012469",
+      "HP:0007858",
+      "HP:0010864",
+      "HP:0002126",
+      "HP:0032388",
+      "HP:0010576",
+      "HP:0002119",
+      "HP:0000588",
+      "HP:0000568",
+      "HP:0002650",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0001320",
+      "HP:0002015",
+      "HP:0002353"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "Unknown X-linked Gene"
+    ],
+    "treatments": [
+      "Antiepileptic Drug Therapy",
+      "Ketogenic Diet Therapy",
+      "Epilepsy Surgery",
+      "Scoliosis Surgery",
+      "Supportive Rehabilitation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aicardi_Syndrome.yaml",
+    "page_url": "../pages/disorders/Aicardi_Syndrome.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Ainhum",
@@ -9898,7 +10147,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-02-10T22:52:02Z",
-    "updated_date": "2026-02-13T22:51:36Z",
+    "updated_date": "2026-04-14T20:47:00Z",
     "subtypes": [
       "Acute",
       "Chronic"
@@ -21151,7 +21400,7 @@ window.searchData = [
       "Psychiatric Disease"
     ],
     "creation_date": "2026-01-26T17:51:15Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-14T20:40:00Z",
     "subtypes": [],
     "description": "This entry describes the psychiatric PICS-F concept in ICU family members. Note: MONDO:0978296 refers to a genetic dysmorphology syndrome (OMIM 621193), not the PICS-F condition described here.\n",
     "pathophysiology": [],
@@ -26988,7 +27237,7 @@ window.searchData = [
       "Viral Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-14T20:47:00Z",
     "subtypes": [],
     "description": "Hepatitis B is a viral infection caused by Hepatitis B Virus (HBV) that primarily affects the liver. It can cause both acute and chronic disease, with chronic infection leading to cirrhosis, liver failure, and hepatocellular carcinoma. Transmission occurs through blood, sexual contact, and from mother to child during birth.",
     "pathophysiology": [
@@ -28374,7 +28623,7 @@ window.searchData = [
       "Renal Disease"
     ],
     "creation_date": "2026-03-09T12:00:00Z",
-    "updated_date": "2026-03-12T12:00:00Z",
+    "updated_date": "2026-04-14T20:40:00Z",
     "subtypes": [
       "Sepsis-Associated AKI",
       "Nephrotoxic AKI",
@@ -28619,6 +28868,100 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Hunter syndrome",
+    "disease_id": "MONDO:0010674",
+    "category": "Mendelian",
+    "parents": [
+      "Mucopolysaccharidosis",
+      "Lysosomal storage diseases",
+      "X-linked genetic disorders"
+    ],
+    "creation_date": "2026-04-14T20:10:00Z",
+    "updated_date": "2026-04-14T20:10:00Z",
+    "subtypes": [],
+    "description": "Hunter syndrome, also called mucopolysaccharidosis type 2 (MPS II), is an X-linked lysosomal storage disorder caused by deficiency of iduronate-2-sulfatase (IDS). Failure to degrade dermatan sulfate and heparan sulfate produces progressive glycosaminoglycan accumulation in lysosomes and extracellular matrix. The resulting lysosomal dysfunction drives neuronopathic central nervous system disease, connective-tissue and skeletal-muscle involvement, airway obstruction, hepatosplenomegaly, and cardiac valve thickening. The clinical spectrum ranges from attenuated disease with preserved cognition to severe early-onset disease with progressive cognitive impairment.",
+    "pathophysiology": [
+      "Iduronate-2-sulfatase deficiency",
+      "Heparan sulfate and dermatan sulfate lysosomal accumulation",
+      "Lysosomal dysfunction",
+      "Secondary neuronal injury",
+      "Neuronopathic central nervous system dysfunction",
+      "Connective tissue and skeletal-muscle dysfunction",
+      "Airway soft-tissue disease",
+      "Cardiac valvular thickening and dysfunction"
+    ],
+    "cell_types": [
+      "astrocyte",
+      "neuron",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000127",
+      "CL:0000540",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "glycosaminoglycan catabolic process",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Coarse facial features",
+      "Short stature",
+      "Joint stiffness",
+      "Hearing impairment",
+      "Sleep apnea",
+      "Hepatosplenomegaly",
+      "Cardiac valve disease",
+      "Cognitive impairment"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Growth",
+      "Musculoskeletal",
+      "Otolaryngologic",
+      "Respiratory",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000280",
+      "HP:0004322",
+      "HP:0001387",
+      "HP:0000365",
+      "HP:0010535",
+      "HP:0001433",
+      "HP:0001654",
+      "HP:0100543"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Idursulfase enzyme replacement therapy",
+      "Multidisciplinary supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hunter_syndrome.yaml",
+    "page_url": "../pages/disorders/Hunter_syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Huntington disease-like 2",
@@ -28892,6 +29235,80 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Huppke-Brendel syndrome",
+    "disease_id": "MONDO:0013772",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "inborn error of metabolism"
+    ],
+    "creation_date": "2026-04-14T12:05:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "Huppke-Brendel syndrome is a severe autosomal recessive SLC33A1-related neurodevelopmental disorder caused by deficiency of the endoplasmic reticulum acetyl-CoA transporter AT-1. The syndrome is characterized by congenital cataracts, hearing loss, developmental delay, low serum copper and ceruloplasmin, and a characteristic neuroimaging pattern of cerebellar hypoplasia and hypomyelination.",
+    "pathophysiology": [
+      "SLC33A1 acetyl-CoA transporter deficiency",
+      "Defective secretory-pathway acetylation",
+      "Cerebral and cerebellar developmental injury",
+      "Cochlear developmental injury",
+      "Lens developmental injury"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "protein acetylation"
+    ],
+    "phenotypes": [
+      "Cataract",
+      "Sensorineural hearing impairment",
+      "Intellectual disability",
+      "Cerebellar hypoplasia",
+      "CNS hypomyelination",
+      "Hypotonia",
+      "Tremor"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Otologic",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000519",
+      "HP:0000407",
+      "HP:0001249",
+      "HP:0001321",
+      "HP:0003429",
+      "HP:0001252",
+      "HP:0001337"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "SLC33A1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Serum ceruloplasmin",
+      "Serum copper"
+    ],
+    "source_file": "Huppke-Brendel_syndrome.yaml",
+    "page_url": "../pages/disorders/Huppke-Brendel_syndrome.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hurler syndrome",
@@ -30041,27 +30458,47 @@ window.searchData = [
       "Kidney Disease"
     ],
     "creation_date": "2025-12-19T01:12:52Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-14T21:20:49Z",
     "subtypes": [],
-    "description": "The most common primary glomerulonephritis worldwide, characterized by mesangial IgA deposits. Caused by galactose-deficient IgA1 and corresponding autoantibodies forming immune complexes that deposit in the glomerulus. Variable progression from benign hematuria to end-stage renal disease.",
+    "description": "IgA nephropathy (IgAN) is a kidney-limited immune-complex glomerulonephritis defined by mesangial deposition of galactose-deficient IgA1-containing immune complexes with complement co-deposition. Its core mechanism follows the four-hit model: mucosal immune dysregulation drives overproduction of galactose-deficient IgA1, anti-glycan autoantibodies form nephritogenic immune complexes, and these complexes deposit in the mesangium where they trigger complement activation, mesangial proliferation, podocyte injury, and progressive chronic kidney damage.",
     "pathophysiology": [
-      "Galactose-Deficient IgA1 Production",
-      "Anti-Gd-IgA1 Autoantibody Formation",
-      "Mesangial Cell Activation and Proliferation"
+      "Mucosal B-cell hyper-responsiveness",
+      "BAFF/APRIL-driven B-cell activation and IgA class switching",
+      "Galactose-deficient IgA1 overproduction",
+      "Anti-Gd-IgA1 autoantibody production",
+      "Nephritogenic immune complex assembly",
+      "Mesangial immune complex deposition and complement activation",
+      "Mesangial proliferation and inflammatory amplification",
+      "Podocyte damage and filtration barrier failure",
+      "Chronic complement-linked progression and kidney failure risk"
     ],
     "cell_types": [
-      "B Cell",
-      "Mesangial Cell"
+      "B cell",
+      "plasma cell",
+      "mesangial cell",
+      "macrophage",
+      "podocyte",
+      "glomerular endothelial cell"
     ],
     "cell_type_ids": [
       "CL:0000236",
-      "CL:0000650"
+      "CL:0000786",
+      "CL:0000650",
+      "CL:0000235",
+      "CL:0000653",
+      "CL:0002188"
     ],
     "biological_processes": [
-      "Immunoglobulin Production",
-      "Immune Complex Formation",
-      "Cell Proliferation",
-      "Complement Activation"
+      "B cell activation",
+      "isotype switching",
+      "protein O-linked glycosylation",
+      "immunoglobulin production",
+      "B cell mediated immunity",
+      "complement activation, alternative pathway",
+      "complement activation, lectin pathway",
+      "cell population proliferation",
+      "leukocyte migration",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Hematuria",
@@ -30084,39 +30521,32 @@ window.searchData = [
       "HP:0000822",
       "HP:0000083"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
-      "CFHR1/CFHR3 Deletion",
       "HLA-DQB1",
-      "DEFA"
+      "CFH region / CFHR1-CFHR3 protective haplotype",
+      "C1GALT1"
     ],
     "treatments": [
-      "ACE Inhibitors/ARBs",
-      "SGLT2 Inhibitors",
+      "ACE inhibitors / ARBs",
+      "SGLT2 inhibitors",
       "Corticosteroids",
       "Sparsentan",
-      "Budesonide (Targeted Release)"
+      "Targeted-release budesonide"
     ],
-    "environmental": [
-      "Mucosal Infections"
-    ],
+    "environmental": [],
     "biochemical": [
-      "Serum IgA",
-      "Serum Creatinine",
-      "Gd-IgA1"
+      "Galactose-deficient IgA1",
+      "Serum complement profile"
     ],
     "source_file": "IgA_Nephropathy.yaml",
     "page_url": "../pages/disorders/IgA_Nephropathy.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "IgG4-Related Disease",
@@ -36590,7 +37020,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-04-13T01:16:34Z",
-    "updated_date": "2026-04-14T04:21:44Z",
+    "updated_date": "2026-04-14T11:30:00Z",
     "subtypes": [
       "Early onset",
       "Late onset"
@@ -38758,6 +39188,95 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Membranous nephropathy",
+    "disease_id": "MONDO:0005376",
+    "category": "Complex",
+    "parents": [
+      "Kidney Disease",
+      "Autoimmune Disease"
+    ],
+    "creation_date": "2026-04-14T00:00:00Z",
+    "updated_date": "2026-04-14T00:00:00Z",
+    "subtypes": [
+      "Primary membranous nephropathy",
+      "Secondary membranous nephropathy"
+    ],
+    "description": "Immune-complex glomerular disease characterized by subepithelial deposits along the glomerular basement membrane, podocyte injury, proteinuria, and nephrotic manifestations. This entry is anchored to the MONDO disease term for membranous glomerulonephritis but uses the clinically preferred synonym \"Membranous nephropathy\" for display and curation.",
+    "pathophysiology": [
+      "Autoantibody production against podocyte antigens",
+      "In situ subepithelial immune complex deposition",
+      "Complement activation at the glomerular capillary wall",
+      "Podocyte structural injury",
+      "Glomerular filtration barrier failure and proteinuria",
+      "Progressive kidney function decline"
+    ],
+    "cell_types": [
+      "B cell",
+      "plasma cell",
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000786",
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "B cell activation",
+      "immunoglobulin production",
+      "complement activation",
+      "actin cytoskeleton organization",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Nephrotic syndrome",
+      "Proteinuria",
+      "Edema",
+      "Hypoalbuminemia",
+      "Hyperlipidemia",
+      "Renal insufficiency"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Biochemical",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000100",
+      "HP:0000093",
+      "HP:0000969",
+      "HP:0003073",
+      "HP:0003077",
+      "HP:0000083"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PLA2R1 susceptibility locus",
+      "HLA-DQA1 susceptibility locus"
+    ],
+    "treatments": [
+      "Rituximab",
+      "Cyclophosphamide-based immunosuppression",
+      "Supportive CKD therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Anti-PLA2R autoantibodies",
+      "Anti-THSD7A autoantibodies"
+    ],
+    "source_file": "Membranous_Nephropathy.yaml",
+    "page_url": "../pages/disorders/Membranous_nephropathy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Meniere's Disease",
     "disease_id": "MONDO:0007972",
     "category": "Complex",
@@ -40415,14 +40934,15 @@ window.searchData = [
       "Nephrotic Syndrome"
     ],
     "creation_date": "2026-04-13T00:00:00Z",
-    "updated_date": "2026-04-13T00:00:00Z",
+    "updated_date": "2026-04-14T20:27:54Z",
     "subtypes": [],
-    "description": "MCD is driven by immune dysregulation involving both T-cell and B-cell compartments. Dysregulated T cells produce circulating permeability factors that target podocytes. Cytokine abnormalities include elevated GM-CSF, TRANCE, and urinary CD80 levels, indicating Th1/Th2/Th17 imbalance. The dramatic response to corticosteroids and rituximab supports an immune-mediated pathogenesis.\n",
+    "description": "MCD is best framed as an immune-mediated podocytopathy in which adaptive immune dysregulation is implicated, but no single upstream circulating factor explains all cases. Human relapse cohorts show cytokine perturbations and urinary CD80 elevation, while review literature supports interacting T-cell, B-cell, and podocyte pathways rather than one definitive proximal mediator.\n",
     "pathophysiology": [
       "Immune Dysregulation",
-      "Anti-Nephrin Autoantibody-Mediated Injury",
+      "Anti-Nephrin Autoantibody-Associated Podocyte Injury",
       "Podocyte Foot Process Effacement",
-      "Nephrotic Syndrome Complications",
+      "Glomerular Filtration Barrier Failure",
+      "Nephrotic Syndrome Manifestations",
       "MCD to FSGS Progression"
     ],
     "cell_types": [
@@ -40468,7 +40988,7 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "HLA-DQA1/DQB1"
+      "HLA class II risk alleles"
     ],
     "treatments": [
       "Corticosteroid Therapy",
@@ -40482,11 +41002,11 @@ window.searchData = [
     "source_file": "Minimal_Change_Disease.yaml",
     "page_url": "../pages/disorders/Minimal_Change_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mitochondrial Trifunctional Protein Deficiency",
@@ -46959,13 +47479,13 @@ window.searchData = [
       "neurodegenerative disease"
     ],
     "creation_date": "2026-04-13T04:00:00Z",
-    "updated_date": "2026-04-13T23:45:00Z",
+    "updated_date": "2026-04-14T11:20:00Z",
     "subtypes": [],
     "description": "PHARC syndrome is an autosomal recessive neurodegenerative disorder caused by biallelic ABHD12 loss of function. The syndrome combines polyneuropathy, hearing loss, ataxia, retinitis pigmentosa, and cataract, reflecting progressive involvement of peripheral nerves, retina, auditory pathways, and cerebellar systems. Current mechanistic models implicate dysregulated lysophosphatidylserine metabolism and lipid-driven neuroinflammation.",
     "pathophysiology": [
       "ABHD12 loss of lipid hydrolase activity",
       "Abnormal lysophosphatidylserine signaling",
-      "Progressive neuroretinal degeneration",
+      "Progressive multisystem neurodegeneration",
       "Peripheral nerve degeneration",
       "Cerebellar degeneration",
       "Retinal degeneration"
@@ -54390,6 +54910,83 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Sanfilippo syndrome",
+    "disease_id": "MONDO:0018937",
+    "category": "Mendelian",
+    "parents": [
+      "Mucopolysaccharidosis",
+      "Lysosomal Storage Disorders",
+      "Neurodegeneration"
+    ],
+    "creation_date": "2026-04-14T19:55:38Z",
+    "updated_date": "2026-04-14T19:55:38Z",
+    "subtypes": [
+      "MPS IIIA",
+      "MPS IIIB",
+      "MPS IIIC",
+      "MPS IIID"
+    ],
+    "description": "Sanfilippo syndrome, also called mucopolysaccharidosis type III (MPS III), is an autosomal recessive lysosomal storage disorder caused by deficiency of one of four enzymes required for heparan sulfate catabolism. The shared disease mechanism is failed lysosomal degradation of heparan sulfate, followed by heparan sulfate storage, neuroinflammation, cortical synaptic dysfunction, and progressive central nervous system degeneration. Clinically, the syndrome is dominated by progressive intellectual disability, developmental regression, hyperactivity, and sleep disturbance, with comparatively mild somatic manifestations relative to other mucopolysaccharidoses.",
+    "pathophysiology": [
+      "Lysosomal heparan sulfate catabolism defect",
+      "Lysosomal heparan sulfate accumulation",
+      "Neuroinflammatory cascade",
+      "Cortical synaptic dysfunction",
+      "Progressive central neurodegeneration"
+    ],
+    "cell_types": [
+      "microglial cell",
+      "astrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000129",
+      "CL:0000127",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "heparan sulfate catabolism",
+      "neuroinflammatory response",
+      "chemical synaptic transmission"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Developmental regression",
+      "Hyperactivity",
+      "Sleep disturbance"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0002376",
+      "HP:0000752",
+      "HP:0002360"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Investigational gene therapy",
+      "Substrate reduction therapy (genistein)",
+      "Supportive symptomatic care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sanfilippo_syndrome.yaml",
+    "page_url": "../pages/disorders/Sanfilippo_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Sarcoidosis",
     "disease_id": "MONDO:0019338",
     "category": "Immune",
@@ -56616,6 +57213,71 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Sneddon syndrome",
+    "disease_id": "MONDO:0008436",
+    "category": "Complex",
+    "parents": [
+      "disease"
+    ],
+    "creation_date": "2026-04-14T12:00:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "Sneddon syndrome is a rare occlusive vasculopathy characterized by livedo reticularis or livedo racemosa and recurrent ischemic cerebrovascular events. The core disease mechanism is a chronic arteriopathy affecting skin and brain, producing transient ischemic attacks, stroke, and progressive neurologic impairment.",
+    "pathophysiology": [
+      "Occlusive vasculopathy",
+      "Cerebral ischemic injury",
+      "Cutaneous livedo"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "blood coagulation",
+      "response to hypoxia",
+      "vasoconstriction"
+    ],
+    "phenotypes": [
+      "Livedo reticularis",
+      "Ischemic stroke",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Neurologic",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0033505",
+      "HP:0002140",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antiplatelet or anticoagulant therapy",
+      "Combination vasculoprotective pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sneddon_syndrome.yaml",
+    "page_url": "../pages/disorders/Sneddon_syndrome.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Soil-transmitted helminthiases",
@@ -59325,7 +59987,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-03-17T21:02:44Z",
-    "updated_date": "2026-03-25T23:02:47Z",
+    "updated_date": "2026-04-14T20:55:00Z",
     "subtypes": [
       "Acute Thallium Poisoning",
       "Delayed neurocutaneous thallium poisoning"
@@ -62592,6 +63254,92 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Wolman Disease",
+    "disease_id": "MONDO:0019148",
+    "category": "Mendelian",
+    "parents": [
+      "Lysosomal Storage Disease"
+    ],
+    "creation_date": "2026-04-14T19:53:03Z",
+    "updated_date": "2026-04-14T19:53:03Z",
+    "subtypes": [],
+    "description": "Wolman disease is the rapidly progressive infantile phenotype of lysosomal acid lipase deficiency caused by biallelic pathogenic variants in LIPA. Near-complete loss of lysosomal acid lipase activity blocks lysosomal hydrolysis of cholesteryl esters and triglycerides, causing multisystem lipid storage in macrophages and parenchymal cells, especially in liver, intestine, spleen, lymphoid tissues, and adrenal cortex. The resulting hepatic dysfunction, malabsorption, failure to thrive, hepatosplenomegaly, anemia, and adrenal calcification lead to fatal multiorgan failure in infancy if untreated. Wolman disease is distinct from the later-onset cholesteryl ester storage disease phenotype on the same lysosomal acid lipase deficiency spectrum.\n",
+    "pathophysiology": [
+      "LIPA Loss of Function",
+      "Lysosomal Acid Lipase Deficiency",
+      "Impaired Lysosomal Cholesteryl Ester and Triglyceride Hydrolysis",
+      "Lysosomal Cholesteryl Ester and Triglyceride Storage",
+      "Hepatic and Reticuloendothelial Lipid Storage",
+      "Progressive Liver Dysfunction",
+      "Intestinal Lipid Storage",
+      "Malabsorption and Severe Gastrointestinal Dysfunction",
+      "Adrenal Cortical Lipid Storage"
+    ],
+    "cell_types": [
+      "macrophage",
+      "hepatocyte",
+      "enterocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000182",
+      "CL:0000584"
+    ],
+    "biological_processes": [
+      "cholesterol metabolic process",
+      "lipid metabolic process"
+    ],
+    "phenotypes": [
+      "Failure to thrive",
+      "Hepatosplenomegaly",
+      "Diarrhea",
+      "Vomiting",
+      "Malabsorption",
+      "Adrenal calcification",
+      "Anemia"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Gastrointestinal",
+      "Endocrine",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Immune",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001508",
+      "HP:0001433",
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0002024",
+      "HP:0010512",
+      "HP:0001903"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Sebelipase alfa enzyme replacement therapy",
+      "Nutritional management with dietary lipid reduction"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Wolman_Disease.yaml",
+    "page_url": "../pages/disorders/Wolman_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "X-Linked Hypophosphatemia",
     "disease_id": "MONDO:0010619",
     "category": "Mendelian",
@@ -62863,6 +63611,214 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "ZTTK syndrome",
+    "disease_id": "MONDO:0014936",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-04-14T12:05:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "ZTTK syndrome is a multisystem neurodevelopmental disorder caused by heterozygous loss-of-function variants in SON. The core disease mechanism is SON haploinsufficiency with downstream disturbance of RNA processing and neurodevelopmental programs, producing intellectual disability and broader congenital anomaly phenotypes.",
+    "pathophysiology": [
+      "SON haploinsufficiency",
+      "Impaired neuronal migration",
+      "Dendritic spine abnormalities",
+      "Neurodevelopmental impairment"
+    ],
+    "cell_types": [
+      "pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "neuron migration",
+      "dendritic spine morphogenesis"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Facial dysmorphism",
+      "Brain malformation",
+      "Musculoskeletal abnormalities"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Craniofacial",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000271",
+      "HP:0012443",
+      "HP:0033127"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SON"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ZTTK_syndrome.yaml",
+    "page_url": "../pages/disorders/ZTTK_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "adrenoleukodystrophy",
+    "disease_id": "MONDO:0018544",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "leukodystrophy"
+    ],
+    "creation_date": "2026-04-14T12:05:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [
+      "Childhood cerebral adrenoleukodystrophy",
+      "Adrenomyeloneuropathy",
+      "Addison-only adrenoleukodystrophy"
+    ],
+    "description": "Adrenoleukodystrophy is an X-linked peroxisomal disorder caused by pathogenic variants in ABCD1, leading to defective degradation of very long-chain fatty acids and their accumulation in the nervous system and adrenal cortex. Major disease consequences include cerebral demyelination and primary adrenal insufficiency.",
+    "pathophysiology": [
+      "ABCD1-mediated peroxisomal fatty acid transport defect",
+      "Very long-chain fatty acid accumulation",
+      "Inflammatory cerebral demyelination",
+      "Adrenocortical dysfunction",
+      "Gonadal dysfunction"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "fatty acid beta-oxidation",
+      "very long-chain fatty acid metabolic process",
+      "inflammatory response",
+      "axon ensheathment"
+    ],
+    "phenotypes": [
+      "Adrenal insufficiency",
+      "CNS demyelination",
+      "Hypogonadism"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000846",
+      "HP:0007305",
+      "HP:0000135"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ABCD1"
+    ],
+    "treatments": [
+      "Hematopoietic stem cell transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Very-long-chain fatty acids"
+    ],
+    "source_file": "adrenoleukodystrophy.yaml",
+    "page_url": "../pages/disorders/adrenoleukodystrophy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "capillary leak syndrome",
+    "disease_id": "MONDO:0001956",
+    "category": "Complex",
+    "parents": [
+      "vascular disorder",
+      "immune-mediated disease"
+    ],
+    "creation_date": "2026-04-14T12:00:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "Capillary leak syndrome is a rare vascular permeability disorder in which episodic endothelial barrier failure causes rapid movement of plasma and proteins from the intravascular space into the interstitium. The clinical syndrome is characterized by hypotension, edema, hemoconcentration, and hypoalbuminemia; idiopathic recurrent disease is often referred to as systemic capillary leak syndrome or Clarkson disease.",
+    "pathophysiology": [
+      "Endothelial barrier dysfunction",
+      "Plasma extravasation",
+      "Intravascular volume depletion",
+      "Generalized edema"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Hypotension",
+      "Hemoconcentration",
+      "Edema",
+      "Hypoalbuminemia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Laboratory",
+      "General"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002615",
+      "HP:0000969",
+      "HP:0003073"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Acute hemodynamic support",
+      "Theophylline prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Monoclonal IgG paraprotein"
+    ],
+    "source_file": "capillary_leak_syndrome.yaml",
+    "page_url": "../pages/disorders/capillary_leak_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "choroid plexus carcinoma",
     "disease_id": "MONDO:0016718",
     "category": "Complex",
@@ -62992,6 +63948,69 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "neuroferritinopathy",
+    "disease_id": "MONDO:0011638",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "neurodegenerative disease"
+    ],
+    "creation_date": "2026-04-14T12:05:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "Neuroferritinopathy is an autosomal dominant neurodegeneration with brain iron accumulation caused by pathogenic FTL variants. The disorder features abnormal ferritin and iron accumulation, especially in the basal ganglia, and typically presents as a progressive movement disorder with dystonia, chorea, parkinsonism, and low or low-normal serum ferritin.",
+    "pathophysiology": [
+      "Mutant ferritin light chain disrupts iron storage",
+      "Abnormal intracellular iron metabolism",
+      "Iron deposition in basal ganglia",
+      "Increased oxidative stress",
+      "Basal ganglia neurodegeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Dystonia",
+      "Chorea",
+      "Parkinsonism"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001332",
+      "HP:0002072",
+      "HP:0001300"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FTL"
+    ],
+    "treatments": [
+      "Symptomatic pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum ferritin"
+    ],
+    "source_file": "neuroferritinopathy.yaml",
+    "page_url": "../pages/disorders/neuroferritinopathy.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "pseudotumor cerebri",
     "disease_id": "MONDO:0009468",
     "category": "Complex",
@@ -63062,11 +64081,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 692,
-  "total_unique_evidence_sources": 11605,
+  "total_disorder_pages": 705,
+  "total_unique_evidence_sources": 11688,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 140,
-  "total_pathographs": 683,
-  "total_unique_pathological_events": 2997
+  "total_pathographs": 696,
+  "total_unique_pathological_events": 3071
 };
 window.dispatchEvent(new Event('searchDataReady'));
