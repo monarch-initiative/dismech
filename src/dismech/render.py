@@ -2,7 +2,9 @@
 Render disorder YAML files to HTML pages using Jinja2 templates.
 """
 
+import hashlib
 import json
+import os
 import re
 from collections import defaultdict
 from functools import lru_cache
@@ -1008,6 +1010,15 @@ def render_disorder(
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
 
+    # OpenScientist integration context
+    yaml_revision = hashlib.sha256(yaml_content.encode()).hexdigest()[:12]
+    disease_term = disorder.get("disease_term") or {}
+    disease_term_term = disease_term.get("term") or {}
+    openscientist_proxy_url = os.environ.get(
+        "OPENSCIENTIST_PROXY_URL",
+        "https://dismech-openscientist.workers.dev",
+    )
+
     html = template.render(
         disorder=disorder,
         yaml_content=yaml_content,
@@ -1020,6 +1031,11 @@ def render_disorder(
         phenotype_groups=phenotype_groups,
         report_sections=report_sections,
         literature_sections=literature_sections,
+        # OpenScientist integration
+        disorder_slug=disorder_slug,
+        yaml_revision=yaml_revision,
+        mondo_id=disease_term_term.get("id", ""),
+        openscientist_proxy_url=openscientist_proxy_url,
     )
 
     # Write output
