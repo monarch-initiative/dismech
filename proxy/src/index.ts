@@ -5,16 +5,131 @@
  * to the OpenScientist API, keeping the API key server-side.
  */
 
+/**
+ * Minimal ZIP extraction — finds a .md file in a ZIP archive.
+ * Supports only STORE (no compression) and DEFLATE methods.
+ * Prefers files with "report" in the name, falls back to any .md.
+ */
+function extractMarkdownFromZip(data: Uint8Array): string | null {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const entries: { name: string; offset: number; compSize: number; uncompSize: number; method: number }[] = [];
+
+  // Scan for local file headers (PK\x03\x04)
+  for (let i = 0; i < data.length - 30; i++) {
+    if (data[i] === 0x50 && data[i + 1] === 0x4b && data[i + 2] === 0x03 && data[i + 3] === 0x04) {
+      const method = view.getUint16(i + 8, true);
+      const compSize = view.getUint32(i + 18, true);
+      const uncompSize = view.getUint32(i + 22, true);
+      const nameLen = view.getUint16(i + 26, true);
+      const extraLen = view.getUint16(i + 28, true);
+      const name = new TextDecoder().decode(data.subarray(i + 30, i + 30 + nameLen));
+      const dataOffset = i + 30 + nameLen + extraLen;
+
+      if (name.endsWith(".md")) {
+        entries.push({ name, offset: dataOffset, compSize, uncompSize, method });
+      }
+      // Skip past this entry
+      i = dataOffset + compSize - 1;
+    }
+  }
+
+  if (entries.length === 0) return null;
+
+  // Prefer files with "report" in the name
+  const target = entries.find(e => e.name.toLowerCase().includes("report")) || entries[0];
+
+  if (target.method === 0) {
+    // STORE — no compression
+    const raw = data.subarray(target.offset, target.offset + target.uncompSize);
+    return new TextDecoder("utf-8").decode(raw);
+  }
+
+  if (target.method === 8) {
+    // DEFLATE — use DecompressionStream (available in Workers)
+    const compressed = data.subarray(target.offset, target.offset + target.compSize);
+    // Synchronous inflate via DecompressionStream isn't available, use raw-deflate workaround
+    // Workers support DecompressionStream but it's stream-based. Use a simpler approach:
+    // Wrap in a Response and decompress via the stream API
+    return null; // Fall through — will be handled by the async version below
+  }
+
+  return null;
+}
+
+/** Async version that handles DEFLATE via DecompressionStream */
+async function extractMarkdownFromZipAsync(data: Uint8Array): Promise<string | null> {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const entries: { name: string; offset: number; compSize: number; uncompSize: number; method: number }[] = [];
+
+  for (let i = 0; i < data.length - 30; i++) {
+    if (data[i] === 0x50 && data[i + 1] === 0x4b && data[i + 2] === 0x03 && data[i + 3] === 0x04) {
+      const method = view.getUint16(i + 8, true);
+      const compSize = view.getUint32(i + 18, true);
+      const uncompSize = view.getUint32(i + 22, true);
+      const nameLen = view.getUint16(i + 26, true);
+      const extraLen = view.getUint16(i + 28, true);
+      const name = new TextDecoder().decode(data.subarray(i + 30, i + 30 + nameLen));
+      const dataOffset = i + 30 + nameLen + extraLen;
+
+      if (name.endsWith(".md")) {
+        entries.push({ name, offset: dataOffset, compSize, uncompSize, method });
+      }
+      i = dataOffset + compSize - 1;
+    }
+  }
+
+  if (entries.length === 0) return null;
+
+  const target = entries.find(e => e.name.toLowerCase().includes("report")) || entries[0];
+
+  if (target.method === 0) {
+    const raw = data.subarray(target.offset, target.offset + target.uncompSize);
+    return new TextDecoder("utf-8").decode(raw);
+  }
+
+  if (target.method === 8) {
+    // DEFLATE — use DecompressionStream
+    const compressed = data.subarray(target.offset, target.offset + target.compSize);
+    const ds = new DecompressionStream("deflate-raw");
+    const writer = ds.writable.getWriter();
+    writer.write(compressed);
+    writer.close();
+    const reader = ds.readable.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const total = chunks.reduce((s, c) => s + c.length, 0);
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return new TextDecoder("utf-8").decode(result);
+  }
+
+  return null;
+}
+
 export interface Env {
   KV: KVNamespace;
   OPENSCIENTIST_API_KEY: string;
+  OPENSCIENTIST_BASE_URL: string;
   GITHUB_RAW_BASE: string;
   GITHUB_RELEASE_KB_ZIP: string;
 }
 
 // --- Constants ---
 
-const OPENSCIENTIST_BASE = "https://www.openscientist.io";
+// Default to production; override via OPENSCIENTIST_BASE_URL env var for local dev
+const OPENSCIENTIST_BASE_DEFAULT = "https://www.openscientist.io";
+
+function osBase(env: Env): string {
+  return (env.OPENSCIENTIST_BASE_URL || OPENSCIENTIST_BASE_DEFAULT).replace(/\/+$/, "");
+}
 
 const ALLOWED_ORIGINS = [
   "https://dismech.monarchinitiative.org",
@@ -294,7 +409,7 @@ async function handleSubmitJob(
   }
 
   // Submit to OpenScientist — do NOT set Content-Type manually
-  const osResp = await fetch(`${OPENSCIENTIST_BASE}/api/v1/jobs`, {
+  const osResp = await fetch(`${osBase(env)}/api/v1/jobs`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.OPENSCIENTIST_API_KEY}`,
@@ -344,7 +459,7 @@ async function handleSubmitJob(
   return jsonResponse(
     {
       job_id: jobId,
-      view_url: `${OPENSCIENTIST_BASE}/job/${jobId}`,
+      view_url: `${osBase(env)}/job/${jobId}`,
     },
     201,
     origin,
@@ -369,15 +484,19 @@ async function handleJobStatus(
 
   // Proxy to OpenScientist
   const osResp = await fetch(
-    `${OPENSCIENTIST_BASE}/api/v1/jobs/${jobId}/status`,
+    `${osBase(env)}/api/v1/jobs/${jobId}/status`,
     {
       headers: { Authorization: `Bearer ${env.OPENSCIENTIST_API_KEY}` },
     },
   );
 
   if (!osResp.ok) {
+    // If upstream returns 5xx repeatedly, clean up the lock so users aren't stuck
+    if (osResp.status >= 500 && jobEntry.cancel_requested) {
+      await env.KV.delete(`running:${jobEntry.disease_slug}`);
+    }
     return jsonResponse(
-      { error: "Failed to fetch job status" },
+      { error: `Status check failed (HTTP ${osResp.status})` },
       502,
       origin,
       { "Cache-Control": "no-store" },
@@ -395,7 +514,7 @@ async function handleJobStatus(
     if (status === "failed") {
       try {
         const detailResp = await fetch(
-          `${OPENSCIENTIST_BASE}/api/v1/jobs/${jobId}`,
+          `${osBase(env)}/api/v1/jobs/${jobId}`,
           {
             headers: {
               Authorization: `Bearer ${env.OPENSCIENTIST_API_KEY}`,
@@ -441,7 +560,7 @@ async function handleJobReport(
 
   // Try markdown report first
   const osResp = await fetch(
-    `${OPENSCIENTIST_BASE}/api/v1/jobs/${jobId}/report`,
+    `${osBase(env)}/api/v1/jobs/${jobId}/report`,
     {
       headers: {
         Authorization: `Bearer ${env.OPENSCIENTIST_API_KEY}`,
@@ -471,13 +590,48 @@ async function handleJobReport(
     });
   }
 
-  // If not markdown, return a pointer to view on OpenScientist
-  // rather than trying ZIP extraction on free tier
+  // Report is PDF/binary — fall back to artifacts ZIP and extract markdown
+  const artifactsResp = await fetch(
+    `${osBase(env)}/api/v1/jobs/${jobId}/artifacts`,
+    {
+      headers: { Authorization: `Bearer ${env.OPENSCIENTIST_API_KEY}` },
+    },
+  );
+
+  if (!artifactsResp.ok) {
+    return jsonResponse(
+      {
+        kind: "external",
+        message: "Report not available as markdown. View on OpenScientist.",
+        view_url: `${osBase(env)}/job/${jobId}`,
+      },
+      200,
+      origin,
+    );
+  }
+
+  // Extract markdown from ZIP using the Web API (no Node deps needed)
+  try {
+    const zipBytes = await artifactsResp.arrayBuffer();
+    const markdown = await extractMarkdownFromZipAsync(new Uint8Array(zipBytes));
+    if (markdown) {
+      return new Response(markdown, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/markdown; charset=utf-8",
+          ...corsHeaders(origin),
+        },
+      });
+    }
+  } catch {
+    // ZIP extraction failed — fall through to external link
+  }
+
   return jsonResponse(
     {
       kind: "external",
-      message: "Report is not available as markdown. View on OpenScientist.",
-      view_url: `${OPENSCIENTIST_BASE}/job/${jobId}`,
+      message: "Report not available as markdown. View on OpenScientist.",
+      view_url: `${osBase(env)}/job/${jobId}`,
     },
     200,
     origin,
@@ -498,16 +652,19 @@ async function handleJobCancel(
     return jsonResponse({ error: "Unknown job_id" }, 404, origin);
   }
 
-  // Mark cancel_requested in KV (don't delete locks — wait for terminal status)
+  // Mark cancel_requested and clean up the running lock so new jobs can be submitted
   const jobEntry = JSON.parse(jobRaw) as KvJobEntry;
   jobEntry.cancel_requested = true;
-  await env.KV.put(`job:${jobId}`, JSON.stringify(jobEntry), {
-    expirationTtl: KV_TTL_SECONDS,
-  });
+  await Promise.all([
+    env.KV.put(`job:${jobId}`, JSON.stringify(jobEntry), {
+      expirationTtl: KV_TTL_SECONDS,
+    }),
+    env.KV.delete(`running:${jobEntry.disease_slug}`),
+  ]);
 
   // Forward cancel to upstream
   const osResp = await fetch(
-    `${OPENSCIENTIST_BASE}/api/v1/jobs/${jobId}/cancel`,
+    `${osBase(env)}/api/v1/jobs/${jobId}/cancel`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${env.OPENSCIENTIST_API_KEY}` },

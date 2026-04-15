@@ -165,6 +165,10 @@
             font-size: 0.95rem;
             font-family: inherit;
         }
+        .os-input-row input::placeholder {
+            color: #b0b7c3;
+            font-style: italic;
+        }
         .os-input-row input:focus {
             outline: none;
             border-color: #059669;
@@ -2590,7 +2594,7 @@
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">{{ parent }}</span>
                 {% endfor %}
                 <button class="badge badge-openscientist" id="os-ask-btn"
-                        onclick="document.getElementById('os-panel').classList.toggle('show')">
+                        onclick="toggleOpenScientist()">
                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle;">
                         <path d="M22 18 Q50 18 50 40 Q50 60 78 60 Q78 82 50 82 Q22 82 22 60"
                               fill="none" stroke="white" stroke-width="10" stroke-linecap="round"/>
@@ -2625,7 +2629,7 @@
                 </div>
                 <p style="margin: 0 0 12px; font-size: 0.9rem; color: #6b7280;">
                     Ask a research question about {{ disorder.name }}. OpenScientist will conduct
-                    an autonomous literature review (typically 10-30 minutes).
+                    autonomous deep research using the Disorder Mechanisms Knowledge Base and PubMed literature (typically 10-30 minutes).
                 </p>
                 <div class="os-input-row">
                     <input type="text" id="os-question" maxlength="1000"
@@ -2635,8 +2639,8 @@
                 <div id="os-progress" class="os-progress" aria-live="polite">
                     <span class="os-progress-spinner"></span>
                     <span id="os-progress-text">Submitting...</span>
+
                     <div class="os-actions">
-                        <button onclick="osStopChecking()">Stop checking</button>
                         <button onclick="osCancelResearch()">Cancel research</button>
                     </div>
                 </div>
@@ -4637,12 +4641,18 @@
                 a.setAttribute('rel', 'noopener noreferrer');
             });
             var metaHtml = '<strong>Question:</strong> ' + escapeHtml(question);
-            if (viewUrl) {
-                metaHtml += ' &mdash; <a href="' + escapeHtml(viewUrl)
-                    + '" target="_blank" rel="noopener noreferrer">View full report on OpenScientist</a>';
+            if (false) { // viewUrl link disabled for security
             }
             resultsMeta.innerHTML = metaHtml;
             resultsEl.style.display = 'block';
+            resultsEl.dataset.hasReport = 'true';
+            // Auto-expand the report body so it's visible immediately
+            var reportBody = resultsEl.querySelector('.report-body');
+            if (reportBody && !reportBody.classList.contains('show')) {
+                reportBody.classList.add('show');
+                var indicator = resultsEl.querySelector('.toggle-indicator');
+                if (indicator) indicator.textContent = '▾';
+            }
         }
 
         function escapeHtml(str) {
@@ -4758,6 +4768,7 @@
             questionInput.disabled = true;
             showProgress('Submitting to OpenScientist...');
 
+
             schedulePoll(jobId, question);
         }
 
@@ -4821,7 +4832,7 @@
                 if (status.current_iteration && status.max_iterations) {
                     iterInfo = 'Iteration ' + status.current_iteration + '/' + status.max_iterations + ' — ';
                 }
-                showProgress(iterInfo + 'Running for ' + elapsedStr + ' (last checked ' + now + '). You can close this page and come back later.');
+                showProgress(iterInfo + 'Running for ' + elapsedStr + '. You can close this page and come back later.');
 
                 await saveCache(question, {
                     jobId: jobId,
@@ -4869,6 +4880,26 @@
 
         // --- Public functions (called from onclick) ---
 
+        window.toggleOpenScientist = function() {
+            var panel = document.getElementById('os-panel');
+            var results = document.getElementById('os-results');
+            var isShowing = panel.classList.contains('show');
+            if (isShowing) {
+                // Hide both
+                panel.classList.remove('show');
+                if (results.style.display === 'block') {
+                    results.style.display = 'none';
+                    results.dataset.wasVisible = 'true';
+                }
+            } else {
+                // Show panel, and restore results if they were visible
+                panel.classList.add('show');
+                if (results.dataset.wasVisible === 'true' || results.dataset.hasReport === 'true') {
+                    results.style.display = 'block';
+                }
+            }
+        };
+
         window.osSubmit = async function() {
             var question = questionInput.value.trim();
             if (!question) {
@@ -4891,10 +4922,6 @@
             } catch (err) {
                 showError(err.message);
             }
-        };
-
-        window.osStopChecking = function() {
-            stopPolling();
         };
 
         window.osCancelResearch = async function() {
