@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2406,6 +2455,588 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">9</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s00277-023-05422-z" target="_blank">DOI:10.1007/s00277-023-05422-z</a>
+                        </div>
+                        
+                        <div class="reference-title">Predictors of very early death in acute promyelocytic leukemia: a retrospective real-world cohort study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Early death (ED) is still the major obstacle to cure in acute promyelocytic leukemia (APL).</div>
+            
+            
+            <div class="reference-finding-supporting">"Early death (ED) is still the major obstacle to cure in acute promyelocytic leukemia (APL)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00277-023-05422-z" target="_blank">DOI:10.1007/s00277-023-05422-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Early death (ED) is still the major obstacle to cure in acute promyelocytic leukemia (APL)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41418-023-01139-8" target="_blank">DOI:10.1038/s41418-023-01139-8</a>
+                        </div>
+                        
+                        <div class="reference-title">Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα</div>
+            
+            
+            <div class="reference-finding-supporting">"Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1186/s12885-023-10612-z" target="_blank">DOI:10.1186/s12885-023-10612-z</a>
+                        </div>
+                        
+                        <div class="reference-title">Acute promyelocytic leukaemia: population-based study of epidemiology and outcome with ATRA and oral-ATO from 1991 to 2021</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The epidemiology and treatment of acute promyelocytic leukaemia (APL) are changing.</div>
+            
+            
+            <div class="reference-finding-supporting">"The epidemiology and treatment of acute promyelocytic leukaemia (APL) are changing."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s12885-023-10612-z" target="_blank">DOI:10.1186/s12885-023-10612-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The epidemiology and treatment of acute promyelocytic leukaemia (APL) are changing."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3389/fonc.2022.1062524" target="_blank">DOI:10.3389/fonc.2022.1062524</a>
+                        </div>
+                        
+                        <div class="reference-title">The treatment of acute promyelocytic leukemia in 2023: Paradigm, advances, and future directions</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The transformation of acute promyelocytic leukemia (APL) from an often fatal to highly curable cancer with long-term survival exceeding 90% is one of the greatest and most inspiring successes in oncology.</div>
+            
+            
+            <div class="reference-finding-supporting">"The transformation of acute promyelocytic leukemia (APL) from an often fatal to highly curable cancer with long-term survival exceeding 90% is one of the greatest and most inspiring successes in oncology."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2022.1062524" target="_blank">DOI:10.3389/fonc.2022.1062524</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The transformation of acute promyelocytic leukemia (APL) from an often fatal to highly curable cancer with long-term survival exceeding 90% is one of the greatest and most inspiring successes in oncology."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16061160" target="_blank">DOI:10.3390/cancers16061160</a>
+                        </div>
+                        
+                        <div class="reference-title">Acute Promyelocytic Leukemia: Review of Complications Related to All-Trans Retinoic Acid and Arsenic Trioxide Therapy</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The hallmark of acute promyelocytic leukemia (APL) is the presence of the characteristic fusion transcript of the promyelocytic leukemia gene with the retinoic acid receptor α gene (PML::RARA).</div>
+            
+            
+            <div class="reference-finding-supporting">"The hallmark of acute promyelocytic leukemia (APL) is the presence of the characteristic fusion transcript of the promyelocytic leukemia gene with the retinoic acid receptor α gene (PML::RARA)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16061160" target="_blank">DOI:10.3390/cancers16061160</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The hallmark of acute promyelocytic leukemia (APL) is the presence of the characteristic fusion transcript of the promyelocytic leukemia gene with the retinoic acid receptor α gene (PML::RARA)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16071351" target="_blank">DOI:10.3390/cancers16071351</a>
+                        </div>
+                        
+                        <div class="reference-title">History of Developing Acute Promyelocytic Leukemia Treatment and Role of Promyelocytic Leukemia Bodies</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The story of acute promyelocytic leukemia (APL) discovery, physiopathology, and treatment is a unique journey, transforming the most aggressive form of leukemia to the most curable.</div>
+            
+            
+            <div class="reference-finding-supporting">"The story of acute promyelocytic leukemia (APL) discovery, physiopathology, and treatment is a unique journey, transforming the most aggressive form of leukemia to the most curable."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16071351" target="_blank">DOI:10.3390/cancers16071351</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The story of acute promyelocytic leukemia (APL) discovery, physiopathology, and treatment is a unique journey, transforming the most aggressive form of leukemia to the most curable."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16183208" target="_blank">DOI:10.3390/cancers16183208</a>
+                        </div>
+                        
+                        <div class="reference-title">MRD in Acute Leukemias: Lessons Learned from Acute Promyelocytic Leukemia</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Advances in molecular biology, polymerase chain reaction (PCR), and next-generation sequencing (NGS) have transformed the concept of minimal residual disease (MRD) from a philosophical idea into a measurable reality.</div>
+            
+            
+            <div class="reference-finding-supporting">"Advances in molecular biology, polymerase chain reaction (PCR), and next-generation sequencing (NGS) have transformed the concept of minimal residual disease (MRD) from a philosophical idea into a measurable reality."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16183208" target="_blank">DOI:10.3390/cancers16183208</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Advances in molecular biology, polymerase chain reaction (PCR), and next-generation sequencing (NGS) have transformed the concept of minimal residual disease (MRD) from a philosophical idea into a measurable reality."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16244192" target="_blank">DOI:10.3390/cancers16244192</a>
+                        </div>
+                        
+                        <div class="reference-title">Acute Promyelocytic Leukemia-like AML: Genetic Perspective and Clinical Implications</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Acute promyelocytic leukemia (APL) is a rare type of AML, characterized by the t(15;17) translocation and accounting for 8–15% of cases.</div>
+            
+            
+            <div class="reference-finding-supporting">"Acute promyelocytic leukemia (APL) is a rare type of AML, characterized by the t(15;17) translocation and accounting for 8–15% of cases."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16244192" target="_blank">DOI:10.3390/cancers16244192</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Acute promyelocytic leukemia (APL) is a rare type of AML, characterized by the t(15;17) translocation and accounting for 8–15% of cases."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/futurepharmacol3010012" target="_blank">DOI:10.3390/futurepharmacol3010012</a>
+                        </div>
+                        
+                        <div class="reference-title">Acute Promyelocytic Leukemia (APL): A Review of the Classic and Emerging Target Therapies towards Molecular Heterogeneity</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The occurrence of severe bleeding syndrome because of the PML-RARα fusion protein is a life-threatening event in APL.</div>
+            
+            
+            <div class="reference-finding-supporting">"The occurrence of severe bleeding syndrome because of the PML-RARα fusion protein is a life-threatening event in APL."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/futurepharmacol3010012" target="_blank">DOI:10.3390/futurepharmacol3010012</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The occurrence of severe bleeding syndrome because of the PML-RARα fusion protein is a life-threatening event in APL."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for APL PML RARA.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2456,6 +3087,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2540,6 +3172,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2576,6 +3209,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2606,6 +3240,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2655,6 +3290,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2685,6 +3321,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3031,17 +3668,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     All-Trans Retinoic Acid (ATRA)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         all-trans-retinoic acid
@@ -3067,17 +3713,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Arsenic Trioxide (ATO)
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         arsenic trioxide
@@ -3103,17 +3758,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     ATRA plus Arsenic Trioxide Combination
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         all-trans-retinoic acid
@@ -3146,14 +3810,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Chemotherapy-Based Regimens
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3170,14 +3843,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Supportive Care for Coagulopathy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000950" target="_blank">
-                            MAXO:0000950
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000950" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000950</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3262,7 +3944,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Acute Promyelocytic Leukemia, PML-RARA
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T21:52:52Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   Acute promyelocytic leukemia (APL) with PML-RARA is a distinct subtype of acute
   myeloid leukemia characterized by the t(15;17)(q24;q21) translocation creating
@@ -3573,6 +4255,126 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: hematologic malignancy
+references:
+- reference: DOI:10.1007/s00277-023-05422-z
+  title: &#39;Predictors of very early death in acute promyelocytic leukemia: a retrospective real-world cohort study&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: Early death (ED) is still the major obstacle to cure in acute promyelocytic leukemia (APL).
+    supporting_text: Early death (ED) is still the major obstacle to cure in acute promyelocytic leukemia (APL).
+    evidence:
+    - reference: DOI:10.1007/s00277-023-05422-z
+      reference_title: &#39;Predictors of very early death in acute promyelocytic leukemia: a retrospective real-world cohort study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Early death (ED) is still the major obstacle to cure in acute promyelocytic leukemia (APL).
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.1038/s41418-023-01139-8
+  title: Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα
+    supporting_text: Targeting HDAC3 to overcome the resistance to ATRA or arsenic in acute promyelocytic leukemia through ubiquitination and degradation of PML-RARα
+- reference: DOI:10.1186/s12885-023-10612-z
+  title: &#39;Acute promyelocytic leukaemia: population-based study of epidemiology and outcome with ATRA and oral-ATO from 1991 to 2021&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: The epidemiology and treatment of acute promyelocytic leukaemia (APL) are changing.
+    supporting_text: The epidemiology and treatment of acute promyelocytic leukaemia (APL) are changing.
+    evidence:
+    - reference: DOI:10.1186/s12885-023-10612-z
+      reference_title: &#39;Acute promyelocytic leukaemia: population-based study of epidemiology and outcome with ATRA and oral-ATO from 1991 to 2021&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The epidemiology and treatment of acute promyelocytic leukaemia (APL) are changing.
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.3389/fonc.2022.1062524
+  title: &#39;The treatment of acute promyelocytic leukemia in 2023: Paradigm, advances, and future directions&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: The transformation of acute promyelocytic leukemia (APL) from an often fatal to highly curable cancer with long-term survival exceeding 90% is one of the greatest and most inspiring successes in oncology.
+    supporting_text: The transformation of acute promyelocytic leukemia (APL) from an often fatal to highly curable cancer with long-term survival exceeding 90% is one of the greatest and most inspiring successes in oncology.
+    evidence:
+    - reference: DOI:10.3389/fonc.2022.1062524
+      reference_title: &#39;The treatment of acute promyelocytic leukemia in 2023: Paradigm, advances, and future directions&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The transformation of acute promyelocytic leukemia (APL) from an often fatal to highly curable cancer with long-term survival exceeding 90% is one of the greatest and most inspiring successes in oncology.
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.3390/cancers16061160
+  title: &#39;Acute Promyelocytic Leukemia: Review of Complications Related to All-Trans Retinoic Acid and Arsenic Trioxide Therapy&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: The hallmark of acute promyelocytic leukemia (APL) is the presence of the characteristic fusion transcript of the promyelocytic leukemia gene with the retinoic acid receptor α gene (PML::RARA).
+    supporting_text: The hallmark of acute promyelocytic leukemia (APL) is the presence of the characteristic fusion transcript of the promyelocytic leukemia gene with the retinoic acid receptor α gene (PML::RARA).
+    evidence:
+    - reference: DOI:10.3390/cancers16061160
+      reference_title: &#39;Acute Promyelocytic Leukemia: Review of Complications Related to All-Trans Retinoic Acid and Arsenic Trioxide Therapy&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The hallmark of acute promyelocytic leukemia (APL) is the presence of the characteristic fusion transcript of the promyelocytic leukemia gene with the retinoic acid receptor α gene (PML::RARA).
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.3390/cancers16071351
+  title: History of Developing Acute Promyelocytic Leukemia Treatment and Role of Promyelocytic Leukemia Bodies
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: The story of acute promyelocytic leukemia (APL) discovery, physiopathology, and treatment is a unique journey, transforming the most aggressive form of leukemia to the most curable.
+    supporting_text: The story of acute promyelocytic leukemia (APL) discovery, physiopathology, and treatment is a unique journey, transforming the most aggressive form of leukemia to the most curable.
+    evidence:
+    - reference: DOI:10.3390/cancers16071351
+      reference_title: History of Developing Acute Promyelocytic Leukemia Treatment and Role of Promyelocytic Leukemia Bodies
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The story of acute promyelocytic leukemia (APL) discovery, physiopathology, and treatment is a unique journey, transforming the most aggressive form of leukemia to the most curable.
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.3390/cancers16183208
+  title: &#39;MRD in Acute Leukemias: Lessons Learned from Acute Promyelocytic Leukemia&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: Advances in molecular biology, polymerase chain reaction (PCR), and next-generation sequencing (NGS) have transformed the concept of minimal residual disease (MRD) from a philosophical idea into a measurable reality.
+    supporting_text: Advances in molecular biology, polymerase chain reaction (PCR), and next-generation sequencing (NGS) have transformed the concept of minimal residual disease (MRD) from a philosophical idea into a measurable reality.
+    evidence:
+    - reference: DOI:10.3390/cancers16183208
+      reference_title: &#39;MRD in Acute Leukemias: Lessons Learned from Acute Promyelocytic Leukemia&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Advances in molecular biology, polymerase chain reaction (PCR), and next-generation sequencing (NGS) have transformed the concept of minimal residual disease (MRD) from a philosophical idea into a measurable reality.
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.3390/cancers16244192
+  title: &#39;Acute Promyelocytic Leukemia-like AML: Genetic Perspective and Clinical Implications&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: Acute promyelocytic leukemia (APL) is a rare type of AML, characterized by the t(15;17) translocation and accounting for 8–15% of cases.
+    supporting_text: Acute promyelocytic leukemia (APL) is a rare type of AML, characterized by the t(15;17) translocation and accounting for 8–15% of cases.
+    evidence:
+    - reference: DOI:10.3390/cancers16244192
+      reference_title: &#39;Acute Promyelocytic Leukemia-like AML: Genetic Perspective and Clinical Implications&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Acute promyelocytic leukemia (APL) is a rare type of AML, characterized by the t(15;17) translocation and accounting for 8–15% of cases.
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
+- reference: DOI:10.3390/futurepharmacol3010012
+  title: &#39;Acute Promyelocytic Leukemia (APL): A Review of the Classic and Emerging Target Therapies towards Molecular Heterogeneity&#39;
+  found_in:
+  - APL_PML_RARA-deep-research-falcon.md
+  findings:
+  - statement: The occurrence of severe bleeding syndrome because of the PML-RARα fusion protein is a life-threatening event in APL.
+    supporting_text: The occurrence of severe bleeding syndrome because of the PML-RARα fusion protein is a life-threatening event in APL.
+    evidence:
+    - reference: DOI:10.3390/futurepharmacol3010012
+      reference_title: &#39;Acute Promyelocytic Leukemia (APL): A Review of the Classic and Emerging Target Therapies towards Molecular Heterogeneity&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The occurrence of severe bleeding syndrome because of the PML-RARα fusion protein is a life-threatening event in APL.
+      explanation: Deep research cited this publication as relevant literature for APL PML RARA.
 </pre>
             </div>
         </div>

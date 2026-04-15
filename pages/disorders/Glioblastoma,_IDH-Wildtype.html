@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2431,11 +2480,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Giant Cell Glioblastoma
                         
                         
@@ -2445,9 +2492,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Histological variant characterized by numerous bizarre multinucleated giant cells. May have slightly better prognosis than conventional glioblastoma. Often shows TP53 mutations.</div>
+                    
                     
                     
                     
@@ -2458,11 +2508,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Gliosarcoma
                         
                         
@@ -2472,9 +2520,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Variant with biphasic pattern showing areas of glial differentiation and malignant mesenchymal (sarcomatous) component. Similar prognosis to conventional glioblastoma. Sarcomatous component often shows divergent molecular features.</div>
+                    
                     
                     
                     
@@ -2485,11 +2536,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Epithelioid Glioblastoma
                         
                         
@@ -2499,9 +2548,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Aggressive variant with epithelioid morphology, frequent BRAF V600E mutations, and loss of INI1 expression. Often occurs in younger patients and may have worse prognosis than conventional glioblastoma.</div>
+                    
                     
                     
                     
@@ -2517,6 +2569,1316 @@
         
 
         <!-- References -->
+        
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">23</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s00401-023-02654-1" target="_blank">DOI:10.1007/s00401-023-02654-1</a>
+                        </div>
+                        
+                        <div class="reference-title">“De novo replication repair deficient glioblastoma, IDH-wildtype” is a distinct glioblastoma subtype in adults that may benefit from immune checkpoint blockade</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma is a clinically and molecularly heterogeneous disease, and new predictive biomarkers are needed to identify those patients most likely to respond to specific treatments.</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma is a clinically and molecularly heterogeneous disease, and new predictive biomarkers are needed to identify those patients most likely to respond to specific treatments."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00401-023-02654-1" target="_blank">DOI:10.1007/s00401-023-02654-1</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Glioblastoma is a clinically and molecularly heterogeneous disease, and new predictive biomarkers are needed to identify those patients most likely to respond to specific treatments."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s00432-025-06171-4" target="_blank">DOI:10.1007/s00432-025-06171-4</a>
+                        </div>
+                        
+                        <div class="reference-title">Limited survival benefit in patients diagnosed with glioblastoma post-2016: a SEER population based registry analysis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Limited survival benefit in patients diagnosed with glioblastoma post-2016: a SEER population based registry analysis</div>
+            
+            
+            <div class="reference-finding-supporting">"Limited survival benefit in patients diagnosed with glioblastoma post-2016: a SEER population based registry analysis"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s10014-022-00446-1" target="_blank">DOI:10.1007/s10014-022-00446-1</a>
+                        </div>
+                        
+                        <div class="reference-title">Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas</div>
+            
+            
+            <div class="reference-finding-supporting">"Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s11060-024-04682-7" target="_blank">DOI:10.1007/s11060-024-04682-7</a>
+                        </div>
+                        
+                        <div class="reference-title">Global post‑marketing safety surveillance of Tumor Treating Fields (TTFields) therapy in over 25,000 patients with CNS malignancies treated between 2011–2022</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Tumor Treating Fields (TTFields) are alternating electric fields that disrupt cancer cell processes.</div>
+            
+            
+            <div class="reference-finding-supporting">"Tumor Treating Fields (TTFields) are alternating electric fields that disrupt cancer cell processes."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11060-024-04682-7" target="_blank">DOI:10.1007/s11060-024-04682-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Tumor Treating Fields (TTFields) are alternating electric fields that disrupt cancer cell processes."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s11060-024-04808-x" target="_blank">DOI:10.1007/s11060-024-04808-x</a>
+                        </div>
+                        
+                        <div class="reference-title">Glioblastoma in the real-world setting: patterns of care and outcome in the Austrian population</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We present results of a retrospective population-based investigation of patterns of care and outcome of glioblastoma patients in Austria.</div>
+            
+            
+            <div class="reference-finding-supporting">"We present results of a retrospective population-based investigation of patterns of care and outcome of glioblastoma patients in Austria."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11060-024-04808-x" target="_blank">DOI:10.1007/s11060-024-04808-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We present results of a retrospective population-based investigation of patterns of care and outcome of glioblastoma patients in Austria."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s11060-025-04946-w" target="_blank">DOI:10.1007/s11060-025-04946-w</a>
+                        </div>
+                        
+                        <div class="reference-title">Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting</div>
+            
+            
+            <div class="reference-finding-supporting">"Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.esmoop.2024.102943" target="_blank">DOI:10.1016/j.esmoop.2024.102943</a>
+                        </div>
+                        
+                        <div class="reference-title">REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma</div>
+            
+            
+            <div class="reference-finding-supporting">"REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41467-024-51315-8" target="_blank">DOI:10.1038/s41467-024-51315-8</a>
+                        </div>
+                        
+                        <div class="reference-title">A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine</div>
+            
+            
+            <div class="reference-finding-supporting">"A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41467-024-52167-y" target="_blank">DOI:10.1038/s41467-024-52167-y</a>
+                        </div>
+                        
+                        <div class="reference-title">Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41591-024-02969-w" target="_blank">DOI:10.1038/s41591-024-02969-w</a>
+                        </div>
+                        
+                        <div class="reference-title">A prognostic neural epigenetic signature in high-grade glioma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Neural–tumor interactions drive glioma growth as evidenced in preclinical models, but clinical validation is limited.</div>
+            
+            
+            <div class="reference-finding-supporting">"Neural–tumor interactions drive glioma growth as evidenced in preclinical models, but clinical validation is limited."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41591-024-02969-w" target="_blank">DOI:10.1038/s41591-024-02969-w</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Neural–tumor interactions drive glioma growth as evidenced in preclinical models, but clinical validation is limited."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/neuonc/noad100" target="_blank">DOI:10.1093/neuonc/noad100</a>
+                        </div>
+                        
+                        <div class="reference-title">Molecular diagnostic tools for the World Health Organization (WHO) 2021 classification of gliomas, glioneuronal and neuronal tumors; an EANO guideline</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">In the 5th edition of the WHO CNS tumor classification (CNS5, 2021), multiple molecular characteristics became essential diagnostic criteria for many additional CNS tumor types.</div>
+            
+            
+            <div class="reference-finding-supporting">"In the 5th edition of the WHO CNS tumor classification (CNS5, 2021), multiple molecular characteristics became essential diagnostic criteria for many additional CNS tumor types."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/noad100" target="_blank">DOI:10.1093/neuonc/noad100</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the 5th edition of the WHO CNS tumor classification (CNS5, 2021), multiple molecular characteristics became essential diagnostic criteria for many additional CNS tumor types."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/neuonc/noae085" target="_blank">DOI:10.1093/neuonc/noae085</a>
+                        </div>
+                        
+                        <div class="reference-title">Immunotherapy drives mesenchymal tumor cell state shift and TME immune response in glioblastoma patients</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma is a highly aggressive type of brain tumor for which there is no curative treatment available.</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma is a highly aggressive type of brain tumor for which there is no curative treatment available."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/noae085" target="_blank">DOI:10.1093/neuonc/noae085</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Glioblastoma is a highly aggressive type of brain tumor for which there is no curative treatment available."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/nop/npae036" target="_blank">DOI:10.1093/nop/npae036</a>
+                        </div>
+                        
+                        <div class="reference-title">Do presenting symptoms predict treatment decisions and survival in glioblastoma? Real-world data from 1458 patients in the Swedish brain tumor registry</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma is the most common malignant brain tumor in adults.</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma is the most common malignant brain tumor in adults."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/nop/npae036" target="_blank">DOI:10.1093/nop/npae036</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Glioblastoma is the most common malignant brain tumor in adults."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/oncolo/oyae227" target="_blank">DOI:10.1093/oncolo/oyae227</a>
+                        </div>
+                        
+                        <div class="reference-title">Recent advances in Tumor Treating Fields (TTFields) therapy for glioblastoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Tumor Treating Fields (TTFields) therapy is a locoregional, anticancer treatment consisting of a noninvasive, portable device that delivers alternating electric fields to tumors through arrays placed on the skin.</div>
+            
+            
+            <div class="reference-finding-supporting">"Tumor Treating Fields (TTFields) therapy is a locoregional, anticancer treatment consisting of a noninvasive, portable device that delivers alternating electric fields to tumors through arrays placed on the skin."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/oncolo/oyae227" target="_blank">DOI:10.1093/oncolo/oyae227</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Tumor Treating Fields (TTFields) therapy is a locoregional, anticancer treatment consisting of a noninvasive, portable device that delivers alternating electric fields to tumors through arrays placed on the skin."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1101/2025.01.16.25320661" target="_blank">DOI:10.1101/2025.01.16.25320661</a>
+                        </div>
+                        
+                        <div class="reference-title">Whole genome sequencing-based analysis of genetic predisposition to adult glioblastoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma is most commonly reported in the second (pediatric form) and seventh (adult form) decade of life.</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma is most commonly reported in the second (pediatric form) and seventh (adult form) decade of life."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1101/2025.01.16.25320661" target="_blank">DOI:10.1101/2025.01.16.25320661</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Glioblastoma is most commonly reported in the second (pediatric form) and seventh (adult form) decade of life."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1126/science.abm5214" target="_blank">DOI:10.1126/science.abm5214</a>
+                        </div>
+                        
+                        <div class="reference-title">Distinct myeloid-derived suppressor cell populations in human glioblastoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The role of glioma-associated myeloid cells in tumor growth and immune evasion remains poorly understood.</div>
+            
+            
+            <div class="reference-finding-supporting">"The role of glioma-associated myeloid cells in tumor growth and immune evasion remains poorly understood."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1126/science.abm5214" target="_blank">DOI:10.1126/science.abm5214</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The role of glioma-associated myeloid cells in tumor growth and immune evasion remains poorly understood."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.11588/heidok.00035474" target="_blank">DOI:10.11588/heidok.00035474</a>
+                        </div>
+                        
+                        <div class="reference-title">Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma</div>
+            
+            
+            <div class="reference-finding-supporting">"Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1186/s40478-024-01762-7" target="_blank">DOI:10.1186/s40478-024-01762-7</a>
+                        </div>
+                        
+                        <div class="reference-title">Pediatric-type high-grade gliomas with PDGFRA amplification in adult patients with Li-Fraumeni syndrome: clinical and molecular characterization of three cases</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Li-Fraumeni syndrome (LFS) is an autosomal dominant tumor predisposition syndrome caused by heterozygous germline mutations or deletions in the TP53 tumor suppressor gene.</div>
+            
+            
+            <div class="reference-finding-supporting">"Li-Fraumeni syndrome (LFS) is an autosomal dominant tumor predisposition syndrome caused by heterozygous germline mutations or deletions in the TP53 tumor suppressor gene."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s40478-024-01762-7" target="_blank">DOI:10.1186/s40478-024-01762-7</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Li-Fraumeni syndrome (LFS) is an autosomal dominant tumor predisposition syndrome caused by heterozygous germline mutations or deletions in the TP53 tumor suppressor gene."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.17879/freeneuropathology-2024-5892" target="_blank">DOI:10.17879/freeneuropathology-2024-5892</a>
+                        </div>
+                        
+                        <div class="reference-title">Adult glioblastoma with Lynch syndrome-associated mismatch repair deficiency forms a distinct high-risk molecular subgroup</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma is the most frequent and malignant primary brain tumor.</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma is the most frequent and malignant primary brain tumor."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.17879/freeneuropathology-2024-5892" target="_blank">DOI:10.17879/freeneuropathology-2024-5892</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Glioblastoma is the most frequent and malignant primary brain tumor."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.32074/1591-951x-823" target="_blank">DOI:10.32074/1591-951x-823</a>
+                        </div>
+                        
+                        <div class="reference-title">Adult type diffuse gliomas in the new 2021 WHO Classification</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Adult type diffuse gliomas in the new 2021 WHO Classification</div>
+            
+            
+            <div class="reference-finding-supporting">"Adult type diffuse gliomas in the new 2021 WHO Classification"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3389/fonc.2023.1200815" target="_blank">DOI:10.3389/fonc.2023.1200815</a>
+                        </div>
+                        
+                        <div class="reference-title">Histological and molecular glioblastoma, IDH-wildtype: a real-world landscape using the 2021 WHO classification of central nervous system tumors</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Glioblastoma (GBM), the most lethal primary brain malignancy, is divided into histological (hist-GBM) and molecular (mol-GBM) subtypes according to the 2021 World Health Organization classification of central nervous system tumors.</div>
+            
+            
+            <div class="reference-finding-supporting">"Glioblastoma (GBM), the most lethal primary brain malignancy, is divided into histological (hist-GBM) and molecular (mol-GBM) subtypes according to the 2021 World Health Organization classification of central nervous system tumors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2023.1200815" target="_blank">DOI:10.3389/fonc.2023.1200815</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Glioblastoma (GBM), the most lethal primary brain malignancy, is divided into histological (hist-GBM) and molecular (mol-GBM) subtypes according to the 2021 World Health Organization classification of central nervous system tumors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/biomedicines12061349" target="_blank">DOI:10.3390/biomedicines12061349</a>
+                        </div>
+                        
+                        <div class="reference-title">The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.</div>
+            
+            
+            <div class="reference-finding-supporting">"The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biomedicines12061349" target="_blank">DOI:10.3390/biomedicines12061349</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers17010046" target="_blank">DOI:10.3390/cancers17010046</a>
+                        </div>
+                        
+                        <div class="reference-title">Regorafenib Treatment for Recurrent Glioblastoma Beyond Bevacizumab-Based Therapy: A Large, Multicenter, Real-Life Study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">In the REGOMA trial, regorafenib demonstrated an overall survival advantage over lomustine, and it has become a recommended treatment for recurrent glioblastoma in guidelines.</div>
+            
+            
+            <div class="reference-finding-supporting">"In the REGOMA trial, regorafenib demonstrated an overall survival advantage over lomustine, and it has become a recommended treatment for recurrent glioblastoma in guidelines."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers17010046" target="_blank">DOI:10.3390/cancers17010046</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In the REGOMA trial, regorafenib demonstrated an overall survival advantage over lomustine, and it has become a recommended treatment for recurrent glioblastoma in guidelines."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
         
 
         <!-- Pathophysiology -->
@@ -2582,6 +3944,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2651,6 +4014,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2701,6 +4065,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2731,6 +4096,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2781,6 +4147,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2853,6 +4220,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2897,6 +4265,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3271,14 +4640,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Maximal Safe Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3295,14 +4673,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radiation Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000014" target="_blank">
-                            MAXO:0000014
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">radiation therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000014</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3319,17 +4706,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Temozolomide Chemotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         temozolomide
@@ -3355,14 +4751,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Tumor Treating Fields (TTFields)
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000944" target="_blank">
-                            MAXO:0000944
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">cranial electrical stimulation</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000944" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000944</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3379,17 +4784,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Bevacizumab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         bevacizumab
@@ -3472,7 +4886,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Glioblastoma, IDH-Wildtype
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-03-18T00:00:00Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   Glioblastoma, IDH-wildtype, is the most common and aggressive primary malignant
   brain tumor in adults. Under WHO 2021 classification, this molecularly defined
@@ -3841,6 +5255,273 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1007/s00401-023-02654-1
+  title: “De novo replication repair deficient glioblastoma, IDH-wildtype” is a distinct glioblastoma subtype in adults that may benefit from immune checkpoint blockade
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Glioblastoma is a clinically and molecularly heterogeneous disease, and new predictive biomarkers are needed to identify those patients most likely to respond to specific treatments.
+    supporting_text: Glioblastoma is a clinically and molecularly heterogeneous disease, and new predictive biomarkers are needed to identify those patients most likely to respond to specific treatments.
+    evidence:
+    - reference: DOI:10.1007/s00401-023-02654-1
+      reference_title: “De novo replication repair deficient glioblastoma, IDH-wildtype” is a distinct glioblastoma subtype in adults that may benefit from immune checkpoint blockade
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Glioblastoma is a clinically and molecularly heterogeneous disease, and new predictive biomarkers are needed to identify those patients most likely to respond to specific treatments.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1007/s00432-025-06171-4
+  title: &#39;Limited survival benefit in patients diagnosed with glioblastoma post-2016: a SEER population based registry analysis&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: &#39;Limited survival benefit in patients diagnosed with glioblastoma post-2016: a SEER population based registry analysis&#39;
+    supporting_text: &#39;Limited survival benefit in patients diagnosed with glioblastoma post-2016: a SEER population based registry analysis&#39;
+- reference: DOI:10.1007/s10014-022-00446-1
+  title: &#39;Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: &#39;Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas&#39;
+    supporting_text: &#39;Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas&#39;
+- reference: DOI:10.1007/s11060-024-04682-7
+  title: Global post‑marketing safety surveillance of Tumor Treating Fields (TTFields) therapy in over 25,000 patients with CNS malignancies treated between 2011–2022
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Tumor Treating Fields (TTFields) are alternating electric fields that disrupt cancer cell processes.
+    supporting_text: Tumor Treating Fields (TTFields) are alternating electric fields that disrupt cancer cell processes.
+    evidence:
+    - reference: DOI:10.1007/s11060-024-04682-7
+      reference_title: Global post‑marketing safety surveillance of Tumor Treating Fields (TTFields) therapy in over 25,000 patients with CNS malignancies treated between 2011–2022
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Tumor Treating Fields (TTFields) are alternating electric fields that disrupt cancer cell processes.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1007/s11060-024-04808-x
+  title: &#39;Glioblastoma in the real-world setting: patterns of care and outcome in the Austrian population&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: We present results of a retrospective population-based investigation of patterns of care and outcome of glioblastoma patients in Austria.
+    supporting_text: We present results of a retrospective population-based investigation of patterns of care and outcome of glioblastoma patients in Austria.
+    evidence:
+    - reference: DOI:10.1007/s11060-024-04808-x
+      reference_title: &#39;Glioblastoma in the real-world setting: patterns of care and outcome in the Austrian population&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We present results of a retrospective population-based investigation of patterns of care and outcome of glioblastoma patients in Austria.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1007/s11060-025-04946-w
+  title: Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting
+    supporting_text: Long-term survival, patterns of progression, and patterns of use for patients with newly diagnosed glioblastoma treated with or without Tumor Treating Fields (TTFields) in a real-world setting
+- reference: DOI:10.1016/j.esmoop.2024.102943
+  title: &#39;REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: &#39;REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma&#39;
+    supporting_text: &#39;REGOMA-OSS: a large, Italian, multicenter, prospective, observational study evaluating the efficacy and safety of regorafenib in patients with recurrent glioblastoma&#39;
+- reference: DOI:10.1038/s41467-024-51315-8
+  title: A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine
+    supporting_text: A real-world observation of patients with glioblastoma treated with a personalized peptide vaccine
+- reference: DOI:10.1038/s41467-024-52167-y
+  title: Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue
+    supporting_text: Glioblastoma cells increase expression of notch signaling and synaptic genes within infiltrated brain tissue
+- reference: DOI:10.1038/s41591-024-02969-w
+  title: A prognostic neural epigenetic signature in high-grade glioma
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Neural–tumor interactions drive glioma growth as evidenced in preclinical models, but clinical validation is limited.
+    supporting_text: Neural–tumor interactions drive glioma growth as evidenced in preclinical models, but clinical validation is limited.
+    evidence:
+    - reference: DOI:10.1038/s41591-024-02969-w
+      reference_title: A prognostic neural epigenetic signature in high-grade glioma
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Neural–tumor interactions drive glioma growth as evidenced in preclinical models, but clinical validation is limited.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1093/neuonc/noad100
+  title: Molecular diagnostic tools for the World Health Organization (WHO) 2021 classification of gliomas, glioneuronal and neuronal tumors; an EANO guideline
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: In the 5th edition of the WHO CNS tumor classification (CNS5, 2021), multiple molecular characteristics became essential diagnostic criteria for many additional CNS tumor types.
+    supporting_text: In the 5th edition of the WHO CNS tumor classification (CNS5, 2021), multiple molecular characteristics became essential diagnostic criteria for many additional CNS tumor types.
+    evidence:
+    - reference: DOI:10.1093/neuonc/noad100
+      reference_title: Molecular diagnostic tools for the World Health Organization (WHO) 2021 classification of gliomas, glioneuronal and neuronal tumors; an EANO guideline
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: In the 5th edition of the WHO CNS tumor classification (CNS5, 2021), multiple molecular characteristics became essential diagnostic criteria for many additional CNS tumor types.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1093/neuonc/noae085
+  title: Immunotherapy drives mesenchymal tumor cell state shift and TME immune response in glioblastoma patients
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Glioblastoma is a highly aggressive type of brain tumor for which there is no curative treatment available.
+    supporting_text: Glioblastoma is a highly aggressive type of brain tumor for which there is no curative treatment available.
+    evidence:
+    - reference: DOI:10.1093/neuonc/noae085
+      reference_title: Immunotherapy drives mesenchymal tumor cell state shift and TME immune response in glioblastoma patients
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Glioblastoma is a highly aggressive type of brain tumor for which there is no curative treatment available.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1093/nop/npae036
+  title: Do presenting symptoms predict treatment decisions and survival in glioblastoma? Real-world data from 1458 patients in the Swedish brain tumor registry
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Glioblastoma is the most common malignant brain tumor in adults.
+    supporting_text: Glioblastoma is the most common malignant brain tumor in adults.
+    evidence:
+    - reference: DOI:10.1093/nop/npae036
+      reference_title: Do presenting symptoms predict treatment decisions and survival in glioblastoma? Real-world data from 1458 patients in the Swedish brain tumor registry
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Glioblastoma is the most common malignant brain tumor in adults.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1093/oncolo/oyae227
+  title: Recent advances in Tumor Treating Fields (TTFields) therapy for glioblastoma
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Tumor Treating Fields (TTFields) therapy is a locoregional, anticancer treatment consisting of a noninvasive, portable device that delivers alternating electric fields to tumors through arrays placed on the skin.
+    supporting_text: Tumor Treating Fields (TTFields) therapy is a locoregional, anticancer treatment consisting of a noninvasive, portable device that delivers alternating electric fields to tumors through arrays placed on the skin.
+    evidence:
+    - reference: DOI:10.1093/oncolo/oyae227
+      reference_title: Recent advances in Tumor Treating Fields (TTFields) therapy for glioblastoma
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Tumor Treating Fields (TTFields) therapy is a locoregional, anticancer treatment consisting of a noninvasive, portable device that delivers alternating electric fields to tumors through arrays placed on the skin.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1101/2025.01.16.25320661
+  title: Whole genome sequencing-based analysis of genetic predisposition to adult glioblastoma
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Glioblastoma is most commonly reported in the second (pediatric form) and seventh (adult form) decade of life.
+    supporting_text: Glioblastoma is most commonly reported in the second (pediatric form) and seventh (adult form) decade of life.
+    evidence:
+    - reference: DOI:10.1101/2025.01.16.25320661
+      reference_title: Whole genome sequencing-based analysis of genetic predisposition to adult glioblastoma
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Glioblastoma is most commonly reported in the second (pediatric form) and seventh (adult form) decade of life.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.1126/science.abm5214
+  title: Distinct myeloid-derived suppressor cell populations in human glioblastoma
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: The role of glioma-associated myeloid cells in tumor growth and immune evasion remains poorly understood.
+    supporting_text: The role of glioma-associated myeloid cells in tumor growth and immune evasion remains poorly understood.
+    evidence:
+    - reference: DOI:10.1126/science.abm5214
+      reference_title: Distinct myeloid-derived suppressor cell populations in human glioblastoma
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The role of glioma-associated myeloid cells in tumor growth and immune evasion remains poorly understood.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.11588/heidok.00035474
+  title: Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma
+    supporting_text: Tumor Pseudolineages from a Healthy Lineage Template Reveal Organizational Principles and Cell-Fate Modulators in Glioblastoma
+- reference: DOI:10.1186/s40478-024-01762-7
+  title: &#39;Pediatric-type high-grade gliomas with PDGFRA amplification in adult patients with Li-Fraumeni syndrome: clinical and molecular characterization of three cases&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Li-Fraumeni syndrome (LFS) is an autosomal dominant tumor predisposition syndrome caused by heterozygous germline mutations or deletions in the TP53 tumor suppressor gene.
+    supporting_text: Li-Fraumeni syndrome (LFS) is an autosomal dominant tumor predisposition syndrome caused by heterozygous germline mutations or deletions in the TP53 tumor suppressor gene.
+    evidence:
+    - reference: DOI:10.1186/s40478-024-01762-7
+      reference_title: &#39;Pediatric-type high-grade gliomas with PDGFRA amplification in adult patients with Li-Fraumeni syndrome: clinical and molecular characterization of three cases&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Li-Fraumeni syndrome (LFS) is an autosomal dominant tumor predisposition syndrome caused by heterozygous germline mutations or deletions in the TP53 tumor suppressor gene.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.17879/freeneuropathology-2024-5892
+  title: Adult glioblastoma with Lynch syndrome-associated mismatch repair deficiency forms a distinct high-risk molecular subgroup
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Glioblastoma is the most frequent and malignant primary brain tumor.
+    supporting_text: Glioblastoma is the most frequent and malignant primary brain tumor.
+    evidence:
+    - reference: DOI:10.17879/freeneuropathology-2024-5892
+      reference_title: Adult glioblastoma with Lynch syndrome-associated mismatch repair deficiency forms a distinct high-risk molecular subgroup
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Glioblastoma is the most frequent and malignant primary brain tumor.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.32074/1591-951x-823
+  title: Adult type diffuse gliomas in the new 2021 WHO Classification
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: Adult type diffuse gliomas in the new 2021 WHO Classification
+    supporting_text: Adult type diffuse gliomas in the new 2021 WHO Classification
+- reference: DOI:10.3389/fonc.2023.1200815
+  title: &#39;Histological and molecular glioblastoma, IDH-wildtype: a real-world landscape using the 2021 WHO classification of central nervous system tumors&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: &#39;Glioblastoma (GBM), the most lethal primary brain malignancy, is divided into histological (hist-GBM) and molecular (mol-GBM) subtypes according to the 2021 World Health Organization classification of central nervous system tumors.&#39;
+    supporting_text: Glioblastoma (GBM), the most lethal primary brain malignancy, is divided into histological (hist-GBM) and molecular (mol-GBM) subtypes according to the 2021 World Health Organization classification of central nervous system tumors.
+    evidence:
+    - reference: DOI:10.3389/fonc.2023.1200815
+      reference_title: &#39;Histological and molecular glioblastoma, IDH-wildtype: a real-world landscape using the 2021 WHO classification of central nervous system tumors&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Glioblastoma (GBM), the most lethal primary brain malignancy, is divided into histological (hist-GBM) and molecular (mol-GBM) subtypes according to the 2021 World Health Organization classification of central nervous system tumors.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.3390/biomedicines12061349
+  title: &#39;The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.
+    supporting_text: The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.
+    evidence:
+    - reference: DOI:10.3390/biomedicines12061349
+      reference_title: &#39;The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
+- reference: DOI:10.3390/cancers17010046
+  title: &#39;Regorafenib Treatment for Recurrent Glioblastoma Beyond Bevacizumab-Based Therapy: A Large, Multicenter, Real-Life Study&#39;
+  found_in:
+  - Glioblastoma_IDH_Wildtype-deep-research-falcon.md
+  findings:
+  - statement: In the REGOMA trial, regorafenib demonstrated an overall survival advantage over lomustine, and it has become a recommended treatment for recurrent glioblastoma in guidelines.
+    supporting_text: In the REGOMA trial, regorafenib demonstrated an overall survival advantage over lomustine, and it has become a recommended treatment for recurrent glioblastoma in guidelines.
+    evidence:
+    - reference: DOI:10.3390/cancers17010046
+      reference_title: &#39;Regorafenib Treatment for Recurrent Glioblastoma Beyond Bevacizumab-Based Therapy: A Large, Multicenter, Real-Life Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: In the REGOMA trial, regorafenib demonstrated an overall survival advantage over lomustine, and it has become a recommended treatment for recurrent glioblastoma in guidelines.
+      explanation: Deep research cited this publication as relevant literature for Glioblastoma IDH Wildtype.
 </pre>
             </div>
         </div>

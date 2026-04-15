@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2427,11 +2476,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         BRCA2-Mutant Prostate Cancer
                         
                         
@@ -2441,9 +2488,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">More common than BRCA1 mutations, occurring in approximately 5% of mCRPC. BRCA2 mutations confer higher sensitivity to PARP inhibitors and platinum chemotherapy.</div>
+                    
                     
                     
                     
@@ -2454,11 +2504,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         BRCA1-Mutant Prostate Cancer
                         
                         
@@ -2468,9 +2516,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Less common than BRCA2 mutations in prostate cancer. Also predicts response to PARP inhibition and platinum chemotherapy.</div>
+                    
                     
                     
                     
@@ -2486,6 +2537,1124 @@
         
 
         <!-- References -->
+        
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">17</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.0734" target="_blank">DOI:10.1001/jamaoncol.2024.0734</a>
+                        </div>
+                        
+                        <div class="reference-title">Magnetic Resonance Imaging in Prostate Cancer Screening</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Magnetic Resonance Imaging in Prostate Cancer Screening</div>
+            
+            
+            <div class="reference-finding-supporting">"ImportanceProstate magnetic resonance imaging (MRI) is increasingly integrated within the prostate cancer (PCa) early detection pathway.ObjectiveTo systematically evaluate the existing evidence regarding screening pathways incorporating MRI with targeted biopsy and assess their diagnostic value..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.0734" target="_blank">DOI:10.1001/jamaoncol.2024.0734</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ImportanceProstate magnetic resonance imaging (MRI) is increasingly integrated within the prostate cancer (PCa) early detection pathway.ObjectiveTo systematically evaluate the existing evidence regarding screening pathways incorporating MRI with targeted biopsy and assess their diagnostic value..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.2185" target="_blank">DOI:10.1001/jamaoncol.2024.2185</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;i&gt;BRCA1, BRCA2&lt;/i&gt;, and Associated Cancer Risks and Management for Male Patients</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">ImportanceHalf of all carriers of inherited cancer-predisposing variants in BRCA1 and BRCA2 are male, but the implications for their health are underrecognized compared to female individuals.</div>
+            
+            
+            <div class="reference-finding-supporting">"ImportanceHalf of all carriers of inherited cancer-predisposing variants in BRCA1 and BRCA2 are male, but the implications for their health are underrecognized compared to female individuals."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1001/jamaoncol.2024.2185" target="_blank">DOI:10.1001/jamaoncol.2024.2185</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"ImportanceHalf of all carriers of inherited cancer-predisposing variants in BRCA1 and BRCA2 are male, but the implications for their health are underrecognized compared to female individuals."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.ebiom.2023.104738" target="_blank">DOI:10.1016/j.ebiom.2023.104738</a>
+                        </div>
+                        
+                        <div class="reference-title">BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype</div>
+            
+            
+            <div class="reference-finding-supporting">"BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41591-023-02704-x" target="_blank">DOI:10.1038/s41591-023-02704-x</a>
+                        </div>
+                        
+                        <div class="reference-title">First-line talazoparib with enzalutamide in HRR-deficient metastatic castration-resistant prostate cancer: the phase 3 TALAPRO-2 trial</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Preclinical evidence has suggested an interplay between the androgen receptor, which largely drives the growth of prostate cancer cells, and poly(ADP-ribose) polymerase.</div>
+            
+            
+            <div class="reference-finding-supporting">"Preclinical evidence has suggested an interplay between the androgen receptor, which largely drives the growth of prostate cancer cells, and poly(ADP-ribose) polymerase."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41591-023-02704-x" target="_blank">DOI:10.1038/s41591-023-02704-x</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Preclinical evidence has suggested an interplay between the androgen receptor, which largely drives the growth of prostate cancer cells, and poly(ADP-ribose) polymerase."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-21-3577" target="_blank">DOI:10.1158/1078-0432.ccr-21-3577</a>
+                        </div>
+                        
+                        <div class="reference-title">Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and &lt;i&gt;BRCA1, BRCA2&lt;/i&gt; , or &lt;i&gt;ATM&lt;/i&gt; Alterations Identified by Testing Circulating Tumor DNA</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.</div>
+            
+            
+            <div class="reference-finding-supporting">"The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-21-3577" target="_blank">DOI:10.1158/1078-0432.ccr-21-3577</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-22-0931" target="_blank">DOI:10.1158/1078-0432.ccr-22-0931</a>
+                        </div>
+                        
+                        <div class="reference-title">Detection of &lt;i&gt;BRCA1&lt;/i&gt; , &lt;i&gt;BRCA2&lt;/i&gt; , and &lt;i&gt;ATM&lt;/i&gt; Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Not all patients with metastatic castration-resistant prostate cancer (mCRPC) have sufficient tumor tissue available for multigene molecular testing.</div>
+            
+            
+            <div class="reference-finding-supporting">"Not all patients with metastatic castration-resistant prostate cancer (mCRPC) have sufficient tumor tissue available for multigene molecular testing."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-22-0931" target="_blank">DOI:10.1158/1078-0432.ccr-22-0931</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Not all patients with metastatic castration-resistant prostate cancer (mCRPC) have sufficient tumor tissue available for multigene molecular testing."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/2767-9764.crc-23-0554" target="_blank">DOI:10.1158/2767-9764.crc-23-0554</a>
+                        </div>
+                        
+                        <div class="reference-title">LP-184, a Novel Acylfulvene Molecule, Exhibits Anticancer Activity against Diverse Solid Tumors with Homologous Recombination Deficiency</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents.</div>
+            
+            
+            <div class="reference-finding-supporting">"Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/2767-9764.crc-23-0554" target="_blank">DOI:10.1158/2767-9764.crc-23-0554</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1200/jco.22.01649" target="_blank">DOI:10.1200/jco.22.01649</a>
+                        </div>
+                        
+                        <div class="reference-title">Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies.</div>
+            
+            
+            <div class="reference-finding-supporting">"Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.22.01649" target="_blank">DOI:10.1200/jco.22.01649</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1200/jco.23.00339" target="_blank">DOI:10.1200/jco.23.00339</a>
+                        </div>
+                        
+                        <div class="reference-title">Olaparib for the Treatment of Patients With Metastatic Castration-Resistant Prostate Cancer and Alterations in &lt;i&gt;BRCA1&lt;/i&gt; and/or &lt;i&gt;BRCA2&lt;/i&gt; in the PROfound Trial</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Olaparib improved PFS and OS across subgroups of BRCA1/2mut #prostatecancer patients in the PROFOUND phase III trial.</div>
+            
+            
+            <div class="reference-finding-supporting">"Olaparib improved PFS and OS across subgroups of BRCA1/2mut #prostatecancer patients in the PROFOUND phase III trial."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.23.00339" target="_blank">DOI:10.1200/jco.23.00339</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Olaparib improved PFS and OS across subgroups of BRCA1/2mut #prostatecancer patients in the PROFOUND phase III trial."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1200/jco.23.02182" target="_blank">DOI:10.1200/jco.23.02182</a>
+                        </div>
+                        
+                        <div class="reference-title">US Food and Drug Administration Approval Summary: Talazoparib in Combination With Enzalutamide for Treatment of Patients With Homologous Recombination Repair Gene-Mutated Metastatic Castration-Resistant Prostate Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The US Food and Drug Administration (FDA) approved talazoparib with enzalutamide for first-line treatment of patients with homologous recombination repair (HRR) gene-mutated metastatic castration-resistant prostate cancer (mCRPC).</div>
+            
+            
+            <div class="reference-finding-supporting">"The US Food and Drug Administration (FDA) approved talazoparib with enzalutamide for first-line treatment of patients with homologous recombination repair (HRR) gene-mutated metastatic castration-resistant prostate cancer (mCRPC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.23.02182" target="_blank">DOI:10.1200/jco.23.02182</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The US Food and Drug Administration (FDA) approved talazoparib with enzalutamide for first-line treatment of patients with homologous recombination repair (HRR) gene-mutated metastatic castration-resistant prostate cancer (mCRPC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1200/po.21.00070" target="_blank">DOI:10.1200/po.21.00070</a>
+                        </div>
+                        
+                        <div class="reference-title">Differential Activity of PARP Inhibitors in&lt;i&gt;BRCA1&lt;/i&gt;- Versus&lt;i&gt;BRCA2&lt;/i&gt;-Altered Metastatic Castration-Resistant Prostate Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Differential Activity of PARP Inhibitors in&lt;i&gt;BRCA1&lt;/i&gt;- Versus&lt;i&gt;BRCA2&lt;/i&gt;-Altered Metastatic Castration-Resistant Prostate Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Two poly (ADP-ribose) polymerase (PARP) inhibitors (olaparib and rucaparib) are US Food and Drug Administration–approved for patients with metastatic castration-resistant prostate cancer (mCRPC) harboring BRCA1/ 2 mutations, but the relative efficacy of PARP inhibition in BRCA1- versus..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/po.21.00070" target="_blank">DOI:10.1200/po.21.00070</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Two poly (ADP-ribose) polymerase (PARP) inhibitors (olaparib and rucaparib) are US Food and Drug Administration–approved for patients with metastatic castration-resistant prostate cancer (mCRPC) harboring BRCA1/ 2 mutations, but the relative efficacy of PARP inhibition in BRCA1- versus..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers15061849" target="_blank">DOI:10.3390/cancers15061849</a>
+                        </div>
+                        
+                        <div class="reference-title">Advances in PARP Inhibitors for Prostate Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Poly-adenosine diphosphate-ribose polymerase plays an essential role in cell function by regulating apoptosis, genomic stability and DNA repair.</div>
+            
+            
+            <div class="reference-finding-supporting">"Poly-adenosine diphosphate-ribose polymerase plays an essential role in cell function by regulating apoptosis, genomic stability and DNA repair."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15061849" target="_blank">DOI:10.3390/cancers15061849</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Poly-adenosine diphosphate-ribose polymerase plays an essential role in cell function by regulating apoptosis, genomic stability and DNA repair."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers15092435" target="_blank">DOI:10.3390/cancers15092435</a>
+                        </div>
+                        
+                        <div class="reference-title">Frequency of Germline and Somatic BRCA1 and BRCA2 Mutations in Prostate Cancer: An Updated Systematic Review and Meta-Analysis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">In prostate cancer (PC), the presence of BRCA somatic and/or germline mutation provides prognostic and predictive information.</div>
+            
+            
+            <div class="reference-finding-supporting">"In prostate cancer (PC), the presence of BRCA somatic and/or germline mutation provides prognostic and predictive information."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15092435" target="_blank">DOI:10.3390/cancers15092435</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In prostate cancer (PC), the presence of BRCA somatic and/or germline mutation provides prognostic and predictive information."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers15092662" target="_blank">DOI:10.3390/cancers15092662</a>
+                        </div>
+                        
+                        <div class="reference-title">Roles of the PARP Inhibitor in BRCA1 and BRCA2 Pathogenic Mutated Metastatic Prostate Cancer: Direct Functions and Modification of the Tumor Microenvironment</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Cancer cells frequently exhibit defects in DNA damage repair (DDR), leading to genomic instability.</div>
+            
+            
+            <div class="reference-finding-supporting">"Cancer cells frequently exhibit defects in DNA damage repair (DDR), leading to genomic instability."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15092662" target="_blank">DOI:10.3390/cancers15092662</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Cancer cells frequently exhibit defects in DNA damage repair (DDR), leading to genomic instability."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers15153998" target="_blank">DOI:10.3390/cancers15153998</a>
+                        </div>
+                        
+                        <div class="reference-title">Circulating Tumor DNA Analysis on Metastatic Prostate Cancer with Disease Progression</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The positivity rate of circulating tumor DNA (ctDNA) next-generation sequencing (NGS) varies among patients with metastatic prostate cancer (mPC), complicating its incorporation into regular practice.</div>
+            
+            
+            <div class="reference-finding-supporting">"The positivity rate of circulating tumor DNA (ctDNA) next-generation sequencing (NGS) varies among patients with metastatic prostate cancer (mPC), complicating its incorporation into regular practice."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers15153998" target="_blank">DOI:10.3390/cancers15153998</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The positivity rate of circulating tumor DNA (ctDNA) next-generation sequencing (NGS) varies among patients with metastatic prostate cancer (mPC), complicating its incorporation into regular practice."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cells13080673" target="_blank">DOI:10.3390/cells13080673</a>
+                        </div>
+                        
+                        <div class="reference-title">Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"As the treatment landscape for prostate cancer gradually evolves, the frequency of treatment-induced neuroendocrine prostate cancer (NEPC) and double-negative prostate cancer (DNPC) that is deficient for androgen receptor (AR) and neuroendocrine (NE) markers has increased."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cells13080673" target="_blank">DOI:10.3390/cells13080673</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"As the treatment landscape for prostate cancer gradually evolves, the frequency of treatment-induced neuroendocrine prostate cancer (NEPC) and double-negative prostate cancer (DNPC) that is deficient for androgen receptor (AR) and neuroendocrine (NE) markers has increased."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/life14020198" target="_blank">DOI:10.3390/life14020198</a>
+                        </div>
+                        
+                        <div class="reference-title">PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape</div>
+            
+            
+            <div class="reference-finding-supporting">"The treatment landscape of metastatic prostate cancer (mPCa) is rapidly evolving with the recent approvals of poly-ADP ribose polymerase inhibitors (PARPis) as monotherapy or as part of combination therapy with androgen receptor pathway inhibitors in patients with metastatic castration-resistant..."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/life14020198" target="_blank">DOI:10.3390/life14020198</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The treatment landscape of metastatic prostate cancer (mPCa) is rapidly evolving with the recent approvals of poly-ADP ribose polymerase inhibitors (PARPis) as monotherapy or as part of combination therapy with androgen receptor pathway inhibitors in patients with metastatic castration-resistant..."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
         
 
         <!-- Pathophysiology -->
@@ -2554,6 +3723,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2590,6 +3760,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2620,6 +3791,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2946,17 +4118,26 @@ adenocarcinomas."</div>
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Olaparib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         olaparib
@@ -2982,17 +4163,26 @@ adenocarcinomas."</div>
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Rucaparib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         rucaparib
@@ -3018,14 +4208,23 @@ adenocarcinomas."</div>
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Platinum Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3042,14 +4241,23 @@ adenocarcinomas."</div>
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Androgen Deprivation Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3123,7 +4331,7 @@ adenocarcinomas."</div>
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: BRCA-Mutant Prostate Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-16T20:19:38Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   BRCA-mutant prostate cancer is a molecularly-defined subset of prostate adenocarcinoma
   harboring germline or somatic mutations in BRCA1 or BRCA2 genes, which encode critical
@@ -3338,6 +4546,238 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1001/jamaoncol.2024.0734
+  title: Magnetic Resonance Imaging in Prostate Cancer Screening
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Magnetic Resonance Imaging in Prostate Cancer Screening
+    supporting_text: ImportanceProstate magnetic resonance imaging (MRI) is increasingly integrated within the prostate cancer (PCa) early detection pathway.ObjectiveTo systematically evaluate the existing evidence regarding screening pathways incorporating MRI with targeted biopsy and assess their diagnostic value compared with prostate-specific antigen (PSA)–based screening with systematic biopsy strategies.Data SourcesPubMed/MEDLINE, Embase, Cochrane/Central, Scopus, and Web of Science (through May 2023).Study SelectionRandomized clinical trials and prospective cohort studies were eligible if they reported data on the diagnostic utility of prostate MRI in the setting of PCa screening.Data ExtractionNumber of screened individuals, biopsy indications, biopsies performed, clinically significant PCa (csPCa) defined as International Society of Urological Pathology (ISUP) grade 2 or higher, and insignificant (ISUP1) PCas detected were extracted.Main Outcomes and MeasuresThe primary outcome was csPCa detection rate.
+    evidence:
+    - reference: DOI:10.1001/jamaoncol.2024.0734
+      reference_title: Magnetic Resonance Imaging in Prostate Cancer Screening
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: ImportanceProstate magnetic resonance imaging (MRI) is increasingly integrated within the prostate cancer (PCa) early detection pathway.ObjectiveTo systematically evaluate the existing evidence regarding screening pathways incorporating MRI with targeted biopsy and assess their diagnostic value compared with prostate-specific antigen (PSA)–based screening with systematic biopsy strategies.Data SourcesPubMed/MEDLINE, Embase, Cochrane/Central, Scopus, and Web of Science (through May 2023).Study SelectionRandomized clinical trials and prospective cohort studies were eligible if they reported data on the diagnostic utility of prostate MRI in the setting of PCa screening.Data ExtractionNumber of screened individuals, biopsy indications, biopsies performed, clinically significant PCa (csPCa) defined as International Society of Urological Pathology (ISUP) grade 2 or higher, and insignificant (ISUP1) PCas detected were extracted.Main Outcomes and MeasuresThe primary outcome was csPCa detection rate.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1001/jamaoncol.2024.2185
+  title: &lt;i&gt;BRCA1, BRCA2&lt;/i&gt;, and Associated Cancer Risks and Management for Male Patients
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: ImportanceHalf of all carriers of inherited cancer-predisposing variants in BRCA1 and BRCA2 are male, but the implications for their health are underrecognized compared to female individuals.
+    supporting_text: ImportanceHalf of all carriers of inherited cancer-predisposing variants in BRCA1 and BRCA2 are male, but the implications for their health are underrecognized compared to female individuals.
+    evidence:
+    - reference: DOI:10.1001/jamaoncol.2024.2185
+      reference_title: &lt;i&gt;BRCA1, BRCA2&lt;/i&gt;, and Associated Cancer Risks and Management for Male Patients
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: ImportanceHalf of all carriers of inherited cancer-predisposing variants in BRCA1 and BRCA2 are male, but the implications for their health are underrecognized compared to female individuals.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1016/j.ebiom.2023.104738
+  title: BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype
+    supporting_text: BRCA-deficient metastatic prostate cancer has an adverse prognosis and distinct genomic phenotype
+- reference: DOI:10.1038/s41591-023-02704-x
+  title: &#39;First-line talazoparib with enzalutamide in HRR-deficient metastatic castration-resistant prostate cancer: the phase 3 TALAPRO-2 trial&#39;
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Preclinical evidence has suggested an interplay between the androgen receptor, which largely drives the growth of prostate cancer cells, and poly(ADP-ribose) polymerase.
+    supporting_text: Preclinical evidence has suggested an interplay between the androgen receptor, which largely drives the growth of prostate cancer cells, and poly(ADP-ribose) polymerase.
+    evidence:
+    - reference: DOI:10.1038/s41591-023-02704-x
+      reference_title: &#39;First-line talazoparib with enzalutamide in HRR-deficient metastatic castration-resistant prostate cancer: the phase 3 TALAPRO-2 trial&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Preclinical evidence has suggested an interplay between the androgen receptor, which largely drives the growth of prostate cancer cells, and poly(ADP-ribose) polymerase.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1158/1078-0432.ccr-21-3577
+  title: Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and &lt;i&gt;BRCA1, BRCA2&lt;/i&gt; , or &lt;i&gt;ATM&lt;/i&gt; Alterations Identified by Testing Circulating Tumor DNA
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.
+    supporting_text: &#39;The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.&#39;
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-21-3577
+      reference_title: Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and &lt;i&gt;BRCA1, BRCA2&lt;/i&gt; , or &lt;i&gt;ATM&lt;/i&gt; Alterations Identified by Testing Circulating Tumor DNA
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.&#39;
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1158/1078-0432.ccr-22-0931
+  title: Detection of &lt;i&gt;BRCA1&lt;/i&gt; , &lt;i&gt;BRCA2&lt;/i&gt; , and &lt;i&gt;ATM&lt;/i&gt; Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Not all patients with metastatic castration-resistant prostate cancer (mCRPC) have sufficient tumor tissue available for multigene molecular testing.&#39;
+    supporting_text: &#39;Not all patients with metastatic castration-resistant prostate cancer (mCRPC) have sufficient tumor tissue available for multigene molecular testing.&#39;
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-22-0931
+      reference_title: Detection of &lt;i&gt;BRCA1&lt;/i&gt; , &lt;i&gt;BRCA2&lt;/i&gt; , and &lt;i&gt;ATM&lt;/i&gt; Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Not all patients with metastatic castration-resistant prostate cancer (mCRPC) have sufficient tumor tissue available for multigene molecular testing.&#39;
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1158/2767-9764.crc-23-0554
+  title: LP-184, a Novel Acylfulvene Molecule, Exhibits Anticancer Activity against Diverse Solid Tumors with Homologous Recombination Deficiency
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents.
+    supporting_text: Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents.
+    evidence:
+    - reference: DOI:10.1158/2767-9764.crc-23-0554
+      reference_title: LP-184, a Novel Acylfulvene Molecule, Exhibits Anticancer Activity against Diverse Solid Tumors with Homologous Recombination Deficiency
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Homologous recombination (HR)-related gene alterations are present in a significant subset of prostate, breast, ovarian, pancreatic, lung, and colon cancers rendering these tumors as potential responders to specific DNA damaging agents.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1200/jco.22.01649
+  title: Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies.
+    supporting_text: Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies.
+    evidence:
+    - reference: DOI:10.1200/jco.22.01649
+      reference_title: Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1200/jco.23.00339
+  title: Olaparib for the Treatment of Patients With Metastatic Castration-Resistant Prostate Cancer and Alterations in &lt;i&gt;BRCA1&lt;/i&gt; and/or &lt;i&gt;BRCA2&lt;/i&gt; in the PROfound Trial
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;Olaparib improved PFS and OS across subgroups of BRCA1/2mut #prostatecancer patients in the PROFOUND phase III trial.&#39;
+    supporting_text: &#39;Olaparib improved PFS and OS across subgroups of BRCA1/2mut #prostatecancer patients in the PROFOUND phase III trial.&#39;
+    evidence:
+    - reference: DOI:10.1200/jco.23.00339
+      reference_title: Olaparib for the Treatment of Patients With Metastatic Castration-Resistant Prostate Cancer and Alterations in &lt;i&gt;BRCA1&lt;/i&gt; and/or &lt;i&gt;BRCA2&lt;/i&gt; in the PROfound Trial
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;Olaparib improved PFS and OS across subgroups of BRCA1/2mut #prostatecancer patients in the PROFOUND phase III trial.&#39;
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1200/jco.23.02182
+  title: &#39;US Food and Drug Administration Approval Summary: Talazoparib in Combination With Enzalutamide for Treatment of Patients With Homologous Recombination Repair Gene-Mutated Metastatic Castration-Resistant Prostate Cancer&#39;
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: The US Food and Drug Administration (FDA) approved talazoparib with enzalutamide for first-line treatment of patients with homologous recombination repair (HRR) gene-mutated metastatic castration-resistant prostate cancer (mCRPC).
+    supporting_text: The US Food and Drug Administration (FDA) approved talazoparib with enzalutamide for first-line treatment of patients with homologous recombination repair (HRR) gene-mutated metastatic castration-resistant prostate cancer (mCRPC).
+    evidence:
+    - reference: DOI:10.1200/jco.23.02182
+      reference_title: &#39;US Food and Drug Administration Approval Summary: Talazoparib in Combination With Enzalutamide for Treatment of Patients With Homologous Recombination Repair Gene-Mutated Metastatic Castration-Resistant Prostate Cancer&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The US Food and Drug Administration (FDA) approved talazoparib with enzalutamide for first-line treatment of patients with homologous recombination repair (HRR) gene-mutated metastatic castration-resistant prostate cancer (mCRPC).
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.1200/po.21.00070
+  title: Differential Activity of PARP Inhibitors in&lt;i&gt;BRCA1&lt;/i&gt;- Versus&lt;i&gt;BRCA2&lt;/i&gt;-Altered Metastatic Castration-Resistant Prostate Cancer
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Differential Activity of PARP Inhibitors in&lt;i&gt;BRCA1&lt;/i&gt;- Versus&lt;i&gt;BRCA2&lt;/i&gt;-Altered Metastatic Castration-Resistant Prostate Cancer
+    supporting_text: Two poly (ADP-ribose) polymerase (PARP) inhibitors (olaparib and rucaparib) are US Food and Drug Administration–approved for patients with metastatic castration-resistant prostate cancer (mCRPC) harboring BRCA1/ 2 mutations, but the relative efficacy of PARP inhibition in BRCA1- versus BRCA2-altered mCRPC is understudied.METHODSWe conducted a multicenter retrospective analysis involving 12 sites.
+    evidence:
+    - reference: DOI:10.1200/po.21.00070
+      reference_title: Differential Activity of PARP Inhibitors in&lt;i&gt;BRCA1&lt;/i&gt;- Versus&lt;i&gt;BRCA2&lt;/i&gt;-Altered Metastatic Castration-Resistant Prostate Cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Two poly (ADP-ribose) polymerase (PARP) inhibitors (olaparib and rucaparib) are US Food and Drug Administration–approved for patients with metastatic castration-resistant prostate cancer (mCRPC) harboring BRCA1/ 2 mutations, but the relative efficacy of PARP inhibition in BRCA1- versus BRCA2-altered mCRPC is understudied.METHODSWe conducted a multicenter retrospective analysis involving 12 sites.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.3390/cancers15061849
+  title: Advances in PARP Inhibitors for Prostate Cancer
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Poly-adenosine diphosphate-ribose polymerase plays an essential role in cell function by regulating apoptosis, genomic stability and DNA repair.
+    supporting_text: Poly-adenosine diphosphate-ribose polymerase plays an essential role in cell function by regulating apoptosis, genomic stability and DNA repair.
+    evidence:
+    - reference: DOI:10.3390/cancers15061849
+      reference_title: Advances in PARP Inhibitors for Prostate Cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Poly-adenosine diphosphate-ribose polymerase plays an essential role in cell function by regulating apoptosis, genomic stability and DNA repair.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.3390/cancers15092435
+  title: &#39;Frequency of Germline and Somatic BRCA1 and BRCA2 Mutations in Prostate Cancer: An Updated Systematic Review and Meta-Analysis&#39;
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: In prostate cancer (PC), the presence of BRCA somatic and/or germline mutation provides prognostic and predictive information.
+    supporting_text: In prostate cancer (PC), the presence of BRCA somatic and/or germline mutation provides prognostic and predictive information.
+    evidence:
+    - reference: DOI:10.3390/cancers15092435
+      reference_title: &#39;Frequency of Germline and Somatic BRCA1 and BRCA2 Mutations in Prostate Cancer: An Updated Systematic Review and Meta-Analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: In prostate cancer (PC), the presence of BRCA somatic and/or germline mutation provides prognostic and predictive information.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.3390/cancers15092662
+  title: &#39;Roles of the PARP Inhibitor in BRCA1 and BRCA2 Pathogenic Mutated Metastatic Prostate Cancer: Direct Functions and Modification of the Tumor Microenvironment&#39;
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Cancer cells frequently exhibit defects in DNA damage repair (DDR), leading to genomic instability.
+    supporting_text: Cancer cells frequently exhibit defects in DNA damage repair (DDR), leading to genomic instability.
+    evidence:
+    - reference: DOI:10.3390/cancers15092662
+      reference_title: &#39;Roles of the PARP Inhibitor in BRCA1 and BRCA2 Pathogenic Mutated Metastatic Prostate Cancer: Direct Functions and Modification of the Tumor Microenvironment&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Cancer cells frequently exhibit defects in DNA damage repair (DDR), leading to genomic instability.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.3390/cancers15153998
+  title: Circulating Tumor DNA Analysis on Metastatic Prostate Cancer with Disease Progression
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: The positivity rate of circulating tumor DNA (ctDNA) next-generation sequencing (NGS) varies among patients with metastatic prostate cancer (mPC), complicating its incorporation into regular practice.
+    supporting_text: The positivity rate of circulating tumor DNA (ctDNA) next-generation sequencing (NGS) varies among patients with metastatic prostate cancer (mPC), complicating its incorporation into regular practice.
+    evidence:
+    - reference: DOI:10.3390/cancers15153998
+      reference_title: Circulating Tumor DNA Analysis on Metastatic Prostate Cancer with Disease Progression
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The positivity rate of circulating tumor DNA (ctDNA) next-generation sequencing (NGS) varies among patients with metastatic prostate cancer (mPC), complicating its incorporation into regular practice.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.3390/cells13080673
+  title: Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer
+    supporting_text: As the treatment landscape for prostate cancer gradually evolves, the frequency of treatment-induced neuroendocrine prostate cancer (NEPC) and double-negative prostate cancer (DNPC) that is deficient for androgen receptor (AR) and neuroendocrine (NE) markers has increased.
+    evidence:
+    - reference: DOI:10.3390/cells13080673
+      reference_title: Development and Characterisation of a New Patient-Derived Xenograft Model of AR-Negative Metastatic Castration-Resistant Prostate Cancer
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: As the treatment landscape for prostate cancer gradually evolves, the frequency of treatment-induced neuroendocrine prostate cancer (NEPC) and double-negative prostate cancer (DNPC) that is deficient for androgen receptor (AR) and neuroendocrine (NE) markers has increased.
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
+- reference: DOI:10.3390/life14020198
+  title: &#39;PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape&#39;
+  found_in:
+  - BRCA_Mutant_Prostate_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape&#39;
+    supporting_text: The treatment landscape of metastatic prostate cancer (mPCa) is rapidly evolving with the recent approvals of poly-ADP ribose polymerase inhibitors (PARPis) as monotherapy or as part of combination therapy with androgen receptor pathway inhibitors in patients with metastatic castration-resistant prostate cancer (mCRPC).
+    evidence:
+    - reference: DOI:10.3390/life14020198
+      reference_title: &#39;PARP Inhibitors in Metastatic Castration-Resistant Prostate Cancer: Unraveling the Therapeutic Landscape&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The treatment landscape of metastatic prostate cancer (mPCa) is rapidly evolving with the recent approvals of poly-ADP ribose polymerase inhibitors (PARPis) as monotherapy or as part of combination therapy with androgen receptor pathway inhibitors in patients with metastatic castration-resistant prostate cancer (mCRPC).
+      explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 </pre>
             </div>
         </div>

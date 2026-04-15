@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2427,11 +2476,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Oligodendroglioma Grade 2
                         
                         
@@ -2441,9 +2488,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Low-grade oligodendroglioma with IDH mutation and 1p/19q codeletion. Characterized by uniform round nuclei, perinuclear halos (fried egg appearance), delicate branching capillaries (chicken-wire vasculature), and low mitotic activity. Median survival exceeds 15 years with appropriate treatment.</div>
+                    
                     
                     
                     
@@ -2454,11 +2504,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Oligodendroglioma Grade 3 (Anaplastic)
                         
                         
@@ -2468,9 +2516,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Anaplastic oligodendroglioma with IDH mutation and 1p/19q codeletion. Shows increased cellularity, mitotic activity, microvascular proliferation, and/or necrosis. Despite high-grade features, chemosensitivity is retained and median survival is 10-15 years with combined chemoradiation.</div>
+                    
                     
                     
                     
@@ -2486,6 +2537,900 @@
         
 
         <!-- References -->
+        
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">15</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1002/1878-0261.13598" target="_blank">DOI:10.1002/1878-0261.13598</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;scp&gt;IDH&lt;/scp&gt; mutation, glioma immunogenicity, and therapeutic challenge of primary mismatch repair deficient &lt;scp&gt;IDH&lt;/scp&gt;‐mutant astrocytoma &lt;scp&gt;PMMRDIA&lt;/scp&gt;: a systematic review</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">In 2021, Suwala et al. described Primary Mismatch Repair Deficient IDH‐mutant Astrocytoma (PMMRDIA) as a distinct group of gliomas.</div>
+            
+            
+            <div class="reference-finding-supporting">"In 2021, Suwala et al. described Primary Mismatch Repair Deficient IDH‐mutant Astrocytoma (PMMRDIA) as a distinct group of gliomas."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/1878-0261.13598" target="_blank">DOI:10.1002/1878-0261.13598</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In 2021, Suwala et al. described Primary Mismatch Repair Deficient IDH‐mutant Astrocytoma (PMMRDIA) as a distinct group of gliomas."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s10014-022-00446-1" target="_blank">DOI:10.1007/s10014-022-00446-1</a>
+                        </div>
+                        
+                        <div class="reference-title">Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas</div>
+            
+            
+            <div class="reference-finding-supporting">"Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s11060-023-04250-5" target="_blank">DOI:10.1007/s11060-023-04250-5</a>
+                        </div>
+                        
+                        <div class="reference-title">Updates on the WHO diagnosis of IDH-mutant glioma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The WHO classification of Tumors of the Central Nervous System represents the international standard classification for brain tumors.</div>
+            
+            
+            <div class="reference-finding-supporting">"The WHO classification of Tumors of the Central Nervous System represents the international standard classification for brain tumors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s11060-023-04250-5" target="_blank">DOI:10.1007/s11060-023-04250-5</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The WHO classification of Tumors of the Central Nervous System represents the international standard classification for brain tumors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41582-022-00679-w" target="_blank">DOI:10.1038/s41582-022-00679-w</a>
+                        </div>
+                        
+                        <div class="reference-title">Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1056/nejmoa2304194" target="_blank">DOI:10.1056/nejmoa2304194</a>
+                        </div>
+                        
+                        <div class="reference-title">Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma</div>
+            
+            
+            <div class="reference-finding-supporting">"Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/neuonc/noaa022" target="_blank">DOI:10.1093/neuonc/noaa022</a>
+                        </div>
+                        
+                        <div class="reference-title">Imaging growth as a predictor of grade of malignancy and aggressiveness of IDH-mutant and 1p/19q-codeleted oligodendrogliomas in adults</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We quantified the spontaneous imaging growth rate of oligodendrogliomas.</div>
+            
+            
+            <div class="reference-finding-supporting">"We quantified the spontaneous imaging growth rate of oligodendrogliomas."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/noaa022" target="_blank">DOI:10.1093/neuonc/noaa022</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We quantified the spontaneous imaging growth rate of oligodendrogliomas."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/neuonc/noaa168" target="_blank">DOI:10.1093/neuonc/noaa168</a>
+                        </div>
+                        
+                        <div class="reference-title">CODEL: phase III study of RT, RT + TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma. Analysis from the initial study design</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">We report the analysis involving patients treated on the initial CODEL design.</div>
+            
+            
+            <div class="reference-finding-supporting">"We report the analysis involving patients treated on the initial CODEL design."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/noaa168" target="_blank">DOI:10.1093/neuonc/noaa168</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We report the analysis involving patients treated on the initial CODEL design."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/neuonc/noab106" target="_blank">DOI:10.1093/neuonc/noab106</a>
+                        </div>
+                        
+                        <div class="reference-title">The 2021 WHO Classification of Tumors of the Central Nervous System: a summary</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The fifth edition of the WHO Classification of Tumors of the Central Nervous System (CNS), published in 2021, is the sixth version of the international standard for the classification of brain and spinal cord tumors.</div>
+            
+            
+            <div class="reference-finding-supporting">"The fifth edition of the WHO Classification of Tumors of the Central Nervous System (CNS), published in 2021, is the sixth version of the international standard for the classification of brain and spinal cord tumors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/noab106" target="_blank">DOI:10.1093/neuonc/noab106</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The fifth edition of the WHO Classification of Tumors of the Central Nervous System (CNS), published in 2021, is the sixth version of the international standard for the classification of brain and spinal cord tumors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdaa109" target="_blank">DOI:10.1093/noajnl/vdaa109</a>
+                        </div>
+                        
+                        <div class="reference-title">Frequency of false-positive FISH 1p/19q codeletion in adult diffuse astrocytic gliomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Oligodendroglioma is genetically defined by concomitant IDH (IDH1/IDH2) mutation and whole-arm 1p/19q codeletion.</div>
+            
+            
+            <div class="reference-finding-supporting">"Oligodendroglioma is genetically defined by concomitant IDH (IDH1/IDH2) mutation and whole-arm 1p/19q codeletion."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/noajnl/vdaa109" target="_blank">DOI:10.1093/noajnl/vdaa109</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Oligodendroglioma is genetically defined by concomitant IDH (IDH1/IDH2) mutation and whole-arm 1p/19q codeletion."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1186/s13073-023-01175-6" target="_blank">DOI:10.1186/s13073-023-01175-6</a>
+                        </div>
+                        
+                        <div class="reference-title">Stalled oligodendrocyte differentiation in IDH-mutant gliomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Roughly 50% of adult gliomas harborisocitrate dehydrogenase(IDH) mutations.</div>
+            
+            
+            <div class="reference-finding-supporting">"Roughly 50% of adult gliomas harborisocitrate dehydrogenase(IDH) mutations."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13073-023-01175-6" target="_blank">DOI:10.1186/s13073-023-01175-6</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Roughly 50% of adult gliomas harborisocitrate dehydrogenase(IDH) mutations."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1200/jco.21.02543" target="_blank">DOI:10.1200/jco.21.02543</a>
+                        </div>
+                        
+                        <div class="reference-title">Joint Final Report of EORTC 26951 and RTOG 9402: Phase III Trials With Procarbazine, Lomustine, and Vincristine Chemotherapy for Anaplastic Oligodendroglial Tumors</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Clinical trials frequently include multiple end points that mature at different times.</div>
+            
+            
+            <div class="reference-finding-supporting">"Clinical trials frequently include multiple end points that mature at different times."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1200/jco.21.02543" target="_blank">DOI:10.1200/jco.21.02543</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Clinical trials frequently include multiple end points that mature at different times."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.32074/1591-951x-823" target="_blank">DOI:10.32074/1591-951x-823</a>
+                        </div>
+                        
+                        <div class="reference-title">Adult type diffuse gliomas in the new 2021 WHO Classification</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Adult type diffuse gliomas in the new 2021 WHO Classification</div>
+            
+            
+            <div class="reference-finding-supporting">"Adult type diffuse gliomas in the new 2021 WHO Classification"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/biomedicines12061349" target="_blank">DOI:10.3390/biomedicines12061349</a>
+                        </div>
+                        
+                        <div class="reference-title">The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.</div>
+            
+            
+            <div class="reference-finding-supporting">"The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biomedicines12061349" target="_blank">DOI:10.3390/biomedicines12061349</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/brainsci13050817" target="_blank">DOI:10.3390/brainsci13050817</a>
+                        </div>
+                        
+                        <div class="reference-title">From Theory to Practice: Implementing the WHO 2021 Classification of Adult Diffuse Gliomas in Neuropathology Diagnosis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Diffuse gliomas are the most common type of primary central nervous system (CNS) neoplasm to affect the adult population.</div>
+            
+            
+            <div class="reference-finding-supporting">"Diffuse gliomas are the most common type of primary central nervous system (CNS) neoplasm to affect the adult population."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/brainsci13050817" target="_blank">DOI:10.3390/brainsci13050817</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Diffuse gliomas are the most common type of primary central nervous system (CNS) neoplasm to affect the adult population."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16152752" target="_blank">DOI:10.3390/cancers16152752</a>
+                        </div>
+                        
+                        <div class="reference-title">Targeting Isocitrate Dehydrogenase (IDH) in Solid Tumors: Current Evidence and Future Perspectives</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The isocitrate dehydrogenase 1 and 2 (IDH1 and IDH2) enzymes are involved in key metabolic processes in human cells, regulating differentiation, proliferation, and oxidative damage response.</div>
+            
+            
+            <div class="reference-finding-supporting">"The isocitrate dehydrogenase 1 and 2 (IDH1 and IDH2) enzymes are involved in key metabolic processes in human cells, regulating differentiation, proliferation, and oxidative damage response."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16152752" target="_blank">DOI:10.3390/cancers16152752</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The isocitrate dehydrogenase 1 and 2 (IDH1 and IDH2) enzymes are involved in key metabolic processes in human cells, regulating differentiation, proliferation, and oxidative damage response."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
         
 
         <!-- Pathophysiology -->
@@ -2554,6 +3499,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2612,6 +3558,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2682,6 +3629,7 @@
                 
                 
                 
+                
     
     
             </div>
@@ -2712,6 +3660,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2762,6 +3711,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3128,14 +4078,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Maximal Safe Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3152,14 +4111,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radiation Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000014" target="_blank">
-                            MAXO:0000014
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">radiation therapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000014" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000014</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3176,14 +4144,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     PCV Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3246,14 +4223,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Temozolomide Chemotherapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000647" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000647</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3327,10 +4313,12 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: IDH-Mutant and 1p/19q-Codeleted Oligodendroglioma
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-03-06T12:00:00Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
-  Oligodendroglioma, IDH-mutant and 1p/19q-codeleted, is a diffuse glioma defined by
-  the combination of IDH1/IDH2 mutation and whole-arm codeletion of chromosomes 1p and
+  Oligodendroglioma, IDH-mutant and 1p/19q-codeleted, is a diffuse glioma defined
+  by
+  the combination of IDH1/IDH2 mutation and whole-arm codeletion of chromosomes 1p
+  and
   19q. This molecular signature is the result of an unbalanced translocation t(1;19)
   (q10;p10) and is associated with distinct biology, excellent chemosensitivity, and
   favorable prognosis. The 1p/19q codeletion is mutually exclusive with TP53 and ATRX
@@ -3624,6 +4612,189 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1002/1878-0261.13598
+  title: &#39;&lt;scp&gt;IDH&lt;/scp&gt; mutation, glioma immunogenicity, and therapeutic challenge of primary mismatch repair deficient &lt;scp&gt;IDH&lt;/scp&gt;‐mutant astrocytoma &lt;scp&gt;PMMRDIA&lt;/scp&gt;: a systematic review&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: In 2021, Suwala et al. described Primary Mismatch Repair Deficient IDH‐mutant Astrocytoma (PMMRDIA) as a distinct group of gliomas.
+    supporting_text: In 2021, Suwala et al. described Primary Mismatch Repair Deficient IDH‐mutant Astrocytoma (PMMRDIA) as a distinct group of gliomas.
+    evidence:
+    - reference: DOI:10.1002/1878-0261.13598
+      reference_title: &#39;&lt;scp&gt;IDH&lt;/scp&gt; mutation, glioma immunogenicity, and therapeutic challenge of primary mismatch repair deficient &lt;scp&gt;IDH&lt;/scp&gt;‐mutant astrocytoma &lt;scp&gt;PMMRDIA&lt;/scp&gt;: a systematic review&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: In 2021, Suwala et al. described Primary Mismatch Repair Deficient IDH‐mutant Astrocytoma (PMMRDIA) as a distinct group of gliomas.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1007/s10014-022-00446-1
+  title: &#39;Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: &#39;Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas&#39;
+    supporting_text: &#39;Update of the 2021 WHO classification of tumors of the central nervous system: adult diffuse gliomas&#39;
+- reference: DOI:10.1007/s11060-023-04250-5
+  title: Updates on the WHO diagnosis of IDH-mutant glioma
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: The WHO classification of Tumors of the Central Nervous System represents the international standard classification for brain tumors.
+    supporting_text: The WHO classification of Tumors of the Central Nervous System represents the international standard classification for brain tumors.
+    evidence:
+    - reference: DOI:10.1007/s11060-023-04250-5
+      reference_title: Updates on the WHO diagnosis of IDH-mutant glioma
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The WHO classification of Tumors of the Central Nervous System represents the international standard classification for brain tumors.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1038/s41582-022-00679-w
+  title: Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours
+    supporting_text: Clinical implications of the 2021 edition of the WHO classification of central nervous system tumours
+- reference: DOI:10.1056/nejmoa2304194
+  title: Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma
+    supporting_text: Vorasidenib in IDH1- or IDH2-Mutant Low-Grade Glioma
+- reference: DOI:10.1093/neuonc/noaa022
+  title: Imaging growth as a predictor of grade of malignancy and aggressiveness of IDH-mutant and 1p/19q-codeleted oligodendrogliomas in adults
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: We quantified the spontaneous imaging growth rate of oligodendrogliomas.
+    supporting_text: We quantified the spontaneous imaging growth rate of oligodendrogliomas.
+    evidence:
+    - reference: DOI:10.1093/neuonc/noaa022
+      reference_title: Imaging growth as a predictor of grade of malignancy and aggressiveness of IDH-mutant and 1p/19q-codeleted oligodendrogliomas in adults
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We quantified the spontaneous imaging growth rate of oligodendrogliomas.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1093/neuonc/noaa168
+  title: &#39;CODEL: phase III study of RT, RT + TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma. Analysis from the initial study design&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: We report the analysis involving patients treated on the initial CODEL design.
+    supporting_text: We report the analysis involving patients treated on the initial CODEL design.
+    evidence:
+    - reference: DOI:10.1093/neuonc/noaa168
+      reference_title: &#39;CODEL: phase III study of RT, RT + TMZ, or TMZ for newly diagnosed 1p/19q codeleted oligodendroglioma. Analysis from the initial study design&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We report the analysis involving patients treated on the initial CODEL design.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1093/neuonc/noab106
+  title: &#39;The 2021 WHO Classification of Tumors of the Central Nervous System: a summary&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: The fifth edition of the WHO Classification of Tumors of the Central Nervous System (CNS), published in 2021, is the sixth version of the international standard for the classification of brain and spinal cord tumors.
+    supporting_text: The fifth edition of the WHO Classification of Tumors of the Central Nervous System (CNS), published in 2021, is the sixth version of the international standard for the classification of brain and spinal cord tumors.
+    evidence:
+    - reference: DOI:10.1093/neuonc/noab106
+      reference_title: &#39;The 2021 WHO Classification of Tumors of the Central Nervous System: a summary&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: The fifth edition of the WHO Classification of Tumors of the Central Nervous System (CNS), published in 2021, is the sixth version of the international standard for the classification of brain and spinal cord tumors.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1093/noajnl/vdaa109
+  title: Frequency of false-positive FISH 1p/19q codeletion in adult diffuse astrocytic gliomas
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Oligodendroglioma is genetically defined by concomitant IDH (IDH1/IDH2) mutation and whole-arm 1p/19q codeletion.
+    supporting_text: Oligodendroglioma is genetically defined by concomitant IDH (IDH1/IDH2) mutation and whole-arm 1p/19q codeletion.
+    evidence:
+    - reference: DOI:10.1093/noajnl/vdaa109
+      reference_title: Frequency of false-positive FISH 1p/19q codeletion in adult diffuse astrocytic gliomas
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Oligodendroglioma is genetically defined by concomitant IDH (IDH1/IDH2) mutation and whole-arm 1p/19q codeletion.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1186/s13073-023-01175-6
+  title: Stalled oligodendrocyte differentiation in IDH-mutant gliomas
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Roughly 50% of adult gliomas harborisocitrate dehydrogenase(IDH) mutations.
+    supporting_text: Roughly 50% of adult gliomas harborisocitrate dehydrogenase(IDH) mutations.
+    evidence:
+    - reference: DOI:10.1186/s13073-023-01175-6
+      reference_title: Stalled oligodendrocyte differentiation in IDH-mutant gliomas
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Roughly 50% of adult gliomas harborisocitrate dehydrogenase(IDH) mutations.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.1200/jco.21.02543
+  title: &#39;Joint Final Report of EORTC 26951 and RTOG 9402: Phase III Trials With Procarbazine, Lomustine, and Vincristine Chemotherapy for Anaplastic Oligodendroglial Tumors&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Clinical trials frequently include multiple end points that mature at different times.
+    supporting_text: Clinical trials frequently include multiple end points that mature at different times.
+    evidence:
+    - reference: DOI:10.1200/jco.21.02543
+      reference_title: &#39;Joint Final Report of EORTC 26951 and RTOG 9402: Phase III Trials With Procarbazine, Lomustine, and Vincristine Chemotherapy for Anaplastic Oligodendroglial Tumors&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Clinical trials frequently include multiple end points that mature at different times.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.32074/1591-951x-823
+  title: Adult type diffuse gliomas in the new 2021 WHO Classification
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Adult type diffuse gliomas in the new 2021 WHO Classification
+    supporting_text: Adult type diffuse gliomas in the new 2021 WHO Classification
+- reference: DOI:10.3390/biomedicines12061349
+  title: &#39;The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.
+    supporting_text: The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.
+    evidence:
+    - reference: DOI:10.3390/biomedicines12061349
+      reference_title: &#39;The 2021 World Health Organization Central Nervous System Tumor Classification: The Spectrum of Diffuse Gliomas&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The 2021 edition of the World Health Organization (WHO) classification of central nervous system tumors introduces significant revisions across various tumor types.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.3390/brainsci13050817
+  title: &#39;From Theory to Practice: Implementing the WHO 2021 Classification of Adult Diffuse Gliomas in Neuropathology Diagnosis&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: Diffuse gliomas are the most common type of primary central nervous system (CNS) neoplasm to affect the adult population.
+    supporting_text: Diffuse gliomas are the most common type of primary central nervous system (CNS) neoplasm to affect the adult population.
+    evidence:
+    - reference: DOI:10.3390/brainsci13050817
+      reference_title: &#39;From Theory to Practice: Implementing the WHO 2021 Classification of Adult Diffuse Gliomas in Neuropathology Diagnosis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Diffuse gliomas are the most common type of primary central nervous system (CNS) neoplasm to affect the adult population.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
+- reference: DOI:10.3390/cancers16152752
+  title: &#39;Targeting Isocitrate Dehydrogenase (IDH) in Solid Tumors: Current Evidence and Future Perspectives&#39;
+  found_in:
+  - IDH_Mutant_Oligodendroglioma-deep-research-falcon.md
+  findings:
+  - statement: The isocitrate dehydrogenase 1 and 2 (IDH1 and IDH2) enzymes are involved in key metabolic processes in human cells, regulating differentiation, proliferation, and oxidative damage response.
+    supporting_text: The isocitrate dehydrogenase 1 and 2 (IDH1 and IDH2) enzymes are involved in key metabolic processes in human cells, regulating differentiation, proliferation, and oxidative damage response.
+    evidence:
+    - reference: DOI:10.3390/cancers16152752
+      reference_title: &#39;Targeting Isocitrate Dehydrogenase (IDH) in Solid Tumors: Current Evidence and Future Perspectives&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The isocitrate dehydrogenase 1 and 2 (IDH1 and IDH2) enzymes are involved in key metabolic processes in human cells, regulating differentiation, proliferation, and oxidative damage response.
+      explanation: Deep research cited this publication as relevant literature for IDH Mutant Oligodendroglioma.
 </pre>
             </div>
         </div>

@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2421,11 +2470,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Erythematotelangiectatic Rosacea
                         
                         
@@ -2435,9 +2482,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Predominantly vascular rosacea phenotype characterized by persistent centrofacial erythema, flushing, and telangiectasia without dominant papulopustular or phymatous change.</div>
+                    
                     
                     
                     
@@ -2498,11 +2548,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Papulopustular Rosacea
                         
                         
@@ -2512,9 +2560,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Inflammatory rosacea subtype with persistent facial erythema accompanied by papules and pustules in the central face.</div>
+                    
                     
                     
                     
@@ -2575,11 +2626,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Phymatous Rosacea
                         
                         
@@ -2589,9 +2638,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Tissue-remodeling subtype marked by thickening and hypertrophy of facial skin and sebaceous structures, most commonly affecting the nose as rhinophyma.</div>
+                    
                     
                     
                     
@@ -2652,11 +2704,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Ocular Rosacea
                         
                         
@@ -2666,9 +2716,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Ocular subtype involving chronic inflammatory disease of the eyelids and ocular surface, often with blepharitis, meibomian dysfunction, dryness, and photophobia.</div>
+                    
                     
                     
                     
@@ -3306,6 +3359,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3359,6 +3413,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3430,6 +3485,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3468,6 +3524,7 @@
                 <div class="item-name">KLK5/KLK7 activation</div>
                 
                 <div class="item-desc">Kallikrein-family serine proteases are activated downstream of TLR2 and participate in cathelicidin processing.</div>
+                
                 
                 
                 
@@ -3544,6 +3601,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3652,6 +3710,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3728,6 +3787,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3766,6 +3826,7 @@
                 <div class="item-name">Immune cell infiltration</div>
                 
                 <div class="item-desc">Rosacea lesions show increased immune-cell infiltration that reinforces inflammatory lesion formation.</div>
+                
                 
                 
                 
@@ -3832,6 +3893,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3920,6 +3982,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3958,6 +4021,7 @@
                 <div class="item-name">Neurovascular vasodilation</div>
                 
                 <div class="item-desc">Exaggerated vasodilation is a proximal vascular event that drives flushing and contributes to persistent background erythema.</div>
+                
                 
                 
                 
@@ -4024,6 +4088,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -4112,6 +4177,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4160,6 +4226,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4198,6 +4265,7 @@
                 <div class="item-name">Meibomian gland dysfunction</div>
                 
                 <div class="item-desc">Ocular rosacea includes meibomian gland dysfunction as part of its site-specific pathophysiology.</div>
+                
                 
                 
                 
@@ -4270,6 +4338,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4308,6 +4377,7 @@
                 <div class="item-name">Fibrotic dermal remodeling</div>
                 
                 <div class="item-desc">Advanced rosacea can shift toward a fibrotic remodeling program in which vascular changes are coupled to connective-tissue fibrosis.</div>
+                
                 
                 
                 
@@ -4376,6 +4446,7 @@
                 <div class="item-name">Sebaceous gland and soft tissue hyperplasia/fibrosis</div>
                 
                 <div class="item-desc">Rhinophyma reflects progressive hypertrophic remodeling of sebaceous glands and adjacent soft tissue in the nose.</div>
+                
                 
                 
                 
@@ -4712,7 +4783,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic vascular remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiogenic signaling contributes to persistent vascular remodeling and visible superficial telangiectatic change.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Blepharitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000498\"}}, {\"id\": \"Excisional reconstruction for advanced rhinophyma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe rhinophyma may require excision with reconstructive approaches such as graft-based resurfacing when tissue overgrowth is extensive.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Reconstructive procedural treatment for advanced phymatous rosacea\"}}, {\"id\": \"Facial edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"RARE\", \"term_id\": \"HP:0000282\"}}, {\"id\": \"Facial telangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007380\"}}, {\"id\": \"Fibrotic dermal remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced rosacea can shift toward a fibrotic remodeling program in which vascular changes are coupled to connective-tissue fibrosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Flushing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031284\"}}, {\"id\": \"Immune cell infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rosacea lesions show increased immune-cell infiltration that reinforces inflammatory lesion formation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KLK5/KLK7 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Kallikrein-family serine proteases are activated downstream of TLR2 and participate in cathelicidin processing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LL-37 generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proteolytic cathelicidin processing yields LL-37 and related peptides with inflammatory and angiogenic activity.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"inflammatory response\", \"angiogenesis\"]}}, {\"id\": \"Laser surgical debulking for rhinophyma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CO2 laser or blue-laser debulking can remove phymatous nasal tissue and improve function and cosmesis in selected rhinophyma.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Procedural treatment for phymatous rosacea\"}}, {\"id\": \"Mast cell-mediated amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast cells amplify cathelicidin-initiated inflammation and increase local vasodilation within rosacea lesions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Meibomian gland dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular rosacea includes meibomian gland dysfunction as part of its site-specific pathophysiology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Morbihan disease-directed pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rosacea-associated solid facial edema may require individualized combination pharmacotherapy centered on isotretinoin and intralesional corticosteroid treatment, with ketotifen used in selected refractory cases.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Targeted treatment for rosacea-associated solid facial edema\", \"therapeutic_agents\": [\"isotretinoin\", \"triamcinolone\", \"ketotifen\"]}}, {\"id\": \"Neurovascular vasodilation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exaggerated vasodilation is a proximal vascular event that drives flushing and contributes to persistent background erythema.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ocular surface and eyelid inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular rosacea produces chronic inflammatory involvement of the eyelids and ocular surface, with posterior blepharitis as a characteristic clinical expression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030350\"}}, {\"id\": \"Papulopustular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent innate, adaptive, and keratinocyte inflammatory programs produce inflammatory papules and pustules in papulopustular rosacea.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Persistent centrofacial erythema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001041\"}}, {\"id\": \"Phymatous change of the nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000414\"}}, {\"id\": \"Pro-cathelicidin transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocytes in rosacea upregulate pro-cathelicidin transcription, creating substrate for downstream proteolytic generation of inflammatory peptides.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"STAT3-mediated cytokine signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte STAT3-centered cytokine signaling links barrier injury to inflammatory persistence and immune-cell recruitment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\"]}}, {\"id\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rhinophyma reflects progressive hypertrophic remodeling of sebaceous glands and adjacent soft tissue in the nose.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sebaceous gland dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunction of cutaneous sebaceous glands is recognized as part of the multifactorial tissue biology of rosacea.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Skin barrier dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epidermal barrier disruption amplifies inflammatory signaling in rosacea and serves as an early permissive event for downstream innate immune activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"establishment of skin barrier\"]}}, {\"id\": \"TLR2 upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte TLR2 expression is increased in rosacea and sensitizes skin to environmental and microbial stimuli.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"TRP and neuropeptide signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TRP-channel activation and neuropeptide signaling form a neurocutaneous branch of rosacea pathophysiology that increases vascular reactivity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuropeptide signaling pathway\"]}}, {\"id\": \"Th1/Th17 adaptive inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemokine and cytokine networks in rosacea polarize adaptive immunity toward Th1/Th17 inflammatory programs.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}], \"edges\": [{\"source\": \"Skin barrier dysfunction\", \"target\": \"Pro-cathelicidin transcription\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skin barrier dysfunction\", \"target\": \"STAT3-mediated cytokine signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pro-cathelicidin transcription\", \"target\": \"LL-37 generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TLR2 upregulation\", \"target\": \"KLK5/KLK7 activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KLK5/KLK7 activation\", \"target\": \"LL-37 generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LL-37 generation\", \"target\": \"Mast cell-mediated amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LL-37 generation\", \"target\": \"Angiogenic vascular remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LL-37 generation\", \"target\": \"Th1/Th17 adaptive inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast cell-mediated amplification\", \"target\": \"Neurovascular vasodilation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STAT3-mediated cytokine signaling\", \"target\": \"Immune cell infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune cell infiltration\", \"target\": \"Papulopustular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Th1/Th17 adaptive inflammation\", \"target\": \"Papulopustular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TRP and neuropeptide signaling\", \"target\": \"Neurovascular vasodilation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovascular vasodilation\", \"target\": \"Flushing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovascular vasodilation\", \"target\": \"Persistent centrofacial erythema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Angiogenic vascular remodeling\", \"target\": \"Facial telangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Angiogenic vascular remodeling\", \"target\": \"Persistent centrofacial erythema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Papulopustular inflammation\", \"target\": \"Papules\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Papulopustular inflammation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sebaceous gland dysfunction\", \"target\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Meibomian gland dysfunction\", \"target\": \"Ocular surface and eyelid inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular surface and eyelid inflammation\", \"target\": \"Blepharitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrotic dermal remodeling\", \"target\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"target\": \"Phymatous change of the nose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Morbihan disease-directed pharmacotherapy\", \"target\": \"Facial edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Laser surgical debulking for rhinophyma\", \"target\": \"Phymatous change of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Excisional reconstruction for advanced rhinophyma\", \"target\": \"Phymatous change of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiogenic vascular remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Angiogenic signaling contributes to persistent vascular remodeling and visible superficial telangiectatic change.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Blepharitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Ocular Rosacea\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000498\"}}, {\"id\": \"Excisional reconstruction for advanced rhinophyma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe rhinophyma may require excision with reconstructive approaches such as graft-based resurfacing when tissue overgrowth is extensive.\", \"meta\": {\"evidence_count\": 1, \"role\": \"Reconstructive procedural treatment for advanced phymatous rosacea\"}}, {\"id\": \"Facial edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"RARE\", \"term_id\": \"HP:0000282\"}}, {\"id\": \"Facial telangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Erythematotelangiectatic Rosacea\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0007380\"}}, {\"id\": \"Fibrotic dermal remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced rosacea can shift toward a fibrotic remodeling program in which vascular changes are coupled to connective-tissue fibrosis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Flushing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Erythematotelangiectatic Rosacea\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0031284\"}}, {\"id\": \"Immune cell infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rosacea lesions show increased immune-cell infiltration that reinforces inflammatory lesion formation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"KLK5/KLK7 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Kallikrein-family serine proteases are activated downstream of TLR2 and participate in cathelicidin processing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LL-37 generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proteolytic cathelicidin processing yields LL-37 and related peptides with inflammatory and angiogenic activity.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"inflammatory response\", \"angiogenesis\"]}}, {\"id\": \"Laser surgical debulking for rhinophyma\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CO2 laser or blue-laser debulking can remove phymatous nasal tissue and improve function and cosmesis in selected rhinophyma.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Procedural treatment for phymatous rosacea\"}}, {\"id\": \"Mast cell-mediated amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast cells amplify cathelicidin-initiated inflammation and increase local vasodilation within rosacea lesions.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\"]}}, {\"id\": \"Meibomian gland dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular rosacea includes meibomian gland dysfunction as part of its site-specific pathophysiology.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Morbihan disease-directed pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rosacea-associated solid facial edema may require individualized combination pharmacotherapy centered on isotretinoin and intralesional corticosteroid treatment, with ketotifen used in selected refractory cases.\", \"meta\": {\"evidence_count\": 2, \"role\": \"Targeted treatment for rosacea-associated solid facial edema\", \"therapeutic_agents\": [\"isotretinoin\", \"triamcinolone\", \"ketotifen\"]}}, {\"id\": \"Neurovascular vasodilation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Exaggerated vasodilation is a proximal vascular event that drives flushing and contributes to persistent background erythema.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ocular surface and eyelid inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular rosacea produces chronic inflammatory involvement of the eyelids and ocular surface, with posterior blepharitis as a characteristic clinical expression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Papulopustular Rosacea\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030350\"}}, {\"id\": \"Papulopustular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Convergent innate, adaptive, and keratinocyte inflammatory programs produce inflammatory papules and pustules in papulopustular rosacea.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Persistent centrofacial erythema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Erythematotelangiectatic Rosacea\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001041\"}}, {\"id\": \"Phymatous change of the nose\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Phymatous Rosacea\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000414\"}}, {\"id\": \"Pro-cathelicidin transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocytes in rosacea upregulate pro-cathelicidin transcription, creating substrate for downstream proteolytic generation of inflammatory peptides.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Papulopustular Rosacea\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0200039\"}}, {\"id\": \"STAT3-mediated cytokine signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte STAT3-centered cytokine signaling links barrier injury to inflammatory persistence and immune-cell recruitment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\"]}}, {\"id\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rhinophyma reflects progressive hypertrophic remodeling of sebaceous glands and adjacent soft tissue in the nose.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sebaceous gland dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunction of cutaneous sebaceous glands is recognized as part of the multifactorial tissue biology of rosacea.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Skin barrier dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Epidermal barrier disruption amplifies inflammatory signaling in rosacea and serves as an early permissive event for downstream innate immune activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"establishment of skin barrier\"]}}, {\"id\": \"TLR2 upregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocyte TLR2 expression is increased in rosacea and sensitizes skin to environmental and microbial stimuli.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"]}}, {\"id\": \"TRP and neuropeptide signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TRP-channel activation and neuropeptide signaling form a neurocutaneous branch of rosacea pathophysiology that increases vascular reactivity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"neuropeptide signaling pathway\"]}}, {\"id\": \"Th1/Th17 adaptive inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemokine and cytokine networks in rosacea polarize adaptive immunity toward Th1/Th17 inflammatory programs.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}], \"edges\": [{\"source\": \"Skin barrier dysfunction\", \"target\": \"Pro-cathelicidin transcription\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skin barrier dysfunction\", \"target\": \"STAT3-mediated cytokine signaling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pro-cathelicidin transcription\", \"target\": \"LL-37 generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TLR2 upregulation\", \"target\": \"KLK5/KLK7 activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"KLK5/KLK7 activation\", \"target\": \"LL-37 generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LL-37 generation\", \"target\": \"Mast cell-mediated amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LL-37 generation\", \"target\": \"Angiogenic vascular remodeling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LL-37 generation\", \"target\": \"Th1/Th17 adaptive inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mast cell-mediated amplification\", \"target\": \"Neurovascular vasodilation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"STAT3-mediated cytokine signaling\", \"target\": \"Immune cell infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune cell infiltration\", \"target\": \"Papulopustular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Th1/Th17 adaptive inflammation\", \"target\": \"Papulopustular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"TRP and neuropeptide signaling\", \"target\": \"Neurovascular vasodilation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovascular vasodilation\", \"target\": \"Flushing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurovascular vasodilation\", \"target\": \"Persistent centrofacial erythema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Angiogenic vascular remodeling\", \"target\": \"Facial telangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Angiogenic vascular remodeling\", \"target\": \"Persistent centrofacial erythema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Papulopustular inflammation\", \"target\": \"Papules\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Papulopustular inflammation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sebaceous gland dysfunction\", \"target\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Meibomian gland dysfunction\", \"target\": \"Ocular surface and eyelid inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ocular surface and eyelid inflammation\", \"target\": \"Blepharitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrotic dermal remodeling\", \"target\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sebaceous gland and soft tissue hyperplasia/fibrosis\", \"target\": \"Phymatous change of the nose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Morbihan disease-directed pharmacotherapy\", \"target\": \"Facial edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Laser surgical debulking for rhinophyma\", \"target\": \"Phymatous change of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Excisional reconstruction for advanced rhinophyma\", \"target\": \"Phymatous change of the nose\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5693,8 +5764,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Trigger avoidance and photoprotection
-                    
                 </div>
+                
                 
                 
                 
@@ -5741,17 +5812,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Papulopustular-directed pharmacotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         metronidazole
@@ -5835,17 +5915,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Topical brimonidine therapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         brimonidine
@@ -5901,8 +5990,8 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Vascular light-based therapy
-                    
                 </div>
+                
                 
                 
                 
@@ -5949,17 +6038,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Cyclosporine eye drops
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         cyclosporine
@@ -6015,17 +6113,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Morbihan disease-directed pharmacotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         isotretinoin
@@ -6127,14 +6234,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Laser surgical debulking for rhinophyma
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0001578" target="_blank">
-                            MAXO:0001578
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">laser surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0001578" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0001578</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -6213,14 +6329,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Excisional reconstruction for advanced rhinophyma
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 

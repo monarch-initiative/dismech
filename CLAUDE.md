@@ -226,9 +226,13 @@ treatments:
 - Use a more nuanced `preferred_term` only when the ontology term is genuinely too broad to convey the intended meaning.
 - A `modifier` may be used to capture the semantics of some preferred terms.
 
-### Treatment Terms (MAXO)
-Treatments can be annotated with Medical Action Ontology (MAXO) terms:
+### Treatment Terms (MAXO or NCIT)
+Treatments can be annotated with Medical Action Ontology (MAXO) terms or NCI Thesaurus (NCIT)
+clinical intervention terms. NCIT often provides more specific procedure and therapy terms
+than MAXO. Use whichever ontology has the most specific and accurate term for the treatment.
+
 ```yaml
+# MAXO example
 treatments:
 - name: Physical Therapy
   description: Rehabilitation exercises to improve mobility.
@@ -237,6 +241,16 @@ treatments:
     term:
       id: MAXO:0000011
       label: physical therapy
+
+# NCIT example
+treatments:
+- name: Orthopedic Surgery
+  description: Corrective surgery for skeletal deformities.
+  treatment_term:
+    preferred_term: orthopedic surgical procedure
+    term:
+      id: NCIT:C16186
+      label: Orthopedic Surgical Procedure
 ```
 
 Common MAXO terms:
@@ -251,9 +265,18 @@ Common MAXO terms:
 - `MAXO:0010039` - organ transplantation
 - `MAXO:0000950` - supportive care
 
-Use OAK to search for MAXO terms:
+Common NCIT clinical intervention terms:
+- `NCIT:C49236` - Therapeutic Procedure
+- `NCIT:C15329` - Surgical Procedure
+- `NCIT:C16186` - Orthopedic Surgical Procedure
+- `NCIT:C15302` - Physical Therapy
+- `NCIT:C15315` - Rehabilitation
+- `NCIT:C15747` - Supportive Care
+
+Use OAK to search for terms:
 ```bash
 uv run runoak -i sqlite:obo:maxo search "physical therapy"
+uv run runoak -i sqlite:obo:ncit info "l^Physical Therap"
 ```
 
 #### Therapeutic Agent Pattern (drug + drug class on pharmacotherapy)
@@ -585,6 +608,18 @@ just validate kb/disorders/MyDisease.yaml
 2. Run `just fetch-reference PMID:XXXX` for each new PMID cited
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
+
+**Deterministic cache contract check (dismech#871):**
+`just check-reference-cache-frontmatter` validates that every
+`references_cache/*.md` file has parseable YAML frontmatter matching the local
+`linkml-reference-validator` cache contract and filename/reference_id mapping.
+It runs as part of `just qc` before the heavier validators. This is still only
+a structural check — `validate-references` remains the last defence against a
+snippet matching the wrong cached paper.
+
+**Agent guardrail:** Claude Code and Codex must never create or hand-edit
+`references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
+with `just fetch-reference <ID>` instead of patching the frontmatter manually.
 
 ## Git Best Practices
 

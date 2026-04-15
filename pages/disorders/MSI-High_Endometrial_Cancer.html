@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2427,11 +2476,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Lynch Syndrome-Associated Endometrial Cancer
                         
                         
@@ -2441,9 +2488,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Germline mutations in MMR genes (MLH1, MSH2, MSH6, PMS2) cause Lynch syndrome with substantially increased lifetime risk of endometrial cancer. Regular surveillance and risk-reducing surgery may be considered.</div>
+                    
                     
                     
                     
@@ -2482,11 +2532,9 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Sporadic MSI-H Endometrial Cancer
                         
                         
@@ -2496,9 +2544,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Most common subtype caused by somatic MLH1 promoter hypermethylation leading to loss of MLH1/PMS2 expression. Not associated with germline mutations or increased cancer risk in family members.</div>
+                    
                     
                     
                     
@@ -2542,6 +2593,893 @@
         
 
         <!-- References -->
+        
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">14</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1002/cncr.35267" target="_blank">DOI:10.1002/cncr.35267</a>
+                        </div>
+                        
+                        <div class="reference-title">A tale of two pathways: Review of immune checkpoint inhibitors in DNA mismatch repair‐deficient and microsatellite instability‐high endometrial cancers</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">The DNA mismatch repair (MMR) pathway is critical for correcting DNA mismatches generated during DNA replication.</div>
+            
+            
+            <div class="reference-finding-supporting">"The DNA mismatch repair (MMR) pathway is critical for correcting DNA mismatches generated during DNA replication."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/cncr.35267" target="_blank">DOI:10.1002/cncr.35267</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The DNA mismatch repair (MMR) pathway is critical for correcting DNA mismatches generated during DNA replication."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1002/ijgo.14923" target="_blank">DOI:10.1002/ijgo.14923</a>
+                        </div>
+                        
+                        <div class="reference-title">&lt;scp&gt;FIGO&lt;/scp&gt; staging of endometrial cancer: 2023</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Many advances in the understanding of the pathologic and molecular features of endometrial cancer have occurred since the FIGO staging was last updated in 2009.</div>
+            
+            
+            <div class="reference-finding-supporting">"Many advances in the understanding of the pathologic and molecular features of endometrial cancer have occurred since the FIGO staging was last updated in 2009."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ijgo.14923" target="_blank">DOI:10.1002/ijgo.14923</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Many advances in the understanding of the pathologic and molecular features of endometrial cancer have occurred since the FIGO staging was last updated in 2009."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s00404-024-07504-3" target="_blank">DOI:10.1007/s00404-024-07504-3</a>
+                        </div>
+                        
+                        <div class="reference-title">Real-world prevalence of microsatellite instability testing and related status in women with advanced endometrial cancer in Europe</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">To assess the real-world prevalence of microsatellite instability (MSI)/mismatch repair (MMR) testing and related tumor status in recurrent/advanced endometrial cancer patients in Europe.</div>
+            
+            
+            <div class="reference-finding-supporting">"To assess the real-world prevalence of microsatellite instability (MSI)/mismatch repair (MMR) testing and related tumor status in recurrent/advanced endometrial cancer patients in Europe."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s00404-024-07504-3" target="_blank">DOI:10.1007/s00404-024-07504-3</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"To assess the real-world prevalence of microsatellite instability (MSI)/mismatch repair (MMR) testing and related tumor status in recurrent/advanced endometrial cancer patients in Europe."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1038/s41588-023-01499-4" target="_blank">DOI:10.1038/s41588-023-01499-4</a>
+                        </div>
+                        
+                        <div class="reference-title">Mismatch repair deficiency is not sufficient to elicit tumor immunogenicity</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">DNA mismatch repair deficiency (MMRd) is associated with a high tumor mutational burden (TMB) and sensitivity to immune checkpoint blockade (ICB) therapy.</div>
+            
+            
+            <div class="reference-finding-supporting">"DNA mismatch repair deficiency (MMRd) is associated with a high tumor mutational burden (TMB) and sensitivity to immune checkpoint blockade (ICB) therapy."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1038/s41588-023-01499-4" target="_blank">DOI:10.1038/s41588-023-01499-4</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"DNA mismatch repair deficiency (MMRd) is associated with a high tumor mutational burden (TMB) and sensitivity to immune checkpoint blockade (ICB) therapy."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1056/nejmoa2216334" target="_blank">DOI:10.1056/nejmoa2216334</a>
+                        </div>
+                        
+                        <div class="reference-title">Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1056/nejmoa2302312" target="_blank">DOI:10.1056/nejmoa2302312</a>
+                        </div>
+                        
+                        <div class="reference-title">Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1097/ogx.0000000000000623" target="_blank">DOI:10.1097/ogx.0000000000000623</a>
+                        </div>
+                        
+                        <div class="reference-title">Association of Endometrial Cancer Risk With Postmenopausal Bleeding in Women: A Systematic Review and Meta-analysis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">(Abstracted from JAMA Intern Med 2018;178:1210–1222) The incidence of endometrial cancer and deaths from this cancer has increased in recent years and is projected to rise over the next decade.</div>
+            
+            
+            <div class="reference-finding-supporting">"(Abstracted from JAMA Intern Med 2018;178:1210–1222) The incidence of endometrial cancer and deaths from this cancer has increased in recent years and is projected to rise over the next decade."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1097/ogx.0000000000000623" target="_blank">DOI:10.1097/ogx.0000000000000623</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"(Abstracted from JAMA Intern Med 2018;178:1210–1222) The incidence of endometrial cancer and deaths from this cancer has increased in recent years and is projected to rise over the next decade."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-22-3915" target="_blank">DOI:10.1158/1078-0432.ccr-22-3915</a>
+                        </div>
+                        
+                        <div class="reference-title">Safety, Efficacy, and Biomarker Analyses of Dostarlimab in Patients with Endometrial Cancer: Interim Results of the Phase I GARNET Study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">This interim report of the GARNET phase I trial presents efficacy and safety of dostarlimab in patients with advanced or recurrent endometrial cancer (EC), with an analysis of tumor biomarkers as prognostic indicators.</div>
+            
+            
+            <div class="reference-finding-supporting">"This interim report of the GARNET phase I trial presents efficacy and safety of dostarlimab in patients with advanced or recurrent endometrial cancer (EC), with an analysis of tumor biomarkers as prognostic indicators."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-22-3915" target="_blank">DOI:10.1158/1078-0432.ccr-22-3915</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This interim report of the GARNET phase I trial presents efficacy and safety of dostarlimab in patients with advanced or recurrent endometrial cancer (EC), with an analysis of tumor biomarkers as prognostic indicators."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.14288/1.0422939" target="_blank">DOI:10.14288/1.0422939</a>
+                        </div>
+                        
+                        <div class="reference-title">Investigation into the early pathogenesis of lynch syndrome associated endometrial cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Endometrial cancer is the most common gynecologic malignancy in Canada with increasing rates of both incidence and mortality.</div>
+            
+            
+            <div class="reference-finding-supporting">"Endometrial cancer is the most common gynecologic malignancy in Canada with increasing rates of both incidence and mortality."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.14288/1.0422939" target="_blank">DOI:10.14288/1.0422939</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Endometrial cancer is the most common gynecologic malignancy in Canada with increasing rates of both incidence and mortality."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3389/fonc.2023.1147657" target="_blank">DOI:10.3389/fonc.2023.1147657</a>
+                        </div>
+                        
+                        <div class="reference-title">Epigenetic MMR defect identifies a risk group not accounted for through traditional risk stratification algorithms in endometrial cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Epigenetic MMR defect identifies a risk group not accounted for through traditional risk stratification algorithms in endometrial cancer</div>
+            
+            
+            <div class="reference-finding-supporting">"We sought to evaluate the contribution of mismatch repair (MMR) status to traditional risk stratification algorithms used to predict nodal involvement and recurrence in a large single-institution cohort.MethodsEndometrioid endometrial cancer (EC) cases from 2014-2020 were evaluated."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fonc.2023.1147657" target="_blank">DOI:10.3389/fonc.2023.1147657</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We sought to evaluate the contribution of mismatch repair (MMR) status to traditional risk stratification algorithms used to predict nodal involvement and recurrence in a large single-institution cohort.MethodsEndometrioid endometrial cancer (EC) cases from 2014-2020 were evaluated."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16203452" target="_blank">DOI:10.3390/cancers16203452</a>
+                        </div>
+                        
+                        <div class="reference-title">Unraveling the Heterogeneity of Deficiency of Mismatch Repair Proteins in Endometrial Cancer: Predictive Biomarkers and Assessment Challenges</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Endometrial cancer (EC) poses a significant global health challenge, with increasing prevalence in 26 of 43 countries and over 13,000 deaths projected in the United States by 2024.</div>
+            
+            
+            <div class="reference-finding-supporting">"Endometrial cancer (EC) poses a significant global health challenge, with increasing prevalence in 26 of 43 countries and over 13,000 deaths projected in the United States by 2024."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16203452" target="_blank">DOI:10.3390/cancers16203452</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Endometrial cancer (EC) poses a significant global health challenge, with increasing prevalence in 26 of 43 countries and over 13,000 deaths projected in the United States by 2024."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16233970" target="_blank">DOI:10.3390/cancers16233970</a>
+                        </div>
+                        
+                        <div class="reference-title">Detection of Mismatch Repair Deficiency in Endometrial Cancer: Assessment of IHC, Fragment Length Analysis, and Amplicon Sequencing Based MSI Testing</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Mismatch repair (MMR) deficiency can be indicative of Lynch syndrome (LS) and guide treatment with immune checkpoint inhibitors.</div>
+            
+            
+            <div class="reference-finding-supporting">"Mismatch repair (MMR) deficiency can be indicative of Lynch syndrome (LS) and guide treatment with immune checkpoint inhibitors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16233970" target="_blank">DOI:10.3390/cancers16233970</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Mismatch repair (MMR) deficiency can be indicative of Lynch syndrome (LS) and guide treatment with immune checkpoint inhibitors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.6004/jnccn.2024.0061" target="_blank">DOI:10.6004/jnccn.2024.0061</a>
+                        </div>
+                        
+                        <div class="reference-title">Genetic/Familial High-Risk Assessment: Colorectal, Endometrial, and Gastric, Version 3.2024, NCCN Clinical Practice Guidelines In Oncology</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Multigene panel testing has allowed for the detection of a growing number of inherited pathogenic/likely pathogenic variants in people at high risk of cancer, including endometrial cancer (EC).</div>
+            
+            
+            <div class="reference-finding-supporting">"Multigene panel testing has allowed for the detection of a growing number of inherited pathogenic/likely pathogenic variants in people at high risk of cancer, including endometrial cancer (EC)."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.6004/jnccn.2024.0061" target="_blank">DOI:10.6004/jnccn.2024.0061</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Multigene panel testing has allowed for the detection of a growing number of inherited pathogenic/likely pathogenic variants in people at high risk of cancer, including endometrial cancer (EC)."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.7717/peerj.15920" target="_blank">DOI:10.7717/peerj.15920</a>
+                        </div>
+                        
+                        <div class="reference-title">A retrospective study of consistency between immunohistochemistry and polymerase chain reaction of microsatellite instability in endometrial cancer</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Identification of endometrial cancers (EC) with mismatch repair deficiency (dMMR) or microsatellite instability-high (MSI-H) is essential for Lynch syndrome screening and treatment stratification.</div>
+            
+            
+            <div class="reference-finding-supporting">"Identification of endometrial cancers (EC) with mismatch repair deficiency (dMMR) or microsatellite instability-high (MSI-H) is essential for Lynch syndrome screening and treatment stratification."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.7717/peerj.15920" target="_blank">DOI:10.7717/peerj.15920</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Identification of endometrial cancers (EC) with mismatch repair deficiency (dMMR) or microsatellite instability-high (MSI-H) is essential for Lynch syndrome screening and treatment stratification."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
         
 
         <!-- Pathophysiology -->
@@ -2610,6 +3548,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2674,6 +3613,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2732,6 +3672,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -2838,49 +3779,15 @@
             
             <div class="pheno-toc">
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Constitutional<span class="pill-count">(2)</span></button>
                 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
                 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
             
             
             <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Blood
-                    <span class="cat-count">1</span>
-                </summary>
-                
-                <div class="item-box phenotype-box">
-                    <div class="item-name">
-                        Abnormal Uterine Bleeding
-                        
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-                        
-                        
-                        <span class="phenotype-id">
-                            <a href="http://purl.obolibrary.org/obo/HP_0000132" target="_blank">
-                                Menorrhagia
-                            </a>
-                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0000132)</span>
-                        </span>
-                        
-                    </div>
-                    
-                    
-                    
-    
-    
-                    
-    
-    
-                </div>
-                
-            </details>
-            
-            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -2924,6 +3831,40 @@
                                 Pelvic pain
                             </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0034267)</span>
+                        </span>
+                        
+                    </div>
+                    
+                    
+                    
+    
+    
+                    
+    
+    
+                </div>
+                
+            </details>
+            
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+                
+                <div class="item-box phenotype-box">
+                    <div class="item-name">
+                        Postmenopausal Bleeding
+                        
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        
+                        
+                        <span class="phenotype-id">
+                            <a href="http://purl.obolibrary.org/obo/HP_0033840" target="_blank">
+                                Postmenopausal bleeding
+                            </a>
+                            <span style="font-size: 0.72rem; color: var(--text-muted);">(HP:0033840)</span>
                         </span>
                         
                     </div>
@@ -3067,17 +4008,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pembrolizumab Plus Lenvatinib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         lenvatinib
@@ -3131,17 +4081,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Pembrolizumab Monotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         pembrolizumab
@@ -3195,17 +4154,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Dostarlimab
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         dostarlimab
@@ -3259,14 +4227,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Hysterectomy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3379,13 +4356,14 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: MSI-High Endometrial Cancer
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-02-27T22:30:29Z&#39;
+updated_date: &#39;2026-04-12T15:40:50Z&#39;
 description: &gt;-
   MSI-high endometrial cancer is a molecularly-defined subset of endometrial carcinoma
   characterized by deficient mismatch repair (dMMR) and high microsatellite instability
   (MSI-H). This phenotype occurs in approximately 25-30% of endometrial cancers and
   may arise from germline MMR gene mutations (Lynch syndrome) or somatic MLH1 promoter
-  hypermethylation. MSI-H tumors have hypermutated genomes generating neoantigens that
+  hypermethylation. MSI-H tumors have hypermutated genomes generating neoantigens
+  that
   make them highly responsive to immune checkpoint inhibition. The combination of
   pembrolizumab plus lenvatinib has transformed treatment of advanced MSI-H endometrial
   cancer.
@@ -3508,17 +4486,17 @@ histopathology:
 
 phenotypes:
 - category: Gynecologic
-  name: Abnormal Uterine Bleeding
+  name: Postmenopausal Bleeding
   frequency: VERY_FREQUENT
   diagnostic: true
   description: &gt;-
     Postmenopausal bleeding or abnormal premenopausal bleeding is the most
     common presenting symptom of endometrial cancer regardless of MSI status.
   phenotype_term:
-    preferred_term: Abnormal uterine bleeding
+    preferred_term: postmenopausal bleeding
     term:
-      id: HP:0000132
-      label: Menorrhagia
+      id: HP:0033840
+      label: Postmenopausal bleeding
 - category: Constitutional
   name: Fatigue
   frequency: FREQUENT
@@ -3683,6 +4661,189 @@ classifications:
   harrisons_chapter:
   - classification_value: cancer
   - classification_value: solid tumor
+references:
+- reference: DOI:10.1002/cncr.35267
+  title: &#39;A tale of two pathways: Review of immune checkpoint inhibitors in DNA mismatch repair‐deficient and microsatellite instability‐high endometrial cancers&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: The DNA mismatch repair (MMR) pathway is critical for correcting DNA mismatches generated during DNA replication.
+    supporting_text: The DNA mismatch repair (MMR) pathway is critical for correcting DNA mismatches generated during DNA replication.
+    evidence:
+    - reference: DOI:10.1002/cncr.35267
+      reference_title: &#39;A tale of two pathways: Review of immune checkpoint inhibitors in DNA mismatch repair‐deficient and microsatellite instability‐high endometrial cancers&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: The DNA mismatch repair (MMR) pathway is critical for correcting DNA mismatches generated during DNA replication.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.1002/ijgo.14923
+  title: &#39;&lt;scp&gt;FIGO&lt;/scp&gt; staging of endometrial cancer: 2023&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Many advances in the understanding of the pathologic and molecular features of endometrial cancer have occurred since the FIGO staging was last updated in 2009.
+    supporting_text: Many advances in the understanding of the pathologic and molecular features of endometrial cancer have occurred since the FIGO staging was last updated in 2009.
+    evidence:
+    - reference: DOI:10.1002/ijgo.14923
+      reference_title: &#39;&lt;scp&gt;FIGO&lt;/scp&gt; staging of endometrial cancer: 2023&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Many advances in the understanding of the pathologic and molecular features of endometrial cancer have occurred since the FIGO staging was last updated in 2009.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.1007/s00404-024-07504-3
+  title: Real-world prevalence of microsatellite instability testing and related status in women with advanced endometrial cancer in Europe
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: To assess the real-world prevalence of microsatellite instability (MSI)/mismatch repair (MMR) testing and related tumor status in recurrent/advanced endometrial cancer patients in Europe.
+    supporting_text: To assess the real-world prevalence of microsatellite instability (MSI)/mismatch repair (MMR) testing and related tumor status in recurrent/advanced endometrial cancer patients in Europe.
+    evidence:
+    - reference: DOI:10.1007/s00404-024-07504-3
+      reference_title: Real-world prevalence of microsatellite instability testing and related status in women with advanced endometrial cancer in Europe
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: To assess the real-world prevalence of microsatellite instability (MSI)/mismatch repair (MMR) testing and related tumor status in recurrent/advanced endometrial cancer patients in Europe.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.1038/s41588-023-01499-4
+  title: Mismatch repair deficiency is not sufficient to elicit tumor immunogenicity
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: DNA mismatch repair deficiency (MMRd) is associated with a high tumor mutational burden (TMB) and sensitivity to immune checkpoint blockade (ICB) therapy.
+    supporting_text: DNA mismatch repair deficiency (MMRd) is associated with a high tumor mutational burden (TMB) and sensitivity to immune checkpoint blockade (ICB) therapy.
+    evidence:
+    - reference: DOI:10.1038/s41588-023-01499-4
+      reference_title: Mismatch repair deficiency is not sufficient to elicit tumor immunogenicity
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: DNA mismatch repair deficiency (MMRd) is associated with a high tumor mutational burden (TMB) and sensitivity to immune checkpoint blockade (ICB) therapy.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.1056/nejmoa2216334
+  title: Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer
+    supporting_text: Dostarlimab for Primary Advanced or Recurrent Endometrial Cancer
+- reference: DOI:10.1056/nejmoa2302312
+  title: Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer
+    supporting_text: Pembrolizumab plus Chemotherapy in Advanced Endometrial Cancer
+- reference: DOI:10.1097/ogx.0000000000000623
+  title: &#39;Association of Endometrial Cancer Risk With Postmenopausal Bleeding in Women: A Systematic Review and Meta-analysis&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: (Abstracted from JAMA Intern Med 2018;178:1210–1222) The incidence of endometrial cancer and deaths from this cancer has increased in recent years and is projected to rise over the next decade.
+    supporting_text: (Abstracted from JAMA Intern Med 2018;178:1210–1222) The incidence of endometrial cancer and deaths from this cancer has increased in recent years and is projected to rise over the next decade.
+    evidence:
+    - reference: DOI:10.1097/ogx.0000000000000623
+      reference_title: &#39;Association of Endometrial Cancer Risk With Postmenopausal Bleeding in Women: A Systematic Review and Meta-analysis&#39;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: (Abstracted from JAMA Intern Med 2018;178:1210–1222) The incidence of endometrial cancer and deaths from this cancer has increased in recent years and is projected to rise over the next decade.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.1158/1078-0432.ccr-22-3915
+  title: &#39;Safety, Efficacy, and Biomarker Analyses of Dostarlimab in Patients with Endometrial Cancer: Interim Results of the Phase I GARNET Study&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: &#39;This interim report of the GARNET phase I trial presents efficacy and safety of dostarlimab in patients with advanced or recurrent endometrial cancer (EC), with an analysis of tumor biomarkers as prognostic indicators.&#39;
+    supporting_text: &#39;This interim report of the GARNET phase I trial presents efficacy and safety of dostarlimab in patients with advanced or recurrent endometrial cancer (EC), with an analysis of tumor biomarkers as prognostic indicators.&#39;
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-22-3915
+      reference_title: &#39;Safety, Efficacy, and Biomarker Analyses of Dostarlimab in Patients with Endometrial Cancer: Interim Results of the Phase I GARNET Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#39;This interim report of the GARNET phase I trial presents efficacy and safety of dostarlimab in patients with advanced or recurrent endometrial cancer (EC), with an analysis of tumor biomarkers as prognostic indicators.&#39;
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.14288/1.0422939
+  title: Investigation into the early pathogenesis of lynch syndrome associated endometrial cancer
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Endometrial cancer is the most common gynecologic malignancy in Canada with increasing rates of both incidence and mortality.
+    supporting_text: Endometrial cancer is the most common gynecologic malignancy in Canada with increasing rates of both incidence and mortality.
+    evidence:
+    - reference: DOI:10.14288/1.0422939
+      reference_title: Investigation into the early pathogenesis of lynch syndrome associated endometrial cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Endometrial cancer is the most common gynecologic malignancy in Canada with increasing rates of both incidence and mortality.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.3389/fonc.2023.1147657
+  title: Epigenetic MMR defect identifies a risk group not accounted for through traditional risk stratification algorithms in endometrial cancer
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Epigenetic MMR defect identifies a risk group not accounted for through traditional risk stratification algorithms in endometrial cancer
+    supporting_text: We sought to evaluate the contribution of mismatch repair (MMR) status to traditional risk stratification algorithms used to predict nodal involvement and recurrence in a large single-institution cohort.MethodsEndometrioid endometrial cancer (EC) cases from 2014-2020 were evaluated.
+    evidence:
+    - reference: DOI:10.3389/fonc.2023.1147657
+      reference_title: Epigenetic MMR defect identifies a risk group not accounted for through traditional risk stratification algorithms in endometrial cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: We sought to evaluate the contribution of mismatch repair (MMR) status to traditional risk stratification algorithms used to predict nodal involvement and recurrence in a large single-institution cohort.MethodsEndometrioid endometrial cancer (EC) cases from 2014-2020 were evaluated.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.3390/cancers16203452
+  title: &#39;Unraveling the Heterogeneity of Deficiency of Mismatch Repair Proteins in Endometrial Cancer: Predictive Biomarkers and Assessment Challenges&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Endometrial cancer (EC) poses a significant global health challenge, with increasing prevalence in 26 of 43 countries and over 13,000 deaths projected in the United States by 2024.
+    supporting_text: Endometrial cancer (EC) poses a significant global health challenge, with increasing prevalence in 26 of 43 countries and over 13,000 deaths projected in the United States by 2024.
+    evidence:
+    - reference: DOI:10.3390/cancers16203452
+      reference_title: &#39;Unraveling the Heterogeneity of Deficiency of Mismatch Repair Proteins in Endometrial Cancer: Predictive Biomarkers and Assessment Challenges&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Endometrial cancer (EC) poses a significant global health challenge, with increasing prevalence in 26 of 43 countries and over 13,000 deaths projected in the United States by 2024.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.3390/cancers16233970
+  title: &#39;Detection of Mismatch Repair Deficiency in Endometrial Cancer: Assessment of IHC, Fragment Length Analysis, and Amplicon Sequencing Based MSI Testing&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Mismatch repair (MMR) deficiency can be indicative of Lynch syndrome (LS) and guide treatment with immune checkpoint inhibitors.
+    supporting_text: Mismatch repair (MMR) deficiency can be indicative of Lynch syndrome (LS) and guide treatment with immune checkpoint inhibitors.
+    evidence:
+    - reference: DOI:10.3390/cancers16233970
+      reference_title: &#39;Detection of Mismatch Repair Deficiency in Endometrial Cancer: Assessment of IHC, Fragment Length Analysis, and Amplicon Sequencing Based MSI Testing&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Mismatch repair (MMR) deficiency can be indicative of Lynch syndrome (LS) and guide treatment with immune checkpoint inhibitors.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.6004/jnccn.2024.0061
+  title: &#39;Genetic/Familial High-Risk Assessment: Colorectal, Endometrial, and Gastric, Version 3.2024, NCCN Clinical Practice Guidelines In Oncology&#39;
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Multigene panel testing has allowed for the detection of a growing number of inherited pathogenic/likely pathogenic variants in people at high risk of cancer, including endometrial cancer (EC).
+    supporting_text: Multigene panel testing has allowed for the detection of a growing number of inherited pathogenic/likely pathogenic variants in people at high risk of cancer, including endometrial cancer (EC).
+    evidence:
+    - reference: DOI:10.6004/jnccn.2024.0061
+      reference_title: &#39;Genetic/Familial High-Risk Assessment: Colorectal, Endometrial, and Gastric, Version 3.2024, NCCN Clinical Practice Guidelines In Oncology&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Multigene panel testing has allowed for the detection of a growing number of inherited pathogenic/likely pathogenic variants in people at high risk of cancer, including endometrial cancer (EC).
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
+- reference: DOI:10.7717/peerj.15920
+  title: A retrospective study of consistency between immunohistochemistry and polymerase chain reaction of microsatellite instability in endometrial cancer
+  found_in:
+  - MSI_High_Endometrial_Cancer-deep-research-falcon.md
+  findings:
+  - statement: Identification of endometrial cancers (EC) with mismatch repair deficiency (dMMR) or microsatellite instability-high (MSI-H) is essential for Lynch syndrome screening and treatment stratification.
+    supporting_text: Identification of endometrial cancers (EC) with mismatch repair deficiency (dMMR) or microsatellite instability-high (MSI-H) is essential for Lynch syndrome screening and treatment stratification.
+    evidence:
+    - reference: DOI:10.7717/peerj.15920
+      reference_title: A retrospective study of consistency between immunohistochemistry and polymerase chain reaction of microsatellite instability in endometrial cancer
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Identification of endometrial cancers (EC) with mismatch repair deficiency (dMMR) or microsatellite instability-high (MSI-H) is essential for Lynch syndrome screening and treatment stratification.
+      explanation: Deep research cited this publication as relevant literature for MSI High Endometrial Cancer.
 </pre>
             </div>
         </div>

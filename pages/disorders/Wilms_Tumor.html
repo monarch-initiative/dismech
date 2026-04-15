@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2219,7 +2268,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">kidney neoplasm</span>
@@ -2262,11 +2311,15 @@
                 
             
         
+            
+                
+            
+        
         <div class="stats-bar">
             
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
@@ -2286,7 +2339,7 @@
             
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
-                <div class="stat-value">5</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathophysiology</div>
             </div>
             </a>
@@ -2294,7 +2347,7 @@
             
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Histopathology</div>
             </div>
             </a>
@@ -2310,7 +2363,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">2</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -2326,7 +2379,7 @@
             
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Treatments</div>
             </div>
             </a>
@@ -2334,7 +2387,7 @@
             
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
-                <div class="stat-value">3</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -2346,16 +2399,20 @@
             </div>
             
             
+            <a class="stat-link" href="#datasets">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Datasets</div>
             </div>
+            </a>
             
             
+            <a class="stat-link" href="#trials">
             <div class="stat-item">
-                <div class="stat-value">0</div>
+                <div class="stat-value">1</div>
                 <div class="stat-label">Trials</div>
             </div>
+            </a>
             
             
             <div class="stat-item">
@@ -2451,6 +2508,88 @@
             
             
             <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C3267" target="_blank">NCIT:C3267</a>
+                        
+                        
+                        <span class="mapping-label">Wilms Tumor</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">Primary NCIT disease concept corresponding to Wilms tumor.</div>
+                    
+                    
+                    <ul class="mapping-tree">
+                        
+                        <li style="padding-left: 0px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7057" target="_blank">Disease, Disorder or Finding</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 14px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C2991" target="_blank">Disease or Disorder</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 28px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C3262" target="_blank">Neoplasm</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 42px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C7062" target="_blank">Neoplasm by Special Category</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 56px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C3264" target="_blank">Embryonal Neoplasm</a>
+                            
+                            
+                        </li>
+                        
+                        <li style="padding-left: 70px;">
+                            
+                            
+                            <a href="http://purl.obolibrary.org/obo/NCIT_C3267" target="_blank">Wilms Tumor</a>
+                            
+                            
+                        </li>
+                        
+                    </ul>
+                    
+                </div>
+                
+            </div>
+            
+            
+            <div class="mapping-section">
                 <div class="classification-category">ICD-10-CM</div>
                 
                 <div class="mapping-item">
@@ -2516,6 +2655,35 @@
             </div>
             
             
+            
+            <div class="mapping-section">
+                <div class="classification-category">NCIT</div>
+                
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C3267" target="_blank">NCIT:C3267</a>
+                        
+                        
+                        <span class="mapping-label">Wilms Tumor</span>
+                        
+                    </div>
+                    <div class="tag-list">
+                        
+                        <span class="tag tag-classification">skos:exactMatch</span>
+                        
+                        
+                        <span class="tag tag-parent">NCIT</span>
+                        
+                        
+                    </div>
+                    
+                    <div class="mapping-notes">Primary NCIT disease concept corresponding to Wilms tumor.</div>
+                    
+                </div>
+                
+            </div>
+            
         </div>
         
 
@@ -2531,7 +2699,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">12</span>
             </div>
             
             
@@ -2548,10 +2716,55 @@
             
                 
                 
+                    
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                    
+                
+                
+            
+                
+                
+                
+            
+                
+                
+                    
+                
+                
+            
+                
+                
                 
             
             
                 
+                <div class="classification-header">anaplasia status</div>
                 
                 
                 
@@ -2560,21 +2773,46 @@
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Favorable Histology Wilms Tumor
                         
                         
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C6951" target="_blank">NCIT:C6951</a>
+                                
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C6951" target="_blank">NCIT NCIT:C6951</a>
+                            
                         
                     </div>
                     
                     <div class="item-desc">Approximately 90% of Wilms tumors have favorable histology without anaplasia. These tumors have excellent outcomes with &gt;90% overall survival using current treatment protocols.</div>
                     
                     
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Nonanaplastic Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C6951" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C6951</a>
+                        
+                        
+                    </div>
+                    
+                    
                     
     
     
@@ -2583,29 +2821,57 @@
                 
                 
                 
-                
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
-                        
                         Anaplastic Wilms Tumor
                         
                         
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C6952" target="_blank">NCIT:C6952</a>
+                                
                         
                     </div>
                     <div class="subtype-meta">
                         
                         
                         
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C6952" target="_blank">NCIT NCIT:C6952</a>
+                            
+                        
                     </div>
                     
                     <div class="item-desc">Characterized by extreme nuclear enlargement and pleomorphism with atypical mitoses. May be focal or diffuse. Diffuse anaplasia confers significantly worse prognosis and requires treatment intensification.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Anaplastic Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C6952" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C6952</a>
+                        
+                        
+                    </div>
                     
                     
                     
     
     
                 </div>
+                
+            
+                
+                <div class="classification-header">histological pattern</div>
                 
                 
                 
@@ -2614,7 +2880,335 @@
                 <div class="item-box subtype-box">
                     
                     <div class="item-name">
+                        Blastemal Predominant Wilms Tumor
                         
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9147" target="_blank">NCIT:C9147</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9147" target="_blank">NCIT NCIT:C9147</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">Blastemal-predominant Wilms tumor is a high-risk histologic pattern, particularly after preoperative chemotherapy, and reflects persistence of residual blastemal cells with relative chemotherapy resistance.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Blastema Predominant Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9147" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C9147</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"High-risk histology includes blastemal-type tumors, as a predominance of residual blastemal cells is a marker of chemotherapy resistance."</div>
+                
+                
+                <div class="evidence-explanation">Supports blastemal-predominant Wilms tumor as a distinct histologic pattern with high-risk behavior.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Epithelial Predominant Wilms Tumor
+                        
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9146" target="_blank">NCIT:C9146</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9146" target="_blank">NCIT NCIT:C9146</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">Epithelial-predominant Wilms tumor emphasizes tubule- and glomeruloid-like differentiation and generally falls into a more favorable post-chemotherapy histologic group.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Epithelial Predominant Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9146" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C9146</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Stromal and epithelia-type nephroblastoma show an excellent outcome after preoperative chemotherapy"</div>
+                
+                
+                <div class="evidence-explanation">Supports epithelial-predominant Wilms tumor as a recognized histologic pattern with favorable outcomes after preoperative chemotherapy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Stromal Predominant Wilms Tumor
+                        
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9148" target="_blank">NCIT:C9148</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9148" target="_blank">NCIT NCIT:C9148</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">Stromal-predominant Wilms tumor emphasizes mesenchymal differentiation and is generally associated with favorable outcomes after preoperative chemotherapy.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Stromal Predominant Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9148" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C9148</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Stromal and epithelia-type nephroblastoma show an excellent outcome after preoperative chemotherapy"</div>
+                
+                
+                <div class="evidence-explanation">Supports stromal-predominant Wilms tumor as a recognized histologic pattern with favorable post-chemotherapy outcomes.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Mixed Cell Type Wilms Tumor
+                        
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9149" target="_blank">NCIT:C9149</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C9149" target="_blank">NCIT NCIT:C9149</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">Mixed-cell-type Wilms tumor corresponds to the classic triphasic pattern with blastemal, epithelial, and stromal components in variable proportions.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Mixed Cell Type Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C9149" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C9149</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27512769" target="_blank">PMID:27512769</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Typically, WT comprises three histological components namely blastemal, epithelial and stromal. The proportion and the degree of maturation of these components vary significantly, making the histological appearance of each tumour unique."</div>
+                
+                
+                <div class="evidence-explanation">Supports mixed-cell-type Wilms tumor as the classic triphasic histologic pattern with variable proportions of blastemal, epithelial, and stromal elements.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+            
+                
+                <div class="classification-header">laterality</div>
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
                         Bilateral Wilms Tumor
                         
                         
@@ -2624,9 +3218,12 @@
                         
                         
                         
+                        
+                        
                     </div>
                     
                     <div class="item-desc">Synchronous bilateral tumors occur in approximately 5-10% of cases and are enriched for germline WT1 mutations and post-zygotic epigenetic hypermethylation at 11p15.5. Treatment aims for nephron-sparing approaches to preserve renal function.</div>
+                    
                     
                     
                     
@@ -2664,6 +3261,257 @@
     
                 </div>
                 
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Unilateral Wilms Tumor
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Most Wilms tumors present as unilateral renal masses involving a single kidney at diagnosis.</div>
+                    
+                    
+                    
+                    
+    
+    
+                </div>
+                
+            
+                
+                <div class="classification-header">predisposition context</div>
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Hereditary Predisposition-Associated Wilms Tumor
+                        
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C8496" target="_blank">NCIT:C8496</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C8496" target="_blank">NCIT NCIT:C8496</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">A subset of Wilms tumors arises in the setting of germline or mosaic predisposition, including WT1-associated syndromes and 11p15 epigenetic dysregulation.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Hereditary Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C8496" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C8496</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37916284" target="_blank">PMID:37916284</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In 1990, mutations of the Wilms&#39; tumor-1 gene (WT1), encoding a transcription factor in the embryonic kidney, were found in 10-15% of Wilms&#39; tumors; germline WT1 mutations were associated with hereditary syndromes involving glomerular and reproductive tract dysplasia."</div>
+                
+                
+                <div class="evidence-explanation">Supports a hereditary predisposition-associated Wilms tumor subgroup linked to germline WT1 alterations and related syndromic presentations.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Sporadic Wilms Tumor
+                        
+                        
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                    </div>
+                    
+                    <div class="item-desc">Most Wilms tumors arise sporadically without an identified germline predisposition syndrome, although they still accumulate somatic and epigenetic driver alterations.</div>
+                    
+                    
+                    
+                    
+    
+    
+                </div>
+                
+            
+                
+                <div class="classification-header">age group</div>
+                
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Childhood Wilms Tumor
+                        
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024676" target="_blank">MONDO:0024676</a>
+                        
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C27730" target="_blank">NCIT:C27730</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C27730" target="_blank">NCIT NCIT:C27730</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">The canonical presentation of Wilms tumor is in early childhood, most often before 5 years of age.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Childhood Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C27730" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C27730</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    
+                </div>
+                
+                
+                
+                
+                <div class="item-box subtype-box">
+                    
+                    <div class="item-name">
+                        Adult Wilms Tumor
+                        
+                        
+                        
+                                
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C6180" target="_blank">NCIT:C6180</a>
+                                
+                        
+                    </div>
+                    <div class="subtype-meta">
+                        
+                        
+                        
+                        
+                        
+                            
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/NCIT_C6180" target="_blank">NCIT NCIT:C6180</a>
+                            
+                        
+                    </div>
+                    
+                    <div class="item-desc">Adult Wilms tumor is rare and represents an uncommon age-defined clinical presentation of nephroblastoma.</div>
+                    
+                    
+                    <div class="item-meta" style="margin-top: 8px;">
+                        <strong style="font-size: 0.8rem; color: #4338ca;">NCIT:</strong>
+                        
+                        <span class="tag tag-classification">
+                            Adult Kidney Wilms Tumor
+                            
+                            (skos:closeMatch)
+                            
+                        </span>
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C6180" target="_blank" style="font-size: 0.82rem; color: #4338ca; margin-right: 8px;">NCIT:C6180</a>
+                        
+                        
+                    </div>
+                    
+                    
+                    
+    
+    
+                </div>
+                
             
         </div>
         
@@ -2680,7 +3528,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">11</span>
             </div>
             
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wt1-inactivation">
@@ -2751,6 +3599,7 @@
                     </span>
                     
                 </div>
+                
                 
                 
                 
@@ -2840,6 +3689,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2920,6 +3770,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2944,6 +3795,101 @@
                 
                 
                 <div class="evidence-explanation">Confirms CTNNB1 as one of the key Wnt pathway genes mutated in Wilms tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-canonical-wnt-signaling-hyperactivation">
+                <div class="item-name">Canonical Wnt Signaling Hyperactivation</div>
+                
+                <div class="item-desc">Aberrant beta-catenin signaling downstream of AMER1 loss or CTNNB1 activation sustains nephrogenic progenitors in a developmental state and cooperates with WT1 loss in Wilms tumor initiation.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        nephrogenic zone cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0009019" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        Wnt signaling pathway
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        cell differentiation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25018051" target="_blank">PMID:25018051</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"This has been illustrated by the findings that mutations of Wnt/β-catenin pathway-related WT1, β-catenin, and WTX together account for about one-third of Wilms tumor cases."</div>
+                
+                
+                <div class="evidence-explanation">Supports canonical Wnt signaling as a major convergent Wilms tumor mechanism downstream of AMER1 and CTNNB1 lesions.</div>
                 
             </div>
             
@@ -3008,6 +3954,7 @@
     
                     
                 </div>
+                
                 
                 
                 
@@ -3100,6 +4047,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -3154,6 +4102,496 @@
     
             </div>
             
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-microrna-processing-defect">
+                <div class="item-name">MicroRNA Processing Defect</div>
+                
+                <div class="item-desc">DROSHA and DICER1 lesions derepress microRNA target genes controlling differentiation and proliferation, reinforcing a self-renewing mesenchymal state in Wilms tumor.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        metanephric mesenchyme stem cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000324" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        DROSHA
+                        
+                        <a href="https://bioregistry.io/hgnc:17904" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-gene">
+                        DICER1
+                        
+                        <a href="https://bioregistry.io/hgnc:17098" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cell differentiation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0030154" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        cell population proliferation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25018051" target="_blank">PMID:25018051</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recent investigations also revealed that mutations of Drosha and Dicer, the RNases required for miRNA generation, and Dis3L2, the 3&#39;-5&#39; exonuclease that normally degrades miRNAs and mRNAs, could cause predisposition to Wilms tumors, demonstrating that miRNA can play a pivotal role in Wilms tumor..."</div>
+                
+                
+                <div class="evidence-explanation">Supports disrupted microRNA biogenesis as a recurrent Wilms tumor mechanism.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephron-progenitor-self-renewal">
+                <div class="item-name">Nephron Progenitor Self-Renewal</div>
+                
+                <div class="item-desc">SIX1 and SIX2 hotspot mutations reinforce the embryonal nephron progenitor transcriptional program in high-risk blastemal Wilms tumors, preserving proliferative potential and chemotherapy resistance.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        nephrogenic zone cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0009019" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-gene">
+                        SIX1
+                        
+                        <a href="https://bioregistry.io/hgnc:10887" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                    <span class="tag tag-gene">
+                        SIX2
+                        
+                        <a href="https://bioregistry.io/hgnc:10888" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cell population proliferation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        metanephros development
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0001656" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25670083" target="_blank">PMID:25670083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recurrent mutations included a hotspot mutation (Q177R) in the homeo-domain of SIX1 and SIX2 in tumors with high proliferative potential (18.1% of blastemal cases)"</div>
+                
+                
+                <div class="evidence-explanation">Supports a SIX1/SIX2-driven progenitor program in proliferative blastemal Wilms tumors.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-blastemal-progenitor-state">
+                <div class="item-name">Persistent Blastemal Progenitor State</div>
+                
+                <div class="item-desc">Multiple Wilms tumor drivers converge on persistence of embryonal renal blastemal cells with high proliferative capacity and failed terminal differentiation.</div>
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-cell">
+                        metanephric mesenchyme stem cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0000324" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                    <span class="tag tag-cell">
+                        nephrogenic zone cell
+                        
+                        <a href="http://purl.obolibrary.org/obo/CL_0009019" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cell population proliferation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        nephron development
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0072006" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25670083" target="_blank">PMID:25670083</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Recurrent mutations included a hotspot mutation (Q177R) in the homeo-domain of SIX1 and SIX2 in tumors with high proliferative potential (18.1% of blastemal cases)"</div>
+                
+                
+                <div class="evidence-explanation">Human tumor genomics support persistence of a highly proliferative blastemal compartment in high-risk Wilms tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-wilms-tumor-outgrowth">
+                <div class="item-name">Wilms Tumor Outgrowth</div>
+                
+                <div class="item-desc">Persisting embryonal renal progenitors expand into nephroblastoma, an embryonal kidney malignancy with blastemal, epithelial, and stromal elements.</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        cell population proliferation
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-location">
+                        kidney
+                        
+                        <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37385707" target="_blank">PMID:37385707</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Wilms tumor (WT), or nephroblastoma, is the most common primary malignant renal tumor of childhood. It is an embryonal tumor that develops from remnants of immature kidney."</div>
+                
+                
+                <div class="evidence-explanation">Supports the endpoint of embryonal renal outgrowth into overt Wilms tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-deficient-anaplastic-progression">
+                <div class="item-name">TP53-Deficient Anaplastic Progression</div>
+                
+                <div class="item-desc">In anaplastic Wilms tumor, TP53 dysfunction promotes progression toward an aggressive, treatment-resistant state with impaired genome surveillance.</div>
+                
+                
+                
+                
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-bio">
+                        apoptotic process
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                    <span class="tag tag-bio">
+                        DNA repair
+                        
+                        <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" class="linkout">link</a>
+                        
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+    
+    
+                    
+                </div>
+                
+                
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"careful analysis including copy number assessment and immunohistochemistry, as well as confirming that anaplasia was present in the portion of tumor undergoing mutation analysis, indicated that nearly all anaplastic WT have TP53 mutations if one looks hard enough"</div>
+                
+                
+                <div class="evidence-explanation">Supports TP53 dysfunction as the defining progression mechanism in anaplastic Wilms tumor.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
         </div>
         
 
@@ -3163,7 +4601,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
             
             <div class="item-box histopathology-box">
@@ -3201,6 +4639,195 @@
                 
                 
                 <div class="evidence-explanation">Directly describes the triphasic histological composition of Wilms tumor with blastemal, epithelial, and stromal components.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box histopathology-box">
+                <div class="item-name">
+                    Blastemal Predominant Histology
+                    
+                </div>
+                
+                <div class="item-desc">Blastemal-predominant histology is a high-risk Wilms tumor pattern, particularly after preoperative chemotherapy, and reflects persistence of residual blastemal cells with relative chemotherapy resistance.</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"High-risk histology includes blastemal-type tumors, as a predominance of residual blastemal cells is a marker of chemotherapy resistance."</div>
+                
+                
+                <div class="evidence-explanation">Directly supports blastemal-predominant Wilms tumor as a distinct high-risk histologic subtype associated with chemotherapy resistance.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27512769" target="_blank">PMID:27512769</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"WT with diffuse anaplasia and WT with blastemal predominance (after preoperative chemotherapy) are regarded as high-risk tumours and require more aggressive treatment."</div>
+                
+                
+                <div class="evidence-explanation">Independent pathology review supporting blastemal predominance as a clinically meaningful high-risk Wilms tumor pattern.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box histopathology-box">
+                <div class="item-name">
+                    Epithelial Predominant Histology
+                    
+                </div>
+                
+                <div class="item-desc">Epithelial-predominant Wilms tumor emphasizes tubule- and glomeruloid-like epithelial differentiation and generally falls into a more favorable post-chemotherapy histologic group.</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Stromal and epithelia-type nephroblastoma show an excellent outcome after preoperative chemotherapy"</div>
+                
+                
+                <div class="evidence-explanation">Supports epithelial-type nephroblastoma as a recognized histologic group with favorable outcomes after preoperative chemotherapy.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27512769" target="_blank">PMID:27512769</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Typically, WT comprises three histological components namely blastemal, epithelial and stromal. The proportion and the degree of maturation of these components vary significantly, making the histological appearance of each tumour unique."</div>
+                
+                
+                <div class="evidence-explanation">Supports epithelial-predominant Wilms tumor as part of the variable component balance within Wilms histology.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box histopathology-box">
+                <div class="item-name">
+                    Stromal Predominant Histology
+                    
+                </div>
+                
+                <div class="item-desc">Stromal-predominant Wilms tumor emphasizes mesenchymal differentiation and, like epithelial-type nephroblastoma, is generally associated with favorable outcomes after preoperative chemotherapy.</div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33394739" target="_blank">PMID:33394739</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Stromal and epithelia-type nephroblastoma show an excellent outcome after preoperative chemotherapy"</div>
+                
+                
+                <div class="evidence-explanation">Supports stromal-type nephroblastoma as a recognized histologic group with favorable post-chemotherapy outcomes.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27512769" target="_blank">PMID:27512769</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Typically, WT comprises three histological components namely blastemal, epithelial and stromal. The proportion and the degree of maturation of these components vary significantly, making the histological appearance of each tumour unique."</div>
+                
+                
+                <div class="evidence-explanation">Supports stromal-predominant Wilms tumor as part of the variable component balance within Wilms histology.</div>
                 
             </div>
             
@@ -3276,7 +4903,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blocked Nephron Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wilms tumor arises from nephrogenic rests - foci of embryonic blastemal cells that persist beyond the normal period of nephrogenesis. These cells retain proliferative capacity but fail to undergo terminal differentiation into mature nephrons. Loss of WT1 in nephrogenic rests may leave these premalignant clones vulnerable to malignant transformation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"WT1 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WT1 is a transcription factor essential for normal kidney and gonad development. Biallelic WT1 inactivation occurs in 10-15% of Wilms tumors. Germline WT1 mutations cause WAGR syndrome (Wilms tumor, aniridia, genitourinary anomalies, intellectual disability) and Denys-Drash syndrome. WT1 functions at multiple stages of kidney development, including the transition from resting stem cells to committed nephron progenitor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"metanephros development\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"WT1 Inactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blocked Nephron Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wilms tumor arises from nephrogenic rests - foci of embryonic blastemal cells that persist beyond the normal period of nephrogenesis. These cells retain proliferative capacity but fail to undergo terminal differentiation into mature nephrons. Loss of WT1 in nephrogenic rests may leave these premalignant clones vulnerable to malignant transformation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"CTNNB1 Activating Mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in CTNNB1 (beta-catenin) occur in approximately 15% of Wilms tumors, affecting exon 3 to stabilize beta-catenin and activate canonical Wnt signaling. CTNNB1 mutations are strongly associated with WT1 mutations, promoting proliferation and blocking differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"CTNNB1\"]}}, {\"id\": \"CTNNB1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"association\": \"Oncogenic Driver Mutations\"}}, {\"id\": \"Canonical Wnt Signaling Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant beta-catenin signaling downstream of AMER1 loss or CTNNB1 activation sustains nephrogenic progenitors in a developmental state and cooperates with WT1 loss in Wilms tumor initiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"Wnt signaling pathway\", \"cell differentiation\"]}}, {\"id\": \"IGF2 Loss of Imprinting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of imprinting at 11p15, leading to biallelic IGF2 expression, occurs in approximately 70% of Wilms tumors. IGF2 is a major fetal growth factor and its overexpression promotes proliferation of embryonic renal cells. This epigenetic alteration is also the mechanism underlying Beckwith-Wiedemann syndrome, which confers increased Wilms tumor risk.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"IGF2\"]}}, {\"id\": \"Loss of 11p15 Imprinting\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGF2\"], \"association\": \"Epigenetic Alteration\"}}, {\"id\": \"MicroRNA Processing Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DROSHA and DICER1 lesions derepress microRNA target genes controlling differentiation and proliferation, reinforcing a self-renewing mesenchymal state in Wilms tumor.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"cell population proliferation\"], \"genes\": [\"DROSHA\", \"DICER1\"]}}, {\"id\": \"Nephron Progenitor Self-Renewal\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SIX1 and SIX2 hotspot mutations reinforce the embryonal nephron progenitor transcriptional program in high-risk blastemal Wilms tumors, preserving proliferative potential and chemotherapy resistance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"nephrogenic zone cell\"], \"biological_processes\": [\"cell population proliferation\", \"metanephros development\"], \"genes\": [\"SIX1\", \"SIX2\"]}}, {\"id\": \"Persistent Blastemal Progenitor State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple Wilms tumor drivers converge on persistence of embryonal renal blastemal cells with high proliferative capacity and failed terminal differentiation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"metanephric mesenchyme stem cell\", \"nephrogenic zone cell\"], \"biological_processes\": [\"cell population proliferation\", \"nephron development\"]}}, {\"id\": \"TP53 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"subtypes\": [\"Anaplastic\"], \"association\": \"Anaplasia Driver\"}}, {\"id\": \"TP53-Deficient Anaplastic Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In anaplastic Wilms tumor, TP53 dysfunction promotes progression toward an aggressive, treatment-resistant state with impaired genome surveillance.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"DNA repair\"], \"genes\": [\"TP53\"]}}, {\"id\": \"WT1 Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WT1 is a transcription factor essential for normal kidney and gonad development. Biallelic WT1 inactivation occurs in 10-15% of Wilms tumors. Germline WT1 mutations cause WAGR syndrome (Wilms tumor, aniridia, genitourinary anomalies, intellectual disability) and Denys-Drash syndrome. WT1 functions at multiple stages of kidney development, including the transition from resting stem cells to committed nephron progenitor cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"metanephric mesenchyme stem cell\"], \"biological_processes\": [\"cell differentiation\", \"metanephros development\"], \"genes\": [\"WT1\"], \"locations\": [\"kidney\"]}}, {\"id\": \"WT1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"WT1\"], \"association\": \"Tumor Suppressor Loss\"}}, {\"id\": \"WTX (AMER1) Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"WTX (AMER1) is a component of the beta-catenin destruction complex and a negative regulator of Wnt signaling. WTX inactivation occurs in approximately 15-20% of Wilms tumors and leads to constitutive Wnt pathway activation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"AMER1\"]}}, {\"id\": \"WTX (AMER1) Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AMER1\"], \"association\": \"Tumor Suppressor Loss\"}}, {\"id\": \"Wilms Tumor Outgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persisting embryonal renal progenitors expand into nephroblastoma, an embryonal kidney malignancy with blastemal, epithelial, and stromal elements.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"kidney\"]}}], \"edges\": [{\"source\": \"WT1 Inactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WTX (AMER1) Inactivation\", \"target\": \"Canonical Wnt Signaling Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CTNNB1 Activating Mutation\", \"target\": \"Canonical Wnt Signaling Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Canonical Wnt Signaling Hyperactivation\", \"target\": \"Blocked Nephron Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Canonical Wnt Signaling Hyperactivation\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blocked Nephron Differentiation\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IGF2 Loss of Imprinting\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MicroRNA Processing Defect\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Nephron Progenitor Self-Renewal\", \"target\": \"Persistent Blastemal Progenitor State\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Persistent Blastemal Progenitor State\", \"target\": \"Wilms Tumor Outgrowth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Wilms Tumor Outgrowth\", \"target\": \"TP53-Deficient Anaplastic Progression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"WT1 Mutations\", \"target\": \"WT1 Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1 Mutations\", \"target\": \"CTNNB1 Activating Mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"WTX (AMER1) Mutations\", \"target\": \"WTX (AMER1) Inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Loss of 11p15 Imprinting\", \"target\": \"IGF2 Loss of Imprinting\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53 Mutations\", \"target\": \"TP53-Deficient Anaplastic Progression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4131,7 +5758,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
             
@@ -4152,26 +5779,6 @@
                 
                 
                 <div class="evidence-explanation">Confirms mutations in miRNA processing enzymes as a mechanism of Wilms tumor predisposition.</div>
-                
-            </div>
-            
-            <div class="evidence-item">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1158/1541-7786.mcr-23-0930" target="_blank">DOI:10.1158/1541-7786.mcr-23-0930</a>
-                    </span>
-                    
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-                    
-                    
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
-                    
-                </div>
-                
-                <div class="evidence-snippet">"DROSHA mutations are correlated with de-repressing microRNA target genes that regulate differentiation and proliferation and a self-renewing, mesenchymal state."</div>
-                
-                
-                <div class="evidence-explanation">Demonstrates the functional consequence of DROSHA mutations in Wilms tumor, linking them to a self-renewing mesenchymal state.</div>
                 
             </div>
             
@@ -4234,20 +5841,31 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Treatments</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
             
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Resection
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">nephrectomy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nephrectomy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15284" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15284</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4314,17 +5932,28 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Chemotherapy
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000647" target="_blank">
-                            MAXO:0000647
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">chemotherapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15632" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15632</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         dactinomycin
@@ -4414,14 +6043,25 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Radiation Therapy
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000014" target="_blank">
-                            MAXO:0000014
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">radiation therapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15313" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15313</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -4465,6 +6105,83 @@
     
             </div>
             
+            <div class="item-box treatment-box">
+                <div class="item-name">
+                    Selinexor
+                </div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
+                    
+                    
+                    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">NCIT:C15986</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    <span class="tag tag-treatment">
+                        selinexor
+                        
+                        <a href="http://purl.obolibrary.org/obo/NCIT_C102546" target="_blank" style="color: inherit; margin-left: 4px;">↗</a>
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                
+                <div class="item-desc">Selinexor is an oral XPO1 inhibitor under clinical evaluation for recurrent or refractory Wilms tumor and other pediatric solid tumors.</div>
+                
+                
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05985161" target="_blank">clinicaltrials:NCT05985161</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The purpose of this study is to find out whether selinexor is an effective treatment for people who have a relapsed/refractory Wilms tumor, rhabdoid tumor, MPNST, or another solid tumor that makes a higher than normal amount of XPO1 or has genetic changes that increase the activity of XP01."</div>
+                
+                
+                <div class="evidence-explanation">Supports selinexor as an investigational Wilms tumor therapy through an active Wilms-specific cohort in a pediatric solid tumor trial.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
         </div>
         
 
@@ -4473,14 +6190,199 @@
 
         <!-- Biochemical Markers -->
         
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    IGF2 Overexpression
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25018051" target="_blank">PMID:25018051</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"epigenetic changes, particularly the loss of imprinting of the DNA region encoding the major fetal growth factor IGF2, which results in its biallelic over-expression, are closely associated with the development of many Wilms tumors."</div>
+                
+                
+                <div class="evidence-explanation">Supports IGF2 overexpression as a canonical Wilms tumor biomarker driven by 11p15 epigenetic dysregulation.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    WT1 Protein Expression
+                    
+                </div>
+                
+                
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Differential Diagnoses -->
         
 
         <!-- Datasets -->
         
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    TARGET: Kidney, Wilms Tumor (WT)
+                    
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000471" target="_blank">dbgap:phs000471</a>
+                    </span>
+                    
+                </div>
+                
+                <div class="item-desc">TARGET high-risk Wilms tumor cohort with matched tumor-normal profiling, including gene expression, copy number, methylation, whole genome sequencing, and subset mRNA-seq, miRNA-seq, and whole exome sequencing.</div>
+                
+                <div class="item-meta">
+                    
+                    <span class="tag tag-organism">human</span>
+                    
+                    
+                    <span class="tag tag-datatype">MULTI OMICS</span>
+                    
+                    
+                    <span class="tag tag-dataset">n=130</span>
+                    
+                    
+                </div>
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    
+                    <span class="tag tag-cell">
+                        Wilms tumor tissue
+                        
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta" style="margin-top: 6px;">
+                    <strong style="font-size: 0.8rem; color: #0369a1;">Conditions:</strong>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">high-risk Wilms tumor</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">anaplastic Wilms tumor</span>
+                    
+                    <span class="tag" style="background: #f0f9ff; color: #0369a1; font-size: 0.8rem;">relapsed favorable histology Wilms tumor</span>
+                    
+                </div>
+                
+                
+                
+    
+    
+                
+                
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">dbGaP describes 130 fully characterized high-risk Wilms tumor cases with tumor-normal pairs, selected largely from anaplastic tumors or favorable histology tumors that relapsed.</div>
+                
+                
+    
+    
+            </div>
+            
+        </div>
+        
 
         <!-- Clinical Trials -->
+        
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">1</span>
+            </div>
+            
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT05985161
+                    
+                    <span class="tag tag-phase">PHASE_II</span>
+                    
+                    
+                </div>
+                
+                <div class="item-desc">Multi-center phase II study of selinexor in recurrent or refractory Wilms tumor and other pediatric solid tumors, including a dedicated Wilms tumor cohort.</div>
+                
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05985161" target="_blank">clinicaltrials:NCT05985161</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The purpose of this study is to find out whether selinexor is an effective treatment for people who have a relapsed/refractory Wilms tumor, rhabdoid tumor, MPNST, or another solid tumor that makes a higher than normal amount of XPO1 or has genetic changes that increase the activity of XP01."</div>
+                
+                
+                <div class="evidence-explanation">Supports a Wilms-specific phase II selinexor clinical trial for recurrent or refractory disease.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+        </div>
         
 
         <!-- Experimental Models -->
@@ -4948,7 +6850,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Wilms Tumor
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-03-28T00:00:00Z&#39;
+updated_date: &#39;2026-04-13T05:05:42Z&#39;
 description: &gt;-
   Wilms tumor (nephroblastoma) is the most common pediatric kidney malignancy,
   typically affecting children under 5 years of age. It exemplifies the concept
@@ -4967,18 +6869,144 @@ parents:
 - kidney neoplasm
 has_subtypes:
 - name: Favorable Histology
+  classification: anaplasia_status
   display_name: Favorable Histology Wilms Tumor
   description: &gt;-
     Approximately 90% of Wilms tumors have favorable histology without anaplasia.
     These tumors have excellent outcomes with &gt;90% overall survival using current
     treatment protocols.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C6951
+        label: Nonanaplastic Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT nonanaplastic kidney Wilms tumor closely matches favorable histology Wilms tumor.
 - name: Anaplastic
+  classification: anaplasia_status
   display_name: Anaplastic Wilms Tumor
   description: &gt;-
     Characterized by extreme nuclear enlargement and pleomorphism with atypical
     mitoses. May be focal or diffuse. Diffuse anaplasia confers significantly
     worse prognosis and requires treatment intensification.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C6952
+        label: Anaplastic Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT anaplastic kidney Wilms tumor closely matches the Wilms anaplastic subtype.
+- name: Blastemal Predominant
+  classification: histological_pattern
+  display_name: Blastemal Predominant Wilms Tumor
+  description: &gt;-
+    Blastemal-predominant Wilms tumor is a high-risk histologic pattern,
+    particularly after preoperative chemotherapy, and reflects persistence of
+    residual blastemal cells with relative chemotherapy resistance.
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      High-risk histology includes blastemal-type tumors, as a predominance of
+      residual blastemal cells is a marker of chemotherapy resistance.
+    explanation: &gt;-
+      Supports blastemal-predominant Wilms tumor as a distinct histologic
+      pattern with high-risk behavior.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C9147
+        label: Blastema Predominant Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT blastema-predominant kidney Wilms tumor closely matches this histologic subtype.
+- name: Epithelial Predominant
+  classification: histological_pattern
+  display_name: Epithelial Predominant Wilms Tumor
+  description: &gt;-
+    Epithelial-predominant Wilms tumor emphasizes tubule- and glomeruloid-like
+    differentiation and generally falls into a more favorable post-chemotherapy
+    histologic group.
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Stromal and epithelia-type nephroblastoma show an excellent outcome after
+      preoperative chemotherapy
+    explanation: &gt;-
+      Supports epithelial-predominant Wilms tumor as a recognized histologic
+      pattern with favorable outcomes after preoperative chemotherapy.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C9146
+        label: Epithelial Predominant Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT epithelial-predominant kidney Wilms tumor closely matches this histologic subtype.
+- name: Stromal Predominant
+  classification: histological_pattern
+  display_name: Stromal Predominant Wilms Tumor
+  description: &gt;-
+    Stromal-predominant Wilms tumor emphasizes mesenchymal differentiation and
+    is generally associated with favorable outcomes after preoperative
+    chemotherapy.
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Stromal and epithelia-type nephroblastoma show an excellent outcome after
+      preoperative chemotherapy
+    explanation: &gt;-
+      Supports stromal-predominant Wilms tumor as a recognized histologic
+      pattern with favorable post-chemotherapy outcomes.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C9148
+        label: Stromal Predominant Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT stromal-predominant kidney Wilms tumor closely matches this histologic subtype.
+- name: Mixed Cell Type
+  classification: histological_pattern
+  display_name: Mixed Cell Type Wilms Tumor
+  description: &gt;-
+    Mixed-cell-type Wilms tumor corresponds to the classic triphasic pattern
+    with blastemal, epithelial, and stromal components in variable
+    proportions.
+  evidence:
+  - reference: PMID:27512769
+    reference_title: &#34;Wilms’ Tumour – Histology and Differential Diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Typically, WT comprises three histological components namely blastemal,
+      epithelial and stromal. The proportion and the degree of maturation of these
+      components vary significantly, making the histological appearance of each tumour
+      unique.
+    explanation: &gt;-
+      Supports mixed-cell-type Wilms tumor as the classic triphasic histologic
+      pattern with variable proportions of blastemal, epithelial, and stromal
+      elements.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C9149
+        label: Mixed Cell Type Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT mixed-cell-type kidney Wilms tumor closely matches the triphasic mixed-cell histologic subtype.
 - name: Bilateral
+  classification: laterality
   display_name: Bilateral Wilms Tumor
   description: &gt;-
     Synchronous bilateral tumors occur in approximately 5-10% of cases and are
@@ -4997,6 +7025,80 @@ has_subtypes:
       Confirms bilateral Wilms tumor is driven by underlying genetic and
       epigenetic predisposition events, with WT1 germline variants in 14.8%
       and 11p15.5 epigenetic changes as the predominant events.
+- name: Unilateral
+  classification: laterality
+  display_name: Unilateral Wilms Tumor
+  description: &gt;-
+    Most Wilms tumors present as unilateral renal masses involving a single
+    kidney at diagnosis.
+- name: Hereditary Predisposition-Associated
+  classification: predisposition_context
+  display_name: Hereditary Predisposition-Associated Wilms Tumor
+  description: &gt;-
+    A subset of Wilms tumors arises in the setting of germline or mosaic
+    predisposition, including WT1-associated syndromes and 11p15 epigenetic
+    dysregulation.
+  evidence:
+  - reference: PMID:37916284
+    reference_title: &#34;Wilms&#39; tumor gene 1: lessons from the interface between kidney development and cancer.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In 1990, mutations of the Wilms&#39; tumor-1 gene (WT1), encoding a transcription
+      factor in the embryonic kidney, were found in 10-15% of Wilms&#39; tumors; germline
+      WT1 mutations were associated with hereditary syndromes involving glomerular and
+      reproductive tract dysplasia.
+    explanation: &gt;-
+      Supports a hereditary predisposition-associated Wilms tumor subgroup linked
+      to germline WT1 alterations and related syndromic presentations.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C8496
+        label: Hereditary Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT hereditary kidney Wilms tumor closely matches hereditary predisposition-associated Wilms tumor.
+- name: Sporadic
+  classification: predisposition_context
+  display_name: Sporadic Wilms Tumor
+  description: &gt;-
+    Most Wilms tumors arise sporadically without an identified germline
+    predisposition syndrome, although they still accumulate somatic and
+    epigenetic driver alterations.
+- name: Childhood
+  classification: age_group
+  display_name: Childhood Wilms Tumor
+  subtype_term:
+    preferred_term: childhood kidney Wilms tumor
+    term:
+      id: MONDO:0024676
+      label: childhood kidney Wilms tumor
+  description: &gt;-
+    The canonical presentation of Wilms tumor is in early childhood, most often
+    before 5 years of age.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C27730
+        label: Childhood Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT childhood kidney Wilms tumor closely matches the childhood age-group subtype.
+- name: Adult
+  classification: age_group
+  display_name: Adult Wilms Tumor
+  description: &gt;-
+    Adult Wilms tumor is rare and represents an uncommon age-defined clinical
+    presentation of nephroblastoma.
+  mappings:
+    ncit_mappings:
+    - term:
+        id: NCIT:C6180
+        label: Adult Kidney Wilms Tumor
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+      mapping_justification: NCIT adult kidney Wilms tumor closely matches the adult age-group subtype.
 disease_term:
   preferred_term: Wilms tumor
   term:
@@ -5016,6 +7118,17 @@ pathophysiology:
     term:
       id: CL:0000324
       label: metanephric mesenchyme stem cell
+  gene:
+    preferred_term: WT1
+    modifier: DECREASED
+    term:
+      id: hgnc:12796
+      label: WT1
+  gene_products:
+  - preferred_term: WT1 protein
+    term:
+      id: NCIT:C17549
+      label: Wilms Tumor Protein
   biological_processes:
   - preferred_term: cell differentiation
     modifier: DECREASED
@@ -5064,6 +7177,17 @@ pathophysiology:
     WTX (AMER1) is a component of the beta-catenin destruction complex and a
     negative regulator of Wnt signaling. WTX inactivation occurs in approximately
     15-20% of Wilms tumors and leads to constitutive Wnt pathway activation.
+  gene:
+    preferred_term: AMER1
+    modifier: DECREASED
+    term:
+      id: hgnc:26837
+      label: AMER1
+  gene_products:
+  - preferred_term: WTX protein
+    term:
+      id: NCIT:C68721
+      label: APC Membrane Recruitment Protein 1
   biological_processes:
   - preferred_term: Wnt signaling pathway
     modifier: INCREASED
@@ -5081,6 +7205,9 @@ pathophysiology:
       Wilms tumor cases.
     explanation: &gt;-
       Confirms WTX as one of the key Wnt pathway genes mutated in Wilms tumor.
+  downstream:
+  - target: Canonical Wnt Signaling Hyperactivation
+    description: Loss of WTX stabilizes beta-catenin signaling in nephrogenic progenitors
 - name: CTNNB1 Activating Mutation
   description: &gt;-
     Activating mutations in CTNNB1 (beta-catenin) occur in approximately 15%
@@ -5092,6 +7219,17 @@ pathophysiology:
     term:
       id: CL:0009019
       label: nephrogenic zone cell
+  gene:
+    preferred_term: CTNNB1
+    modifier: INCREASED
+    term:
+      id: hgnc:2514
+      label: CTNNB1
+  gene_products:
+  - preferred_term: beta-catenin
+    term:
+      id: NCIT:C17478
+      label: Catenin Beta-1
   biological_processes:
   - preferred_term: Wnt signaling pathway
     modifier: INCREASED
@@ -5109,6 +7247,47 @@ pathophysiology:
       Wilms tumor cases.
     explanation: &gt;-
       Confirms CTNNB1 as one of the key Wnt pathway genes mutated in Wilms tumor.
+  downstream:
+  - target: Canonical Wnt Signaling Hyperactivation
+    description: Exon 3 mutations stabilize beta-catenin and drive constitutive Wnt output
+- name: Canonical Wnt Signaling Hyperactivation
+  description: &gt;-
+    Aberrant beta-catenin signaling downstream of AMER1 loss or CTNNB1 activation
+    sustains nephrogenic progenitors in a developmental state and cooperates with
+    WT1 loss in Wilms tumor initiation.
+  cell_types:
+  - preferred_term: nephrogenic zone cell
+    term:
+      id: CL:0009019
+      label: nephrogenic zone cell
+  biological_processes:
+  - preferred_term: Wnt signaling pathway
+    modifier: INCREASED
+    term:
+      id: GO:0016055
+      label: Wnt signaling pathway
+  - preferred_term: cell differentiation
+    modifier: DECREASED
+    term:
+      id: GO:0030154
+      label: cell differentiation
+  evidence:
+  - reference: PMID:25018051
+    reference_title: &#34;The development of Wilms tumor: from WT1 and microRNA to animal models.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This has been illustrated by the findings that mutations of Wnt/β-catenin
+      pathway-related WT1, β-catenin, and WTX together account for about one-third of
+      Wilms tumor cases.
+    explanation: &gt;-
+      Supports canonical Wnt signaling as a major convergent Wilms tumor mechanism
+      downstream of AMER1 and CTNNB1 lesions.
+  downstream:
+  - target: Blocked Nephron Differentiation
+    description: Constitutive beta-catenin signaling prevents normal nephron maturation
+  - target: Persistent Blastemal Progenitor State
+    description: Wnt output maintains embryonal renal progenitors in a self-renewing compartment
 - name: Blocked Nephron Differentiation
   description: &gt;-
     Wilms tumor arises from nephrogenic rests - foci of embryonic blastemal cells
@@ -5153,6 +7332,9 @@ pathophysiology:
       immature kidney.
     explanation: &gt;-
       Confirms Wilms tumor arises from embryonal remnants of immature kidney tissue.
+  downstream:
+  - target: Persistent Blastemal Progenitor State
+    description: Developmental arrest preserves proliferative embryonal renal cells
 - name: IGF2 Loss of Imprinting
   description: &gt;-
     Loss of imprinting at 11p15, leading to biallelic IGF2 expression, occurs
@@ -5160,6 +7342,17 @@ pathophysiology:
     and its overexpression promotes proliferation of embryonic renal cells. This
     epigenetic alteration is also the mechanism underlying Beckwith-Wiedemann syndrome,
     which confers increased Wilms tumor risk.
+  gene:
+    preferred_term: IGF2
+    modifier: INCREASED
+    term:
+      id: hgnc:5466
+      label: IGF2
+  gene_products:
+  - preferred_term: IGF2
+    term:
+      id: NCIT:C16744
+      label: Insulin-Like Growth Factor II
   biological_processes:
   - preferred_term: cell population proliferation
     modifier: INCREASED
@@ -5189,6 +7382,202 @@ pathophysiology:
     explanation: &gt;-
       Demonstrates the prognostic significance of 11p15 LOH/LOI in Wilms tumor,
       confirming its role in tumor biology.
+  downstream:
+  - target: Persistent Blastemal Progenitor State
+    description: Biallelic IGF2 expression expands fetal renal progenitors
+- name: MicroRNA Processing Defect
+  description: &gt;-
+    DROSHA and DICER1 lesions derepress microRNA target genes controlling
+    differentiation and proliferation, reinforcing a self-renewing mesenchymal
+    state in Wilms tumor.
+  genes:
+  - preferred_term: DROSHA
+    term:
+      id: hgnc:17904
+      label: DROSHA
+  - preferred_term: DICER1
+    term:
+      id: hgnc:17098
+      label: DICER1
+  cell_types:
+  - preferred_term: metanephric mesenchyme stem cell
+    term:
+      id: CL:0000324
+      label: metanephric mesenchyme stem cell
+  biological_processes:
+  - preferred_term: cell differentiation
+    modifier: DECREASED
+    term:
+      id: GO:0030154
+      label: cell differentiation
+  - preferred_term: cell population proliferation
+    modifier: INCREASED
+    term:
+      id: GO:0008283
+      label: cell population proliferation
+  evidence:
+  - reference: PMID:25018051
+    reference_title: &#34;The development of Wilms tumor: from WT1 and microRNA to animal models.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Recent investigations also revealed that mutations of Drosha and Dicer, the
+      RNases required for miRNA generation, and Dis3L2, the 3&#39;-5&#39; exonuclease that
+      normally degrades miRNAs and mRNAs, could cause predisposition to Wilms tumors,
+      demonstrating that miRNA can play a pivotal role in Wilms tumor development.
+    explanation: &gt;-
+      Supports disrupted microRNA biogenesis as a recurrent Wilms tumor mechanism.
+  downstream:
+  - target: Persistent Blastemal Progenitor State
+    description: miRNA dysregulation reinforces the undifferentiated proliferative compartment
+- name: Nephron Progenitor Self-Renewal
+  description: &gt;-
+    SIX1 and SIX2 hotspot mutations reinforce the embryonal nephron progenitor
+    transcriptional program in high-risk blastemal Wilms tumors, preserving
+    proliferative potential and chemotherapy resistance.
+  genes:
+  - preferred_term: SIX1
+    term:
+      id: hgnc:10887
+      label: SIX1
+  - preferred_term: SIX2
+    term:
+      id: hgnc:10888
+      label: SIX2
+  cell_types:
+  - preferred_term: nephrogenic zone cell
+    term:
+      id: CL:0009019
+      label: nephrogenic zone cell
+  biological_processes:
+  - preferred_term: cell population proliferation
+    modifier: INCREASED
+    term:
+      id: GO:0008283
+      label: cell population proliferation
+  - preferred_term: metanephros development
+    modifier: ABNORMAL
+    term:
+      id: GO:0001656
+      label: metanephros development
+  evidence:
+  - reference: PMID:25670083
+    reference_title: &#34;Mutations in the SIX1/2 pathway and the DROSHA/DGCR8 miRNA microprocessor complex underlie high-risk blastemal type Wilms tumors.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Recurrent mutations included a hotspot mutation (Q177R) in the homeo-domain
+      of SIX1 and SIX2 in tumors with high proliferative potential (18.1% of
+      blastemal cases)
+    explanation: &gt;-
+      Supports a SIX1/SIX2-driven progenitor program in proliferative blastemal
+      Wilms tumors.
+  downstream:
+  - target: Persistent Blastemal Progenitor State
+    description: SIX1/SIX2-mutant progenitors retain a proliferative embryonal identity
+- name: Persistent Blastemal Progenitor State
+  description: &gt;-
+    Multiple Wilms tumor drivers converge on persistence of embryonal renal
+    blastemal cells with high proliferative capacity and failed terminal
+    differentiation.
+  cell_types:
+  - preferred_term: metanephric mesenchyme stem cell
+    term:
+      id: CL:0000324
+      label: metanephric mesenchyme stem cell
+  - preferred_term: nephrogenic zone cell
+    term:
+      id: CL:0009019
+      label: nephrogenic zone cell
+  biological_processes:
+  - preferred_term: cell population proliferation
+    modifier: INCREASED
+    term:
+      id: GO:0008283
+      label: cell population proliferation
+  - preferred_term: nephron development
+    modifier: ABNORMAL
+    term:
+      id: GO:0072006
+      label: nephron development
+  evidence:
+  - reference: PMID:25670083
+    reference_title: &#34;Mutations in the SIX1/2 pathway and the DROSHA/DGCR8 miRNA microprocessor complex underlie high-risk blastemal type Wilms tumors.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Recurrent mutations included a hotspot mutation (Q177R) in the homeo-domain
+      of SIX1 and SIX2 in tumors with high proliferative potential (18.1% of
+      blastemal cases)
+    explanation: &gt;-
+      Human tumor genomics support persistence of a highly proliferative blastemal
+      compartment in high-risk Wilms tumor.
+  downstream:
+  - target: Wilms Tumor Outgrowth
+    description: Persisting blastemal clones expand into overt nephroblastoma
+- name: Wilms Tumor Outgrowth
+  description: &gt;-
+    Persisting embryonal renal progenitors expand into nephroblastoma, an
+    embryonal kidney malignancy with blastemal, epithelial, and stromal elements.
+  locations:
+  - preferred_term: kidney
+    term:
+      id: UBERON:0002113
+      label: kidney
+  biological_processes:
+  - preferred_term: cell population proliferation
+    modifier: INCREASED
+    term:
+      id: GO:0008283
+      label: cell population proliferation
+  evidence:
+  - reference: PMID:37385707
+    reference_title: &#34;Wilms Tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Wilms tumor (WT), or nephroblastoma, is the most common primary malignant renal
+      tumor of childhood. It is an embryonal tumor that develops from remnants of
+      immature kidney.
+    explanation: &gt;-
+      Supports the endpoint of embryonal renal outgrowth into overt Wilms tumor.
+  downstream:
+  - target: TP53-Deficient Anaplastic Progression
+    description: Acquisition of TP53 dysfunction drives aggressive anaplastic evolution in a subset of tumors
+- name: TP53-Deficient Anaplastic Progression
+  description: &gt;-
+    In anaplastic Wilms tumor, TP53 dysfunction promotes progression toward an
+    aggressive, treatment-resistant state with impaired genome surveillance.
+  gene:
+    preferred_term: TP53
+    modifier: DECREASED
+    term:
+      id: hgnc:11998
+      label: TP53
+  biological_processes:
+  - preferred_term: apoptotic process
+    modifier: DECREASED
+    term:
+      id: GO:0006915
+      label: apoptotic process
+  - preferred_term: DNA repair
+    modifier: DECREASED
+    term:
+      id: GO:0006281
+      label: DNA repair
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      careful analysis including copy number assessment and immunohistochemistry,
+      as well as confirming that anaplasia was present in the portion of tumor
+      undergoing mutation analysis, indicated that nearly all anaplastic WT have
+      TP53 mutations if one looks hard enough
+    explanation: &gt;-
+      Supports TP53 dysfunction as the defining progression mechanism in anaplastic
+      Wilms tumor.
 phenotypes:
 - category: Abdominal
   name: Abdominal Mass
@@ -5345,11 +7734,12 @@ phenotypes:
       Confirms flank pain as one of the presenting symptoms of Wilms tumor.
 histopathology:
 - name: Triphasic Histology
+  subtype: Mixed Cell Type
   finding_term:
-    preferred_term: Wilms Tumor
+    preferred_term: triphasic pattern
     term:
-      id: NCIT:C3267
-      label: Wilms Tumor
+      id: NCIT:C35928
+      label: Triphasic Pattern
   frequency: VERY_FREQUENT
   description: &gt;-
     Wilms tumor classically shows triphasic histology with blastemal, stromal,
@@ -5369,7 +7759,109 @@ histopathology:
     explanation: &gt;-
       Directly describes the triphasic histological composition of Wilms tumor
       with blastemal, epithelial, and stromal components.
+- name: Blastemal Predominant Histology
+  subtype: Blastemal Predominant
+  finding_term:
+    preferred_term: Blastema Predominant Kidney Wilms Tumor
+    term:
+      id: NCIT:C9147
+      label: Blastema Predominant Kidney Wilms Tumor
+  description: &gt;-
+    Blastemal-predominant histology is a high-risk Wilms tumor pattern,
+    particularly after preoperative chemotherapy, and reflects persistence of
+    residual blastemal cells with relative chemotherapy resistance.
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      High-risk histology includes blastemal-type tumors, as a predominance of
+      residual blastemal cells is a marker of chemotherapy resistance.
+    explanation: &gt;-
+      Directly supports blastemal-predominant Wilms tumor as a distinct
+      high-risk histologic subtype associated with chemotherapy resistance.
+  - reference: PMID:27512769
+    reference_title: &#34;Wilms’ Tumour – Histology and Differential Diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      WT with diffuse anaplasia and WT with blastemal predominance (after
+      preoperative chemotherapy) are regarded as high-risk tumours and require more
+      aggressive treatment.
+    explanation: &gt;-
+      Independent pathology review supporting blastemal predominance as a
+      clinically meaningful high-risk Wilms tumor pattern.
+- name: Epithelial Predominant Histology
+  subtype: Epithelial Predominant
+  finding_term:
+    preferred_term: Epithelial Predominant Kidney Wilms Tumor
+    term:
+      id: NCIT:C9146
+      label: Epithelial Predominant Kidney Wilms Tumor
+  description: &gt;-
+    Epithelial-predominant Wilms tumor emphasizes tubule- and glomeruloid-like
+    epithelial differentiation and generally falls into a more favorable
+    post-chemotherapy histologic group.
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Stromal and epithelia-type nephroblastoma show an excellent outcome after
+      preoperative chemotherapy
+    explanation: &gt;-
+      Supports epithelial-type nephroblastoma as a recognized histologic group
+      with favorable outcomes after preoperative chemotherapy.
+  - reference: PMID:27512769
+    reference_title: &#34;Wilms’ Tumour – Histology and Differential Diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Typically, WT comprises three histological components namely blastemal,
+      epithelial and stromal. The proportion and the degree of maturation of these
+      components vary significantly, making the histological appearance of each tumour
+      unique.
+    explanation: &gt;-
+      Supports epithelial-predominant Wilms tumor as part of the variable
+      component balance within Wilms histology.
+- name: Stromal Predominant Histology
+  subtype: Stromal Predominant
+  finding_term:
+    preferred_term: Stromal Predominant Kidney Wilms Tumor
+    term:
+      id: NCIT:C9148
+      label: Stromal Predominant Kidney Wilms Tumor
+  description: &gt;-
+    Stromal-predominant Wilms tumor emphasizes mesenchymal differentiation and,
+    like epithelial-type nephroblastoma, is generally associated with favorable
+    outcomes after preoperative chemotherapy.
+  evidence:
+  - reference: PMID:33394739
+    reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Stromal and epithelia-type nephroblastoma show an excellent outcome after
+      preoperative chemotherapy
+    explanation: &gt;-
+      Supports stromal-type nephroblastoma as a recognized histologic group with
+      favorable post-chemotherapy outcomes.
+  - reference: PMID:27512769
+    reference_title: &#34;Wilms’ Tumour – Histology and Differential Diagnosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Typically, WT comprises three histological components namely blastemal,
+      epithelial and stromal. The proportion and the degree of maturation of these
+      components vary significantly, making the histological appearance of each tumour
+      unique.
+    explanation: &gt;-
+      Supports stromal-predominant Wilms tumor as part of the variable
+      component balance within Wilms histology.
 - name: Anaplasia
+  subtype: Anaplastic
   finding_term:
     preferred_term: Anaplastic Wilms Tumor
     term:
@@ -5392,7 +7884,40 @@ histopathology:
       TP53 mutations if one looks hard enough
     explanation: &gt;-
       Confirms near-universal TP53 mutation in anaplastic Wilms tumors.
-biochemical: []
+biochemical:
+- name: IGF2 Overexpression
+  biomarker_term:
+    preferred_term: IGF2
+    term:
+      id: NCIT:C16744
+      label: Insulin-Like Growth Factor II
+  notes: &gt;-
+    IGF2 overexpression is a hallmark Wilms tumor biomarker linked to 11p15
+    loss of imprinting and biallelic fetal growth-factor expression, particularly
+    in blastemal and predisposition-associated tumors.
+  evidence:
+  - reference: PMID:25018051
+    reference_title: &#34;The development of Wilms tumor: from WT1 and microRNA to animal models.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      epigenetic changes, particularly the loss of imprinting of the DNA region
+      encoding the major fetal growth factor IGF2, which results in its biallelic
+      over-expression, are closely associated with the development of many Wilms
+      tumors.
+    explanation: &gt;-
+      Supports IGF2 overexpression as a canonical Wilms tumor biomarker driven by
+      11p15 epigenetic dysregulation.
+- name: WT1 Protein Expression
+  biomarker_term:
+    preferred_term: WT1 protein
+    term:
+      id: NCIT:C17549
+      label: Wilms Tumor Protein
+  notes: &gt;-
+    WT1 protein expression is widely used in the diagnostic workup of pediatric
+    renal tumors and nephrogenic lesions, complementing genomic assessment of
+    WT1 loss or predisposition.
 genetic:
 - name: WT1 Mutations
   association: Tumor Suppressor Loss
@@ -5463,6 +7988,11 @@ genetic:
       Confirms WTX (AMER1) as one of the key mutated genes in Wilms tumor.
 - name: Loss of 11p15 Imprinting
   association: Epigenetic Alteration
+  gene_term:
+    preferred_term: IGF2
+    term:
+      id: hgnc:5466
+      label: IGF2
   notes: &gt;-
     Loss of imprinting at 11p15, leading to biallelic IGF2 expression, occurs
     in approximately 70% of Wilms tumors. This is also the mechanism in
@@ -5568,16 +8098,6 @@ genetic:
     explanation: &gt;-
       Confirms mutations in miRNA processing enzymes as a mechanism of Wilms
       tumor predisposition.
-  - reference: DOI:10.1158/1541-7786.mcr-23-0930
-    supports: SUPPORT
-    evidence_source: IN_VITRO
-    snippet: &gt;-
-      DROSHA mutations are correlated with de-repressing microRNA target genes that
-      regulate differentiation and proliferation and a self-renewing, mesenchymal
-      state.
-    explanation: &gt;-
-      Demonstrates the functional consequence of DROSHA mutations in Wilms tumor,
-      linking them to a self-renewing mesenchymal state.
 - name: SIX1/SIX2 Mutations
   association: Nephron Progenitor Program
   notes: &gt;-
@@ -5607,19 +8127,8 @@ treatments:
   treatment_term:
     preferred_term: nephrectomy
     term:
-      id: MAXO:0000004
-      label: surgical procedure
-    qualifiers:
-    - predicate:
-        preferred_term: procedure type
-        term:
-          id: NCIT:C25187
-          label: Type
-      value:
-        preferred_term: nephrectomy
-        term:
-          id: NCIT:C15284
-          label: Nephrectomy
+      id: NCIT:C15284
+      label: Nephrectomy
   evidence:
   - reference: PMID:33394739
     reference_title: &#34;New approaches to risk stratification for Wilms tumor.&#34;
@@ -5649,8 +8158,8 @@ treatments:
   treatment_term:
     preferred_term: chemotherapy
     term:
-      id: MAXO:0000647
-      label: chemotherapy
+      id: NCIT:C15632
+      label: Chemotherapy
     therapeutic_agent:
     - preferred_term: dactinomycin
       term:
@@ -5697,8 +8206,8 @@ treatments:
   treatment_term:
     preferred_term: radiation therapy
     term:
-      id: MAXO:0000014
-      label: radiation therapy
+      id: NCIT:C15313
+      label: Radiation Therapy
   evidence:
   - reference: PMID:32893998
     reference_title: &#34;Wilms tumor.&#34;
@@ -5712,6 +8221,32 @@ treatments:
     explanation: &gt;-
       Confirms radiation therapy is part of standard treatment while efforts
       focus on minimizing its use to reduce toxicity.
+- name: Selinexor
+  description: &gt;-
+    Selinexor is an oral XPO1 inhibitor under clinical evaluation for recurrent
+    or refractory Wilms tumor and other pediatric solid tumors.
+  treatment_term:
+    preferred_term: pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: selinexor
+      term:
+        id: NCIT:C102546
+        label: Selinexor
+  evidence:
+  - reference: clinicaltrials:NCT05985161
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The purpose of this study is to find out whether selinexor is an effective
+      treatment for people who have a relapsed/refractory Wilms tumor, rhabdoid
+      tumor, MPNST, or another solid tumor that makes a higher than normal amount
+      of XPO1 or has genetic changes that increase the activity of XP01.
+    explanation: &gt;-
+      Supports selinexor as an investigational Wilms tumor therapy through an
+      active Wilms-specific cohort in a pediatric solid tumor trial.
 prevalence:
 - population: Worldwide
   notes: &gt;-
@@ -5800,7 +8335,61 @@ mappings:
     mapping_predicate: skos:exactMatch
     mapping_source: MONDO
     mapping_justification: Primary MONDO disease identifier for this Wilms tumor entry.
-datasets: []
+  ncit_mappings:
+  - term:
+      id: NCIT:C3267
+      label: Wilms Tumor
+    mapping_predicate: skos:exactMatch
+    mapping_source: NCIT
+    mapping_justification: Primary NCIT disease concept corresponding to Wilms tumor.
+datasets:
+- accession: dbgap:phs000471
+  title: &#34;TARGET: Kidney, Wilms Tumor (WT)&#34;
+  description: &gt;-
+    TARGET high-risk Wilms tumor cohort with matched tumor-normal profiling,
+    including gene expression, copy number, methylation, whole genome sequencing,
+    and subset mRNA-seq, miRNA-seq, and whole exome sequencing.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MULTI_OMICS
+  sample_types:
+  - preferred_term: Wilms tumor tissue
+    tissue_term:
+      preferred_term: kidney
+      term:
+        id: UBERON:0002113
+        label: kidney
+  sample_count: 130
+  conditions:
+  - high-risk Wilms tumor
+  - anaplastic Wilms tumor
+  - relapsed favorable histology Wilms tumor
+  notes: &gt;-
+    dbGaP describes 130 fully characterized high-risk Wilms tumor cases with
+    tumor-normal pairs, selected largely from anaplastic tumors or favorable
+    histology tumors that relapsed.
+clinical_trials:
+- name: NCT05985161
+  phase: PHASE_II
+  description: &gt;-
+    Multi-center phase II study of selinexor in recurrent or refractory Wilms
+    tumor and other pediatric solid tumors, including a dedicated Wilms tumor
+    cohort.
+  evidence:
+  - reference: clinicaltrials:NCT05985161
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The purpose of this study is to find out whether selinexor is an effective
+      treatment for people who have a relapsed/refractory Wilms tumor, rhabdoid
+      tumor, MPNST, or another solid tumor that makes a higher than normal amount
+      of XPO1 or has genetic changes that increase the activity of XP01.
+    explanation: &gt;-
+      Supports a Wilms-specific phase II selinexor clinical trial for recurrent
+      or refractory disease.
 </pre>
             </div>
         </div>

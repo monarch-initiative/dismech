@@ -6,6 +6,7 @@ kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
 ref_validator_config := "conf/reference_validator_config.yaml"
+mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
 
@@ -260,9 +261,9 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation + modules + deep-research report checks)
+# Run all QC checks (cache contract + validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all validate-modules qc-deep-research
+qc: check-reference-cache-frontmatter validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -364,7 +365,26 @@ gen-dashboard:
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
     uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    just gen-priority-dashboard
     echo "Dashboard generated in dashboard/"
+
+# Generate MONDO curation priority dashboard
+[group('QC')]
+gen-priority-dashboard candidates='examples/mondo_prioritizer_candidates.tsv' config='conf/mondo_prioritizer.yaml':
+    uv run python scripts/generate_priority_dashboard.py --candidates {{candidates}} --kb-dir {{kb_dir}} --config {{config}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    echo "Priority dashboard generated in dashboard/"
+
+# Generate a local-only all-MONDO priority dashboard under tmp/ (gitignored)
+[group('QC')]
+gen-priority-dashboard-all-mondo:
+    #!/usr/bin/env bash
+    set -e
+    out_dir="tmp/priority-dashboard-all-mondo"
+    mkdir -p "$out_dir"
+    uv run python scripts/export_mondo_priority_candidates.py --mondo-db {{mondo_db}} --output "$out_dir"/all_mondo_candidates.tsv --kb-dir {{kb_dir}}
+    uv run python scripts/generate_priority_dashboard.py --candidates "$out_dir"/all_mondo_candidates.tsv --kb-dir {{kb_dir}} --config conf/mondo_prioritizer.yaml --dashboard-dir "$out_dir" --dashboard-index "$out_dir"/index.html
+    echo "Local-only all-MONDO priority dashboard generated at $out_dir/priority.html"
+    echo "Outputs are under tmp/ and are gitignored; do not commit them."
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
@@ -372,6 +392,13 @@ gen-dashboard:
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Deterministically validate reference cache frontmatter against the
+# linkml-reference-validator cache contract before the heavier data validators.
+[group('QC')]
+check-reference-cache-frontmatter:
+    @just fix-references-cache
+    uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -433,6 +460,11 @@ fix-references-cache:
             new_lines.append(line)
         if modified:
             md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+
+# Run browser search tests (JavaScript, uses Node.js + MiniSearch)
+[group('QC')]
+test-search:
+    node --test tests/js/*.test.mjs
 
 # Run pytest tests (with verbose output)
 [group('QC')]

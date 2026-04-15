@@ -1716,6 +1716,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
     };
@@ -1727,6 +1728,7 @@
         treatment: "Treatments",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        computational_model: "Computational Models",
         orphan: "Orphan"
     };
     var NODE_STROKE = {
@@ -1737,6 +1739,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        computational_model: "#65a30d",
         orphan: "#dc2626"
     };
     var NODE_TYPE_ICONS = {
@@ -1747,6 +1750,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        computational_model: "🧮",
         orphan: "?"
     };
     var EXPERIMENTAL_MODEL_TYPE_ICONS = {
@@ -1770,6 +1774,9 @@
         if (nodeData && nodeData.node_type === "experimental_model") {
             var modelType = nodeData.meta && nodeData.meta.model_type;
             return getModelTypeIcon(modelType);
+        }
+        if (nodeData && nodeData.node_type === "computational_model") {
+            return NODE_TYPE_ICONS.computational_model;
         }
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
@@ -2024,6 +2031,17 @@
 
         /* -- Tooltip -- */
         function showTooltip(event, n) {
+            function formatHistopathologyTerm(term) {
+                var display = term.preferred_term || term.name || term.term_label || term.term_id || "";
+                if (term.term_id && term.term_label && term.term_label !== display) {
+                    return display + ' -> ' + term.term_id + ' (' + term.term_label + ')';
+                }
+                if (term.term_id) {
+                    return display + ' -> ' + term.term_id;
+                }
+                return display;
+            }
+
             var html = [];
             var nodeIcon = getNodeIcon(n);
             html.push('<div class="tt-title">' + (nodeIcon ? escapeHtml(nodeIcon) + ' ' : '') + escapeHtml(n.id) + '</div>');
@@ -2040,6 +2058,7 @@
             if (meta.biological_processes && meta.biological_processes.length) metaParts.push('<span>Processes: ' + escapeHtml(meta.biological_processes.join(", ")) + '</span>');
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2047,7 +2066,9 @@
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
             if (meta.therapeutic_agents && meta.therapeutic_agents.length) metaParts.push('<span>Agents: ' + escapeHtml(meta.therapeutic_agents.join(", ")) + '</span>');
             if (meta.dietary_modifications && meta.dietary_modifications.length) metaParts.push('<span>Diet: ' + escapeHtml(meta.dietary_modifications.join(", ")) + '</span>');
-            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(getModelTypeIcon(meta.model_type) + ' ' + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_type) metaParts.push('<span>Model type: ' + escapeHtml(((n.node_type === "experimental_model" ? getModelTypeIcon(meta.model_type) + ' ' : '')) + humanizeEnum(meta.model_type)) + '</span>');
+            if (meta.model_software) metaParts.push('<span>Software: ' + escapeHtml(meta.model_software) + '</span>');
+            if (meta.model_format) metaParts.push('<span>Format: ' + escapeHtml(meta.model_format) + '</span>');
             if (meta.namo_type) metaParts.push('<span>NAMO: ' + escapeHtml(meta.namo_type) + '</span>');
             if (meta.conditions && meta.conditions.length) metaParts.push('<span>Conditions: ' + escapeHtml(meta.conditions.join(", ")) + '</span>');
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
@@ -2056,6 +2077,11 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.histopathology_terms && meta.histopathology_terms.length) {
+                metaParts.push(
+                    '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
+                );
+            }
             if (metaParts.length) html.push('<div class="tt-meta">' + metaParts.join("") + '</div>');
 
             /* Linked experimental models */
@@ -2077,6 +2103,29 @@
                 });
                 modelHtml += '</div>';
                 html.push(modelHtml);
+            }
+
+            if (meta.computational_models && meta.computational_models.length) {
+                var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
+                meta.computational_models.forEach(function(model) {
+                    compHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    compHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml((NODE_TYPE_ICONS.computational_model || "") + ' ' + model.name) + '</span>';
+                    if (model.model_type) {
+                        compHtml += ' <span style="color:#4d7c0f; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.model_type)) + '</span>';
+                    }
+                    if (model.model_software) {
+                        compHtml += ' <span style="color:#6b7280;">' + escapeHtml(model.model_software) + '</span>';
+                    }
+                    if (model.description) {
+                        compHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    compHtml += '</div>';
+                });
+                compHtml += '</div>';
+                html.push(compHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2436,6 +2485,863 @@
 
         <!-- References -->
         
+        <div class="card reference-card" id="references">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">📚</div>
+                <h2 class="card-title">References</h2>
+                <span class="card-count">14</span>
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1007/s10689-021-00247-z" target="_blank">DOI:10.1007/s10689-021-00247-z</a>
+                        </div>
+                        
+                        <div class="reference-title">Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)</div>
+            
+            
+            <div class="reference-finding-supporting">"Gorlin syndrome (MIM 109,400), a cancer predisposition syndrome related to a constitutional pathogenic variation (PV) of a gene in the Sonic Hedgehog pathway (PTCH1 or SUFU), is associated with a broad spectrum of benign and malignant tumors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1007/s10689-021-00247-z" target="_blank">DOI:10.1007/s10689-021-00247-z</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gorlin syndrome (MIM 109,400), a cancer predisposition syndrome related to a constitutional pathogenic variation (PV) of a gene in the Sonic Hedgehog pathway (PTCH1 or SUFU), is associated with a broad spectrum of benign and malignant tumors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/b978-0-444-62702-5.00008-1" target="_blank">DOI:10.1016/b978-0-444-62702-5.00008-1</a>
+                        </div>
+                        
+                        <div class="reference-title">Basal cell nevus syndrome or Gorlin syndrome</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Basal cell nevus syndrome or Gorlin syndrome</div>
+            
+            
+            <div class="reference-finding-supporting">"Basal cell nevus syndrome or Gorlin syndrome"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1016/j.pathophys.2017.12.004" target="_blank">DOI:10.1016/j.pathophys.2017.12.004</a>
+                        </div>
+                        
+                        <div class="reference-title">Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones</div>
+            
+            
+            <div class="reference-finding-supporting">"Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1093/neuonc/nox228" target="_blank">DOI:10.1093/neuonc/nox228</a>
+                        </div>
+                        
+                        <div class="reference-title">Germline &lt;i&gt;SUFU&lt;/i&gt; mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Germline mutations of suppressor of fused homolog (SUFU) predispose to sonic hedgehog (SHH) medulloblastoma.</div>
+            
+            
+            <div class="reference-finding-supporting">"Germline mutations of suppressor of fused homolog (SUFU) predispose to sonic hedgehog (SHH) medulloblastoma."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/neuonc/nox228" target="_blank">DOI:10.1093/neuonc/nox228</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Germline mutations of suppressor of fused homolog (SUFU) predispose to sonic hedgehog (SHH) medulloblastoma."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1111/bjd.15835" target="_blank">DOI:10.1111/bjd.15835</a>
+                        </div>
+                        
+                        <div class="reference-title">Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome</div>
+            
+            
+            <div class="reference-finding-supporting">"Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome"</div>
+            
+            
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-17-0595" target="_blank">DOI:10.1158/1078-0432.ccr-17-0595</a>
+                        </div>
+                        
+                        <div class="reference-title">Cancer Surveillance in Gorlin Syndrome and Rhabdoid Tumor Predisposition Syndrome</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gorlin syndrome and rhabdoid tumor predisposition syndrome (RTPS) are autosomal dominant syndromes associated with an increased risk of childhood-onset brain tumors.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gorlin syndrome and rhabdoid tumor predisposition syndrome (RTPS) are autosomal dominant syndromes associated with an increased risk of childhood-onset brain tumors."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-17-0595" target="_blank">DOI:10.1158/1078-0432.ccr-17-0595</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gorlin syndrome and rhabdoid tumor predisposition syndrome (RTPS) are autosomal dominant syndromes associated with an increased risk of childhood-onset brain tumors."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-4033" target="_blank">DOI:10.1158/1078-0432.ccr-23-4033</a>
+                        </div>
+                        
+                        <div class="reference-title">Update on Cancer Predisposition Syndromes and Surveillance Guidelines for Childhood Brain Tumors</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Tumors of the central nervous system (CNS) comprise the second most common group of neoplasms in childhood.</div>
+            
+            
+            <div class="reference-finding-supporting">"Tumors of the central nervous system (CNS) comprise the second most common group of neoplasms in childhood."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1158/1078-0432.ccr-23-4033" target="_blank">DOI:10.1158/1078-0432.ccr-23-4033</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Tumors of the central nervous system (CNS) comprise the second most common group of neoplasms in childhood."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1159/000535407" target="_blank">DOI:10.1159/000535407</a>
+                        </div>
+                        
+                        <div class="reference-title">Further Expanding the Mutational Spectrum of Gorlin Syndrome in Three Unrelated Families</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gorlin syndrome is a rare, autosomal dominant multi-systemic disorder with a predisposition to the development of cancers such as medulloblastoma and nevoid basal cell carcinoma.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gorlin syndrome is a rare, autosomal dominant multi-systemic disorder with a predisposition to the development of cancers such as medulloblastoma and nevoid basal cell carcinoma."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1159/000535407" target="_blank">DOI:10.1159/000535407</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gorlin syndrome is a rare, autosomal dominant multi-systemic disorder with a predisposition to the development of cancers such as medulloblastoma and nevoid basal cell carcinoma."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.1186/s13023-019-1190-6" target="_blank">DOI:10.1186/s13023-019-1190-6</a>
+                        </div>
+                        
+                        <div class="reference-title">Ocular manifestations in Gorlin-Goltz syndrome</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gorlin-Goltz syndrome, also known as nevoid basal cell carcinoma syndrome, is a rare genetic disorder that is transmitted in an autosomal dominant manner with complete penetrance and variable expressivity.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gorlin-Goltz syndrome, also known as nevoid basal cell carcinoma syndrome, is a rare genetic disorder that is transmitted in an autosomal dominant manner with complete penetrance and variable expressivity."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1186/s13023-019-1190-6" target="_blank">DOI:10.1186/s13023-019-1190-6</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gorlin-Goltz syndrome, also known as nevoid basal cell carcinoma syndrome, is a rare genetic disorder that is transmitted in an autosomal dominant manner with complete penetrance and variable expressivity."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/biomedicines12020330" target="_blank">DOI:10.3390/biomedicines12020330</a>
+                        </div>
+                        
+                        <div class="reference-title">Detection of PTCH1 Copy-Number Variants in Mosaic Basal Cell Nevus Syndrome</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Basal cell nevus syndrome (BCNS) is an inherited disorder characterized mainly by the development of basal cell carcinomas (BCCs) at an early age.</div>
+            
+            
+            <div class="reference-finding-supporting">"Basal cell nevus syndrome (BCNS) is an inherited disorder characterized mainly by the development of basal cell carcinomas (BCCs) at an early age."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biomedicines12020330" target="_blank">DOI:10.3390/biomedicines12020330</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Basal cell nevus syndrome (BCNS) is an inherited disorder characterized mainly by the development of basal cell carcinomas (BCCs) at an early age."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers13153870" target="_blank">DOI:10.3390/cancers13153870</a>
+                        </div>
+                        
+                        <div class="reference-title">Review of the Molecular Genetics of Basal Cell Carcinoma; Inherited Susceptibility, Somatic Mutations, and Targeted Therapeutics</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Basal cell carcinoma (BCC) is a significant public health concern, with more than 3 million cases occurring each year in the United States, and with an increasing incidence.</div>
+            
+            
+            <div class="reference-finding-supporting">"Basal cell carcinoma (BCC) is a significant public health concern, with more than 3 million cases occurring each year in the United States, and with an increasing incidence."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers13153870" target="_blank">DOI:10.3390/cancers13153870</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Basal cell carcinoma (BCC) is a significant public health concern, with more than 3 million cases occurring each year in the United States, and with an increasing incidence."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/cancers16122166" target="_blank">DOI:10.3390/cancers16122166</a>
+                        </div>
+                        
+                        <div class="reference-title">Gorlin Syndrome-Associated Basal Cell Carcinomas Treated with Vismodegib or Sonidegib: A Retrospective Study</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Nevoid basal cell carcinoma syndrome (NBCCS), also known as Gorlin syndrome (GS), is a genetic disorder characterized by the development of multiple cutaneous BCCs due to mutations in the hedgehog signaling pathway.</div>
+            
+            
+            <div class="reference-finding-supporting">"Nevoid basal cell carcinoma syndrome (NBCCS), also known as Gorlin syndrome (GS), is a genetic disorder characterized by the development of multiple cutaneous BCCs due to mutations in the hedgehog signaling pathway."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/cancers16122166" target="_blank">DOI:10.3390/cancers16122166</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Nevoid basal cell carcinoma syndrome (NBCCS), also known as Gorlin syndrome (GS), is a genetic disorder characterized by the development of multiple cutaneous BCCs due to mutations in the hedgehog signaling pathway."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/curroncol30100661" target="_blank">DOI:10.3390/curroncol30100661</a>
+                        </div>
+                        
+                        <div class="reference-title">Sustained Suppression of Gorlin Syndrome-Associated Basal Cell Carcinomas with Vismodegib or Sonidegib: A Case Series</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Nevoid basal-cell carcinoma syndrome (Gorlin syndrome) is characterized by numerous cutaneous basal cell carcinomas mediated by mutations in the hedgehog pathway.</div>
+            
+            
+            <div class="reference-finding-supporting">"Nevoid basal-cell carcinoma syndrome (Gorlin syndrome) is characterized by numerous cutaneous basal cell carcinomas mediated by mutations in the hedgehog pathway."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/curroncol30100661" target="_blank">DOI:10.3390/curroncol30100661</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Nevoid basal-cell carcinoma syndrome (Gorlin syndrome) is characterized by numerous cutaneous basal cell carcinomas mediated by mutations in the hedgehog pathway."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+            <div class="reference-entry">
+                <div class="reference-entry-header">
+                    <div>
+                        <div class="reference-curie">
+                            <a href="https://bioregistry.io/DOI:10.3390/ijms21207559" target="_blank">DOI:10.3390/ijms21207559</a>
+                        </div>
+                        
+                        <div class="reference-title">Gorlin Syndrome: Recent Advances in Genetic Testing and Molecular and Cellular Biological Research</div>
+                        
+                    </div>
+                    
+                    <span class="reference-summary">1 finding</span>
+                    
+                </div>
+                
+                
+    
+    <div class="reference-findings">
+        
+        <div class="reference-finding">
+            
+            <div class="reference-finding-statement">Gorlin syndrome is a skeletal disorder caused by a gain of function mutation in Hedgehog (Hh) signaling.</div>
+            
+            
+            <div class="reference-finding-supporting">"Gorlin syndrome is a skeletal disorder caused by a gain of function mutation in Hedgehog (Hh) signaling."</div>
+            
+            
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/ijms21207559" target="_blank">DOI:10.3390/ijms21207559</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Gorlin syndrome is a skeletal disorder caused by a gain of function mutation in Hedgehog (Hh) signaling."</div>
+                
+                
+                <div class="evidence-explanation">Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+        </div>
+        
+    </div>
+    
+    
+                
+            </div>
+            
+        </div>
+        
 
         <!-- Pathophysiology -->
         
@@ -2503,6 +3409,7 @@
                 
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -2557,6 +3464,7 @@
                 <div class="item-name">SMO-Targetable Dependence</div>
                 
                 <div class="item-desc">Because PTCH1 acts upstream of SMO, many PTCH1-driven lesions remain sensitive to SMO pathway inhibition, although response durability varies by secondary genomic context.</div>
+                
                 
                 
                 
@@ -3050,17 +3958,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Vismodegib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         vismodegib
@@ -3132,17 +4049,26 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Sonidegib
-                    
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000058" target="_blank">
-                            MAXO:0000058
-                        </a>
-                    </span>
-                    
                 </div>
                 
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Drug:</strong>
+                    
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">pharmacotherapy</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000058" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000058</a>
+                    
+                    
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
                     
                     <span class="tag tag-treatment">
                         sonidegib
@@ -3196,14 +4122,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Surgical Excision
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000004" target="_blank">
-                            MAXO:0000004
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">surgical procedure</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000004" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000004</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3248,14 +4183,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Sunlight Avoidance
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000055" target="_blank">
-                            MAXO:0000055
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">sunlight avoidance</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000055" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000055</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3300,14 +4244,23 @@
             <div class="item-box treatment-box">
                 <div class="item-name">
                     Genetic Counseling
+                </div>
+                
+                <div class="item-meta">
                     
-                    <span class="phenotype-id">
-                        <a href="https://bioregistry.io/MAXO:0000079" target="_blank">
-                            MAXO:0000079
-                        </a>
-                    </span>
+                    
+                    
+                    
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">genetic counseling</span>
+                    
+                    
+                    <a href="https://bioregistry.io/MAXO:0000079" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">MAXO:0000079</a>
+                    
+                    
                     
                 </div>
+                
                 
                 
                 
@@ -3478,7 +4431,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: PTCH1-related nevoid basal cell carcinoma syndrome
 creation_date: &#39;2026-03-04T09:02:38Z&#39;
-updated_date: &#39;2026-03-05T03:00:54Z&#39;
+updated_date: &#39;2026-04-11T21:17:25Z&#39;
 description: &gt;-
   PTCH1-related nevoid basal cell carcinoma syndrome (basal cell nevus syndrome 1)
   is an autosomal dominant hereditary cancer predisposition syndrome caused by
@@ -3738,7 +4691,8 @@ treatments:
         label: vismodegib
 - name: Sonidegib
   description: &gt;-
-    Alternative SMO inhibitor for advanced BCC in patients requiring pathway-targeted therapy.
+    Alternative SMO inhibitor for advanced BCC in patients requiring pathway-targeted
+    therapy.
   evidence:
   - reference: PMID:37887561
     supports: PARTIAL
@@ -3816,6 +4770,182 @@ notes: &gt;-
   This entry captures the PTCH1-specific molecular route of Gorlin syndrome.
   Relative to SUFU-related disease, PTCH1-related disease more commonly shows
   high BCC and jaw cyst burden with lower medulloblastoma risk.
+references:
+- reference: DOI:10.1007/s10689-021-00247-z
+  title: &#39;Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)&#39;
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)&#39;
+    supporting_text: Gorlin syndrome (MIM 109,400), a cancer predisposition syndrome related to a constitutional pathogenic variation (PV) of a gene in the Sonic Hedgehog pathway (PTCH1 or SUFU), is associated with a broad spectrum of benign and malignant tumors.
+    evidence:
+    - reference: DOI:10.1007/s10689-021-00247-z
+      reference_title: &#39;Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gorlin syndrome (MIM 109,400), a cancer predisposition syndrome related to a constitutional pathogenic variation (PV) of a gene in the Sonic Hedgehog pathway (PTCH1 or SUFU), is associated with a broad spectrum of benign and malignant tumors.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.1016/b978-0-444-62702-5.00008-1
+  title: Basal cell nevus syndrome or Gorlin syndrome
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Basal cell nevus syndrome or Gorlin syndrome
+    supporting_text: Basal cell nevus syndrome or Gorlin syndrome
+- reference: DOI:10.1016/j.pathophys.2017.12.004
+  title: &#39;Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones&#39;
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: &#39;Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones&#39;
+    supporting_text: &#39;Basal cell nevus syndrome (Gorlin syndrome): genetic insights, diagnostic challenges, and unmet milestones&#39;
+- reference: DOI:10.1093/neuonc/nox228
+  title: &#39;Germline &lt;i&gt;SUFU&lt;/i&gt; mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis&#39;
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Germline mutations of suppressor of fused homolog (SUFU) predispose to sonic hedgehog (SHH) medulloblastoma.
+    supporting_text: Germline mutations of suppressor of fused homolog (SUFU) predispose to sonic hedgehog (SHH) medulloblastoma.
+    evidence:
+    - reference: DOI:10.1093/neuonc/nox228
+      reference_title: &#39;Germline &lt;i&gt;SUFU&lt;/i&gt; mutation carriers and medulloblastoma: clinical characteristics, cancer risk, and prognosis&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Germline mutations of suppressor of fused homolog (SUFU) predispose to sonic hedgehog (SHH) medulloblastoma.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.1111/bjd.15835
+  title: Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome
+    supporting_text: Novel clinical and molecular findings in Spanish patients with naevoid basal cell carcinoma syndrome
+- reference: DOI:10.1158/1078-0432.ccr-17-0595
+  title: Cancer Surveillance in Gorlin Syndrome and Rhabdoid Tumor Predisposition Syndrome
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Gorlin syndrome and rhabdoid tumor predisposition syndrome (RTPS) are autosomal dominant syndromes associated with an increased risk of childhood-onset brain tumors.
+    supporting_text: Gorlin syndrome and rhabdoid tumor predisposition syndrome (RTPS) are autosomal dominant syndromes associated with an increased risk of childhood-onset brain tumors.
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-17-0595
+      reference_title: Cancer Surveillance in Gorlin Syndrome and Rhabdoid Tumor Predisposition Syndrome
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: Gorlin syndrome and rhabdoid tumor predisposition syndrome (RTPS) are autosomal dominant syndromes associated with an increased risk of childhood-onset brain tumors.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.1158/1078-0432.ccr-23-4033
+  title: Update on Cancer Predisposition Syndromes and Surveillance Guidelines for Childhood Brain Tumors
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Tumors of the central nervous system (CNS) comprise the second most common group of neoplasms in childhood.
+    supporting_text: Tumors of the central nervous system (CNS) comprise the second most common group of neoplasms in childhood.
+    evidence:
+    - reference: DOI:10.1158/1078-0432.ccr-23-4033
+      reference_title: Update on Cancer Predisposition Syndromes and Surveillance Guidelines for Childhood Brain Tumors
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Tumors of the central nervous system (CNS) comprise the second most common group of neoplasms in childhood.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.1159/000535407
+  title: Further Expanding the Mutational Spectrum of Gorlin Syndrome in Three Unrelated Families
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Gorlin syndrome is a rare, autosomal dominant multi-systemic disorder with a predisposition to the development of cancers such as medulloblastoma and nevoid basal cell carcinoma.
+    supporting_text: Gorlin syndrome is a rare, autosomal dominant multi-systemic disorder with a predisposition to the development of cancers such as medulloblastoma and nevoid basal cell carcinoma.
+    evidence:
+    - reference: DOI:10.1159/000535407
+      reference_title: Further Expanding the Mutational Spectrum of Gorlin Syndrome in Three Unrelated Families
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gorlin syndrome is a rare, autosomal dominant multi-systemic disorder with a predisposition to the development of cancers such as medulloblastoma and nevoid basal cell carcinoma.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.1186/s13023-019-1190-6
+  title: Ocular manifestations in Gorlin-Goltz syndrome
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Gorlin-Goltz syndrome, also known as nevoid basal cell carcinoma syndrome, is a rare genetic disorder that is transmitted in an autosomal dominant manner with complete penetrance and variable expressivity.
+    supporting_text: Gorlin-Goltz syndrome, also known as nevoid basal cell carcinoma syndrome, is a rare genetic disorder that is transmitted in an autosomal dominant manner with complete penetrance and variable expressivity.
+    evidence:
+    - reference: DOI:10.1186/s13023-019-1190-6
+      reference_title: Ocular manifestations in Gorlin-Goltz syndrome
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gorlin-Goltz syndrome, also known as nevoid basal cell carcinoma syndrome, is a rare genetic disorder that is transmitted in an autosomal dominant manner with complete penetrance and variable expressivity.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.3390/biomedicines12020330
+  title: Detection of PTCH1 Copy-Number Variants in Mosaic Basal Cell Nevus Syndrome
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Basal cell nevus syndrome (BCNS) is an inherited disorder characterized mainly by the development of basal cell carcinomas (BCCs) at an early age.
+    supporting_text: Basal cell nevus syndrome (BCNS) is an inherited disorder characterized mainly by the development of basal cell carcinomas (BCCs) at an early age.
+    evidence:
+    - reference: DOI:10.3390/biomedicines12020330
+      reference_title: Detection of PTCH1 Copy-Number Variants in Mosaic Basal Cell Nevus Syndrome
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Basal cell nevus syndrome (BCNS) is an inherited disorder characterized mainly by the development of basal cell carcinomas (BCCs) at an early age.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.3390/cancers13153870
+  title: Review of the Molecular Genetics of Basal Cell Carcinoma; Inherited Susceptibility, Somatic Mutations, and Targeted Therapeutics
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Basal cell carcinoma (BCC) is a significant public health concern, with more than 3 million cases occurring each year in the United States, and with an increasing incidence.
+    supporting_text: Basal cell carcinoma (BCC) is a significant public health concern, with more than 3 million cases occurring each year in the United States, and with an increasing incidence.
+    evidence:
+    - reference: DOI:10.3390/cancers13153870
+      reference_title: Review of the Molecular Genetics of Basal Cell Carcinoma; Inherited Susceptibility, Somatic Mutations, and Targeted Therapeutics
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Basal cell carcinoma (BCC) is a significant public health concern, with more than 3 million cases occurring each year in the United States, and with an increasing incidence.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.3390/cancers16122166
+  title: &#39;Gorlin Syndrome-Associated Basal Cell Carcinomas Treated with Vismodegib or Sonidegib: A Retrospective Study&#39;
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Nevoid basal cell carcinoma syndrome (NBCCS), also known as Gorlin syndrome (GS), is a genetic disorder characterized by the development of multiple cutaneous BCCs due to mutations in the hedgehog signaling pathway.
+    supporting_text: Nevoid basal cell carcinoma syndrome (NBCCS), also known as Gorlin syndrome (GS), is a genetic disorder characterized by the development of multiple cutaneous BCCs due to mutations in the hedgehog signaling pathway.
+    evidence:
+    - reference: DOI:10.3390/cancers16122166
+      reference_title: &#39;Gorlin Syndrome-Associated Basal Cell Carcinomas Treated with Vismodegib or Sonidegib: A Retrospective Study&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Nevoid basal cell carcinoma syndrome (NBCCS), also known as Gorlin syndrome (GS), is a genetic disorder characterized by the development of multiple cutaneous BCCs due to mutations in the hedgehog signaling pathway.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.3390/curroncol30100661
+  title: &#39;Sustained Suppression of Gorlin Syndrome-Associated Basal Cell Carcinomas with Vismodegib or Sonidegib: A Case Series&#39;
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Nevoid basal-cell carcinoma syndrome (Gorlin syndrome) is characterized by numerous cutaneous basal cell carcinomas mediated by mutations in the hedgehog pathway.
+    supporting_text: Nevoid basal-cell carcinoma syndrome (Gorlin syndrome) is characterized by numerous cutaneous basal cell carcinomas mediated by mutations in the hedgehog pathway.
+    evidence:
+    - reference: DOI:10.3390/curroncol30100661
+      reference_title: &#39;Sustained Suppression of Gorlin Syndrome-Associated Basal Cell Carcinomas with Vismodegib or Sonidegib: A Case Series&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Nevoid basal-cell carcinoma syndrome (Gorlin syndrome) is characterized by numerous cutaneous basal cell carcinomas mediated by mutations in the hedgehog pathway.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
+- reference: DOI:10.3390/ijms21207559
+  title: &#39;Gorlin Syndrome: Recent Advances in Genetic Testing and Molecular and Cellular Biological Research&#39;
+  found_in:
+  - PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome-deep-research-falcon.md
+  findings:
+  - statement: Gorlin syndrome is a skeletal disorder caused by a gain of function mutation in Hedgehog (Hh) signaling.
+    supporting_text: Gorlin syndrome is a skeletal disorder caused by a gain of function mutation in Hedgehog (Hh) signaling.
+    evidence:
+    - reference: DOI:10.3390/ijms21207559
+      reference_title: &#39;Gorlin Syndrome: Recent Advances in Genetic Testing and Molecular and Cellular Biological Research&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: Gorlin syndrome is a skeletal disorder caused by a gain of function mutation in Hedgehog (Hh) signaling.
+      explanation: Deep research cited this publication as relevant literature for PTCH1-related Nevoid Basal Cell Carcinoma Syndrome.
 </pre>
             </div>
         </div>
