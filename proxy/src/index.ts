@@ -6,57 +6,10 @@
  */
 
 /**
- * Minimal ZIP extraction — finds a .md file in a ZIP archive.
- * Supports only STORE (no compression) and DEFLATE methods.
+ * Extracts a .md file from a ZIP archive.
+ * Supports STORE (no compression) and DEFLATE methods.
  * Prefers files with "report" in the name, falls back to any .md.
  */
-function extractMarkdownFromZip(data: Uint8Array): string | null {
-  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  const entries: { name: string; offset: number; compSize: number; uncompSize: number; method: number }[] = [];
-
-  // Scan for local file headers (PK\x03\x04)
-  for (let i = 0; i < data.length - 30; i++) {
-    if (data[i] === 0x50 && data[i + 1] === 0x4b && data[i + 2] === 0x03 && data[i + 3] === 0x04) {
-      const method = view.getUint16(i + 8, true);
-      const compSize = view.getUint32(i + 18, true);
-      const uncompSize = view.getUint32(i + 22, true);
-      const nameLen = view.getUint16(i + 26, true);
-      const extraLen = view.getUint16(i + 28, true);
-      const name = new TextDecoder().decode(data.subarray(i + 30, i + 30 + nameLen));
-      const dataOffset = i + 30 + nameLen + extraLen;
-
-      if (name.endsWith(".md")) {
-        entries.push({ name, offset: dataOffset, compSize, uncompSize, method });
-      }
-      // Skip past this entry
-      i = dataOffset + compSize - 1;
-    }
-  }
-
-  if (entries.length === 0) return null;
-
-  // Prefer files with "report" in the name
-  const target = entries.find(e => e.name.toLowerCase().includes("report")) || entries[0];
-
-  if (target.method === 0) {
-    // STORE — no compression
-    const raw = data.subarray(target.offset, target.offset + target.uncompSize);
-    return new TextDecoder("utf-8").decode(raw);
-  }
-
-  if (target.method === 8) {
-    // DEFLATE — use DecompressionStream (available in Workers)
-    const compressed = data.subarray(target.offset, target.offset + target.compSize);
-    // Synchronous inflate via DecompressionStream isn't available, use raw-deflate workaround
-    // Workers support DecompressionStream but it's stream-based. Use a simpler approach:
-    // Wrap in a Response and decompress via the stream API
-    return null; // Fall through — will be handled by the async version below
-  }
-
-  return null;
-}
-
-/** Async version that handles DEFLATE via DecompressionStream */
 async function extractMarkdownFromZipAsync(data: Uint8Array): Promise<string | null> {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const entries: { name: string; offset: number; compSize: number; uncompSize: number; method: number }[] = [];
@@ -68,8 +21,12 @@ async function extractMarkdownFromZipAsync(data: Uint8Array): Promise<string | n
       const uncompSize = view.getUint32(i + 22, true);
       const nameLen = view.getUint16(i + 26, true);
       const extraLen = view.getUint16(i + 28, true);
-      const name = new TextDecoder().decode(data.subarray(i + 30, i + 30 + nameLen));
       const dataOffset = i + 30 + nameLen + extraLen;
+
+      // Bounds check: skip malformed entries
+      if (dataOffset + compSize > data.length) break;
+
+      const name = new TextDecoder().decode(data.subarray(i + 30, i + 30 + nameLen));
 
       if (name.endsWith(".md")) {
         entries.push({ name, offset: dataOffset, compSize, uncompSize, method });
@@ -138,6 +95,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 const SLUG_RE = /^[a-zA-Z0-9_-]{1,100}$/;
+const MONDO_RE = /^MONDO:\d{7}$/;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -298,6 +256,12 @@ async function handleSubmitJob(
   }
   if (!disease_name || typeof disease_name !== "string") {
     return jsonResponse({ error: "disease_name is required" }, 400, origin);
+  }
+  if (disease_name.length > 200 || /[\r\n]/.test(disease_name)) {
+    return jsonResponse({ error: "Invalid disease_name" }, 400, origin);
+  }
+  if (mondo_id && typeof mondo_id === "string" && !MONDO_RE.test(mondo_id)) {
+    return jsonResponse({ error: "Invalid mondo_id format (expected MONDO:NNNNNNN)" }, 400, origin);
   }
   if (!question || typeof question !== "string") {
     return jsonResponse({ error: "question is required" }, 400, origin);
