@@ -4377,6 +4377,85 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "arrhythmogenic right ventricular cardiomyopathy",
+    "disease_id": "MONDO:0016587",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "cardiomyopathy"
+    ],
+    "creation_date": "2026-04-14T12:00:00Z",
+    "updated_date": "2026-04-15T10:15:00Z",
+    "subtypes": [],
+    "description": "Arrhythmogenic right ventricular cardiomyopathy is a hereditary cardiomyopathy characterized by ventricular arrhythmias, right ventricular and sometimes left ventricular dysfunction, and progressive fibrofatty replacement of cardiomyocytes. The disease is most often driven by defects in desmosomal adhesion proteins at the cardiomyocyte intercalated disc, causing mechanical uncoupling, electrical conduction abnormalities, and an arrhythmogenic substrate that can lead to syncope or sudden cardiac death.",
+    "pathophysiology": [
+      "Desmosomal adhesion failure",
+      "Gap junction uncoupling",
+      "Sodium-channel redistribution and conduction slowing",
+      "Fibrofatty replacement of cardiomyocytes"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "fibroblast of cardiac tissue"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "cell-cell adhesion",
+      "cell-cell signaling",
+      "transmembrane transport",
+      "tissue remodeling"
+    ],
+    "phenotypes": [
+      "Ventricular tachycardia",
+      "Syncope",
+      "Right ventricular dilatation",
+      "T-wave inversion",
+      "Sudden cardiac death",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004756",
+      "HP:0001279",
+      "HP:0005133",
+      "HP:0010872",
+      "HP:0001645",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PKP2",
+      "Desmosomal gene spectrum"
+    ],
+    "treatments": [
+      "Implantable cardioverter-defibrillator placement",
+      "Antiarrhythmic pharmacotherapy",
+      "Catheter ablation"
+    ],
+    "environmental": [
+      "Competitive and endurance sports"
+    ],
+    "biochemical": [],
+    "source_file": "Arrhythmogenic_Right_Ventricular_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/arrhythmogenic_right_ventricular_cardiomyopathy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Arsenic Poisoning",
     "disease_id": null,
     "category": "Environmental",
@@ -64070,6 +64149,80 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "angioosteohypertrophic syndrome",
+    "disease_id": "MONDO:0007864",
+    "category": "Genetic",
+    "parents": [
+      "vascular malformation syndrome",
+      "overgrowth syndrome"
+    ],
+    "creation_date": "2026-04-14T12:05:00Z",
+    "updated_date": "2026-04-15T01:00:00Z",
+    "subtypes": [],
+    "description": "Angioosteohypertrophic syndrome is a congenital vascular malformation and overgrowth disorder, often overlapping clinically with Klippel-Trenaunay syndrome. The disease is characterized by capillary-lymphatic-venous malformation of an extremity together with enlarged veins and segmental soft tissue or bony overgrowth. Many affected individuals harbor somatic mosaic activating PIK3CA mutations within affected tissue.",
+    "pathophysiology": [
+      "Somatic PIK3CA activation in malformed tissue",
+      "Activated PI3K/mTOR signaling",
+      "Abnormal endothelial growth and sprouting",
+      "Capillary-venous malformation burden",
+      "Segmental limb overgrowth"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "phosphatidylinositol-mediated signaling",
+      "angiogenesis"
+    ],
+    "phenotypes": [
+      "Nevus flammeus",
+      "Limb hypertrophy",
+      "Localized pain",
+      "Varicose veins"
+    ],
+    "phenotype_categories": [
+      "Skin",
+      "Musculoskeletal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001052",
+      "HP:0001548",
+      "HP:0012531",
+      "HP:0002619"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PIK3CA"
+    ],
+    "treatments": [
+      "Surgical treatment of symptomatic venous malformations",
+      "PI3K/mTOR inhibitor pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "angioosteohypertrophic_syndrome.yaml",
+    "page_url": "../pages/disorders/angioosteohypertrophic_syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "capillary leak syndrome",
     "disease_id": "MONDO:0001956",
     "category": "Complex",
@@ -64398,11 +64551,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 708,
-  "total_unique_evidence_sources": 11735,
+  "total_disorder_pages": 710,
+  "total_unique_evidence_sources": 11739,
   "total_unique_disease_categories": 35,
-  "total_unique_phenotype_categories": 141,
-  "total_pathographs": 699,
-  "total_unique_pathological_events": 3089
+  "total_unique_phenotype_categories": 142,
+  "total_pathographs": 701,
+  "total_unique_pathological_events": 3098
 };
 window.dispatchEvent(new Event('searchDataReady'));
