@@ -609,6 +609,18 @@ just validate kb/disorders/MyDisease.yaml
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
+**Deterministic cache contract check (dismech#871):**
+`just check-reference-cache-frontmatter` validates that every
+`references_cache/*.md` file has parseable YAML frontmatter matching the local
+`linkml-reference-validator` cache contract and filename/reference_id mapping.
+It runs as part of `just qc` before the heavier validators. This is still only
+a structural check — `validate-references` remains the last defence against a
+snippet matching the wrong cached paper.
+
+**Agent guardrail:** Claude Code and Codex must never create or hand-edit
+`references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
+with `just fetch-reference <ID>` instead of patching the frontmatter manually.
+
 ## Git Best Practices
 
 ### What to commit
