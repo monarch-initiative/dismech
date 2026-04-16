@@ -48,7 +48,9 @@ def test_render_disorder_shows_top_level_references_with_findings(
     render_disorder(disorder_path, output_path=output_path)
     html = output_path.read_text()
 
-    assert '<div class="card reference-card" id="references">' in html
+    assert 'id="references-deep-research"' in html
+    assert 'id="references"' in html
+    assert "References &amp; Deep Research" in html
     assert f'href="{curie_to_url("PMID:3159974")}"' in html
     assert "Molecular basis of Down syndrome phenotypes." in html
     assert "Chromosome 21 triplication produces broad developmental effects." in html
@@ -83,5 +85,6 @@ def test_render_disorder_references_without_findings_show_empty_state(
     render_disorder(disorder_path, output_path=output_path)
     html = output_path.read_text()
 
+    assert 'id="references-deep-research"' in html
     assert "Down syndrome developmental review." in html
     assert "No top-level findings curated for this source." in html
