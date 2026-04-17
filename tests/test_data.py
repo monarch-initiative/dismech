@@ -183,6 +183,40 @@ def test_environmental_food_source_slot_accepts_chebi_nutrient(validator):
     assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
+def test_environmental_context_slot_accepts_built_environment_terms(validator):
+    """Environmental entries may annotate ENVO built-environment descendants."""
+    data = {
+        "name": "Test Disease",
+        "environmental": [
+            {
+                "name": "Healthcare-associated exposure",
+                "environment_context": {
+                    "preferred_term": "healthcare facility",
+                    "term": {
+                        "id": "ENVO:03501134",
+                        "label": "healthcare facility",
+                    },
+                },
+            },
+            {
+                "name": "Industrial workplace exposure",
+                "environment_context": {
+                    "preferred_term": "factory",
+                    "term": {
+                        "id": "ENVO:01000536",
+                        "label": "factory",
+                    },
+                },
+            },
+        ],
+    }
+
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
 def test_subtype_ncit_mappings_validate(validator):
     """Cancer subtype facets may carry MONDO/NCIT grounding without implying a local page."""
     data = {

@@ -1,0 +1,11 @@
+---
+reference_id: "clinicaltrials:NCT01003639"
+title: "A Multicenter, Double-blind, Randomized, Placebo-controlled Study of Weight-Reduction and/or Low Sodium Diet Plus Acetazolamide vs Diet Plus Placebo in Subjects With Idiopathic Intracranial Hypertension With Mild Visual Loss"
+content_type: summary
+---
+
+# A Multicenter, Double-blind, Randomized, Placebo-controlled Study of Weight-Reduction and/or Low Sodium Diet Plus Acetazolamide vs Diet Plus Placebo in Subjects With Idiopathic Intracranial Hypertension With Mild Visual Loss
+
+## Content
+
+Idiopathic intracranial hypertension (IIH), also called pseudotumor cerebri, is a disorder of elevated intracranial pressure of unknown cause \[Corbett, et al., 1982; Wall, et al., 1991\]. Its incidence is 22.5 new cases each year per 100,000 overweight women of childbearing age, and is rising \[Garrett, et al., 2004\] in parallel with the obesity epidemic. It affects about 100,000 Americans. Most patients suffer debilitating headaches. Because of pressure on the optic nerve (papilledema), 86% have some degree of permanent visual loss and 10% develop severe visual loss \[Wall, et al., 1991\]. Interventions to prevent loss of sight, all with unproven efficacy, include diet, diuretics such as acetazolamide, repeated spinal taps, optic nerve sheath fenestration surgery, and cerebrospinal fluid (CSF) shunting procedures. The purported goal of these therapies is to lower intracranial pressure; however, it is unclear which treatments work and by what mechanism. None of these strategies has been verified by properly designed clinical trials. Thus, there is confusion, uncertainty, and weak scientific rationales to guide treatment decisions. This trial will study subjects who have mild visual loss from IIH to (1) establish convincing, evidence-based treatment strategies for IIH to restore and protect vision, (2) follow subjects up to 4 years to observe the long-term treatment outcomes and (3) determine the cause of IIH. To meet those aims, the trial will be divided into a 12-month intervention phase and a 3-year observational phase. Subjects are not required to complete the observational phase of the study, but will be asked to do so and consented for the observational phase of the study at the conclusion of the intervention phase (12 months).
