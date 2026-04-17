@@ -223,6 +223,16 @@ validate-module file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# Audit the current merge commit or HEAD for protected-path merge outcomes
+[group('QC')]
+audit-protected-paths:
+    PYTHONPATH=src uv run python -m dismech.git_audit check-merge-commit HEAD
+
+# Survey first-parent history for protected-path merge outcomes
+[group('QC')]
+scan-protected-history since='2026-01-01':
+    PYTHONPATH=src uv run python -m dismech.git_audit scan-history --since {{since}}
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:
