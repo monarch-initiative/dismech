@@ -9,7 +9,7 @@ Scope:
 
 Primary references used:
 - PMID:11754051, *Acampomelic campomelic syndrome.*
-  - Used for: bowed long bones, bell-shaped thorax, 11 pairs of ribs, hypoplastic scapulae, sex reversal
+  - Used for: bowed long bones, bell-shaped thorax, 11 pairs of ribs, hypoplastic scapulae, narrow iliac wings, sex reversal
   - Key abstract language: characteristic skeletal phenotype list; "Campomelia (bowed limbs) is seen in most but not all patients"; "Sex reversal occurs in most patients with an XY karyotype"
 - PMID:20301724, *Campomelic Dysplasia.*
   - Used for: clubfoot, Pierre-Robin sequence, cleft palate, laryngotracheomalacia, ambiguous genitalia, female external genitalia in 46,XY individuals, short stature, cervical spine instability, scoliosis, hearing impairment
@@ -29,6 +29,10 @@ Frequency/onset decisions:
   - Rationale: PMID:11754051 states campomelia is seen in "most but not all patients"
 - `Respiratory Insufficiency`: added `phenotype_contexts` with `onset_category: NEONATAL`
   - Rationale: PMID:24800790 explicitly places respiratory insufficiency in the neonatal period
+  - Cleanup: removed the redundant top-level evidence item once the onset-qualified context was in place
+
+Ontology note:
+- `Narrow Iliac Wings` is modeled with `preferred_term: narrow iliac wings` linked to the broader HPO term `HP:0011867` (`Abnormal iliac wing morphology`) because HPO does not appear to provide a narrower exact label for this radiographic finding.
 
 Claims softened or constrained:
 - `Short Stature` was reframed as a finding of long-term survivors rather than a blanket statement for all affected individuals
