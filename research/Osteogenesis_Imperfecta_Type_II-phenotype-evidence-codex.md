@@ -7,7 +7,7 @@ PMID-backed phenotype set added or strengthened in `kb/disorders/Osteogenesis_Im
 - `HP:0005855` Multiple prenatal fractures: supported by prenatal type IIA case-series evidence (`PMID:9622170`).
 - `HP:0004349` Reduced bone mineral density: supported by the same prenatal series phrase describing diffuse hypomineralization (`PMID:9622170`).
 - `HP:0002983` Micromelia: supported by the original phenotype delineation of lethal OI type II (`PMID:6702894`).
-- `HP:0006367` Crumpled long bones: supported by abstract-level wording that all OI type II groups have wrinkled/crumpled long bones (`PMID:11400945`).
+- `HP:0006367` Crumpled long bones: supported by the original Sillence OI type II phenotype delineation (`PMID:6702894`).
 - `HP:0006640` Multiple rib fractures: chosen instead of obsolete `Beaded ribs`; abstract evidence explicitly ties rib beading to repeated fracturing (`PMID:11400945`).
 - `HP:0001591` Bell-shaped thorax: supported by prenatal CT in a genetically confirmed type II case (`PMID:37188488`).
 - `HP:0005474` Decreased calvarial ossification: supported by the same prenatal CT report (`PMID:37188488`).
