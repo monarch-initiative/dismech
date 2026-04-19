@@ -11,8 +11,8 @@ without broadening into a full-page rewrite.
 
 - `PMID:23401428`
   - Abstract support: severe rhizomelic shortening of the extremities, pectus excavatum, broad thumbs, brachydactyly, dislocated hips, bilateral talipes equinovarus.
-  - Abstract support: facial features included hypertelorism, cleft palate, and retromicrognathia.
-  - YAML use: `Rhizomelia`, `Talipes Equinovarus`, `Brachydactyly`, `Broad Thumb`, `Pectus Excavatum`, `Hypertelorism`, `Micrognathia`, `Cleft Palate`.
+  - Abstract support: facial features included proptosis, hypertelorism, downslanting palpebral fissures, cleft palate, and retromicrognathia.
+  - YAML use: `Rhizomelia`, `Talipes Equinovarus`, `Brachydactyly`, `Broad Thumb`, `Pectus Excavatum`, `Proptosis`, `Hypertelorism`, `Downslanting Palpebral Fissures`, `Micrognathia`, `Cleft Palate`.
 
 - `PMID:16752402`
   - Abstract support: vertebral abnormalities, disharmonious skeletal maturation, hypoplastic long bones, and joint dislocations in AOI/AOIII.
@@ -39,3 +39,4 @@ without broadening into a full-page rewrite.
 - Prefer phenotype terms already used elsewhere in the repo when they fit the literature cleanly.
 - Avoid adding `frequency` or structured `onset` because the AOI literature used here did not provide robust quantitative phenotype frequencies, and the phenotype evidence was mostly fetal/newborn case material rather than cohort-level onset summaries.
 - Soften wording for single-series findings by describing them as reported or documented rather than universal hallmarks.
+- Keep non-phenotype sections minimal in this issue-specific pass; treatment claims without direct treatment evidence were removed rather than supported indirectly with pathology snippets.
