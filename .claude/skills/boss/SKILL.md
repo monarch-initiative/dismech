@@ -201,6 +201,21 @@ tp send --wait dismech-curate-prpf31 "Also add HPO phenotype HP:0000556."
 tp send --wait --timeout 120 dismech-curate-prpf31 "continue"  # long-running
 ```
 
+#### Mandatory conflict rule for curation branches
+
+When steering a worker through a **rebase of a curation branch**, the conflict policy is strict:
+
+- The worker may keep its branch's version **only** for conflicts under `kb/`, `references_cache/`, `research/`, and `cache/`.
+- For **every other path** (`src/`, `proxy/`, `.github/`, `conf/`, `tests/`, `scripts/`, `project.justfile`, `pyproject.toml`, `CLAUDE.md`, etc.), the worker must take **main's version**.
+- If a conflict appears in an infrastructure file, the worker must **not** resolve it by keeping its own branch's version. A normal curation PR should not be changing those files.
+- If the worker intentionally changed infrastructure files and now needs to preserve them, that is **not a normal curation PR**. Stop treating it like one and escalate to the human or handle it as a different PR type.
+
+Use an explicit steer, not a vague "fix conflicts" message:
+
+```bash
+tp send --wait <name> "refresh the branch from origin/main safely: prefer rebase; for any conflict outside kb/, references_cache/, research/, and cache/, always take origin/main's version; only keep your branch's side for curation artifacts in those four paths; if you intentionally changed infrastructure files, stop and tell me because this is not a normal curation PR; then review git diff --name-status origin/main...HEAD and git diff --stat origin/main...HEAD before committing or pushing"
+```
+
 ### 5. Stuck-agent protocol
 
 Symptoms: `tp status` shows `error`, `interrupted`, or stuck on `running`/`unknown` for too long; `tp peek` shows a Codex trust prompt, repeated failure, or confusion. Note: brand-new repos and worktrees in Codex often pause at a trust prompt; sometimes Codex needs an extra Enter to advance.
@@ -239,10 +254,10 @@ Standard prod sequence:
 
 If the worker reports that the PR branch is in conflict, do **not** send a vague instruction like "merge `origin/main` and push".
 
-Use a specific instruction that treats the refresh as content-changing work:
+Use a specific instruction that treats the refresh as content-changing work and enforces the curation-branch conflict rule from step 4:
 
 ```bash
-tp send --wait <name> "refresh the branch from origin/main safely: prefer rebase; if too stale or messy, recreate from origin/main and cherry-pick only the intended commits; then review git diff --name-status origin/main...HEAD and git diff --stat origin/main...HEAD before committing or pushing"
+tp send --wait <name> "refresh the branch from origin/main safely: prefer rebase; if too stale or messy, recreate from origin/main and cherry-pick only the intended commits; for any conflict outside kb/, references_cache/, research/, and cache/, always take origin/main's version; only keep your branch's side for curation artifacts in those four paths; if you intentionally changed infrastructure files, stop and tell me because this is not a normal curation PR; then review git diff --name-status origin/main...HEAD and git diff --stat origin/main...HEAD before committing or pushing"
 ```
 
 If the worker reports merge/rebase/index errors or an unexplained post-refresh diff, stop and escalate to the human instead of pushing through.
@@ -254,6 +269,8 @@ tp ls --status done-ish                    # check the batch
 tp clean --status done-ish --dry-run       # preview
 tp clean --status done-ish --force         # remove sessions + worktrees
 ```
+
+Before any `tp clean`, verify the target session is **not your own boss/orchestrator session**.
 
 ## Command cheatsheet
 
@@ -282,11 +299,13 @@ Run `tp <command> --help` for full flag lists.
 | "I'll skip `--wait`, it's faster" | You'll race the prompt and lose input. Every send uses `--wait`. |
 | "PR is open, I'll mark it done-ish" | **No.** PR-opened is a milestone, not completion. Prod the worker to watch its own PR through claude-review approval + green CI. Only then done-ish. |
 | "I'll run `gh pr view` / `gh pr checks` myself" | No — delegate. `tp send --wait <name> "check the PR, address review feedback, fix failing checks"`. Boss orchestrates, worker executes. |
+| "This curation rebase conflicted in `src/` or `proxy/`, so I'll keep the branch's version" | No. On curation PRs, the branch may keep its own side only in `kb/`, `references_cache/`, `research/`, and `cache/`. Everything else must take main's version. |
 | "The user said 'in parallel', activate boss" | Only if they named boss / tp / tmux / external agents. Otherwise use `dispatching-parallel-agents`. |
 | "Worktree inside the repo is fine just this once" | No. Every agent needs an isolated worktree under `~/worktrees/`. Parallelism requires isolation — git only allows one worktree per branch, and agents step on each other if they share a checkout. |
 | "Two agents can share a worktree if they work on different files" | No. Shared worktree = shared git index, shared dirty state, shared branch. One agent per worktree. |
 | "Firing 5 `tp new` calls in parallel is faster" | Beware the parallel-cancellation gotcha — a timeout in one call can cancel sibling calls mid-flight, leaving a mix of created, partially-created, and missing sessions. After any parallel dispatch, run `tp ls` and re-dispatch the missing slugs sequentially. |
 | "The parallel `tp new` batch returned, so all 3 sessions exist" | No — always run `tp ls` after a batch. One timeout can cancel the others; some of those sibling sessions may exist, some may not, and the ones that do exist may have dropped their `--prompt`. |
+| "This session shows MERGED, I'll clean it" | Check that it is **not your own session first**. If you clean yourself, the user has to restart the entire orchestration context. |
 | "I should remind the worker about CLAUDE.md rules / validation / the right skill to use" | No. The worker inherits CLAUDE.md and all project skills automatically. One-line prompts only. |
 
 ## Related skills
