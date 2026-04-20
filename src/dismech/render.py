@@ -1016,7 +1016,7 @@ def render_disorder(
     disease_term_term = disease_term.get("term") or {}
     openscientist_proxy_url = os.environ.get(
         "OPENSCIENTIST_PROXY_URL",
-        "https://dismech-openscientist.workers.dev",
+        "https://dismech-openscientist.bbop.workers.dev",
     )
 
     html = template.render(
