@@ -32327,6 +32327,80 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "IRX5-related craniofacial dysostosis with osteopenia, intellectual disability, and dental anomalies",
+    "disease_id": "MONDO:0012634",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-04-16T19:30:15Z",
+    "updated_date": "2026-04-20T06:39:04Z",
+    "subtypes": [],
+    "description": "IRX5-related craniofacial dysostosis with osteopenia, intellectual disability, and dental anomalies is a very rare autosomal recessive developmental disorder in the Hamamy syndrome spectrum caused by biallelic deleterious variants in IRX5, which encodes the homeobox transcription factor IRX5. The syndrome combines distinctive craniofacial dysmorphism with dental enamel or dentin defects, osteopenia with bone fragility, severe myopia, and variable developmental delay or intellectual disability. Current mechanistic evidence supports impaired craniofacial progenitor migration via dysregulated SDF1/CXCL12 signaling together with defective osteogenic differentiation and cranial mineralization.",
+    "pathophysiology": [
+      "Biallelic IRX5 homeodomain dysfunction",
+      "Impaired cranial neural crest and branchial arch progenitor migration",
+      "Impaired osteoblast maturation and cranial mineralization"
+    ],
+    "cell_types": [
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "neural crest cell migration",
+      "osteoblast differentiation",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Hypertelorism",
+      "Brachycephaly",
+      "Osteopenia",
+      "Intellectual disability",
+      "Enamel hypoplasia",
+      "Dentinogenesis imperfecta",
+      "Sensorineural hearing impairment",
+      "High myopia"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Skeletal",
+      "Cognitive",
+      "Dental",
+      "Auditory",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000316",
+      "HP:0000248",
+      "HP:0000938",
+      "HP:0001249",
+      "HP:0006297",
+      "HP:0000703",
+      "HP:0000407",
+      "HP:0011003"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IRX5-related_Craniofacial_Dysostosis_with_Osteopenia_Intellectual_Disability_and_Dental_Anomalies.yaml",
+    "page_url": "../pages/disorders/IRX5-related_craniofacial_dysostosis_with_osteopenia,_intellectual_disability,_and_dental_anomalies.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 0,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "Idiopathic Pulmonary Fibrosis",
     "disease_id": "MONDO:0800504",
     "category": "Respiratory Disease",
@@ -38702,6 +38776,88 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "MCM9-related gametogenic failure",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of sex development",
+      "Primary ovarian insufficiency",
+      "Male infertility",
+      "Hereditary cancer predisposition syndrome"
+    ],
+    "creation_date": "2026-04-16T19:24:04Z",
+    "updated_date": "2026-04-20T06:45:37Z",
+    "subtypes": [],
+    "description": "MCM9-related gametogenic failure is a recessive DNA-repair disorder caused by biallelic pathogenic variants in MCM9. Reported manifestations include primary ovarian insufficiency or ovarian dysgenesis in 46,XX individuals, non-obstructive azoospermia with severe spermatogenic failure in 46,XY individuals, and an emerging predisposition to gastrointestinal polyposis and early-onset malignancy. The shared mechanistic theme is defective homologous recombination and Fanconi-like genome-maintenance failure affecting both germ cells and somatic tissues.",
+    "pathophysiology": [
+      "Impaired homologous recombination",
+      "Impaired mismatch repair",
+      "Germ cell depletion and gonadal failure",
+      "Somatic genome instability with polyposis and cancer predisposition"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "mismatch repair"
+    ],
+    "phenotypes": [
+      "Premature ovarian insufficiency",
+      "Hypergonadotropic hypogonadism",
+      "Short stature",
+      "Chromosome breakage",
+      "Azoospermia",
+      "Sertoli cell-only syndrome",
+      "Intestinal polyposis",
+      "Neoplasm"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Growth",
+      "Laboratory",
+      "Gastrointestinal",
+      "Oncology"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0008209",
+      "HP:0000815",
+      "HP:0004322",
+      "HP:0040012",
+      "HP:0000027",
+      "HP:0003251",
+      "HP:0200008",
+      "HP:0002664"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MCM9"
+    ],
+    "treatments": [
+      "Hormone replacement therapy",
+      "Gastrointestinal cancer surveillance",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MCM9-related_gametogenic_failure.yaml",
+    "page_url": "../pages/disorders/MCM9-related_gametogenic_failure.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "MECP2 Duplication Syndrome",
@@ -56236,6 +56392,62 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "RNU12-related minor spliceopathy",
+    "disease_id": null,
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Disorder",
+      "Neurodevelopmental Disorder",
+      "Craniofacial Disorder"
+    ],
+    "creation_date": "2026-04-16T00:00:00Z",
+    "updated_date": "2026-04-19T00:00:00Z",
+    "subtypes": [
+      "CDAGS",
+      "SCAR33"
+    ],
+    "description": "RNU12-related minor spliceopathy is a mechanism-defined Mendelian disease spectrum caused by biallelic pathogenic variants in RNU12, which encodes the U12 small nuclear RNA of the minor spliceosome. The shared molecular lesion is minor spliceosome dysfunction with defective splicing of U12-type introns in minor intron-containing genes. Reported clinical presentations currently include CDAGS syndrome and spinocerebellar ataxia, autosomal recessive 33 (SCAR33), which differ in organ predilection but share the same upstream spliceosomal defect.",
+    "pathophysiology": [
+      "Minor spliceosome dysfunction from RNU12 variants",
+      "U12-type intron retention and transcriptome dysregulation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "U12-type intron splicing"
+    ],
+    "phenotypes": [
+      "Craniosynostosis",
+      "Early-onset cerebellar ataxia"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001363",
+      "HP:0001251"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RNU12-related_Minor_Spliceopathy.yaml",
+    "page_url": "../pages/disorders/RNU12-related_minor_spliceopathy.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 2,
+    "num_genes": 0,
+    "num_treatments": 0,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005061",
     "category": "",
@@ -60627,6 +60839,69 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 0,
     "num_treatments": 1,
+    "causal_graph_edges": "0",
+    "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Southern Tick-Associated Rash Illness",
+    "disease_id": "MONDO:0025294",
+    "category": "Infectious",
+    "parents": [
+      "Tick-Borne Disease",
+      "Dermatologic Disease"
+    ],
+    "creation_date": "2026-04-16T19:00:00Z",
+    "updated_date": "2026-04-16T19:00:00Z",
+    "subtypes": [],
+    "description": "Southern tick-associated rash illness (STARI) is an acute lone-star-tick-associated erythema-migrans-like syndrome reported mainly in the southeastern, south-central, and broader eastern United States. Its presentation overlaps early Lyme disease, but microbiologic studies have not confirmed Borrelia burgdorferi, Borrelia lonestari, or another defined bacterial pathogen as the cause, and no validated laboratory diagnostic test exists. In the classic Missouri cohorts, patients were less symptomatic, more often had smaller circular lesions with central clearing, and recovered more rapidly after empiric antibiotic treatment than New York patients with early Lyme disease.",
+    "pathophysiology": [
+      "Lone star tick bite-associated syndrome of unknown etiology",
+      "Non-Lyme biologic context of Amblyomma americanum bites",
+      "Distinct host metabolic response from early Lyme disease"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Erythema migrans-like rash",
+      "Fatigue",
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Arthralgia"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Constitutional",
+      "Neurological",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031180",
+      "HP:0012378",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0002829"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Southern_Tick-Associated_Rash_Illness.yaml",
+    "page_url": "../pages/disorders/Southern_Tick-Associated_Rash_Illness.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 0,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -67864,11 +68139,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 744,
-  "total_unique_evidence_sources": 12085,
+  "total_disorder_pages": 748,
+  "total_unique_evidence_sources": 12108,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 144,
-  "total_pathographs": 735,
-  "total_unique_pathological_events": 3247
+  "total_pathographs": 739,
+  "total_unique_pathological_events": 3259
 };
 window.dispatchEvent(new Event('searchDataReady'));
