@@ -59,7 +59,12 @@ Turn the main session into an **orchestrator of external agents running in tmux*
    - Multi-commit work: `--issue N` is required. `tp` pulls the issue title into `@desc` and derives a branch like `fix/N-<slug>`.
    - Single-commit chore: `--issue` optional; `-d "description"` is enough and you pick the slug.
 6. **Every `tp send` after session creation uses `--wait`.** Agents are not always at a sendable prompt; `--wait` blocks until they are.
-7. **Refreshing a worker branch with `main` is risky.** For branches the worker owns, prefer `git fetch origin && git rebase origin/main`. If the branch is stale or conflict-heavy, recreate from `origin/main` and cherry-pick only the intended commits. Do not blindly tell a worker to `merge origin/main` and push. After any refresh, the worker must review `git diff --name-status origin/main...HEAD` and `git diff --stat origin/main...HEAD` before commit/push.
+7. **NEVER use local `git rebase` to resolve conflicts on curation branches.** Use GitHub's server-side "Update branch" API instead:
+   ```bash
+   gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch \
+     -X PUT -f expected_head_sha="$(git rev-parse HEAD)"
+   ```
+   This is the same as GitHub's "Update branch" button: it merges `main` into the PR branch server-side, touches only conflicting files, and avoids local working-tree pollution. If it succeeds, `git pull` in the worker worktree and re-run validation. If GitHub reports unresolvable conflicts, set `@status waiting-human` and report the conflicting files. Do **not** attempt local resolution. See #1430 and #1575.
 8. **If `tp` has friction, talk to Chris** and/or file an issue at `cmungall/tmux-pilot`. **Do not** fall back to raw `tmux send-keys` without explicit permission.
 
 ## Workflow
@@ -199,21 +204,26 @@ Send follow-ups only when sendable. Always `--wait`:
 ```bash
 tp send --wait dismech-curate-prpf31 "Also add HPO phenotype HP:0000556."
 tp send --wait --timeout 120 dismech-curate-prpf31 "continue"  # long-running
+tp send --wait dismech-curate-prpf31 'if the curation PR branch is behind or conflicted, do NOT rebase locally; use gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch -X PUT -f expected_head_sha="$(git rev-parse HEAD)"; if it succeeds, git pull and re-run validation; if GitHub reports unresolvable conflicts, mark @status waiting-human and report the conflicting files'
 ```
 
 #### Mandatory conflict rule for curation branches
 
-When steering a worker through a **rebase of a curation branch**, the conflict policy is strict:
+When a curation PR branch is behind or conflicted, the conflict policy is strict:
 
-- The worker may keep its branch's version **only** for conflicts under `kb/`, `references_cache/`, `research/`, and `cache/`.
-- For **every other path** (`src/`, `proxy/`, `.github/`, `conf/`, `tests/`, `scripts/`, `project.justfile`, `pyproject.toml`, `CLAUDE.md`, etc.), the worker must take **main's version**.
-- If a conflict appears in an infrastructure file, the worker must **not** resolve it by keeping its own branch's version. A normal curation PR should not be changing those files.
-- If the worker intentionally changed infrastructure files and now needs to preserve them, that is **not a normal curation PR**. Stop treating it like one and escalate to the human or handle it as a different PR type.
+- Never use local `git rebase`, `merge origin/main`, or any other local conflict-resolution flow on a curation branch.
+- First use GitHub's server-side "Update branch" API:
+  ```bash
+  gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch \
+    -X PUT -f expected_head_sha="$(git rev-parse HEAD)"
+  ```
+- If the API succeeds, `git pull` in the worker worktree and re-run validation.
+- If GitHub reports unresolvable conflicts, set `@status waiting-human`, report the conflicting files, and do **not** attempt local resolution.
 
 Use an explicit steer, not a vague "fix conflicts" message:
 
 ```bash
-tp send --wait <name> "refresh the branch from origin/main safely: prefer rebase; for any conflict outside kb/, references_cache/, research/, and cache/, always take origin/main's version; only keep your branch's side for curation artifacts in those four paths; if you intentionally changed infrastructure files, stop and tell me because this is not a normal curation PR; then review git diff --name-status origin/main...HEAD and git diff --stat origin/main...HEAD before committing or pushing"
+tp send --wait <name> 'the curation PR branch is behind or conflicted; do NOT rebase locally. Use gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch -X PUT -f expected_head_sha="$(git rev-parse HEAD)". If it succeeds, git pull and re-run validation. If GitHub reports unresolvable conflicts, mark @status waiting-human and report the conflicting files. Do not attempt local resolution.'
 ```
 
 ### 5. Stuck-agent protocol
@@ -235,7 +245,7 @@ Standard prod sequence:
 1. Worker reports PR opened, goes idle.
 2. Boss sends:
    ```bash
-   tp send --wait <name> "check the PR — wait for the claude-review comment, address any feedback, fix any failing CI checks"
+   tp send --wait <name> 'check the PR — wait for the claude-review comment, address any feedback, fix any failing CI checks; if GitHub says the curation PR branch is behind or conflicted, do NOT rebase locally and instead use gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch -X PUT -f expected_head_sha="$(git rev-parse HEAD)", then git pull and re-run validation; if GitHub cannot resolve the conflicts, mark @status waiting-human and report the conflicting files'
    ```
 3. Worker polls `gh pr view` / `gh pr checks`, reads the `claude-review` bot's comment, and addresses issues in new commits (re-pushes automatically; PR updates in place).
 4. Boss peeks periodically. If the worker reports **approval + all checks green**, that is the real completion signal:
@@ -252,15 +262,24 @@ Standard prod sequence:
 
 ### 6a. Conflicted PR branches
 
-If the worker reports that the PR branch is in conflict, do **not** send a vague instruction like "merge `origin/main` and push".
+If the worker reports that a curation PR branch is behind or in conflict, do **not** tell it to `git rebase origin/main`, `merge origin/main`, or do any other local conflict resolution. Local rebase operates on the entire working tree and has already caused silent infrastructure reversions in this repo (#1430, #1575).
 
-Use a specific instruction that treats the refresh as content-changing work and enforces the curation-branch conflict rule from step 4:
+Use GitHub's server-side "Update branch" API instead:
 
 ```bash
-tp send --wait <name> "refresh the branch from origin/main safely: prefer rebase; if too stale or messy, recreate from origin/main and cherry-pick only the intended commits; for any conflict outside kb/, references_cache/, research/, and cache/, always take origin/main's version; only keep your branch's side for curation artifacts in those four paths; if you intentionally changed infrastructure files, stop and tell me because this is not a normal curation PR; then review git diff --name-status origin/main...HEAD and git diff --stat origin/main...HEAD before committing or pushing"
+gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch \
+  -X PUT -f expected_head_sha="$(git rev-parse HEAD)"
 ```
 
-If the worker reports merge/rebase/index errors or an unexplained post-refresh diff, stop and escalate to the human instead of pushing through.
+This is the same as GitHub's "Update branch" button. It merges `main` into the PR branch server-side, so only the conflicting files are touched and the local worktree stays clean. This avoids the stale-branch reversion failure mode described in #1575 and the protected-path loss documented in #1430.
+
+Boss's prod template for this case:
+
+```bash
+tp send --wait <name> 'the curation PR branch is behind or conflicted; do NOT rebase locally. Use gh api repos/monarch-initiative/dismech/pulls/PR_NUMBER/update-branch -X PUT -f expected_head_sha="$(git rev-parse HEAD)". If it succeeds, git pull and re-run validation. If GitHub reports unresolvable conflicts, mark @status waiting-human and report the conflicting files. Do not attempt local resolution.'
+```
+
+If the API succeeds, the worker should `git pull` in its worktree to pick up the merge commit, then re-run validation. If GitHub reports unresolvable conflicts, boss should set `@status waiting-human` and report the conflicting files. Do **not** try to "just fix it locally."
 
 Tear down only after `done-ish`:
 ```bash
@@ -298,8 +317,8 @@ Run `tp <command> --help` for full flag lists.
 | "I'll have task A pipe its branch into task B" | Boss is for embarrassingly parallel work. Serialize dependent work yourself. |
 | "I'll skip `--wait`, it's faster" | You'll race the prompt and lose input. Every send uses `--wait`. |
 | "PR is open, I'll mark it done-ish" | **No.** PR-opened is a milestone, not completion. Prod the worker to watch its own PR through claude-review approval + green CI. Only then done-ish. |
+| "I'll git rebase origin/main to fix conflicts" | NEVER local rebase on curation branches. Use `gh api update-branch` instead. Local rebase operates on the entire working tree and has caused silent infrastructure reversions (PR #1425 reverted 855 files). See #1430 and #1575. |
 | "I'll run `gh pr view` / `gh pr checks` myself" | No — delegate. `tp send --wait <name> "check the PR, address review feedback, fix failing checks"`. Boss orchestrates, worker executes. |
-| "This curation rebase conflicted in `src/` or `proxy/`, so I'll keep the branch's version" | No. On curation PRs, the branch may keep its own side only in `kb/`, `references_cache/`, `research/`, and `cache/`. Everything else must take main's version. |
 | "The user said 'in parallel', activate boss" | Only if they named boss / tp / tmux / external agents. Otherwise use `dispatching-parallel-agents`. |
 | "Worktree inside the repo is fine just this once" | No. Every agent needs an isolated worktree under `~/worktrees/`. Parallelism requires isolation — git only allows one worktree per branch, and agents step on each other if they share a checkout. |
 | "Two agents can share a worktree if they work on different files" | No. Shared worktree = shared git index, shared dirty state, shared branch. One agent per worktree. |
