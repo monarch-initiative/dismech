@@ -651,6 +651,20 @@ If a PR was authored by another contributor, **do not** force-push, rebase, or r
 2. Or create a separate fix commit on top of their work (no force-push)
 3. Only force-push branches that you (or your orchestrator) created
 
+### Refresh your own branch safely
+Refreshing a PR branch with `main` is a content-changing operation, not bookkeeping.
+For branches you own:
+1. Prefer `git fetch origin && git rebase origin/main`
+2. If the branch is stale or conflict-heavy, create a fresh branch from `origin/main` and cherry-pick only the intended commits
+3. Avoid routine `git merge origin/main` into PR branches
+4. After any refresh, review:
+```bash
+git diff --name-status origin/main...HEAD
+git diff --stat origin/main...HEAD
+```
+5. If you see unrelated deletions, stale reversions, or protected-path churn, stop and fix that before commit/push
+6. If merge/rebase/cherry-pick reports conflicts or index errors, do not commit or push until the operation is clean and the post-refresh diff has been reviewed
+
 ### Always use targeted git add
 Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
 ```bash
