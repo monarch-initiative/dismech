@@ -107,14 +107,14 @@ initial phenotype scope.
   - `GO:0000398` mRNA splicing, via spliceosome
 - Phenotypes:
   - `HP:0001363` Craniosynostosis
-  - `HP:0001251` Ataxia
+  - `HP:0001251` Ataxia, rendered with preferred term `Cerebellar ataxia`
+    because the local HPO snapshot does not provide the reviewer-suggested
+    `HP:0002070` label for this concept.
 
 ## Follow-up Work Deferred Beyond This PR
 
 - Expand subtype phenotype coverage using exact abstract-backed evidence items
   for additional CDAGS and SCAR33 manifestations.
-- Revisit whether a more specific HPO term than generic ataxia should be used
-  for the SCAR33 anchor phenotype.
 - Revisit whether a more specific GO term for minor/U12 spliceosome function is
   available and preferable to `GO:0000398`.
 - Add phenotype-targeted downstream links if the entry is expanded into a denser
