@@ -59,7 +59,8 @@ Turn the main session into an **orchestrator of external agents running in tmux*
    - Multi-commit work: `--issue N` is required. `tp` pulls the issue title into `@desc` and derives a branch like `fix/N-<slug>`.
    - Single-commit chore: `--issue` optional; `-d "description"` is enough and you pick the slug.
 6. **Every `tp send` after session creation uses `--wait`.** Agents are not always at a sendable prompt; `--wait` blocks until they are.
-7. **If `tp` has friction, talk to Chris** and/or file an issue at `cmungall/tmux-pilot`. **Do not** fall back to raw `tmux send-keys` without explicit permission.
+7. **Refreshing a worker branch with `main` is risky.** For branches the worker owns, prefer `git fetch origin && git rebase origin/main`. If the branch is stale or conflict-heavy, recreate from `origin/main` and cherry-pick only the intended commits. Do not blindly tell a worker to `merge origin/main` and push. After any refresh, the worker must review `git diff --name-status origin/main...HEAD` and `git diff --stat origin/main...HEAD` before commit/push.
+8. **If `tp` has friction, talk to Chris** and/or file an issue at `cmungall/tmux-pilot`. **Do not** fall back to raw `tmux send-keys` without explicit permission.
 
 ## Workflow
 
@@ -233,6 +234,18 @@ Standard prod sequence:
    then report to the user with the PR URL, the specific failing check or review comment, and what the worker tried.
 
 **Never mark `done-ish` on PR-opened alone.** "I opened a PR" is a milestone, not a finish line. If you mark it done-ish and walk away, you've left an un-reviewed draft sitting in the queue.
+
+### 6a. Conflicted PR branches
+
+If the worker reports that the PR branch is in conflict, do **not** send a vague instruction like "merge `origin/main` and push".
+
+Use a specific instruction that treats the refresh as content-changing work:
+
+```bash
+tp send --wait <name> "refresh the branch from origin/main safely: prefer rebase; if too stale or messy, recreate from origin/main and cherry-pick only the intended commits; then review git diff --name-status origin/main...HEAD and git diff --stat origin/main...HEAD before committing or pushing"
+```
+
+If the worker reports merge/rebase/index errors or an unexplained post-refresh diff, stop and escalate to the human instead of pushing through.
 
 Tear down only after `done-ish`:
 ```bash
