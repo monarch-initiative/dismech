@@ -18628,6 +18628,109 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Delpire-McNeill Syndrome",
+    "disease_id": "MONDO:0033667",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorders",
+      "Ion Channel Disorders"
+    ],
+    "creation_date": "2026-04-14T00:00:00Z",
+    "updated_date": "2026-04-14T00:00:00Z",
+    "subtypes": [],
+    "description": "Delpire-McNeill syndrome is caused by de novo heterozygous mutations in the SLC12A2 gene, which encodes the Na-K-2Cl cotransporter 1 (NKCC1). NKCC1 is a widely expressed electroneutral cation-chloride cotransporter that mediates coupled transport of sodium, potassium, and chloride ions across cell membranes. Loss-of-function mutations disrupt intracellular chloride homeostasis, affecting neuronal development, auditory function, and multiple organ systems. All tested variants reduce cotransporter function in Xenopus laevis oocytes.\n",
+    "pathophysiology": [
+      "SLC12A2 (NKCC1) Loss of Function",
+      "Impaired Neurogenesis via GABAergic Signaling Disruption",
+      "Inner Ear Endolymph Dysfunction",
+      "Secretory Epithelial Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "radial glial cell",
+      "GABAergic neuron",
+      "strial marginal cell",
+      "epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000681",
+      "CL:0000617",
+      "CL:0002492",
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "monoatomic ion transmembrane transport",
+      "chloride transmembrane transport",
+      "gamma-aminobutyric acid signaling pathway",
+      "neurogenesis",
+      "potassium ion transport",
+      "fluid transport"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Delayed or Absent Speech",
+      "Muscular Hypotonia",
+      "Bilateral Sensorineural Hearing Loss",
+      "Autistic Features",
+      "Vestibular Areflexia",
+      "Seizures",
+      "Cortical Dysplasia",
+      "Spasticity",
+      "Feeding Difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ear",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0008619",
+      "HP:0000729",
+      "HP:0008568",
+      "HP:0001250",
+      "HP:0002539",
+      "HP:0001257",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SLC12A2 Mutations"
+    ],
+    "treatments": [
+      "Speech and Language Therapy",
+      "Physical Therapy",
+      "Cochlear Implantation",
+      "Hearing Aid Usage",
+      "Genetic Counseling",
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Delpire-McNeill_Syndrome.yaml",
+    "page_url": "../pages/disorders/Delpire-McNeill_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Dementia with Lewy Bodies",
     "disease_id": "MONDO:0007488",
     "category": "Complex",
@@ -18754,7 +18857,7 @@ window.searchData = [
       "Trinucleotide Repeat Disorders"
     ],
     "creation_date": "2026-04-08T15:03:27Z",
-    "updated_date": "2026-04-11T00:58:44Z",
+    "updated_date": "2026-04-21T03:24:39Z",
     "subtypes": [
       "Juvenile-onset DRPLA",
       "Adult-onset DRPLA"
@@ -20786,6 +20889,80 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "EFL1-related Shwachman-Diamond syndrome",
+    "disease_id": "MONDO:0044205",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "creation_date": "2026-04-16T19:16:34Z",
+    "updated_date": "2026-04-20T18:55:01Z",
+    "subtypes": [],
+    "description": "EFL1-related Shwachman-Diamond syndrome is the EFL1-defined molecular subtype of Shwachman-Diamond syndrome represented in MONDO as Shwachman-Diamond syndrome 2 (SDS2). Biallelic pathogenic variants in EFL1 impair the SBDS-EFL1-dependent eviction of EIF6 during late 60S ribosomal subunit maturation, leading to defective ribosome assembly and compromised protein synthesis. Reported individuals show a multisystem SDS phenotype that includes exocrine pancreatic insufficiency, cytopenias, short stature, and metaphyseal dysplasia, making this a clinically overlapping but genetically distinct entity from classic SBDS-related SDS.",
+    "pathophysiology": [
+      "Defective EFL1-mediated EIF6 release during ribosomal large subunit maturation",
+      "Compromised protein synthesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "ribosomal large subunit assembly",
+      "translation"
+    ],
+    "phenotypes": [
+      "Pancytopenia",
+      "Exocrine pancreatic insufficiency",
+      "Decreased total neutrophil count",
+      "Predisposition to hematological malignancy",
+      "Short stature",
+      "Metaphyseal dysplasia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Gastrointestinal",
+      "Oncologic",
+      "Growth",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0001876",
+      "HP:0001738",
+      "HP:0001875",
+      "HP:0004377",
+      "HP:0004322",
+      "HP:0100255"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EFL1",
+      "EFL1 allele-biased somatic uniparental disomy"
+    ],
+    "treatments": [
+      "Pancreatic enzyme replacement or supplementation therapy",
+      "Granulocyte colony-stimulating factor therapy",
+      "Hematopoietic stem cell transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EFL1-related_Shwachman-Diamond_syndrome.yaml",
+    "page_url": "../pages/disorders/EFL1-related_Shwachman-Diamond_syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "EGFR-Mutant Non-Small Cell Lung Cancer",
@@ -29503,7 +29680,7 @@ window.searchData = [
       "liver cancer"
     ],
     "creation_date": "2026-03-16T06:36:16Z",
-    "updated_date": "2026-04-13T05:23:29Z",
+    "updated_date": "2026-04-21T03:25:28Z",
     "subtypes": [
       "Epithelial Hepatoblastoma",
       "Mixed Epithelial and Mesenchymal Hepatoblastoma",
@@ -57935,7 +58112,7 @@ window.searchData = [
       "Neurodevelopmental Disorder"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-04-04T18:00:00Z",
+    "updated_date": "2026-04-21T03:28:11Z",
     "subtypes": [
       "Alobar HPE",
       "Semilobar HPE",
@@ -62986,6 +63163,69 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "TTN-Related Myopathy, Dominant-Negative TTNsv",
+    "disease_id": "MONDO:0100494",
+    "category": "Mendelian",
+    "parents": [
+      "autosomal dominant titinopathy",
+      "Neuromuscular Disorder"
+    ],
+    "creation_date": "2026-04-16T19:21:48Z",
+    "updated_date": "2026-04-20T06:58:36Z",
+    "subtypes": [],
+    "description": "TTN-related myopathy, dominant-negative TTNsv is a mechanistically defined skeletal muscle titinopathy caused by heterozygous multi-exon in-frame structural variants in TTN that escape nonsense-mediated decay and produce an internally deleted titin protein with dominant-negative effects on sarcomere structure and function. Reported patients develop a slowly progressive skeletal myopathy, often with distal weakness and joint contractures, while a subset also develops age-related dilated cardiomyopathy.",
+    "pathophysiology": [
+      "In-Frame TTNsv Produces Internally Deleted Titin",
+      "Internally Deleted Titin Disrupts Sarcomeric Architecture"
+    ],
+    "cell_types": [
+      "skeletal muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000188"
+    ],
+    "biological_processes": [
+      "Sarcomere organization",
+      "Myofibril assembly"
+    ],
+    "phenotypes": [
+      "Limb muscle weakness",
+      "Distal muscle weakness",
+      "Joint contractures",
+      "Dilated cardiomyopathy"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003690",
+      "HP:0002460",
+      "HP:0001371",
+      "HP:0001644"
+    ],
+    "frequencies": [],
+    "genes": [
+      "In-frame multi-exon TTN deletion-type structural variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TTN_Related_Myopathy_Dominant_Negative_TTNsv.yaml",
+    "page_url": "../pages/disorders/TTN-Related_Myopathy,_Dominant-Negative_TTNsv.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 0,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
   },
@@ -68179,11 +68419,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 748,
-  "total_unique_evidence_sources": 12112,
+  "total_disorder_pages": 751,
+  "total_unique_evidence_sources": 12127,
   "total_unique_disease_categories": 35,
   "total_unique_phenotype_categories": 144,
-  "total_pathographs": 739,
-  "total_unique_pathological_events": 3259
+  "total_pathographs": 742,
+  "total_unique_pathological_events": 3267
 };
 window.dispatchEvent(new Event('searchDataReady'));
