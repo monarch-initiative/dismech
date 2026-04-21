@@ -2,7 +2,7 @@
 
 **Query:** Pathophysiology and clinical mechanisms of DK1-congenital disorder of glycosylation. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.
 **Provider:** asta
-**Generated:** 2026-04-15T19:37:05.621715
+**Generated:** 2026-04-21T17:02:46.439349
 
 1. I. Muffels, R. Budhraja, R. Shah, S. Radenkovic, E. Morava et al. (2025). Predicting disease-overarching therapeutic approaches for Congenital Disorders of Glycosylation using multi-OMICS. bioRxiv. https://www.semanticscholar.org/paper/8f9edb863a2ede55b3a106e304d7bef842ac19b5
 2. E. Klaver, Lynn Dukes-Rimsky, B. Kumar, Zhi-Jie Xia, Tammie Dang et al. (2021). Protease-dependent defects in N-cadherin processing drive PMM2-CDG pathogenesis. JCI Insight. https://www.semanticscholar.org/paper/1964b8cddfd573cfd6e04b619109ace9f23d48e8
