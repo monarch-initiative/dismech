@@ -9,6 +9,8 @@ ref_validator_config := "conf/reference_validator_config.yaml"
 mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
+# Wrapper script that enforces warning-fail behavior for term validation
+term_validator := "scripts/run_term_validator.sh"
 
 # Validate all disorder YAML files (schema + terms + references)
 # Runs all validations and reports ALL errors at the end
@@ -29,7 +31,7 @@ validate-all:
             errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
         fi
         # Term validation
-        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
+        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
         if ! echo "$term_output" | grep -q "Validation passed"; then
             errors+="  [TERMS] $term_output\n"
         fi
@@ -65,7 +67,7 @@ validate file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
@@ -110,7 +112,7 @@ validate-comorbidity file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
     echo "Term validation..."
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
@@ -137,7 +139,7 @@ validate-comorbidities-all:
             errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f" 2>&1 | grep -v "^$")\n"
         fi
         # Term validation
-        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} 2>&1 || true)
+        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} 2>&1 || true)
         if ! echo "$term_output" | grep -q "Validation passed"; then
             errors+="  [TERMS] $term_output\n"
         fi
@@ -227,7 +229,7 @@ validate-module file:
 [group('QC')]
 validate-terms-schema:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
@@ -242,14 +244,14 @@ validate-terms-all:
     echo "Validating terms in all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
         echo "Validating: $(basename $f)"
-        uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+        {{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     done
     echo "✓ All terms valid!"
 
 # Validate terms in a single file
 [group('QC')]
 validate-terms file:
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
 [group('QC')]
@@ -261,9 +263,9 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation + modules + deep-research report checks)
+# Run all QC checks (cache contract + validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all validate-modules qc-deep-research
+qc: check-reference-cache-frontmatter validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -392,6 +394,13 @@ gen-priority-dashboard-all-mondo:
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Deterministically validate reference cache frontmatter against the
+# linkml-reference-validator cache contract before the heavier data validators.
+[group('QC')]
+check-reference-cache-frontmatter:
+    @just fix-references-cache
+    uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed

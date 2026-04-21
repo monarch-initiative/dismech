@@ -34,6 +34,31 @@ The reviewer's role is to evaluate **non-deterministic components** using biolog
 - **Empty YAML keys** that pass schema validation (e.g., `datasets:`, `clinical_trials:`).
 - **Structural or formatting issues** that would be caught by `just validate` — trust CI.
 
+## Deep Research Cross-Check
+
+When a PR adds or updates a disorder YAML and matching deep-research artifacts exist in
+`research/`, treat those artifacts as first-class curation inputs, not optional background.
+
+At minimum:
+- Find the matching `research/*-deep-research-*.md` file and corresponding `.citations.md`.
+- Read the research artifact before finalizing review.
+- Compare the research artifact against the YAML and ask:
+  - Are central mechanisms, phenotypes, diagnostics, treatments, biomarkers, or subtype distinctions present in research but absent or oversimplified in YAML?
+  - Are there high-value disease-specific PMIDs or DOIs surfaced by research, especially ones already fetched into `references_cache/`, that never made it into the YAML?
+  - Does the YAML appear intentionally narrower than the research artifact, or does it look like the research was simply under-consumed?
+- For narrative providers, pay special attention to sections that explicitly call out omitted themes, unmodeled mechanisms, future work, or broader disease context.
+- For `asta` outputs, do NOT treat every retrieved paper as a review issue. Prioritize disease-specific, central, quotable, cache-backed items with clear modeling value.
+- Classify research-backed omissions:
+  - Blocking: central to the disease, directly supported by quotable abstract or trial text, and straightforward to model now.
+  - Non-blocking: secondary, speculative, weakly evidenced, not easily snippet-supported, or plausibly outside the intended scope of the YAML.
+  - Out of scope: useful narrative context that belongs in research notes rather than the structured entry.
+- Mention the result of this cross-check in the final review summary when research artifacts were present.
+
+Always check the deep research markdown file. Occasionally agents will cheat and put a "fake" deep research entry. Real entries will always have a frontmatter block
+with metadata about the run, and after some rote repetition of the original prompt, should have dense narrative results, with citations.
+
+For NEW dismech entries, there MUST be at least one deep research entry in the PR. A dismech entry that lacks this will likely be highly incomplete
+
 ## Common things to suggest fixing
 
 1. Debundle Pathophysiology Entries
@@ -87,10 +112,11 @@ Put content in the correct section:
 - MAXO diagnostic branch != treatment terms
 
 8. Treatment Modeling
-- Use specific MAXO terms, not generic "pharmacotherapy"  if a better term exists (but this term is ok if combined with other terms)
+- For new entries, NCIT is favored over MAXO
+- When MAXO is used, use specific MAXO terms, not generic "pharmacotherapy"  if a better term exists (but this term is ok if combined with other terms)
 - Explicitly model ion therapies when relevant
 - Include therapeutic agents (CHEBI) when known
-- Generic MAXO terms are acceptable but less informative
+- Generic MAXO terms are acceptable but less informative. Always check for a more informative NCIT
 
 9. Genetic Section Content
 Only genetic information belongs in `genetic`:
@@ -108,6 +134,25 @@ Put non-genetic data in `biochemical` or appropriate sections.
 11. Evidence at Cell-Type Granularity
 When possible, consider evidence at the cell-type level and annotate `cell_types` accordingly.
 
+12. Research-Backed Completeness
+If matching deep-research artifacts exist, use them as a completeness baseline for non-deterministic review.
+- Flag omissions when a central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype is missing and the evidence is both quotable and in scope for the current YAML.
+- If the YAML is narrower than the research artifact, ask whether that narrowing is intentional and sufficiently signaled rather than assuming it is correct.
+- Do not flood the review with every uncited paper from a retrieval-heavy artifact; focus on the highest-value misses.
+
+13. Pathograph completeness
+- insofar as evidence allows, the pathograph should include both proximal events/perturbations/mutations, and distal events (phenotypes, histopathology)
+- there should be join points between treatments and models and the pathograph, where evidence allows
+- pathographs should generally link up into a single strongly connected component
+
+14. Lumping and splitting
+- A dismech entry should correspond to a discrete pathomechanism.
+- Do not have entries for high level disease groupings or phenotypes (see `kb/modules/` for these)
+- Do not make multiple entries where there is little distinction (e.g. gene specific forms of Bardet Biedl)
+- Do not make distinct entries for e.g. severity types
+- Align with clingen where possible
+- Lumping and splitting can be hard and ambiguous - it is OK to summon a human to help you resolve, and hold off on approving until the human approves
+
 ## Review Decision: Formal GitHub Review
 
 After completing the review, you MUST submit a formal GitHub review (not just a comment).
@@ -118,6 +163,7 @@ Submit `--approve` when **all** of the following hold:
 - No fabricated snippets or wrong PMIDs detected through spot-checking
 - No major ontology placement errors (e.g., GO molecular function term in `biological_processes`)
 - All pathophysiology entries are atomic (not chained multi-step sentences)
+- When matching deep-research artifacts exist, they were checked and no blocking research-backed omissions remain
 - At most minor wording / completeness issues
 - (CI handles schema/term/reference validation — do not duplicate that work)
 
@@ -128,14 +174,17 @@ Submit `--request-changes` when **any one** of the following is true:
 - Significant ontology misuse (e.g., GO MF term in `biological_processes`)
 - Pathophysiology entries bundled into chains rather than single atomic events
 - Claim–evidence mismatch (evidence snippet does not support the stated claim)
+- A central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype was omitted even though the supporting evidence is clear, quotable, and in scope for this YAML
 
 ### COMMENT + reassign to @cmungall
 Submit `--comment` and reassign the PR/issue to `@cmungall` when:
 - An ambiguous biological claim requires human domain expertise to adjudicate
 - It is genuinely unclear whether an issue is blocking or merely cosmetic
 - There are conflicting signals between different validation checks
+- It is unclear whether a research-backed omission reflects valid scope narrowing or a genuine modeling miss
 
 ### Strictness policy
 Do NOT defer fixable problems with "can be addressed in a future PR". The curating agent
 can act on feedback immediately. If something is wrong, request changes. Only approve when
-the entry is genuinely ready to merge.
+the entry is genuinely ready to merge. This includes central research-backed omissions when
+matching deep-research artifacts were available in the PR.

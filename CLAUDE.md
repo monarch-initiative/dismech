@@ -609,7 +609,23 @@ just validate kb/disorders/MyDisease.yaml
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
-## Git Best Practices
+**Deterministic cache contract check (dismech#871):**
+`just check-reference-cache-frontmatter` validates that every
+`references_cache/*.md` file has parseable YAML frontmatter matching the local
+`linkml-reference-validator` cache contract and filename/reference_id mapping.
+It runs as part of `just qc` before the heavier validators. This is still only
+a structural check — `validate-references` remains the last defence against a
+snippet matching the wrong cached paper.
+
+**Agent guardrail:** Claude Code and Codex must never create or hand-edit
+`references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
+with `just fetch-reference <ID>` instead of patching the frontmatter manually.
+
+## Git/GitHub Best Practices
+
+### Use worktrees
+
+Allows for parallel work. Canonical location is ~/worktrees/
 
 ### What to commit
 
@@ -635,6 +651,20 @@ If a PR was authored by another contributor, **do not** force-push, rebase, or r
 2. Or create a separate fix commit on top of their work (no force-push)
 3. Only force-push branches that you (or your orchestrator) created
 
+### Refresh your own branch safely
+Refreshing a PR branch with `main` is a content-changing operation, not bookkeeping.
+For branches you own:
+1. Prefer `git fetch origin && git rebase origin/main`
+2. If the branch is stale or conflict-heavy, create a fresh branch from `origin/main` and cherry-pick only the intended commits
+3. Avoid routine `git merge origin/main` into PR branches
+4. After any refresh, review:
+```bash
+git diff --name-status origin/main...HEAD
+git diff --stat origin/main...HEAD
+```
+5. If you see unrelated deletions, stale reversions, or protected-path churn, stop and fix that before commit/push
+6. If merge/rebase/cherry-pick reports conflicts or index errors, do not commit or push until the operation is clean and the post-refresh diff has been reviewed
+
 ### Always use targeted git add
 Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
 ```bash
@@ -650,3 +680,16 @@ After pushing fixes, comment on the PR summarizing:
 - What you changed and why
 - What you intentionally did NOT change, with reasoning
 - Validation results
+
+### Reviews
+
+Your PR will always be removed by an automated Claude reviewer. This usually happens within a few minutes.
+The reviewer will mark your PR as being ready to merge or requiring changes. Be sure to address all changes.
+Try and address even "optional" changes if they improve overall quality and completion.
+
+If you disagree you can say so, but provide clearly articulated arguments in the PR comments. Never get
+into back and forth. If something cannot be resolved, stop, and assign a human like @cmungall to the PR, and ask
+them to facilitate.
+
+Note that sometimes it will appear that a review has stalled, but in fact this is usually because
+the PR is in conflict. Actively try and manage this, resolve conflicts carefully.

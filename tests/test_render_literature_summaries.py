@@ -93,9 +93,60 @@ citation_count: 7
     render_disorder(disorder_path, output_path=output_path)
     html = output_path.read_text()
 
+    assert 'id="references-deep-research"' in html
     assert 'id="literature-summaries"' in html
-    assert "Literature Summaries" in html
+    assert "References &amp; Deep Research" in html
+    assert "Deep Research" in html
     assert "Cyberian Codex" in html
     assert "codex-local-synthesis" in html
     assert "Calcium signaling" in html
     assert "Codex secondary synthesis." not in html
+
+
+def test_render_disorder_places_references_and_deep_research_last(
+    tmp_path: Path,
+) -> None:
+    disorder_path = tmp_path / "Test_Disorder.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Test_Disorder.html"
+    research_dir = tmp_path / "research"
+    reports_dir = tmp_path / "reports" / "Test_Disorder"
+    research_dir.mkdir()
+    reports_dir.mkdir(parents=True)
+    _write_disorder(
+        disorder_path,
+        {
+            "name": "Test Disorder",
+            "references": [
+                {
+                    "reference": "PMID:12345678",
+                    "title": "Reference title",
+                    "findings": [],
+                }
+            ],
+        },
+    )
+    (research_dir / "Test_Disorder-deep-research-openai.md").write_text(
+        """---
+provider: openai
+---
+## Output
+
+## Pathophysiology description
+Deep research body.
+"""
+    )
+    (reports_dir / "01-report.md").write_text("# Report\n\nReport body.\n")
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+
+    assert html.index('stat-label">Reports') < html.index('stat-label">References')
+    assert html.index('stat-label">References') < html.index(
+        'stat-label">Deep Research'
+    )
+    assert html.index('id="reports"') < html.index('id="yamlContent"')
+    assert html.index('id="yamlContent"') < html.index('id="references-deep-research"')
+    assert html.index('id="references"') < html.index('id="literature-summaries"')
+    assert html.index('id="references-deep-research"') < html.index(
+        '<footer class="page-footer">'
+    )
