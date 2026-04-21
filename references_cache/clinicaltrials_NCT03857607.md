@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03857607
+reference_id: "clinicaltrials:NCT03857607"
 title: "Natural History of ATP1A3-related Disease: a Deep Phenotyping-genotyping Project"
 content_type: summary
 ---

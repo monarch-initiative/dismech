@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03143153
+reference_id: "clinicaltrials:NCT03143153"
 title: "A Randomized Phase 3 Study of Nivolumab Plus Ipilimumab or Nivolumab Combined With Fluorouracil Plus Cisplatin Versus Fluorouracil Plus Cisplatin in Subjects With Unresectable Advanced, Recurrent or Metastatic Previously Untreated Esophageal Squamous Cell Carcinoma"
 content_type: summary
 ---

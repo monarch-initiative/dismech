@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06092346
+reference_id: "clinicaltrials:NCT06092346"
 title: "Prospective Study of the Clinical, Genomic, Pharmacological, Laboratory, and Dietary Determinates of Pyrimidine and Purine Metabolism Disorders"
 content_type: summary
 ---

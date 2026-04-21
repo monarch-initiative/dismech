@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03189719
+reference_id: "clinicaltrials:NCT03189719"
 title: "A Randomized, Double-Blind, Placebo-Controlled Phase III Clinical Trial of Pembrolizumab (MK-3475) in Combination With Cisplatin and 5-Fluorouracil Versus Placebo in Combination With Cisplatin and 5-Fluorouracil as First-Line Treatment in Subjects With Advanced/Metastatic Esophageal Carcinoma (KEYNOTE-590)"
 content_type: summary
 ---
