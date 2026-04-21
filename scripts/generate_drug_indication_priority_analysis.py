@@ -600,33 +600,40 @@ def render_table(rows: list[RankedCandidate], top_n: int) -> str:
     return header + "\n".join(body_lines)
 
 
-def render_methodology(source_path: Path) -> str:
-    return "\n".join(
-        [
-            "- Parsed the downloaded Monarch YAML at "
-            f"`{source_path}` and used the top-level `diseases` list.",
-            "- Treated a disease as having drug-indication data when it contained at least one "
-            "non-empty `research[].drug_label` block.",
-            "- Counted `Drug rows` as the number of such `drug_label` blocks; counted "
-            "`Medium/high evidence rows` from nested evidence objects where `confidence_drug` "
-            "was `MEDIUM` or `HIGH`.",
-            "- Considered a disease already covered only when an existing "
-            "`kb/disorders/*.yaml` file had the same `disease_term.term.id` MONDO CURIE.",
-            "- Reused the repo's `dismech.compare.mondo_priority` heuristics to label each "
-            "missing disease as `CURATE_ROOT`, `CURATE_ROOT_WITH_SUBTYPES`, or a lower-fit "
-            "series/review case based on MONDO hierarchy metadata from the local sqlite DB.",
-            "- Loaded ClinGen support from cached `cache/clingen/gene_validity.csv` and counted "
-            "Definitive/Strong assertions on the candidate MONDO term or its descendants, which "
-            "reduces false negatives for broad disease roots.",
-            "- Final rank = quantitative score (specificity + drug-signal density + treatment rank "
-            "+ descendant-aware ClinGen support) plus a transparent curator-fit adjustment. "
-            "Those manual adjustments mainly downgraded broad, heterogeneous, or awkwardly granular "
-            "terms whose drug lists were dominated by symptomatic/general therapy rather than a clear "
-            "disease-mechanism target.",
-            "- Only **18** missing diseases met the inclusion rule, so the requested Top 50 table "
-            "contains all available uncurated candidates.",
-        ]
-    )
+def render_methodology(source_path: Path, missing_count: int, top_n: int) -> str:
+    lines = [
+        "- Parsed the downloaded Monarch YAML at "
+        f"`{source_path}` and used the top-level `diseases` list.",
+        "- Treated a disease as having drug-indication data when it contained at least one "
+        "non-empty `research[].drug_label` block.",
+        "- Counted `Drug rows` as the number of such `drug_label` blocks; counted "
+        "`Medium/high evidence rows` from nested evidence objects where `confidence_drug` "
+        "was `MEDIUM` or `HIGH`.",
+        "- Considered a disease already covered only when an existing "
+        "`kb/disorders/*.yaml` file had the same `disease_term.term.id` MONDO CURIE.",
+        "- Reused the repo's `dismech.compare.mondo_priority` heuristics to label each "
+        "missing disease as `CURATE_ROOT`, `CURATE_ROOT_WITH_SUBTYPES`, or a lower-fit "
+        "series/review case based on MONDO hierarchy metadata from the local sqlite DB.",
+        "- Loaded ClinGen support from cached `cache/clingen/gene_validity.csv` and counted "
+        "Definitive/Strong assertions on the candidate MONDO term or its descendants, which "
+        "reduces false negatives for broad disease roots.",
+        "- Final rank = quantitative score (specificity + drug-signal density + treatment rank "
+        "+ descendant-aware ClinGen support) plus a transparent curator-fit adjustment. "
+        "Those manual adjustments mainly downgraded broad, heterogeneous, or awkwardly granular "
+        "terms whose drug lists were dominated by symptomatic/general therapy rather than a clear "
+        "disease-mechanism target.",
+    ]
+    if missing_count <= top_n:
+        lines.append(
+            f"- Only **{missing_count}** missing diseases met the inclusion rule, so the "
+            f"requested Top {top_n} table contains all available uncurated candidates."
+        )
+    else:
+        lines.append(
+            f"- **{missing_count}** missing diseases met the inclusion rule; the table below "
+            f"shows the Top {top_n} highest-priority uncurated candidates."
+        )
+    return "\n".join(lines)
 
 
 def write_report(
@@ -655,13 +662,17 @@ def write_report(
                 action_counts=action_counts,
             ),
             "",
-            "## Top 50 Prioritized Candidates",
+            f"## Top {top_n} Prioritized Candidates",
             "",
             render_table(ranked_rows, top_n=top_n),
             "",
             "## Methodology Notes",
             "",
-            render_methodology(source_path),
+            render_methodology(
+                source_path,
+                missing_count=len(ranked_rows),
+                top_n=top_n,
+            ),
             "",
         ]
     )
