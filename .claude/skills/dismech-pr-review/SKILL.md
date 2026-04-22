@@ -102,8 +102,15 @@ Split mixed sources into separate evidence items.
 Add qualifiers when needed for precision:
 - Location (`located_in`)
 - Direction (`INCREASED`, `DECREASED`, `ABERRANT`)
-- Temporal (`recurrent`, `chronic`)
+- Temporal (`temporality: RECURRENT`, `temporality: CHRONIC`, `temporality: ACUTE`)
 - Laterality (when applicable)
+- Clinical course (`clinical_course: PROGRESSIVE` / `STABLE`)
+- Descriptor severity (`severity: MILD|MODERATE|SEVERE`)
+- Descriptor onset (`onset.onset_category: CHILDHOOD`, etc.)
+
+Prefer the explicit descriptor slots above over the deprecated generic `qualifiers`
+field for common post-composition. Reserve `qualifiers` for predicate-value cases
+that are not covered by dedicated slots.
 
 7. Section Appropriateness
 Put content in the correct section:
