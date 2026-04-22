@@ -1,0 +1,82 @@
+name: Curation Scanner
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
+
+jobs:
+  curation-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          # Use the reviewable PR token path instead of AI4C_AGENT_* so follow-up review
+          # automation can still act on the resulting work.
+          token: ${{ secrets.PAT_FOR_PR }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install python tools
+        run: |
+          uv sync
+
+      - name: Install just
+        run: |
+          uv tool install rust-just
+          uv sync
+
+      - name: Run Curation Scanner
+        id: curation-scanner
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.PAT_FOR_PR }}
+          show_full_output: true
+          claude_args: |
+            --dangerously-skip-permissions
+            --mcp-config '{"mcpServers": {"ols": {"command": "uvx", "args": ["ols-mcp"]}}}'
+            --model claude-sonnet-4-6
+            --max-turns 20
+          prompt: |
+            REPO: ${{ github.repository }}
+            TRIGGER: ${{ github.event_name }}
+
+            You are running an automated curation scanner for the dismech repository.
+
+            Scan for open issues and pull requests labeled `curation` that are unassigned.
+            Start by using `gh issue list` and `gh pr list` to find candidate items.
+            Use your judgment to choose and process at most 3 total items in this run.
+
+            For each unassigned curation issue:
+            - Analyze the request.
+            - Post a concise assessment comment covering the likely disease or disease area, what work is needed, and the estimated scope/risk.
+            - If the first step is straightforward and low-risk, create an initial PR.
+            - Otherwise, leave the assessment comment and flag the issue for human review.
+
+            For each unassigned curation PR:
+            - Inspect its current state, review history, and discussion.
+            - Address review comments when the right fix is clear and safe.
+            - If the branch is stale or conflicted, refresh it carefully.
+            - Prefer GitHub's update-branch flow via `gh api` rather than local rebases for branch refreshes.
+            - Never use a local rebase to resolve PR conflicts.
+            - If the next step is unclear or risky, post a comment asking for guidance instead of guessing.
+
+            General guidance:
+            - Use judgment rather than rigid rules.
+            - Be conservative. When in doubt, comment with your assessment instead of making a risky change.
+            - Prefer draft PRs for new work unless the result is clearly ready for review.
+            - Follow `CLAUDE.md` and the repository conventions.
+            - Never create or hand-edit `references_cache/*.md`; regenerate cache entries with `just fetch-reference <ID>` if needed.
+            - Validate any file edits you make with the relevant `just` or `uv run` commands before committing.
+            - Stop after handling at most 3 items even if more remain.
