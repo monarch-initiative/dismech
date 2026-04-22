@@ -186,7 +186,9 @@ phenotype_term:
 ```
 
 Enum values with ontology `meaning` mappings:
-- `temporality`: `ACUTE` = `HP:0011009`, `CHRONIC` = `HP:0011010`, `RECURRENT` = `HP:0031796`
+- `temporality`: `ACUTE` = `HP:0011009`, `TRANSIENT` = `HP:0025153`,
+  `SUBACUTE` = `HP:0011011`, `CHRONIC` = `HP:0011010`, `RECURRENT` = `HP:0031796`,
+  `DIURNAL` = `HP:0025302`, `NOCTURNAL` = `HP:0025301`, `PROLONGED` = `HP:0025297`
 - `clinical_course`: `PROGRESSIVE` = `HP:0003676`, `STABLE` = `HP:0031915`
 - `severity`: `MILD` = `HP:0012825`, `MODERATE` = `HP:0012826`, `SEVERE` = `HP:0012828`
 

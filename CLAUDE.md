@@ -197,7 +197,8 @@ This prevents AI hallucination of fake or mismatched ontology terms.
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
 the descriptor object rather than the deprecated generic `qualifiers` list:
 
-- `temporality`: `ACUTE`, `CHRONIC`, `RECURRENT`
+- `temporality`: `ACUTE`, `TRANSIENT`, `SUBACUTE`, `CHRONIC`, `RECURRENT`,
+  `DIURNAL`, `NOCTURNAL`, `PROLONGED`
 - `clinical_course`: `PROGRESSIVE`, `STABLE`
 - `severity`: prefer enum-backed values (`MILD`, `MODERATE`, `SEVERE`) when the qualifier
   is part of the ontology post-composition; free text is still tolerated for legacy

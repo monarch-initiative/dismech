@@ -23,7 +23,7 @@ The Descriptor base class provides explicit slots for post-composition:
 | `located_in` | Anatomical location | `AnatomicalEntityDescriptor` | All Descriptors |
 | `laterality` | Left/right/bilateral | `LateralityEnum` | All Descriptors |
 | `spatial_extent` | Distribution/extent pattern | `SpatialExtentEnum` | All Descriptors |
-| `temporality` | Acute/chronic/recurrent qualifier | `TemporalityEnum` | All Descriptors |
+| `temporality` | Acute/chronic/recurrent/subacute/etc. qualifier | `TemporalityEnum` | All Descriptors |
 | `clinical_course` | Progressive/stable course qualifier | `ClinicalCourseEnum` | All Descriptors |
 | `severity` | Mild/moderate/severe qualifier | `SeverityQualifierEnum` (or legacy free text) | All Descriptors |
 | `onset` | Structured onset metadata | `OnsetDescriptor` | All Descriptors |
@@ -171,8 +171,13 @@ phenotype_term:
 
 **Available temporality values** (`TemporalityEnum`):
 - `ACUTE`
+- `TRANSIENT`
+- `SUBACUTE`
 - `CHRONIC`
 - `RECURRENT`
+- `DIURNAL`
+- `NOCTURNAL`
+- `PROLONGED`
 
 **Available clinical course values** (`ClinicalCourseEnum`):
 - `PROGRESSIVE`

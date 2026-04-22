@@ -102,7 +102,7 @@ Split mixed sources into separate evidence items.
 Add qualifiers when needed for precision:
 - Location (`located_in`)
 - Direction (`INCREASED`, `DECREASED`, `ABERRANT`)
-- Temporal (`temporality: RECURRENT`, `temporality: CHRONIC`, `temporality: ACUTE`)
+- Temporal (`temporality: RECURRENT`, `CHRONIC`, `ACUTE`, `SUBACUTE`, `TRANSIENT`, etc.)
 - Laterality (when applicable)
 - Clinical course (`clinical_course: PROGRESSIVE` / `STABLE`)
 - Descriptor severity (`severity: MILD|MODERATE|SEVERE`)
