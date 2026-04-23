@@ -372,8 +372,15 @@ gen-dashboard:
 
 # Generate MONDO curation priority dashboard
 [group('QC')]
-gen-priority-dashboard candidates='examples/mondo_prioritizer_candidates.tsv' config='conf/mondo_prioritizer.yaml':
-    uv run python scripts/generate_priority_dashboard.py --candidates {{candidates}} --kb-dir {{kb_dir}} --config {{config}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+gen-priority-dashboard candidates='tmp/mondo_priority_candidates_full.tsv' config='conf/mondo_prioritizer.yaml':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    candidates="{{candidates}}"
+    if [ "$candidates" = "tmp/mondo_priority_candidates_full.tsv" ] || [ ! -f "$candidates" ]; then
+        mkdir -p "$(dirname "$candidates")"
+        uv run python scripts/export_mondo_priority_candidates.py --mondo-db {{mondo_db}} --output "$candidates" --kb-dir {{kb_dir}}
+    fi
+    uv run python scripts/generate_priority_dashboard.py --candidates "$candidates" --kb-dir {{kb_dir}} --config {{config}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
     echo "Priority dashboard generated in dashboard/"
 
 # Generate a local-only all-MONDO priority dashboard under tmp/ (gitignored)
