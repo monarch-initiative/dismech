@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-13T02:53:07
+# Generation date: 2026-04-23T10:29:27
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -327,7 +327,8 @@ class Term(YAMLRoot):
 class Descriptor(YAMLRoot):
     """
     Base class for structured descriptors that allow a preferred term, optional description, optional ontology term
-    binding, and post-composition via modifier, located_in, and laterality slots.
+    binding, and post-composition via modifier, located_in, laterality, spatial_extent, onset, temporality,
+    clinical_course, and severity slots.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -343,6 +344,10 @@ class Descriptor(YAMLRoot):
     located_in: Optional[Union[dict, "AnatomicalEntityDescriptor"]] = None
     laterality: Optional[Union[str, "LateralityEnum"]] = None
     spatial_extent: Optional[Union[str, "SpatialExtentEnum"]] = None
+    onset: Optional[Union[dict, "OnsetDescriptor"]] = None
+    temporality: Optional[Union[str, "TemporalityEnum"]] = None
+    clinical_course: Optional[Union[str, "ClinicalCourseEnum"]] = None
+    severity: Optional[Union[dict, Any]] = None
     qualifiers: Optional[Union[Union[dict, "Qualifier"], list[Union[dict, "Qualifier"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -368,6 +373,15 @@ class Descriptor(YAMLRoot):
 
         if self.spatial_extent is not None and not isinstance(self.spatial_extent, SpatialExtentEnum):
             self.spatial_extent = SpatialExtentEnum(self.spatial_extent)
+
+        if self.onset is not None and not isinstance(self.onset, OnsetDescriptor):
+            self.onset = OnsetDescriptor(**as_dict(self.onset))
+
+        if self.temporality is not None and not isinstance(self.temporality, TemporalityEnum):
+            self.temporality = TemporalityEnum(self.temporality)
+
+        if self.clinical_course is not None and not isinstance(self.clinical_course, ClinicalCourseEnum):
+            self.clinical_course = ClinicalCourseEnum(self.clinical_course)
 
         if not isinstance(self.qualifiers, list):
             self.qualifiers = [self.qualifiers] if self.qualifiers is not None else []
@@ -1127,7 +1141,7 @@ class PhenotypeContext(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.PhenotypeContext
 
     frequency: Optional[Union[dict, Any]] = None
-    severity: Optional[str] = None
+    severity: Optional[Union[dict, Any]] = None
     onset: Optional[Union[dict, OnsetDescriptor]] = None
     notes: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
@@ -1138,9 +1152,6 @@ class PhenotypeContext(YAMLRoot):
     subtype: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        if self.severity is not None and not isinstance(self.severity, str):
-            self.severity = str(self.severity)
-
         if self.onset is not None and not isinstance(self.onset, OnsetDescriptor):
             self.onset = OnsetDescriptor(**as_dict(self.onset))
 
@@ -2385,7 +2396,7 @@ class Phenotype(YAMLRoot):
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     context: Optional[str] = None
     review_notes: Optional[str] = None
-    severity: Optional[str] = None
+    severity: Optional[Union[dict, Any]] = None
     notes: Optional[str] = None
     subtype: Optional[str] = None
     subtypes: Optional[Union[str, list[str]]] = empty_list()
@@ -2422,9 +2433,6 @@ class Phenotype(YAMLRoot):
 
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
-
-        if self.severity is not None and not isinstance(self.severity, str):
-            self.severity = str(self.severity)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2730,6 +2738,7 @@ class Disease(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.Disease
 
     name: Union[str, DiseaseName] = None
+    display_name: Optional[str] = None
     disease_term: Optional[Union[dict, DiseaseDescriptor]] = None
     creation_date: Optional[str] = None
     updated_date: Optional[str] = None
@@ -2779,6 +2788,9 @@ class Disease(YAMLRoot):
             self.MissingRequiredField("name")
         if not isinstance(self.name, DiseaseName):
             self.name = DiseaseName(self.name)
+
+        if self.display_name is not None and not isinstance(self.display_name, str):
+            self.display_name = str(self.display_name)
 
         if self.disease_term is not None and not isinstance(self.disease_term, DiseaseDescriptor):
             self.disease_term = DiseaseDescriptor(**as_dict(self.disease_term))
@@ -5126,6 +5138,101 @@ class SpatialExtentEnum(EnumDefinitionImpl):
         description="Qualifiers for the spatial extent or distribution of a phenotype or process",
     )
 
+class TemporalityEnum(EnumDefinitionImpl):
+    """
+    Temporal qualifiers for descriptor post-composition
+    """
+    ACUTE = PermissibleValue(
+        text="ACUTE",
+        title="Acute",
+        description="Acute manifestation or episode",
+        meaning=HP["0011009"])
+    TRANSIENT = PermissibleValue(
+        text="TRANSIENT",
+        title="Transient",
+        description="Transient manifestation",
+        meaning=HP["0025153"])
+    SUBACUTE = PermissibleValue(
+        text="SUBACUTE",
+        title="Subacute",
+        description="Subacute manifestation or episode",
+        meaning=HP["0011011"])
+    CHRONIC = PermissibleValue(
+        text="CHRONIC",
+        title="Chronic",
+        description="Chronic or persistent over time",
+        meaning=HP["0011010"])
+    RECURRENT = PermissibleValue(
+        text="RECURRENT",
+        title="Recurrent",
+        description="Repeated episodes separated by symptom-free intervals",
+        meaning=HP["0031796"])
+    DIURNAL = PermissibleValue(
+        text="DIURNAL",
+        title="Diurnal",
+        description="Manifestation occurring during the day",
+        meaning=HP["0025302"])
+    NOCTURNAL = PermissibleValue(
+        text="NOCTURNAL",
+        title="Nocturnal",
+        description="Manifestation occurring at night",
+        meaning=HP["0025301"])
+    PROLONGED = PermissibleValue(
+        text="PROLONGED",
+        title="Prolonged",
+        description="Manifestation lasting longer than typical",
+        meaning=HP["0025297"])
+
+    _defn = EnumDefinition(
+        name="TemporalityEnum",
+        description="Temporal qualifiers for descriptor post-composition",
+    )
+
+class ClinicalCourseEnum(EnumDefinitionImpl):
+    """
+    Clinical course qualifiers for descriptor post-composition
+    """
+    PROGRESSIVE = PermissibleValue(
+        text="PROGRESSIVE",
+        title="Progressive",
+        description="Worsening over time",
+        meaning=HP["0003676"])
+    STABLE = PermissibleValue(
+        text="STABLE",
+        title="Stable",
+        description="Not varying in severity or amount over time",
+        meaning=HP["0031915"])
+
+    _defn = EnumDefinition(
+        name="ClinicalCourseEnum",
+        description="Clinical course qualifiers for descriptor post-composition",
+    )
+
+class SeverityQualifierEnum(EnumDefinitionImpl):
+    """
+    Severity qualifiers for descriptor post-composition
+    """
+    MILD = PermissibleValue(
+        text="MILD",
+        title="Mild",
+        description="Mild severity",
+        meaning=HP["0012825"])
+    MODERATE = PermissibleValue(
+        text="MODERATE",
+        title="Moderate",
+        description="Moderate severity",
+        meaning=HP["0012826"])
+    SEVERE = PermissibleValue(
+        text="SEVERE",
+        title="Severe",
+        description="Severe severity",
+        meaning=HP["0012828"])
+
+    _defn = EnumDefinition(
+        name="SeverityQualifierEnum",
+        description="Severity qualifiers for descriptor post-composition",
+    )
+
 class AssayTerm(EnumDefinitionImpl):
     """
     A term representing an assay
@@ -6688,6 +6795,12 @@ slots.laterality = Slot(uri=DISMECH.laterality, name="laterality", curie=DISMECH
 slots.spatial_extent = Slot(uri=DISMECH.spatial_extent, name="spatial_extent", curie=DISMECH.curie('spatial_extent'),
                    model_uri=DISMECH.spatial_extent, domain=None, range=Optional[Union[str, "SpatialExtentEnum"]])
 
+slots.temporality = Slot(uri=DISMECH.temporality, name="temporality", curie=DISMECH.curie('temporality'),
+                   model_uri=DISMECH.temporality, domain=None, range=Optional[Union[str, "TemporalityEnum"]])
+
+slots.clinical_course = Slot(uri=DISMECH.clinical_course, name="clinical_course", curie=DISMECH.curie('clinical_course'),
+                   model_uri=DISMECH.clinical_course, domain=None, range=Optional[Union[str, "ClinicalCourseEnum"]])
+
 slots.therapeutic_agent = Slot(uri=DISMECH.therapeutic_agent, name="therapeutic_agent", curie=DISMECH.curie('therapeutic_agent'),
                    model_uri=DISMECH.therapeutic_agent, domain=None, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
 
@@ -6935,7 +7048,7 @@ slots.context = Slot(uri=DISMECH.context, name="context", curie=DISMECH.curie('c
                    model_uri=DISMECH.context, domain=None, range=Optional[str])
 
 slots.severity = Slot(uri=DISMECH.severity, name="severity", curie=DISMECH.curie('severity'),
-                   model_uri=DISMECH.severity, domain=None, range=Optional[str])
+                   model_uri=DISMECH.severity, domain=None, range=Optional[Union[dict, Any]])
 
 slots.presence = Slot(uri=DISMECH.presence, name="presence", curie=DISMECH.curie('presence'),
                    model_uri=DISMECH.presence, domain=None, range=Optional[str])
