@@ -1,0 +1,70 @@
+---
+name: Auto Merge Compliance
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Existing weekly-compliance PR number to enable auto-merge for"
+        required: true
+        type: string
+
+concurrency:
+  group: auto-merge-compliance-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve target PR
+        id: resolve-pr
+        run: |
+          echo "pr_number=${{ github.event.pull_request.number || inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Check PR eligibility
+        id: eligibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          pr_json="$(gh pr view "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json author,baseRefName,headRefName,isDraft,title)"
+
+          base_ref="$(jq -r '.baseRefName' <<<"$pr_json")"
+          head_ref="$(jq -r '.headRefName' <<<"$pr_json")"
+          is_draft="$(jq -r '.isDraft' <<<"$pr_json")"
+          title="$(jq -r '.title' <<<"$pr_json")"
+          author="$(jq -r '.author.login' <<<"$pr_json")"
+
+          if [ "$base_ref" != "main" ] || \
+            [[ "$head_ref" != weekly-compliance-* ]] || \
+            [[ "$title" != "🤖 Weekly Compliance Fixes"* ]] || \
+            [ "$author" != "app/claude" ] || \
+            [ "$is_draft" != "false" ]; then
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            echo "PR #$PR_NUMBER is not an eligible weekly-compliance PR; skipping."
+            exit 0
+          fi
+
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge for weekly compliance PRs
+        if: steps.eligibility.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ steps.resolve-pr.outputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --squash \
+            --auto
