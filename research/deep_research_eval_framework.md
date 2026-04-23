@@ -38,22 +38,25 @@ The provider totals in the user prompt match the artifact count, not the unique
 base-run count. For evaluation, the base run should be primary and the
 companion should be treated as optional citation-enrichment evidence.
 
-### Report-type normalization
+### Artifact normalization
 
-Before claim extraction, every report should be normalized into one of these
-types:
+Before claim extraction, each artifact should be normalized only along
+repo-observable distinctions that materially affect evaluation:
 
-| Report type | How to detect | Eval implication |
+| Artifact kind | How to detect | Eval implication |
 |---|---|---|
-| `primary_research` | Base `.md` report with no `source_providers` frontmatter | Use as an independent provider output |
+| `base_report` | Base `.md` report | Primary evaluation unit |
 | `citation_companion` | Filename ends with `.md.citations.md` | Attach to the base run; do not benchmark separately |
-| `secondary_synthesis` | Frontmatter includes `source_providers` | Evaluate separately from primary research because it may summarize other providers |
-| `manual_or_curated` | Provider is `manual`, `curator`, similar | Useful as a high-value comparison source, but not the same benchmark category |
+| `source_provider_derived` | Frontmatter includes `source_providers` | Track separately from plain base reports because the artifact explicitly declares dependence on other providers |
 
-This distinction matters immediately in the repo: several `cyberian-codex`
-files are explicitly secondary syntheses of earlier `falcon` and `perplexity`
-reports. Those should not be scored as independent evidence-generating runs in
-provider-vs-provider benchmarking.
+Two distinctions are directly visible in this repo and matter immediately:
+
+- `*.md` versus `*.md.citations.md`
+- reports that explicitly declare `source_providers:` in frontmatter
+
+The second case is common in `cyberian-codex` outputs. Those artifacts should
+not automatically be treated the same way as a plain provider-generated base
+report in provider-vs-provider benchmarking.
 
 ### Provider normalization
 
@@ -754,8 +757,8 @@ Recommended batch ordering:
 
 The batch pipeline should explicitly avoid these mistakes:
 
-- comparing a `secondary_synthesis` report against its own `source_providers` as
-  if all were independent
+- comparing a `source_provider_derived` report against its own
+  `source_providers` as if all were independent
 - double-counting `*.citations.md` companions
 - comparing citation quality before citation ids are normalized
 - treating `abstract_only` review caches as full-text completeness gold
