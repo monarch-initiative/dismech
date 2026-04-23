@@ -14,6 +14,26 @@ Use all appropriate skills. What follows are some specific guidelines
 aimed to catch common suboptimal things we see in PRs a lot. This list
 is not complete and you should always consult skills and comparable entries.
 
+## IMPORTANT: check for silent reversions when the PR owner has resolved conflicts
+
+Although your primary objective is to evaluate the biological and clinical content of PRs,
+you MUST be vigilant for cases where the committed has botched a rebase or merge arising from
+merge conflict resolution (usually in cache files). You should also try ensure that all changes in the PR
+are in scope. If files are touched that are not relevant to the original request this is a warning sign.
+
+If in doubt, mark the PR as being review-required, and assign to cmungall.
+
+If the author truly did intend to include changes that seem out of scope, they will label the PR as scope-override.
+
+If you see a massive number of files touched and these are not relevant, this is a sure sign something has gone horribly wrong.
+Flag the PR assign to cmungall and stop.
+
+Typically conflicts arise from difference in cache files. We don't really care so much how these are resolved as they
+are derived files. More care should be taken when looking at conflicts resolution in anything authored, whether it is yaml, python,
+markdown etc.
+
+If the case seems nuanced, consult issue #1430 for further guidance.
+
 ## Trust the Validation Process
 
 **Do NOT second-guess deterministic validation.**
@@ -102,8 +122,15 @@ Split mixed sources into separate evidence items.
 Add qualifiers when needed for precision:
 - Location (`located_in`)
 - Direction (`INCREASED`, `DECREASED`, `ABERRANT`)
-- Temporal (`recurrent`, `chronic`)
+- Temporal (`temporality: RECURRENT`, `CHRONIC`, `ACUTE`, `SUBACUTE`, `TRANSIENT`, etc.)
 - Laterality (when applicable)
+- Clinical course (`clinical_course: PROGRESSIVE` / `STABLE`)
+- Descriptor severity (`severity: MILD|MODERATE|SEVERE`)
+- Descriptor onset (`onset.onset_category: CHILDHOOD`, etc.)
+
+Prefer the explicit descriptor slots above over the deprecated generic `qualifiers`
+field for common post-composition. Reserve `qualifiers` for predicate-value cases
+that are not covered by dedicated slots.
 
 7. Section Appropriateness
 Put content in the correct section:

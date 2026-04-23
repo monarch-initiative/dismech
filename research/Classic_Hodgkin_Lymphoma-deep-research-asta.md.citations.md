@@ -2,7 +2,7 @@
 
 **Query:** Pathophysiology and clinical mechanisms of Classic Hodgkin Lymphoma. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.
 **Provider:** asta
-**Generated:** 2026-04-11T21:00:18.355347
+**Generated:** 2026-04-21T08:23:40.898797
 
 1. Pablo Álvarez-Carrasco, Fernanda Morales-Villamil, C. Maldonado-Bernal (2025). P-Glycoprotein as a Therapeutic Target in Hematological Malignancies: A Challenge to Overcome. International Journal of Molecular Sciences. https://www.semanticscholar.org/paper/e5804b5ab8e1ed680a595670111915afd0be21fd
 2. Marcelo Antônio Oliveira Santos, M. M. Lima (2017). CD20 role in pathophysiology of Hodgkin's disease.. Revista da Associacao Medica Brasileira. https://www.semanticscholar.org/paper/04e73161107ceb5fae03a0e118c8f7dd6c33543c

@@ -508,7 +508,26 @@ def _collect_unique_descriptors(
             label = _descriptor_display_label(descriptor)
             term_id = str(term.get("id") or "").strip()
             modifier = str(descriptor.get("modifier") or "").strip()
-            key = (term_id or label, modifier)
+            laterality = str(descriptor.get("laterality") or "").strip()
+            spatial_extent = str(descriptor.get("spatial_extent") or "").strip()
+            temporality = str(descriptor.get("temporality") or "").strip()
+            clinical_course = str(descriptor.get("clinical_course") or "").strip()
+            severity = str(descriptor.get("severity") or "").strip()
+            onset = descriptor.get("onset")
+            onset_key = ""
+            if isinstance(onset, dict):
+                onset_key = json.dumps(onset, sort_keys=True)
+
+            key = (
+                term_id or label,
+                modifier,
+                laterality,
+                spatial_extent,
+                temporality,
+                clinical_course,
+                severity,
+                onset_key,
+            )
             if not key[0] or key in seen:
                 continue
 
@@ -518,6 +537,12 @@ def _collect_unique_descriptors(
                     "label": label or term_id,
                     "id": term_id or None,
                     "modifier": modifier or None,
+                    "laterality": laterality or None,
+                    "spatial_extent": spatial_extent or None,
+                    "temporality": temporality or None,
+                    "clinical_course": clinical_course or None,
+                    "severity": severity or None,
+                    "onset": onset if isinstance(onset, dict) else None,
                 }
             )
 
