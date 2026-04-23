@@ -155,6 +155,46 @@ for f in glob.glob("kb/disorders/*.yaml"):
    ```
 4. Validate: `just validate-terms`
 
+### Descriptor Qualifiers for Common Clinical Modifiers
+
+When a base ontology term needs common clinical qualification, prefer the explicit
+descriptor slots instead of the deprecated generic `qualifiers` list:
+
+```yaml
+phenotype_term:
+  preferred_term: Diarrhea
+  term:
+    id: HP:0002014
+    label: Diarrhea
+  temporality: CHRONIC
+
+phenotype_term:
+  preferred_term: Muscle weakness
+  term:
+    id: HP:0001324
+    label: Muscle weakness
+  clinical_course: PROGRESSIVE
+
+phenotype_term:
+  preferred_term: Meningitis
+  term:
+    id: HP:0001287
+    label: Meningitis
+  severity: SEVERE
+  onset:
+    onset_category: NEONATAL
+```
+
+Enum values with ontology `meaning` mappings:
+- `temporality`: `ACUTE` = `HP:0011009`, `TRANSIENT` = `HP:0025153`,
+  `SUBACUTE` = `HP:0011011`, `CHRONIC` = `HP:0011010`, `RECURRENT` = `HP:0031796`,
+  `DIURNAL` = `HP:0025302`, `NOCTURNAL` = `HP:0025301`, `PROLONGED` = `HP:0025297`
+- `clinical_course`: `PROGRESSIVE` = `HP:0003676`, `STABLE` = `HP:0031915`
+- `severity`: `MILD` = `HP:0012825`, `MODERATE` = `HP:0012826`, `SEVERE` = `HP:0012828`
+
+Prefer a precoordinated ontology term when one already exists; otherwise add the
+qualifier in these dedicated slots.
+
 ### Adding CL to Cell Types
 1. Look up term: `uv run runoak -i sqlite:obo:cl info "l~<cell type>"`
 2. Verify specificity
