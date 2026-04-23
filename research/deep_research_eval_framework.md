@@ -135,6 +135,41 @@ because they support both pairwise and multi-way comparison.
 | Thanatophoric_Dysplasia_Type_2 | asta, cyberian-codex, falcon |
 | Transverse_Myelitis | cyberian-codex, falcon, perplexity |
 
+## Minimal methodology
+
+The near-term goal is not to build the full generic system. It is to get a
+taste of how the methodology behaves on a few strong examples so that we can
+write a better upstream request for `deep-research-client`.
+
+The smallest useful methodology is:
+
+1. pick a disease with `2+` provider reports and, if possible, a dismech YAML
+   entry or cached review article
+2. choose two sources `A` and `B`
+3. manually or agentically extract a small set of salient claims from each
+   source, typically `5-10`
+4. align those claims and assign a relation label
+5. write a short qualitative report-level judgment:
+   - relevance
+   - informativeness
+   - accuracy / support
+   - completeness relative to the comparison target
+   - citation quality
+6. note what generic functionality would have made the exercise easier,
+   cleaner, or more reproducible
+
+The output of each worked example should therefore be small and concrete:
+
+- a source pair
+- a claim table for `A`
+- a claim table for `B`
+- an alignment table
+- a short rubric-style evaluation
+- a short list of generic capability gaps
+
+That is enough to inform an upstream feature request without pretending the
+full scoring and extraction stack already exists.
+
 ## Claim extraction model
 
 ### Design goals
@@ -779,9 +814,9 @@ The batch pipeline should explicitly avoid these mistakes:
 
 ## Pilot evaluation
 
-The purpose of the pilot is not to produce final scores; it is to show that the
-alignment model is concrete and that real reports in `research/` exhibit the
-kinds of differences the taxonomy needs to capture.
+The purpose of the pilot is not to produce final scores. It is to show, on a
+few real diseases, what this methodology looks like in practice and which parts
+should later become generic functionality in `deep-research-client`.
 
 Counts below are from a manual first-pass extraction of the compared report
 slices, not from a full automated report extractor.
@@ -859,6 +894,68 @@ Interpretation:
 - differences are mostly about recency and specificity, not contradiction
 - this disease is a good pilot for comparing "broad review style" vs "recent,
   mechanism-heavy style"
+
+## What the examples teach us
+
+These three examples are enough to surface the main reusable requirements.
+
+### 1. Claim extraction has to be lightweight but disciplined
+
+The worked examples are possible without a full formal parser, but they are
+much cleaner if an upstream library can:
+
+- strip prompt/template scaffolding
+- segment a report into candidate claim-bearing spans
+- attach nearby citations to those spans
+- emit a small canonical claim table
+
+### 2. Alignment is mostly about semantic proximity, not exact string match
+
+Across the examples, the hard cases are:
+
+- same fact, different specificity
+- same topic, different framing
+- one report being more mechanistically specific than another
+
+That means upstream support should focus on:
+
+- claim pair presentation
+- optional ontology anchors
+- lightweight relation labeling
+
+not only on lexical similarity.
+
+### 3. Rubric judgment is naturally qualitative first
+
+The examples do support eventual quantitative aggregation, but the first useful
+output is a short qualitative judgment:
+
+- what each report gets right
+- what it adds
+- what it misses
+- whether the citations feel trustworthy
+
+That is a better initial target than trying to produce a single definitive
+score too early.
+
+### 4. Citation normalization is clearly upstream
+
+Even in these few examples, the same paper may appear as a DOI, URL, PMCID,
+footnote, or citation text. That is generic library work, not dismech-specific
+logic.
+
+### 5. dismech is best used to supply requirements and benchmarks
+
+What dismech contributes right now is:
+
+- the comparison set
+- real reports from multiple providers
+- structured YAML comparators
+- cached review abstracts
+- concrete examples that expose failure modes
+
+That makes it a good place to define the requirements, but not necessarily the
+right long-term home for all reusable implementation pieces.
 
 ## Upstream recommendations for `deep-research-client`
 
