@@ -2,20 +2,35 @@
 
 ## Purpose
 
-dismech now has enough overlapping deep-research coverage to evaluate outputs at
-the claim level instead of only with coarse report-level impressions. This
-document proposes a framework for comparing:
+dismech now has enough overlapping deep-research coverage to support
+qualitative evaluation of deep-research outputs at the claim level instead of
+only with coarse report-level impressions.
+
+The intended evaluation setting is flexible: source `A` and source `B` can each
+be any of the following:
 
 - deep research report vs deep research report
 - deep research report vs dismech YAML
 - deep research report vs cached review article abstract
 
-The core design principle is simple: extract atomic claims from each source,
-align claims that are about the same disease fact, classify the relationship
-between them, and aggregate those claim-level judgments into report-level
-scores.
+The core design principle is simple:
+
+1. extract atomic claims from each source
+2. align claims that are about the same disease fact
+3. classify the relationship between them
+4. aggregate those judgments into qualitative report-level scores
+
+This is primarily a requirements and framework document, not a final pipeline
+specification. The more generic pieces, especially citation normalization and a
+reusable claim/alignment substrate, likely belong upstream in
+`deep-research-client`; this doc tries to drive those requirements from the
+artifacts we already have in dismech.
 
 ## Scope and unit of analysis
+
+The main thing dismech contributes here is the comparison set: diseases where
+we have multiple deep-research outputs and, in some cases, a curated YAML entry
+or cached review article that can serve as a comparison target.
 
 ### Evaluation unit
 
@@ -38,10 +53,9 @@ The provider totals in the user prompt match the artifact count, not the unique
 base-run count. For evaluation, the base run should be primary and the
 companion should be treated as optional citation-enrichment evidence.
 
-### Artifact normalization
+### Minimal artifact normalization
 
-Before claim extraction, each artifact should be normalized only along
-repo-observable distinctions that materially affect evaluation:
+Before claim extraction, only minimal repo-observable normalization is needed:
 
 | Artifact kind | How to detect | Eval implication |
 |---|---|---|
@@ -54,9 +68,9 @@ Two distinctions are directly visible in this repo and matter immediately:
 - `*.md` versus `*.md.citations.md`
 - reports that explicitly declare `source_providers:` in frontmatter
 
-The second case is common in `cyberian-codex` outputs. Those artifacts should
-not automatically be treated the same way as a plain provider-generated base
-report in provider-vs-provider benchmarking.
+The second case is common in `cyberian-codex` outputs. For this design doc,
+that is mainly a caution for fair comparison, not a proposal to build a large
+report-type ontology.
 
 ### Provider normalization
 
@@ -65,13 +79,13 @@ Provider identifiers are also not perfectly canonical. For example:
 - `Long_COVID` has both `cyberian` and `cyberian-codex`
 - there are small counts for `query`, `claudeweb`, and `curator`
 
-The eval pipeline should therefore carry both:
+The only normalization worth preserving in the data model is:
 
 - `provider_raw`
 - `provider_family`
 - `report_mode`
 
-so that benchmarking can collapse aliases when appropriate without losing the
+so that comparisons can collapse aliases when appropriate without losing the
 original provenance.
 
 ## Inventory of multi-provider diseases
