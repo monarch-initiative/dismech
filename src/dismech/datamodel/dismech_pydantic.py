@@ -5947,7 +5947,7 @@ class Subtype(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    display_name: Optional[str] = Field(default=None, description="""Human-readable display name used when the `name` field (which serves as an identifier or foreign-key target) is too terse or technical for comfortable display. Optional; when absent, renderers should fall back to `name`. Currently carried by `Disease` and `Subtype`.""", json_schema_extra = { "linkml_meta": {'alias': 'display_name', 'domain_of': ['Subtype', 'Disease']} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name used when the `name` field (which serves as an identifier or foreign-key target) is too terse or technical for comfortable display. Optional; when absent, renderers should fall back to `name`. See `domain_of` in the generated datamodel for the classes that currently carry this slot.""", json_schema_extra = { "linkml_meta": {'alias': 'display_name', 'domain_of': ['Subtype', 'Disease']} })
     subtype_term: Optional[SubtypeDescriptor] = Field(default=None, description="""The ontology term grounding this subtype or cancer facet value. Prefer MONDO when available; use NCIT for oncology-specific subtype refinement when needed.""", json_schema_extra = { "linkml_meta": {'alias': 'subtype_term', 'domain_of': ['Subtype']} })
     mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease or subtype (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
@@ -8524,7 +8524,7 @@ class Disease(ConfiguredBaseModel):
                        'CriteriaSet',
                        'ComorbidityAssociation'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
-    display_name: Optional[str] = Field(default=None, description="""Human-readable display name used when the `name` field (which serves as an identifier or foreign-key target) is too terse or technical for comfortable display. Optional; when absent, renderers should fall back to `name`. Currently carried by `Disease` and `Subtype`.""", json_schema_extra = { "linkml_meta": {'alias': 'display_name', 'domain_of': ['Subtype', 'Disease']} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name used when the `name` field (which serves as an identifier or foreign-key target) is too terse or technical for comfortable display. Optional; when absent, renderers should fall back to `name`. See `domain_of` in the generated datamodel for the classes that currently carry this slot.""", json_schema_extra = { "linkml_meta": {'alias': 'display_name', 'domain_of': ['Subtype', 'Disease']} })
     disease_term: Optional[DiseaseDescriptor] = Field(default=None, description="""The MONDO disease term for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'disease_term', 'domain_of': ['DifferentialDiagnosis', 'Disease']} })
     creation_date: Optional[str] = Field(default=None, description="""Timestamp for initial creation of this disease entry. Keep this stable after first set.""", json_schema_extra = { "linkml_meta": {'alias': 'creation_date',
          'domain_of': ['Disease', 'ComorbidityAssociation'],

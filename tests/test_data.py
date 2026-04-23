@@ -54,6 +54,20 @@ def test_valid_comorbidity_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
+def test_disease_accepts_display_name(validator):
+    """Disease class accepts the optional display_name slot (issue #1616)."""
+    minimal_disease = {
+        "name": "Test_Disease_Slug",
+        "display_name": "Test Disease Display Name",
+    }
+    report = validator.validate(minimal_disease, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, (
+        f"Disease with display_name should validate but got: "
+        f"{[str(e) for e in errors]}"
+    )
+
+
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_disorder_has_required_fields(filepath):
     """Test that all disorders have required fields."""
