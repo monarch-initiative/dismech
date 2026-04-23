@@ -895,6 +895,96 @@ Interpretation:
 - this disease is a good pilot for comparing "broad review style" vs "recent,
   mechanism-heavy style"
 
+### Loose comparison 4: `Kniest_Dysplasia` report vs dismech YAML
+
+Compared here:
+
+- source `A`: `research/Kniest_Dysplasia-deep-research-falcon.md`
+- source `B`: `kb/disorders/Kniest_Dysplasia.yaml`
+
+Loose observations:
+
+- The overlap is strong on the core disease mechanism. The YAML already has
+  structured pathophysiology nodes for:
+  - defective type II collagen fibril assembly
+  - intracellular procollagen retention and ER stress
+  - premature chondrocyte apoptosis
+  - growth plate dysgenesis
+- The Falcon report covers the same mechanism stack in freer prose:
+  `COL2A1`, dominant-negative disruption of the triple helix, dilated rough ER,
+  Swiss-cheese cartilage, and growth-plate failure.
+- In other words, this is not a case where the report and YAML disagree. It is
+  a case where the report is more narratively expressive and more mechanistically
+  expansive, while the YAML is more claim-atomic and easier to verify.
+- The report adds details that look genuinely informative but would need
+  explicit handling in any future extractor:
+  - exon-specific examples such as exon 12, 15, and 24 effects
+  - the distinction between ER storage and canonical UPR activation
+  - newer iPSC/proteostasis observations
+- The YAML is better on curation discipline. It cleanly separates:
+  - pathophysiology nodes
+  - phenotypes such as disproportionate short-trunk short stature and enlarged joints
+  - evidence snippets attached to those claims
+- A useful qualitative judgment here is:
+  - relevance: high for both
+  - informativeness: report > YAML for mechanistic nuance
+  - accuracy/support: YAML easier to trust locally because every claim is already
+    decomposed and evidence-linked
+  - completeness: mixed; the report is broader mechanistically, the YAML is
+    stronger as a structured disease summary
+
+What this example teaches:
+
+- report-to-YAML comparison is a very good testbed because the YAML supplies a
+  stable, claim-atomic comparison target
+- a future upstream claim extractor should be able to turn a mechanistic
+  narrative into something closer to the YAML granularity
+- future scoring should distinguish “more detailed than YAML” from “unsupported
+  relative to YAML”
+
+### Loose comparison 5: `Fanconi_Anemia` report vs cached review article
+
+Compared here:
+
+- source `A`: `research/Fanconi_Anemia-deep-research-falcon.md`
+- source `B`: `references_cache/DOI_10.1186_s13023-025-03896-w.md`
+
+Loose observations:
+
+- The cached review article is `abstract_only`, which immediately changes how it
+  should be used. It is a high-level comparator, not a full gold standard.
+- The abstract covers the broad claims very cleanly:
+  - FA is caused by defects in DNA interstrand crosslink repair
+  - this produces genome instability
+  - clinically it leads to bone marrow failure, congenital abnormalities, and malignancy risk
+- The Falcon report clearly supports and expands those same themes. On the core
+  pathogenesis, the report is effectively a `SUBSUMING` source relative to the
+  abstract: it includes the broad review claims and then goes deeper into
+  pathway structure, aldehydes, ALDH2, fetal HSC biology, and newer mechanistic work.
+- This is a good example of why `UNSUPPORTED` has to be interpreted carefully.
+  Relative to the abstract, many of Falcon’s extra details have no counterpart,
+  but that does not make them suspicious. It just means the comparison target is
+  intentionally coarse.
+- Citation quality is also different in kind:
+  - the review abstract is compact and high-precision
+  - the report is much more ambitious and therefore creates more opportunities
+    for citation formatting inconsistency, citation overreach, or partial support
+- A useful qualitative judgment here is:
+  - relevance: high for both
+  - informativeness: report >> abstract
+  - accuracy/support: abstract is easier to validate at a glance
+  - completeness: abstract should not be treated as complete beyond broad disease themes
+
+What this example teaches:
+
+- cached review abstracts are useful sanity-check comparators for high-level
+  disease framing
+- they are not appropriate as the only target for fine-grained completeness
+  scoring
+- upstream tooling should explicitly distinguish:
+  - broad review alignment
+  - fine-grained claim alignment
+
 ## What the examples teach us
 
 These three examples are enough to surface the main reusable requirements.
