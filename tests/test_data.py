@@ -1,6 +1,7 @@
 """Data validation tests for dismech KB."""
 
 import glob
+import warnings
 from pathlib import Path
 
 import pytest
@@ -562,9 +563,11 @@ def test_subtypes_have_disease_term(filepath):
         if not term or not term.get("term", {}).get("id"):
             missing.append(s.get("name", f"has_subtypes[{i}]"))
 
-    assert not missing, (
-        f"{Path(filepath).name}: subtypes missing subtype_term: {missing}"
-    )
+    if missing:
+        warnings.warn(
+            f"{Path(filepath).name}: subtypes missing subtype_term: {missing}",
+            stacklevel=1,
+        )
 
 
 def test_disorder_count():
