@@ -542,6 +542,31 @@ def test_computational_model_mechanism_targets(filepath):
     )
 
 
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_subtypes_have_disease_term(filepath):
+    """Test that has_subtypes items have a subtype_term with an ontology grounding.
+
+    Each subtype should be grounded to a MONDO or NCIT disease term via
+    the subtype_term descriptor so that subtypes are machine-queryable.
+    """
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    subtypes = data.get("has_subtypes", [])
+    if not subtypes:
+        return
+
+    missing = []
+    for i, s in enumerate(subtypes):
+        term = s.get("subtype_term")
+        if not term or not term.get("term", {}).get("id"):
+            missing.append(s.get("name", f"has_subtypes[{i}]"))
+
+    assert not missing, (
+        f"{Path(filepath).name}: subtypes missing subtype_term: {missing}"
+    )
+
+
 def test_disorder_count():
     """Test that we have the expected number of disorders."""
     assert len(DISORDER_FILES) >= 50, (
