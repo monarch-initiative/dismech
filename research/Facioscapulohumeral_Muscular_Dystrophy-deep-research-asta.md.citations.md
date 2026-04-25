@@ -1,0 +1,26 @@
+# Citations for Research Query
+
+**Query:** Pathophysiology and clinical mechanisms of Facioscapulohumeral Muscular Dystrophy. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.
+**Provider:** asta
+**Generated:** 2026-04-22T21:54:51.169538
+
+1. S. Lassche, C. Ottenheijm, N. Voermans, H. Westeneng, B. Janssen et al. (2013). Determining the role of sarcomeric proteins in facioscapulohumeral muscular dystrophy: a study protocol. BMC Neurology. https://www.semanticscholar.org/paper/868ee81fe48b5199729eda6ddea2866f5512e503
+2. M. Bozzi (2025). Diagnosis, Pathogenesis and Treatment of Muscular Dystrophy. Biomedicines. https://www.semanticscholar.org/paper/e9c585567287a136c52df952d8f374aa96ae1090
+3. Leo H. Wang, R. Tawil (2020). Current Therapeutic Approaches in FSHD. Journal of Neuromuscular Diseases. https://www.semanticscholar.org/paper/65038a0ff08223c00ba4710a13bd42c87be28ac6
+4. D. Vargas-Franco, R. Kalra, Isabelle Draper, C. A. Pacak, A. Asakura et al. (2022). The Notch signaling pathway in skeletal muscle health and disease. Muscle & Nerve. https://www.semanticscholar.org/paper/2bc32ef6a1acc95f1c31b7e3ef5a268aadda4024
+5. S. Jagannathan, Jessica C. de Greef, Lawrence J. Hayward, K. Yokomori, D. Gabellini et al. (2022). Meeting report: the 2021 FSHD International Research Congress. Skeletal Muscle. https://www.semanticscholar.org/paper/7444edfc105226463dbdb4a3252fa3cc611a2048
+6. Renatta N Knox (2018). Facioscapulohumeral Muscular Dystrophy.. Continuum. https://www.semanticscholar.org/paper/aeb5eff3a6fc5398a8b8f1485693ed1a6cc4746a
+7. Macarena Díaz-Ubilla, Mauricio A Retamal (2025). The Unexplored Role of Connexin Hemichannels in Promoting Facioscapulohumeral Muscular Dystrophy Progression. International Journal of Molecular Sciences. https://www.semanticscholar.org/paper/2fc946973feb1d3970f29459e88eb639d3cd5bf9
+8. F. Rahimov, L. Kunkel (2013). Cellular and molecular mechanisms underlying muscular dystrophy. The Journal of Cell Biology. https://www.semanticscholar.org/paper/f40d5c11c05bfed36ed352efec2330b6b6ade1ba
+9. D. Leung, K. Wagner (2013). Therapeutic advances in muscular dystrophy. Annals of Neurology. https://www.semanticscholar.org/paper/22bac6d00e252299778eb2908eb9c77674e1b562
+10. Alexander Khlebtovsky, F. Benninger, I. Steiner (2018). A Hypothesis for Mechanisms of Weakness Distribution in Muscular Dystrophies. Journal of neurological disorders. https://www.semanticscholar.org/paper/bef89c402a7ddbbd127f4c1fd0472b4c04e87b7e
+11. A. Rawls, Bridget K. Diviak, Cameron I. Smith, Grant W. Severson, Sofia A. Acosta et al. (2023). Pharmacotherapeutic Approaches to Treatment of Muscular Dystrophies. Biomolecules. https://www.semanticscholar.org/paper/2d7f023c19774543c7e0bfca5c0dfb0b1aab2b39
+12. Guangbin Xia, N. Terada, T. Ashizawa (2018). Human iPSC Models to Study Orphan Diseases: Muscular Dystrophies. Current Stem Cell Reports. https://www.semanticscholar.org/paper/94a0f0ec0fcc7956f4f564ed7b9052cad3b908ce
+13. Valentina Salsi, G. Vattemi, R. Tupler (2023). The FSHD jigsaw: are we placing the tiles in the right position?. Current Opinion in Neurology. https://www.semanticscholar.org/paper/7a8931a1a0f0ce046716d159fe70a749fc6ef3c8
+14. W. Chiu, Ya-Hsin Hsun, Kao-Jung Chang, A. Yarmishyn, Yu-Jer Hsiao et al. (2020). Current Genetic Survey and Potential Gene-Targeting Therapeutics for Neuromuscular Diseases. International Journal of Molecular Sciences. https://www.semanticscholar.org/paper/421f0212b8e3f567e050b3191da99fe550b243a8
+15. Ting Xiao, Haiyang Yang, Siyi Gan, Liwen Wu (2021). A pediatric case report and literature review of facioscapulohumeral muscular dystrophy type1. Medicine. https://www.semanticscholar.org/paper/d39bf2d0a9f15060d81e0f8a73cc4ca3e15083c8
+16. Alexander Mensch, S. Zierz (2020). Cellular Stress in the Pathogenesis of Muscular Disorders—From Cause to Consequence. International Journal of Molecular Sciences. https://www.semanticscholar.org/paper/22b8c2f84f84b8479f611e296ca9b32813c3bf6c
+17. A. Koutsoulidou, Demetris Koutalianos, K. Georgiou, Andrea C. Kakouri, A. Oulas et al. (2022). Serum miRNAs as biomarkers for the rare types of muscular dystrophy.. Neuromuscular disorders : NMD. https://www.semanticscholar.org/paper/66fe911cc2daff3c136f30d6771b2ec4807cfed9
+18. Yan-li Wei, Qisheng Su, Xiao-Hua Li (2022). Identification of hub genes related to Duchenne muscular dystrophy by weighted gene co-expression network analysis. Medicine. https://www.semanticscholar.org/paper/270eedbe2a86196967455d575878a3326f57e676
+19. J. Statland, K. Odrzywolski, Bharati Shah, D. Henderson, A. Fricke et al. (2015). Immunohistochemical Characterization of FacioscapulohumeralMuscular Dystrophy Muscle Biopsies. Journal of Neuromuscular Diseases. https://www.semanticscholar.org/paper/1783c8861ca01161de60ef8ace8851890ba7c39c
+20. C. Angelini (2015). LGMD phenotype due to a new gene and dysferlinopathy investigated by next-generation sequencing. Neurology: Genetics. https://www.semanticscholar.org/paper/2c55b9718099ba1a33fa6f6ea43815046be1c557
