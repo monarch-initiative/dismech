@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: true
-start_time: '2026-04-24T16:25:44.244221'
-end_time: '2026-04-24T16:25:44.247289'
-duration_seconds: 0.0
+cached: false
+start_time: '2026-04-24T07:09:58.537416'
+end_time: '2026-04-24T07:25:19.914350'
+duration_seconds: 921.38
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Hereditary Hemorrhagic Telangiectasia
