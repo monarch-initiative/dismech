@@ -21,7 +21,7 @@ class NodeInfo:
     """Information about a node in the causal graph."""
 
     name: str
-    node_type: str  # pathophysiology, phenotype, environmental, genetic, treatment, biochemical, experimental_model
+    node_type: str  # pathophysiology, phenotype, environmental, genetic, treatment, biochemical, experimental_model, computational_model
     description: str | None = None
 
 
@@ -55,6 +55,7 @@ NODE_COLORS = {
     "treatment": "#fce7f3",  # pink-100
     "biochemical": "#e0e7ff",  # indigo-100
     "experimental_model": "#ccfbf1",  # teal-100
+    "computational_model": "#ecfccb",  # lime-100
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
 
@@ -214,6 +215,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
         ("treatments", "treatment"),
         ("biochemical", "biochemical"),
         ("experimental_models", "experimental_model"),
+        ("computational_models", "computational_model"),
     ]
 
     # Collect all nodes
@@ -354,6 +356,25 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         target=link["target"],
                         predicate="models",
                         source_type="experimental_model",
+                    )
+                )
+
+    # Collect edges from computational model links
+    for item in disorder.get("computational_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("name")
+        if not source:
+            continue
+
+        for link in item.get("modeled_mechanisms", []) or []:
+            if isinstance(link, dict) and "target" in link:
+                graph.edges.append(
+                    Edge(
+                        source=source,
+                        target=link["target"],
+                        predicate="models",
+                        source_type="computational_model",
                     )
                 )
 
@@ -568,6 +589,17 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     if gene_labels:
         meta["genes"] = list(dict.fromkeys(gene_labels))
 
+    # Subtype applicability
+    subtype_labels: list[str] = []
+    subtype = item.get("subtype")
+    if subtype:
+        subtype_labels.append(str(subtype))
+    subtypes = item.get("subtypes", []) or []
+    if subtypes:
+        subtype_labels.extend(str(value) for value in subtypes if value)
+    if subtype_labels:
+        meta["subtypes"] = list(dict.fromkeys(subtype_labels))
+
     # Role (pathophysiology)
     if item.get("role"):
         meta["role"] = item["role"]
@@ -657,8 +689,14 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     # Experimental model metadata
     if item.get("experimental_model_type"):
         meta["model_type"] = item["experimental_model_type"]
+    elif item.get("model_type"):
+        meta["model_type"] = item["model_type"]
     if item.get("namo_type"):
         meta["namo_type"] = item["namo_type"]
+    if item.get("model_software"):
+        meta["model_software"] = item["model_software"]
+    if item.get("model_format"):
+        meta["model_format"] = item["model_format"]
     conditions = item.get("conditions", []) or []
     if conditions:
         meta["conditions"] = [str(condition) for condition in conditions if condition]
@@ -713,6 +751,108 @@ def _collect_experimental_model_links(
     return links_by_target
 
 
+def _collect_computational_model_links(
+    disorder: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect computational model links keyed by target pathophysiology node name."""
+    links_by_target: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for model in disorder.get("computational_models", []) or []:
+        if not isinstance(model, dict):
+            continue
+        model_name = model.get("name")
+        if not model_name:
+            continue
+
+        for link in model.get("modeled_mechanisms", []) or []:
+            if not isinstance(link, dict):
+                continue
+            target = link.get("target")
+            if not target:
+                continue
+
+            link_data: dict[str, Any] = {"name": model_name}
+            if model.get("model_type"):
+                link_data["model_type"] = model["model_type"]
+            if model.get("model_software"):
+                link_data["model_software"] = model["model_software"]
+            if model.get("model_format"):
+                link_data["model_format"] = model["model_format"]
+            if link.get("description"):
+                link_data["description"] = link["description"]
+            links_by_target[str(target)].append(link_data)
+
+    return links_by_target
+
+
+def _collect_histopathology_links(
+    disorder: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect histopathology term mappings keyed by normalized lookup values."""
+    links_by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for finding in disorder.get("histopathology", []) or []:
+        if not isinstance(finding, dict):
+            continue
+
+        finding_term = finding.get("finding_term")
+        if not isinstance(finding_term, dict):
+            continue
+
+        term = finding_term.get("term")
+        if not isinstance(term, dict):
+            continue
+
+        link_data: dict[str, Any] = {}
+        if finding.get("name"):
+            link_data["name"] = finding["name"]
+        if finding_term.get("preferred_term"):
+            link_data["preferred_term"] = finding_term["preferred_term"]
+        if term.get("id"):
+            link_data["term_id"] = term["id"]
+        if term.get("label"):
+            link_data["term_label"] = term["label"]
+
+        if not link_data:
+            continue
+
+        keys = set()
+        name_key = _normalize_lookup_key(finding.get("name"))
+        if name_key:
+            keys.add(name_key)
+        keys.update(_descriptor_lookup_keys(finding_term))
+
+        for key in keys:
+            if link_data not in links_by_key[key]:
+                links_by_key[key].append(link_data)
+
+    return links_by_key
+
+
+def _node_lookup_keys(name: str, raw_item: dict[str, Any] | None) -> set[str]:
+    """Collect lookup keys for a graph node when matching external annotations."""
+    keys: set[str] = set()
+    name_key = _normalize_lookup_key(name)
+    if name_key:
+        keys.add(name_key)
+
+    if not isinstance(raw_item, dict):
+        return keys
+
+    for descriptor_key in (
+        "phenotype_term",
+        "finding_term",
+        "biomarker_term",
+        "exposure_term",
+        "gene",
+        "gene_term",
+        "treatment_term",
+    ):
+        keys.update(_descriptor_lookup_keys(raw_item.get(descriptor_key)))
+
+    return keys
+
+
 def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
     """
     Serialize a causal graph to JSON for the D3.js pathograph visualization.
@@ -739,6 +879,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         "treatments",
         "biochemical",
         "experimental_models",
+        "computational_models",
         "variants",
     ]
     item_lookup: dict[str, dict[str, Any]] = {}
@@ -750,6 +891,8 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         if "name" in variant:
             item_lookup[variant["name"]] = variant
     model_links_by_target = _collect_experimental_model_links(disorder)
+    computational_model_links_by_target = _collect_computational_model_links(disorder)
+    histopathology_links_by_key = _collect_histopathology_links(disorder)
 
     # Build node list (only nodes used in edges)
     used_nodes: set[str] = set()
@@ -781,9 +924,25 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
             meta = _extract_node_metadata(raw_item)
             if meta:
                 node_data["meta"] = meta
+
+        histopathology_terms: list[dict[str, Any]] = []
+        for key in _node_lookup_keys(name, raw_item):
+            histopathology_terms.extend(histopathology_links_by_key.get(key, []))
+        if histopathology_terms:
+            unique_histopathology_terms: list[dict[str, Any]] = []
+            for term in histopathology_terms:
+                if term not in unique_histopathology_terms:
+                    unique_histopathology_terms.append(term)
+            node_data.setdefault("meta", {})["histopathology_terms"] = (
+                unique_histopathology_terms
+            )
         if name in model_links_by_target:
             node_data.setdefault("meta", {})["experimental_models"] = (
                 model_links_by_target[name]
+            )
+        if name in computational_model_links_by_target:
+            node_data.setdefault("meta", {})["computational_models"] = (
+                computational_model_links_by_target[name]
             )
 
         nodes_json.append(node_data)

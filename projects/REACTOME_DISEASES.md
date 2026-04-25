@@ -197,7 +197,7 @@ Source: `https://reactome.org/ContentService/data/diseases`
 - [ ] epidermal appendage tumor (DOID:2433)
 - [ ] epithelioid inflammatory myofibroblastic sarcoma (DOID:0080372)
 - [ ] esophageal carcinoma (DOID:1107)
-- [ ] esophagus adenocarcinoma (DOID:4914)
+- [x] esophagus adenocarcinoma (DOID:4914)
 - [ ] esophagus squamous cell carcinoma (DOID:3748)
 - [ ] estrogen-receptor positive breast cancer (DOID:0060075)
 - [ ] fallopian tube serous adenocarcinoma (DOID:5598)

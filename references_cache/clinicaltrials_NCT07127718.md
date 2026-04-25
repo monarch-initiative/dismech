@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07127718
+reference_id: "clinicaltrials:NCT07127718"
 title: "Decreasing Leptospirosis Emergence Through Prognosis and Treatment Optimization (DeLEPTO) Project 1: Preventive Strategies for Early and Late Complications of Leptospirosis"
 content_type: summary
 ---

@@ -142,12 +142,25 @@ def test_render_disorder_keeps_computational_models_working(
         disorder_path,
         {
             "name": "Computational Disorder",
+            "pathophysiology": [{"name": "Signaling Defect"}],
             "computational_models": [
                 {
                     "name": "Mechanistic signaling model",
                     "model_type": "MECHANISTIC_NETWORK",
                     "model_software": "PySB",
                     "publication": "PMID:34567890",
+                    "modeled_mechanisms": [
+                        {
+                            "target": "Signaling Defect",
+                            "description": "Encodes the causal signaling defect as executable rules.",
+                        }
+                    ],
+                    "findings": [
+                        {
+                            "statement": "The executable model directly encodes the core signaling defect.",
+                            "supporting_text": "signaling_cell,signal,increases,downstream activity,1,0.5,2,0",
+                        }
+                    ],
                 }
             ],
         },
@@ -161,6 +174,9 @@ def test_render_disorder_keeps_computational_models_working(
     assert re.search(_card_title_pattern("Computational Models"), html)
     assert "Mechanistic signaling model" in html
     assert "PySB" in html
+    assert "Pathograph links" in html
+    assert "Signaling Defect" in html
+    assert "The executable model directly encodes the core signaling defect." in html
     assert re.search(
         r'<div class="card" id="models">\s*<div class="card-header">.*?Computational Models',
         html,

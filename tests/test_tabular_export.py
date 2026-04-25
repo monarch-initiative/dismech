@@ -50,6 +50,10 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
                     "phenotype_term": {
                         "preferred_term": "Seizure",
                         "term": {"id": "HP:0001250", "label": "Seizure"},
+                        "temporality": "RECURRENT",
+                        "clinical_course": "PROGRESSIVE",
+                        "severity": "SEVERE",
+                        "onset": {"onset_category": "CHILDHOOD"},
                     },
                     "phenotype_contexts": [
                         {
@@ -140,7 +144,23 @@ def test_tabular_export_flattens_assertions_descriptors_and_evidence():
         assert treatment_term_row["qualifier_therapeutic_agent_ids"] == "NCIT:C258"
         assert treatment_term_row["qualifier_therapeutic_agent_predicate_ids"] == "NCIT:C2259"
 
+        phenotype_term_row = next(row for row in descriptors if row["path"] == "phenotype_term")
+        assert phenotype_term_row["postcomp_temporality"] == "RECURRENT"
+        assert phenotype_term_row["postcomp_clinical_course"] == "PROGRESSIVE"
+        assert phenotype_term_row["postcomp_severity"] == "SEVERE"
+        assert phenotype_term_row["postcomp_onset"] == "CHILDHOOD"
+
         postcomposition = _read_tsv(output_dir / "descriptor_postcomposition.tsv")
+        phenotype_postcomposition = {
+            row["relation_type"]: row
+            for row in postcomposition
+            if row["descriptor_path"] == "phenotype_term"
+        }
+        assert phenotype_postcomposition["temporality"]["value_literal"] == "RECURRENT"
+        assert phenotype_postcomposition["clinical_course"]["value_literal"] == "PROGRESSIVE"
+        assert phenotype_postcomposition["severity"]["value_literal"] == "SEVERE"
+        assert phenotype_postcomposition["onset"]["value_literal"] == "CHILDHOOD"
+
         qualifier_row = next(
             row
             for row in postcomposition

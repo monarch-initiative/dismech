@@ -13,7 +13,9 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content.strip() + "\n", encoding="utf-8")
 
 
-def test_collect_uncurated_references_counts_linking_pages(tmp_path: Path) -> None:
+def test_collect_uncurated_references_excludes_subtype_grounding(
+    tmp_path: Path,
+) -> None:
     kb_dir = tmp_path / "kb" / "disorders"
     _write(
         kb_dir / "Acne_Vulgaris.yaml",
@@ -67,14 +69,11 @@ has_subtypes:
     row = rows[0]
     assert row["disease_name"] == "Rosacea-like Dermatitis"
     assert row["mondo_id"] == "MONDO:1000999"
-    assert row["linking_pages_count"] == 2
-    assert [page["name"] for page in row["linking_pages"]] == [
-        "Acne Vulgaris",
-        "Psoriasis",
-    ]
+    assert row["linking_pages_count"] == 1
+    assert [page["name"] for page in row["linking_pages"]] == ["Acne Vulgaris"]
 
 
-def test_generate_report_injects_dashboard_link_idempotently(tmp_path: Path) -> None:
+def test_generate_report_ignores_subtype_grounding(tmp_path: Path) -> None:
     kb_dir = tmp_path / "kb" / "disorders"
     dashboard_dir = tmp_path / "dashboard"
     dashboard_index = dashboard_dir / "index.html"
@@ -131,8 +130,8 @@ disease_term:
         dashboard_index_path=dashboard_index,
     )
 
-    assert result_1["summary"]["total_uncurated_disease_terms"] == 1
-    assert result_1["summary"]["total_linking_pages"] == 1
+    assert result_1["summary"]["total_uncurated_disease_terms"] == 0
+    assert result_1["summary"]["total_linking_pages"] == 0
     assert (dashboard_dir / "not_yet_curated.html").exists()
     assert (dashboard_dir / "not_yet_curated.json").exists()
 
@@ -142,11 +141,13 @@ disease_term:
     assert index_content.count(UNCURATED_BLOCK_END) == 1
 
     # Second pass should detect existing block and keep a single injected section.
-    assert result_2["summary"]["total_uncurated_disease_terms"] == 1
+    assert result_2["summary"]["total_uncurated_disease_terms"] == 0
     assert dashboard_index.read_text(encoding="utf-8").count(UNCURATED_BLOCK_START) == 1
 
 
-def test_duplicate_curated_mondo_id_is_not_reported_as_uncurated(tmp_path: Path) -> None:
+def test_duplicate_curated_mondo_id_is_not_reported_as_uncurated(
+    tmp_path: Path,
+) -> None:
     kb_dir = tmp_path / "kb" / "disorders"
     _write(
         kb_dir / "Variant_A.yaml",

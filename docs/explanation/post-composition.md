@@ -22,6 +22,11 @@ The Descriptor base class provides explicit slots for post-composition:
 | `modifier` | Directional/qualitative change | `ModifierEnum` | All Descriptors |
 | `located_in` | Anatomical location | `AnatomicalEntityDescriptor` | All Descriptors |
 | `laterality` | Left/right/bilateral | `LateralityEnum` | All Descriptors |
+| `spatial_extent` | Distribution/extent pattern | `SpatialExtentEnum` | All Descriptors |
+| `temporality` | Acute/chronic/recurrent/subacute/etc. qualifier | `TemporalityEnum` | All Descriptors |
+| `clinical_course` | Progressive/stable course qualifier | `ClinicalCourseEnum` | All Descriptors |
+| `severity` | Mild/moderate/severe qualifier | `SeverityQualifierEnum` (or legacy free text) | All Descriptors |
+| `onset` | Structured onset metadata | `OnsetDescriptor` | All Descriptors |
 | `therapeutic_agent` | Drug/chemical used in treatment | `ChemicalEntityDescriptor` | TreatmentDescriptor |
 
 ### 1. The `modifier` Slot
@@ -134,6 +139,61 @@ This expresses: "pharmacotherapy using zinc acetate"
 - Use NCIT for drug classes when specific CHEBI term unavailable
 - Only available on `TreatmentDescriptor` (used in `treatment_term`)
 
+### 5. Temporal / Course / Severity / Onset Slots
+
+These slots cover common clinical qualifiers that previously required the deprecated
+generic `qualifiers` pattern.
+
+```yaml
+phenotype_term:
+  preferred_term: Diarrhea
+  term:
+    id: HP:0002014
+    label: Diarrhea
+  temporality: CHRONIC
+
+phenotype_term:
+  preferred_term: Muscle weakness
+  term:
+    id: HP:0001324
+    label: Muscle weakness
+  clinical_course: PROGRESSIVE
+
+phenotype_term:
+  preferred_term: Meningitis
+  term:
+    id: HP:0001287
+    label: Meningitis
+  severity: SEVERE
+  onset:
+    onset_category: NEONATAL
+```
+
+**Available temporality values** (`TemporalityEnum`):
+- `ACUTE`
+- `TRANSIENT`
+- `SUBACUTE`
+- `CHRONIC`
+- `RECURRENT`
+- `DIURNAL`
+- `NOCTURNAL`
+- `PROLONGED`
+
+**Available clinical course values** (`ClinicalCourseEnum`):
+- `PROGRESSIVE`
+- `STABLE`
+
+**Available severity values** (`SeverityQualifierEnum`):
+- `MILD`
+- `MODERATE`
+- `SEVERE`
+
+**Guidance:**
+- Prefer these explicit slots over `qualifiers` for common clinical qualification.
+- Prefer precoordinated ontology terms when the ontology already has the exact term.
+- Use `onset` when onset timing itself is part of the descriptor semantics rather than
+  a cohort-specific phenotype-context statement.
+
 **Example from `Wilsons_Disease.yaml`:**
 ```yaml
 - name: Zinc Acetate
@@ -180,6 +240,10 @@ The generic `qualifiers` slot (predicate-value pairs) is **deprecated**. It prov
 - For anatomical location: use `located_in`
 - For laterality: use `laterality`
 - For directional changes: use `modifier`
+- For temporality: use `temporality`
+- For course: use `clinical_course`
+- For qualifier severity: use descriptor `severity`
+- For onset: use descriptor `onset`
 
 If you encounter a post-composition need not covered by these slots, open an issue to discuss adding a new explicit slot rather than using the deprecated `qualifiers` pattern.
 
@@ -216,6 +280,22 @@ phenotype_term:
 - The condition/finding is unilateral or bilateral
 - Distinguishing left vs right side involvement
 - The laterality is not captured in the base term
+
+### Use `temporality` when:
+- The base term needs an acute/chronic/recurrent qualifier
+- The ontology lacks the exact precoordinated acute/chronic/recurrent term
+
+### Use `clinical_course` when:
+- The manifestation is specifically progressive or stable over time
+- The course qualifier is part of the descriptor semantics rather than a disease-phase label
+
+### Use descriptor `severity` when:
+- You need an ontology-aligned mild/moderate/severe qualifier on a descriptor
+- The severity modifies the bound term itself (for example, severe coma)
+
+### Use descriptor `onset` when:
+- Onset timing qualifies the descriptor itself
+- You want structured onset categories or age summaries on the descriptor
 
 ## The "Below the Shoreline" Problem
 

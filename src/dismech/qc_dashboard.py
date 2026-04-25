@@ -57,7 +57,11 @@ def _extract_mondo_terms(node: Any) -> Iterator[tuple[str, str | None]]:
                 )
                 yield term_id, label
 
-        for value in node.values():
+        for key, value in node.items():
+            if key == "has_subtypes":
+                # Cancer subtype facets are ontology grounding only and should not
+                # create "not yet curated" disease-page debt.
+                continue
             yield from _extract_mondo_terms(value)
         return
 
@@ -178,9 +182,7 @@ def _render_uncurated_report_page(
 ) -> str:
     table_body = _render_report_table_rows(rows)
     if not table_body:
-        table_body = (
-            '<tr><td colspan="4">No uncurated disease links found.</td></tr>'
-        )
+        table_body = '<tr><td colspan="4">No uncurated disease links found.</td></tr>'
 
     return f"""<!DOCTYPE html>
 <html lang="en">
