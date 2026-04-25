@@ -555,6 +555,14 @@ class TabularExporter:
                 self._append_if_value(aggregated, "postcomp_modifier", value_text or value_literal)
             elif relation_type == "laterality":
                 self._append_if_value(aggregated, "postcomp_laterality", value_text or value_literal)
+            elif relation_type == "temporality":
+                self._append_if_value(aggregated, "postcomp_temporality", value_text or value_literal)
+            elif relation_type == "clinical_course":
+                self._append_if_value(aggregated, "postcomp_clinical_course", value_text or value_literal)
+            elif relation_type == "severity":
+                self._append_if_value(aggregated, "postcomp_severity", value_text or value_literal)
+            elif relation_type == "onset":
+                self._append_if_value(aggregated, "postcomp_onset", value_text or value_literal)
             elif relation_type == "located_in":
                 self._append_if_value(aggregated, "postcomp_located_in", value_text)
                 self._append_if_value(aggregated, "postcomp_located_in_ids", value_id)
@@ -669,6 +677,10 @@ class TabularExporter:
                 "MIN(value_term_label) FILTER (WHERE relation_type = 'located_in') AS located_in_term_label, "
                 "MIN(value_literal) FILTER (WHERE relation_type = 'laterality') AS laterality, "
                 "MIN(value_literal) FILTER (WHERE relation_type = 'modifier') AS modifier, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'temporality') AS temporality, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'clinical_course') AS clinical_course, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'severity') AS severity, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'onset') AS onset, "
                 "STRING_AGG(value_term_label, '; ' ORDER BY relation_index) FILTER (WHERE relation_type = 'therapeutic_agent') AS therapeutic_agents, "
                 "STRING_AGG(predicate_term_label, '; ' ORDER BY relation_index) FILTER (WHERE relation_type = 'qualifier') AS qualifier_predicates, "
                 "STRING_AGG(value_term_label, '; ' ORDER BY relation_index) FILTER (WHERE relation_type = 'qualifier') AS qualifier_values "
@@ -756,6 +768,65 @@ class TabularExporter:
                 predicate_preferred_term="laterality",
                 value_literal=str(laterality),
                 raw_value=laterality,
+            )
+
+        temporality = descriptor.get("temporality")
+        if temporality not in (None, ""):
+            add_row(
+                relation_type="temporality",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.temporality",
+                predicate_preferred_term="temporality",
+                value_literal=str(temporality),
+                raw_value=temporality,
+            )
+
+        clinical_course = descriptor.get("clinical_course")
+        if clinical_course not in (None, ""):
+            add_row(
+                relation_type="clinical_course",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.clinical_course",
+                predicate_preferred_term="clinical_course",
+                value_literal=str(clinical_course),
+                raw_value=clinical_course,
+            )
+
+        severity = descriptor.get("severity")
+        if severity not in (None, ""):
+            add_row(
+                relation_type="severity",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.severity",
+                predicate_preferred_term="severity",
+                value_literal=str(severity),
+                raw_value=severity,
+            )
+
+        onset = descriptor.get("onset")
+        if isinstance(onset, dict):
+            onset_parts: list[str] = []
+            onset_category = onset.get("onset_category")
+            mean_age_years = onset.get("mean_age_years")
+            min_age_years = onset.get("min_age_years")
+            max_age_years = onset.get("max_age_years")
+            if onset_category not in (None, ""):
+                onset_parts.append(str(onset_category))
+            if mean_age_years is not None:
+                onset_parts.append(f"mean {mean_age_years}y")
+            if min_age_years is not None and max_age_years is not None:
+                onset_parts.append(f"{min_age_years}-{max_age_years}y")
+            elif min_age_years is not None:
+                onset_parts.append(f"from {min_age_years}y")
+            elif max_age_years is not None:
+                onset_parts.append(f"up to {max_age_years}y")
+            add_row(
+                relation_type="onset",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.onset",
+                predicate_preferred_term="onset",
+                value_literal="; ".join(onset_parts),
+                raw_value=onset,
             )
 
         located_in = descriptor.get("located_in")
@@ -873,6 +944,10 @@ class TabularExporter:
                 "modifier",
                 "located_in",
                 "laterality",
+                "temporality",
+                "clinical_course",
+                "severity",
+                "onset",
                 "qualifiers",
                 "therapeutic_agent",
                 "dietary_modifications",

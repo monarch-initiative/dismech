@@ -1872,7 +1872,7 @@
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
         computational_model: "Computational Models",
-        orphan: "Orphan"
+        orphan: "Uncategorized"
     };
     var NODE_STROKE = {
         pathophysiology: "#93c5fd",
@@ -2316,7 +2316,7 @@
 
         /* -- Legend -- */
         var typesInGraph = {};
-        data.nodes.forEach(function(n) { if (!n.is_orphan) typesInGraph[n.node_type] = n.color; });
+        data.nodes.forEach(function(n) { typesInGraph[n.node_type] = n.color; });
         var activeTypes = new Set(Object.keys(typesInGraph));
 
         Object.keys(typesInGraph).forEach(function(type) {
@@ -2469,12 +2469,26 @@
                 <span class="context-freq">{{ ctx.frequency }}</span>
                 {% endif %}
                 {% if ctx.onset %}
+                {% set onset_category = ctx.onset.get('onset_category') %}
+                {% set onset_mean = ctx.onset.get('mean_age_years') %}
+                {% set onset_min = ctx.onset.get('min_age_years') %}
+                {% set onset_max = ctx.onset.get('max_age_years') %}
+                {% if onset_category or onset_mean is not none or onset_min is not none or onset_max is not none %}
                 <span class="context-onset">Onset:
-                  {%- if ctx.onset.onset_category %} {{ ctx.onset.onset_category }}{% endif -%}
-                  {%- if ctx.onset.mean_age_years is not none %} mean {{ ctx.onset.mean_age_years }}y{% endif -%}
-                  {%- if ctx.onset.min_age_years is not none %} min {{ ctx.onset.min_age_years }}y{% endif -%}
-                  {%- if ctx.onset.max_age_years is not none %} max {{ ctx.onset.max_age_years }}y{% endif -%}
+                  {%- if onset_category %} {{ onset_category }}{% endif -%}
+                  {%- if onset_mean is not none and onset_min is not none and onset_max is not none -%}
+                    {{ '; ' if onset_category else ' ' }}mean {{ onset_mean }}y (range {{ onset_min }}-{{ onset_max }}y)
+                  {%- elif onset_mean is not none -%}
+                    {{ '; ' if onset_category else ' ' }}mean {{ onset_mean }}y
+                  {%- elif onset_min is not none and onset_max is not none -%}
+                    {{ '; ' if onset_category else ' ' }}{{ onset_min }}-{{ onset_max }}y
+                  {%- elif onset_min is not none -%}
+                    {{ '; ' if onset_category else ' ' }}from {{ onset_min }}y
+                  {%- elif onset_max is not none -%}
+                    {{ '; ' if onset_category else ' ' }}up to {{ onset_max }}y
+                  {%- endif -%}
                 </span>
+                {% endif %}
                 {% endif %}
                 {% if ctx.severity %}
                 <span class="context-severity">{{ ctx.severity }}</span>
@@ -2535,6 +2549,56 @@
     <span class="tag tag-modifier">
         {{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}
     </span>
+    {% endif %}
+    {% endmacro %}
+
+    {% macro render_onset_badge(onset) %}
+    {% if onset %}
+    {% set onset_category = onset.get('onset_category') %}
+    {% set onset_mean = onset.get('mean_age_years') %}
+    {% set onset_min = onset.get('min_age_years') %}
+    {% set onset_max = onset.get('max_age_years') %}
+    {% if onset_category or onset_mean is not none or onset_min is not none or onset_max is not none %}
+    <span class="tag tag-classification">
+        Onset:
+        {%- if onset_category %} {{ onset_category | replace('_', ' ') }}{% endif -%}
+        {%- if onset_mean is not none and onset_min is not none and onset_max is not none -%}
+          {{ '; ' if onset_category else ' ' }}mean {{ onset_mean }}y (range {{ onset_min }}-{{ onset_max }}y)
+        {%- elif onset_mean is not none -%}
+          {{ '; ' if onset_category else ' ' }}mean {{ onset_mean }}y
+        {%- elif onset_min is not none and onset_max is not none -%}
+          {{ '; ' if onset_category else ' ' }}{{ onset_min }}-{{ onset_max }}y
+        {%- elif onset_min is not none -%}
+          {{ '; ' if onset_category else ' ' }}from {{ onset_min }}y
+        {%- elif onset_max is not none -%}
+          {{ '; ' if onset_category else ' ' }}up to {{ onset_max }}y
+        {%- endif -%}
+    </span>
+    {% endif %}
+    {% endif %}
+    {% endmacro %}
+
+    {% macro render_descriptor_qualifiers(descriptor) %}
+    {% if descriptor %}
+    {{ render_modifier(descriptor.modifier) }}
+    {% if descriptor.laterality %}
+    <span class="tag tag-classification">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
+    {% endif %}
+    {% if descriptor.spatial_extent %}
+    <span class="tag tag-classification">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
+    {% endif %}
+    {% if descriptor.temporality %}
+    <span class="tag tag-classification">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
+    {% endif %}
+    {% if descriptor.clinical_course %}
+    <span class="tag tag-classification">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
+    {% endif %}
+    {% if descriptor.severity %}
+    <span class="tag tag-classification">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
+    {% endif %}
+    {% if descriptor.onset %}
+    {{ render_onset_badge(descriptor.onset) }}
+    {% endif %}
     {% endif %}
     {% endmacro %}
 
@@ -3356,7 +3420,12 @@
                         {% endif %}
                         {% if subtype.genes %}
                             {% for gene in subtype.genes %}
-                            <span class="subtype-gene-tag">{{ gene.preferred_term or gene.term.label }}</span>
+                            <span class="subtype-gene-tag">
+                                {{ gene.preferred_term or gene.term.label }}
+                                {% if gene.term and gene.term.id %}
+                                <a href="{{ gene.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
+                                {% endif %}
+                            </span>
                             {% endfor %}
                         {% endif %}
                         {% if subtype.inheritance %}
@@ -3461,7 +3530,7 @@
                         <a href="{{ ct.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
                         {% endif %}
                     </span>
-                    {{ render_modifier(ct.modifier) }}
+                    {{ render_descriptor_qualifiers(ct) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -3498,7 +3567,7 @@
                         <a href="{{ bp.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
                         {% endif %}
                     </span>
-                    {{ render_modifier(bp.modifier) }}
+                    {{ render_descriptor_qualifiers(bp) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -3511,7 +3580,7 @@
                         <a href="{{ mf.term.id | curie_to_url }}" target="_blank" class="linkout">link</a>
                         {% endif %}
                     </span>
-                    {{ render_modifier(mf.modifier) }}
+                    {{ render_descriptor_qualifiers(mf) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -3557,9 +3626,9 @@
                     </div>
                 </div>
                 {% endif %}
-                {% if patho._computational_model_links %}
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Computational models</div>
+	                {% if patho._computational_model_links %}
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Computational models</div>
                     <div class="crosslink-list">
                         {% for link in patho._computational_model_links %}
                         <div class="crosslink-item">
@@ -3575,12 +3644,27 @@
                             {% endif %}
                         </div>
                         {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-                {{ render_evidence(patho.evidence) }}
-            </div>
-            {% endfor %}
+	                    </div>
+	                </div>
+	                {% endif %}
+	                {% if patho.downstream %}
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        {% for edge in patho.downstream %}
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">{{ edge.target }}</span>
+	                            {% if edge.description %}
+	                            <span class="crosslink-desc">{{ edge.description }}</span>
+	                            {% endif %}
+	                        </div>
+	                        {% endfor %}
+	                    </div>
+	                </div>
+	                {% endif %}
+	                {{ render_evidence(patho.evidence) }}
+	            </div>
+	            {% endfor %}
         </div>
         {% endif %}
 
@@ -3678,15 +3762,20 @@
                         {% if pheno.frequency %}
                         <span class="phenotype-freq">{{ pheno.frequency }}</span>
                         {% endif %}
-                        {% if pheno.phenotype_term and pheno.phenotype_term.term %}
-                        <span class="phenotype-id">
-                            <a href="{{ pheno.phenotype_term.term.id | curie_to_url }}" target="_blank">
-                                {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
-                            </a>
+                    {% if pheno.phenotype_term and pheno.phenotype_term.term %}
+                    <span class="phenotype-id">
+                        <a href="{{ pheno.phenotype_term.term.id | curie_to_url }}" target="_blank">
+                            {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
+                        </a>
                             <span style="font-size: 0.72rem; color: var(--text-muted);">({{ pheno.phenotype_term.term.id }})</span>
                         </span>
                         {% endif %}
                     </div>
+                    {% if pheno.phenotype_term and (pheno.phenotype_term.modifier or pheno.phenotype_term.laterality or pheno.phenotype_term.spatial_extent or pheno.phenotype_term.temporality or pheno.phenotype_term.clinical_course or pheno.phenotype_term.severity or pheno.phenotype_term.onset) %}
+                    <div class="item-meta">
+                        {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
+                    </div>
+                    {% endif %}
                     {% if pheno.notes %}
                     <div class="item-desc">{{ pheno.notes }}</div>
                     {% endif %}
@@ -3748,6 +3837,11 @@
                     </span>
                     {% endif %}
                 </div>
+                {% if pheno.phenotype_term and (pheno.phenotype_term.modifier or pheno.phenotype_term.laterality or pheno.phenotype_term.spatial_extent or pheno.phenotype_term.temporality or pheno.phenotype_term.clinical_course or pheno.phenotype_term.severity or pheno.phenotype_term.onset) %}
+                <div class="item-meta">
+                    {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
+                </div>
+                {% endif %}
                 {% if pheno.notes %}
                 <div class="item-desc">{{ pheno.notes }}</div>
                 {% endif %}
@@ -3823,6 +3917,7 @@
                     {% if tx_term_id %}
                     <a href="{{ tx_term_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ tx_term_id }}</a>
                     {% endif %}
+                    {{ render_descriptor_qualifiers(tx.treatment_term) }}
                     {% endif %}
                     {% if tx.regimen_term and tx.regimen_term.term %}
                     {% set regimen_id = tx.regimen_term.term.id %}
@@ -3835,6 +3930,39 @@
                     {% endif %}
                     {% if regimen_id %}
                     <a href="{{ regimen_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ regimen_id }}</a>
+                    {% endif %}
+                    {{ render_descriptor_qualifiers(tx.regimen_term) }}
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if (tx.treatment_term and tx.treatment_term.located_in) or (tx.regimen_term and tx.regimen_term.located_in) %}
+                <div class="item-meta">
+                    {% if tx.treatment_term and tx.treatment_term.located_in %}
+                    {% set tx_loc = tx.treatment_term.located_in %}
+                    {% set tx_loc_id = tx_loc.term.id if tx_loc.term else None %}
+                    {% set tx_loc_label = tx_loc.term.label if tx_loc.term else None %}
+                    {% set tx_loc_display = tx_loc.preferred_term or tx_loc_label %}
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
+                    <span class="tag tag-bio">{{ tx_loc_display }}</span>
+                    {% if tx_loc_label and tx_loc_display and tx_loc_label != tx_loc_display %}
+                    <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ tx_loc_label }}</span>
+                    {% endif %}
+                    {% if tx_loc_id %}
+                    <a href="{{ tx_loc_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ tx_loc_id }}</a>
+                    {% endif %}
+                    {% endif %}
+                    {% if tx.regimen_term and tx.regimen_term.located_in %}
+                    {% set regimen_loc = tx.regimen_term.located_in %}
+                    {% set regimen_loc_id = regimen_loc.term.id if regimen_loc.term else None %}
+                    {% set regimen_loc_label = regimen_loc.term.label if regimen_loc.term else None %}
+                    {% set regimen_loc_display = regimen_loc.preferred_term or regimen_loc_label %}
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen location:</strong>
+                    <span class="tag tag-bio">{{ regimen_loc_display }}</span>
+                    {% if regimen_loc_label and regimen_loc_display and regimen_loc_label != regimen_loc_display %}
+                    <span class="tag" style="background: #f5f3ff; color: #6b21a8;">Ontology label: {{ regimen_loc_label }}</span>
+                    {% endif %}
+                    {% if regimen_loc_id %}
+                    <a href="{{ regimen_loc_id | curie_to_url }}" target="_blank" style="font-size: 0.82rem; color: #6d28d9; margin-left: 6px;">{{ regimen_loc_id }}</a>
                     {% endif %}
                     {% endif %}
                 </div>

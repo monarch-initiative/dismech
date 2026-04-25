@@ -192,6 +192,39 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 
 This prevents AI hallucination of fake or mismatched ontology terms.
 
+### Descriptor Qualifier Slots
+
+Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
+the descriptor object rather than the deprecated generic `qualifiers` list:
+
+- `temporality`: `ACUTE`, `TRANSIENT`, `SUBACUTE`, `CHRONIC`, `RECURRENT`,
+  `DIURNAL`, `NOCTURNAL`, `PROLONGED`
+- `clinical_course`: `PROGRESSIVE`, `STABLE`
+- `severity`: prefer enum-backed values (`MILD`, `MODERATE`, `SEVERE`) when the qualifier
+  is part of the ontology post-composition; free text is still tolerated for legacy
+  phenotype/context summaries
+- `onset`: structured `OnsetDescriptor` with `onset_category` and optional age fields
+
+Pattern:
+```yaml
+phenotype_term:
+  preferred_term: Diarrhea
+  term:
+    id: HP:0002014
+    label: Diarrhea
+  temporality: CHRONIC
+
+phenotype_term:
+  preferred_term: Muscle weakness
+  term:
+    id: HP:0001324
+    label: Muscle weakness
+  clinical_course: PROGRESSIVE
+```
+
+Use these first-class slots for common post-composition. Reserve `qualifiers` for
+more complex predicate-value patterns that are not covered by dedicated slots.
+
 ### `preferred_term` vs Ontology Term Labels
 
 Each descriptor (phenotype, cell type, treatment, etc.) has two distinct label fields with different rules:
@@ -621,7 +654,11 @@ snippet matching the wrong cached paper.
 `references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
 with `just fetch-reference <ID>` instead of patching the frontmatter manually.
 
-## Git Best Practices
+## Git/GitHub Best Practices
+
+### Use worktrees
+
+Allows for parallel work. Canonical location is ~/worktrees/
 
 ### What to commit
 
@@ -647,6 +684,20 @@ If a PR was authored by another contributor, **do not** force-push, rebase, or r
 2. Or create a separate fix commit on top of their work (no force-push)
 3. Only force-push branches that you (or your orchestrator) created
 
+### Refresh your own branch safely
+Refreshing a PR branch with `main` is a content-changing operation, not bookkeeping.
+For branches you own:
+1. Prefer `git fetch origin && git rebase origin/main`
+2. If the branch is stale or conflict-heavy, create a fresh branch from `origin/main` and cherry-pick only the intended commits
+3. Avoid routine `git merge origin/main` into PR branches
+4. After any refresh, review:
+```bash
+git diff --name-status origin/main...HEAD
+git diff --stat origin/main...HEAD
+```
+5. If you see unrelated deletions, stale reversions, or protected-path churn, stop and fix that before commit/push
+6. If merge/rebase/cherry-pick reports conflicts or index errors, do not commit or push until the operation is clean and the post-refresh diff has been reviewed
+
 ### Always use targeted git add
 Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
 ```bash
@@ -662,3 +713,16 @@ After pushing fixes, comment on the PR summarizing:
 - What you changed and why
 - What you intentionally did NOT change, with reasoning
 - Validation results
+
+### Reviews
+
+Your PR will always be removed by an automated Claude reviewer. This usually happens within a few minutes.
+The reviewer will mark your PR as being ready to merge or requiring changes. Be sure to address all changes.
+Try and address even "optional" changes if they improve overall quality and completion.
+
+If you disagree you can say so, but provide clearly articulated arguments in the PR comments. Never get
+into back and forth. If something cannot be resolved, stop, and assign a human like @cmungall to the PR, and ask
+them to facilitate.
+
+Note that sometimes it will appear that a review has stalled, but in fact this is usually because
+the PR is in conflict. Actively try and manage this, resolve conflicts carefully.

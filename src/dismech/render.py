@@ -508,7 +508,26 @@ def _collect_unique_descriptors(
             label = _descriptor_display_label(descriptor)
             term_id = str(term.get("id") or "").strip()
             modifier = str(descriptor.get("modifier") or "").strip()
-            key = (term_id or label, modifier)
+            laterality = str(descriptor.get("laterality") or "").strip()
+            spatial_extent = str(descriptor.get("spatial_extent") or "").strip()
+            temporality = str(descriptor.get("temporality") or "").strip()
+            clinical_course = str(descriptor.get("clinical_course") or "").strip()
+            severity = str(descriptor.get("severity") or "").strip()
+            onset = descriptor.get("onset")
+            onset_key = ""
+            if isinstance(onset, dict):
+                onset_key = json.dumps(onset, sort_keys=True)
+
+            key = (
+                term_id or label,
+                modifier,
+                laterality,
+                spatial_extent,
+                temporality,
+                clinical_course,
+                severity,
+                onset_key,
+            )
             if not key[0] or key in seen:
                 continue
 
@@ -518,6 +537,12 @@ def _collect_unique_descriptors(
                     "label": label or term_id,
                     "id": term_id or None,
                     "modifier": modifier or None,
+                    "laterality": laterality or None,
+                    "spatial_extent": spatial_extent or None,
+                    "temporality": temporality or None,
+                    "clinical_course": clinical_course or None,
+                    "severity": severity or None,
+                    "onset": onset if isinstance(onset, dict) else None,
                 }
             )
 
@@ -1001,11 +1026,21 @@ def render_disorder(
     reports_root = _resolve_nearby_dir(yaml_path.parent, "reports")
     research_root = _resolve_nearby_dir(yaml_path.parent, "research")
     disorder_slug = slugify(disorder.get("name") or yaml_path.stem)
+    file_stem = yaml_path.stem
     report_sections = collect_reports(disorder_slug, reports_root=reports_root)
     literature_sections = collect_literature_summaries(
         disorder_slug,
         research_root=research_root,
     )
+    # Research files are named after the YAML file stem, which may differ from
+    # the slugified disorder name.  Fall back to the file stem when needed.
+    if not literature_sections and file_stem != disorder_slug:
+        literature_sections = collect_literature_summaries(
+            file_stem,
+            research_root=research_root,
+        )
+    if not report_sections and file_stem != disorder_slug:
+        report_sections = collect_reports(file_stem, reports_root=reports_root)
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
@@ -1016,7 +1051,7 @@ def render_disorder(
     disease_term_term = disease_term.get("term") or {}
     openscientist_proxy_url = os.environ.get(
         "OPENSCIENTIST_PROXY_URL",
-        "https://dismech-openscientist.workers.dev",
+        "https://dismech-openscientist.bbop.workers.dev",
     )
 
     html = template.render(

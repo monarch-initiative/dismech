@@ -89,6 +89,9 @@ jobs:
       - name: Generate compliance dashboard
         run: just gen-dashboard
 
+      - name: Generate priority dashboard
+        run: just gen-priority-dashboard
+
       - name: Generate schema docs site
         run: just gen-schema-docs
 
@@ -137,6 +140,15 @@ jobs:
 
           git push --force-with-lease origin "$BRANCH_NAME"
 
+          enable_auto_merge() {
+            local pr_number="$1"
+
+            gh pr merge "$pr_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --squash \
+              --auto
+          }
+
           EXISTING_BRANCH_PR_NUMBER="$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
@@ -146,7 +158,8 @@ jobs:
             --jq '.[0].number // empty')"
 
           if [ -n "$EXISTING_BRANCH_PR_NUMBER" ]; then
-            echo "Updated existing regen PR #$EXISTING_BRANCH_PR_NUMBER."
+            echo "Updated existing regen PR #$EXISTING_BRANCH_PR_NUMBER; enabling auto-merge."
+            enable_auto_merge "$EXISTING_BRANCH_PR_NUMBER"
             exit 0
           fi
 
@@ -166,7 +179,6 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --base main \
             --head "$BRANCH_NAME" \
-            --draft \
             --title "📄 Regenerate pages, dashboard, and schema docs ($(date +%Y-%m-%d))" \
             --body "$(cat <<EOF
           ## Summary
@@ -204,3 +216,19 @@ jobs:
           - [ ] Verify schema docs load at /elements/
           EOF
           )"
+
+          CREATED_PR_NUMBER="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --json number \
+            --limit 1 \
+            --jq '.[0].number // empty')"
+
+          if [ -z "$CREATED_PR_NUMBER" ]; then
+            echo "Failed to resolve created regen PR number for $BRANCH_NAME."
+            exit 1
+          fi
+
+          echo "Created regen PR #$CREATED_PR_NUMBER; enabling auto-merge."
+          enable_auto_merge "$CREATED_PR_NUMBER"

@@ -1,10 +1,10 @@
 ---
 provider: asta
 model: Asta Scientific Corpus Retrieval
-cached: false
-start_time: '2026-04-15T19:37:01.489974'
-end_time: '2026-04-15T19:37:05.621715'
-duration_seconds: 4.13
+cached: true
+start_time: '2026-04-21T17:02:46.427211'
+end_time: '2026-04-21T17:02:46.439349'
+duration_seconds: 0.01
 template_file: templates/disease_pathophysiology_research_asta.md
 template_variables:
   disease_name: DK1-congenital disorder of glycosylation
