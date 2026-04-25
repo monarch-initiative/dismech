@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02020889
+reference_id: "clinicaltrials:NCT02020889"
 title: "A Double-blind, Randomised, Placebo-controlled Study to Investigate the Efficacy and Safety of Mepolizumab in the Treatment of Eosinophilic Granulomatosis With Polyangiitis in Subjects Receiving Standard of Care Therapy"
 content_type: summary
 ---
