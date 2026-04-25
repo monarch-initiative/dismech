@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02408354
+reference_id: "clinicaltrials:NCT02408354"
 title: "\"Etude Pilote, Comparative, Monocentrique, randomisée, en Cross Over, en Double Aveugle, Contre Placebo, Testant l'efficacité de l'Huile triheptanoïne Dans Les Hémiplégies Alternantes de l'Enfant\" HEMIHEP"
 content_type: summary
 ---
