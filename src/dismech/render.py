@@ -1026,11 +1026,21 @@ def render_disorder(
     reports_root = _resolve_nearby_dir(yaml_path.parent, "reports")
     research_root = _resolve_nearby_dir(yaml_path.parent, "research")
     disorder_slug = slugify(disorder.get("name") or yaml_path.stem)
+    file_stem = yaml_path.stem
     report_sections = collect_reports(disorder_slug, reports_root=reports_root)
     literature_sections = collect_literature_summaries(
         disorder_slug,
         research_root=research_root,
     )
+    # Research files are named after the YAML file stem, which may differ from
+    # the slugified disorder name.  Fall back to the file stem when needed.
+    if not literature_sections and file_stem != disorder_slug:
+        literature_sections = collect_literature_summaries(
+            file_stem,
+            research_root=research_root,
+        )
+    if not report_sections and file_stem != disorder_slug:
+        report_sections = collect_reports(file_stem, reports_root=reports_root)
 
     # Group phenotypes by HPO broad category
     phenotype_groups = _group_phenotypes_by_category(disorder.get("phenotypes") or [])
