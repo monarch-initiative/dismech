@@ -8,11 +8,18 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from .mondo_priority import build_coverage_index
 
+DEFAULT_MONDO_ADAPTER_SPEC = "sqlite:obo:mondo"
 DEFAULT_MONDO_DB_PATH = Path.home() / ".data" / "oaklib" / "mondo.db"
 DEFAULT_DISEASE_ROOT_ID = "MONDO:0000001"
+REQUIRED_MONDO_TABLES = {
+    "deprecated_node",
+    "entailed_edge",
+    "statements",
+}
 DEFAULT_PRIORITY_SUBSETS = {
     "obo:mondo#rare",
     "obo:mondo#gard_rare",
@@ -33,6 +40,73 @@ def _normalize_text(text: str | None) -> str:
 
 def _join_values(values: list[str]) -> str:
     return "|".join(sorted(dict.fromkeys(value for value in values if value)))
+
+
+def _normalized_path(path: Path) -> Path:
+    return path.expanduser().resolve(strict=False)
+
+
+def _is_default_mondo_db_path(path: Path) -> bool:
+    return _normalized_path(path) == _normalized_path(DEFAULT_MONDO_DB_PATH)
+
+
+def _materialize_default_mondo_db() -> Path:
+    """Use OAK's sqlite:obo resolver to download/materialize the default MONDO DB."""
+    from oaklib import get_adapter
+
+    adapter = get_adapter(DEFAULT_MONDO_ADAPTER_SPEC)
+    database = adapter.engine.url.database
+    if database:
+        return _normalized_path(Path(database))
+    return _normalized_path(DEFAULT_MONDO_DB_PATH)
+
+
+def _connect_readonly_sqlite(path: Path) -> sqlite3.Connection:
+    uri = f"file:{quote(str(_normalized_path(path)))}?mode=ro"
+    return sqlite3.connect(uri, uri=True)
+
+
+def _table_names(conn: sqlite3.Connection) -> set[str]:
+    query = """
+    SELECT name
+    FROM sqlite_master
+    WHERE type IN ('table', 'view')
+    """
+    return {row[0] for row in conn.execute(query)}
+
+
+def _resolve_mondo_db_path(mondo_db_path: Path) -> Path:
+    path = _normalized_path(mondo_db_path)
+    if _is_default_mondo_db_path(path) and (
+        not path.exists() or path.stat().st_size == 0
+    ):
+        if path.exists():
+            path.unlink()
+        path = _materialize_default_mondo_db()
+
+    if not path.exists():
+        raise FileNotFoundError(
+            f"MONDO SQLite database not found: {path}. "
+            f"Use the default {DEFAULT_MONDO_ADAPTER_SPEC} cache or set MONDO_DB_PATH "
+            "to an existing semantic-sql MONDO database."
+        )
+
+    return path
+
+
+def _connect_mondo_db(mondo_db_path: Path) -> sqlite3.Connection:
+    path = _resolve_mondo_db_path(mondo_db_path)
+    conn = _connect_readonly_sqlite(path)
+    missing_tables = sorted(REQUIRED_MONDO_TABLES - _table_names(conn))
+    if missing_tables:
+        conn.close()
+        raise RuntimeError(
+            f"MONDO SQLite database at {path} is missing required semantic-sql "
+            f"tables/views: {', '.join(missing_tables)}. "
+            f"Refresh the OAK cache for {DEFAULT_MONDO_ADAPTER_SPEC} or set "
+            "MONDO_DB_PATH to a compatible MONDO database."
+        )
+    return conn
 
 
 def _query_single_value_map(
@@ -189,7 +263,7 @@ def export_mondo_priority_candidates(
     """Export MONDO descendants of the disease root into prioritizer rows."""
     priority_subset_ids = priority_subset_ids or DEFAULT_PRIORITY_SUBSETS
 
-    with sqlite3.connect(mondo_db_path) as conn:
+    with _connect_mondo_db(mondo_db_path) as conn:
         descendant_ids = _query_descendant_ids(conn, disease_root_id)
         labels = _query_single_value_map(conn, "rdfs:label")
         definitions = _query_single_value_map(conn, "IAO:0000115")
