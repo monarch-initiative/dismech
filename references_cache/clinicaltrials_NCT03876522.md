@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03876522
+reference_id: "clinicaltrials:NCT03876522"
 title: "Prospective, Longitudinal, Observational Study of the Natural History and Functional Status of Patients With Lafora Disease"
 content_type: summary
 ---
