@@ -3,13 +3,13 @@
 **Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Lafora Disease
+- **Disease Name:** Joubert syndrome
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Lafora Disease** covering all of the
+Please provide a comprehensive research report on **Joubert syndrome** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -447,48 +447,34 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-04-25T18:53:35.673036
+**Generated:** 2026-04-25T18:46:49.184030
 
-1. aggradi2023laforadiseasea pages 1-2
-2. pondrelli2023prognosticvalueof pages 1-2
-3. zimmern2024progressivemyoclonusepilepsy pages 6-7
-4. aggradi2023laforadiseasea pages 4-6
-5. pondrelli2023prognosticvalueof pages 2-4
-6. aggradi2023laforadiseasea pages 2-4
-7. duran2023roleofastrocytes pages 1-2
-8. rubio2024beneficialeffectof pages 1-2
-9. duran2023roleofastrocytes pages 2-4
-10. zafrapuerta2023genereplacementtherapy pages 21-24
-11. vincent2023retinalphenotypingof pages 9-10
-12. vincent2023retinalphenotypingof pages 1-2
-13. shukla2024neuromuscularjunctiondysfunction pages 1-2
-14. mitra2023laforintargetsmalin pages 10-10
-15. duran2023roleofastrocytes pages 8-10
-16. mitra2023laforintargetsmalin pages 1-2
-17. duran2023roleofastrocytes pages 10-11
-18. aggradi2023laforadiseasea pages 6-7
-19. rubio2024beneficialeffectof pages 2-4
-20. zafrapuerta2023genereplacementtherapy pages 1-4
-21. https://platform.opentargets.org/disease/MONDO_0009697
-22. https://omim.org/entry/254780
-23. https://doi.org/10.1186/s13023-023-02880-6
-24. https://doi.org/10.1186/s13023-023-02880-6;
-25. https://doi.org/10.3390/brainsci13121679
-26. https://clinicaltrials.gov/study/NCT06609889
-27. https://clinicaltrials.gov/study/NCT03876522
-28. https://clinicaltrials.gov/study/NCT00007124
-29. https://clinicaltrials.gov/study/NCT05930223
-30. https://doi.org/10.1007/s13311-023-01434-9
-31. https://doi.org/10.1007/s12035-023-03766-1
-32. https://doi.org/10.3390/genes15020171
-33. https://doi.org/10.3390/cells12050722
-34. https://doi.org/10.3390/brainsci13121679,
-35. https://doi.org/10.1186/s13023-023-02880-6,
-36. https://doi.org/10.3390/genes15020171,
-37. https://doi.org/10.1007/s12035-023-03766-1,
-38. https://doi.org/10.1007/s13311-023-01434-9,
-39. https://doi.org/10.3390/cells12050722,
-40. https://doi.org/10.1242/dmm.049802,
-41. https://doi.org/10.1101/2023.12.14.571636,
-42. https://doi.org/10.3390/genes14040854,
-43. https://doi.org/10.1242/dmm.050905,
+1. strong2023toporsasa pages 1-3
+2. dong2023clinicalandgenetic pages 1-2
+3. li2023anovelnonsense pages 1-2
+4. bozhinovski2024highincidenceof pages 3-5
+5. dong2023clinicalandgenetic pages 3-5
+6. ying2022attentiontorenal pages 1-2
+7. dabrusco2023exploringthenoncoding pages 106-110
+8. wang2024zebrafishasa pages 1-2
+9. juan2024optimalprenatalgenetic pages 4-6
+10. takagi2021anymodalityof pages 1-2
+11. wei2024novelcompoundheterozygous pages 6-7
+12. gonzalezgordillo2023joubertsyndromea pages 1-2
+13. alhashimi2024neuroimagingcharacteristicsas pages 10-11
+14. li2023anovelmutation pages 1-2
+15. strong2023toporsasa pages 3-4
+16. https://doi.org/10.1002/ajmg.a.63303,
+17. https://doi.org/10.3389/fped.2023.1102639,
+18. https://doi.org/10.3389/fgene.2022.1064762,
+19. https://doi.org/10.7759/cureus.69872,
+20. https://doi.org/10.1146/annurev-genom-121321-093528,
+21. https://doi.org/10.1002/ajmg.c.31963,
+22. https://doi.org/10.24875/bmhim.22000075,
+23. https://doi.org/10.4274/balkanmedj.galenos.2024.2023-10-72,
+24. https://doi.org/10.1186/s12887-023-04415-1,
+25. https://doi.org/10.1186/s12887-022-03496-8,
+26. https://doi.org/10.3389/fped.2024.1305754,
+27. https://doi.org/10.1186/s40001-024-01993-3,
+28. https://doi.org/10.5376/ijms.2024.14.0037,
+29. https://doi.org/10.1038/s41598-020-80712-4,

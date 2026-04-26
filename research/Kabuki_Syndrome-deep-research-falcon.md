@@ -2,13 +2,13 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-04-25T18:33:17.965608'
-end_time: '2026-04-25T18:53:35.673036'
-duration_seconds: 1217.71
+start_time: '2026-04-25T18:33:45.616901'
+end_time: '2026-04-25T18:47:41.219641'
+duration_seconds: 835.6
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Lafora Disease
-  mondo_id: ''
+  disease_name: Kabuki Syndrome
+  mondo_id: MONDO:0016512
   category: Mendelian
 provider_config:
   timeout: null
@@ -16,7 +16,7 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 43
+citation_count: 44
 ---
 
 ## Question
@@ -24,13 +24,13 @@ citation_count: 43
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Lafora Disease
-- **MONDO ID:**  (if available)
+- **Disease Name:** Kabuki Syndrome
+- **MONDO ID:** MONDO:0016512 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Lafora Disease** covering all of the
+Please provide a comprehensive research report on **Kabuki Syndrome** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -485,13 +485,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Lafora Disease
-- **MONDO ID:**  (if available)
+- **Disease Name:** Kabuki Syndrome
+- **MONDO ID:** MONDO:0016512 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Lafora Disease** covering all of the
+Please provide a comprehensive research report on **Kabuki Syndrome** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -929,368 +929,369 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-## Comprehensive Disease Characteristics Report: Lafora Disease (Mendelian)
-
-### Executive summary
-Lafora disease (LD) is a rare, autosomal recessive, fatal progressive myoclonus epilepsy (PME) typically beginning in adolescence, characterized by progressive seizures/myoclonus and cognitive/psychiatric decline. Pathologically, LD features intracellular inclusions (“Lafora bodies”) composed of insoluble polyglucosan (poorly branched abnormal glycogen) in brain and other tissues. LD is caused by biallelic pathogenic variants in **EPM2A** (laforin, a glucan phosphatase) or **NHLRC1/EPM2B** (malin, an E3 ubiquitin ligase) with evidence that genotype influences prognosis (e.g., biallelic truncating **NHLRC1** variants associate with shorter survival). Translational research (2023–2024) is concentrated on substrate reduction (reducing brain glycogen synthesis), gene replacement approaches, and neuroinflammation modulation; a first-in-human intrathecal antisense trial (ION283; NCT06609889) is recruiting. (aggradi2023laforadiseasea pages 1-2, pondrelli2023prognosticvalueof pages 1-2, NCT06609889 chunk 2)
-
----
+# Kabuki Syndrome (MONDO:0016512) — Disease Characteristics Research Report
 
 ## 1. Disease Information
 
-### 1.1 Definition and current understanding
-LD is described in recent literature as a “rare, autosomal recessive neurodegenerative disorder” and a “progressive myoclonus epilepsy” with disrupted glycogen metabolism and “pathognomonic… Lafora bodies.” (aggradi2023laforadiseasea pages 1-2)
+### 1.1 Overview (definition and current understanding)
+Kabuki syndrome (KS) is a rare, congenital, multisystem neurodevelopmental disorder characterized by a recognizable facial gestalt, developmental delay/intellectual disability, skeletal anomalies, dermatoglyphic anomalies (including persistent fetal fingertip pads), and postnatal growth deficiency, with additional frequent involvement of cardiac, renal, hearing, immune, endocrine, and gastrointestinal systems. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 1-2)
 
-**Abstract-supported definition quotes** (recent):
-- “Lafora disease is a rare genetic disorder characterized by a disruption in glycogen metabolism. It manifests as progressive myoclonus epilepsy and cognitive decline during adolescence.” (Dec 2023; Brain Sciences) (aggradi2023laforadiseasea pages 1-2)
-- “Background Lafora disease (LD) is a fatal form of progressive myoclonic epilepsy caused by biallelic pathogenic variants in EPM2A or NHLRC1.” (Sep 2023; Orphanet J Rare Dis) (pondrelli2023prognosticvalueof pages 1-2)
+**Epidemiologic frequency (range reported in large review):** estimated frequency ~1:32,000–1:86,000. (barry2022fromgenotypeto pages 1-2)
 
-### 1.2 Key identifiers, synonyms, and data provenance
-The retrieved evidence directly supports MONDO and OMIM identifiers; other identifier systems (Orphanet/MeSH/ICD) were not captured in the retrieved sources.
+**Evidence type:** aggregated disease-level literature review synthesizing 152 publications and 1369 individuals. (barry2022fromgenotypeto pages 1-2, barry2022fromgenotypeto pages 2-4)
 
-| Identifier system | ID/code | Preferred name | Synonyms/notes | URL |
-|---|---|---|---|---|
-| MONDO | MONDO:0009697 | Lafora disease | Open Targets disease record for Lafora disease; Mendelian progressive myoclonus epilepsy entity (zimmern2024progressivemyoclonusepilepsy pages 6-7) | https://platform.opentargets.org/disease/MONDO_0009697 |
-| OMIM | OMIM #254780 | Lafora disease | Also described as a rare autosomal recessive progressive myoclonic epilepsy; OMIM number explicitly stated in recent reviews/case report (aggradi2023laforadiseasea pages 1-2, rubio2024beneficialeffectof pages 1-2) | https://omim.org/entry/254780 |
-| Orphanet | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; do not infer without direct evidence (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
-| MeSH | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; progressive myoclonus epilepsy context noted in reviews, but no MeSH ID retrieved (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
-| ICD | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; no ICD-10/ICD-11 code directly retrieved in available evidence (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
+### 1.2 Key identifiers and synonyms
+A structured list of identifiers available from the retrieved sources is provided here:
+
+| Identifier system | Identifier/value | Notes |
+|---|---|---|
+| MONDO | MONDO:0016512 | User-provided disease identifier for Kabuki syndrome. Not independently verified in retrieved evidence. |
+| OMIM | Kabuki syndrome 1 (KS1): 147920 | KMT2D-related Kabuki syndrome; autosomal dominant in retrieved reviews/management sources (dugan2021kabukisyndrome pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 1-2) |
+| OMIM | Kabuki syndrome 2 (KS2): 300867 | KDM6A-related Kabuki syndrome; X-linked in retrieved reviews/management sources (dugan2021kabukisyndrome pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 1-2) |
+| OMIM / gene | KMT2D: 602113 | Major causal gene for KS1; cited in recent mechanistic and clinical reviews (golden2023molecularinsightsof pages 1-3, golden2023molecularinsightsof pages 9-11) |
+| OMIM / gene | KDM6A: 300128 | Causal gene for KS2; X-linked histone demethylase noted in retrieved reviews and KS2 cohort study (golden2023molecularinsightsof pages 1-3, wang2024sexspecificdifferencein pages 2-4) |
+| Disease name | Kabuki syndrome | Preferred disease name across retrieved sources (barry2022fromgenotypeto pages 1-2, adam2019kabukisyndromeinternational pages 1-2) |
+| Synonym | Kabuki make-up syndrome | Explicit synonym in management/review sources (dugan2021kabukisyndrome pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 8-9) |
+| Synonym | Niikawa–Kuroki syndrome | Historical synonym in review sources (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3) |
+| Orphanet | Not in retrieved sources | No Orphanet identifier was present in the gathered evidence. |
+| MeSH | Not in retrieved sources | No MeSH identifier was present in the gathered evidence. |
+| ICD-10 | Not in retrieved sources | No ICD-10 code was present in the gathered evidence. |
+| ICD-11 | Not in retrieved sources | No ICD-11 code was present in the gathered evidence. |
 
 
-*Table: This table summarizes key disease identifiers and naming information for Lafora disease using only retrieved evidence. It highlights confirmed MONDO and OMIM identifiers and clearly marks systems not directly captured in the available sources.*
+*Table: This table summarizes the key disease names and identifiers for Kabuki syndrome that were supported by retrieved evidence, including KS1/KS2 OMIM entries and common synonyms. Fields not found in the evidence are explicitly marked to avoid overclaiming.*
 
-**Common synonyms/alternative names (supported in retrieved sources):**
-- “Lafora disease” and “progressive myoclonus epilepsy” (PME) framing (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Genetic subtypes: “myoclonic epilepsy of Lafora 1/2” appear as MONDO entities in Open Targets (MONDO_0958199; MONDO_0800306), reflecting EPM2A vs NHLRC1 subtypes (Open Targets output embedded in evidence stream; disease MONDO confirmed) (aggradi2023laforadiseasea pages 1-2)
+**Synonyms supported by retrieved sources** include *Kabuki make-up syndrome* and *Niikawa–Kuroki syndrome*. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 8-9)
 
-**Evidence type note:** This report primarily uses aggregated disease-level resources (systematic review/meta-analysis; scoping review; ClinicalTrials.gov records) plus patient-level case report evidence and multiple model organism studies. (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2, NCT03876522 chunk 1)
+**Note on missing identifiers:** Orphanet IDs, MeSH IDs, and ICD-10/ICD-11 codes were **not present in the retrieved documents** available to this run; therefore they are not asserted here. (artifact-00)
 
----
+### 1.3 Consensus diagnostic framing (expert consensus)
+The international consensus diagnostic criteria emphasize a recognisable clinical pattern plus molecular confirmation when available.
+
+**Direct abstract quote (consensus paper):** “*The authors propose that a definitive diagnosis can be made in an individual of any age with a history of infantile hypotonia, developmental delay and/or intellectual disability, and one or both of the following major criteria: (1) a pathogenic or likely pathogenic variant in KMT2D or KDM6A; and (2) typical dysmorphic features…*” (Adam et al., 2019, *Journal of Medical Genetics*, published online 2019; DOI URL: https://doi.org/10.1136/jmedgenet-2018-105625). (adam2019kabukisyndromeinternational pages 1-2)
 
 ## 2. Etiology
 
-### 2.1 Disease causal factors
-LD is a Mendelian disorder caused by loss-of-function biallelic pathogenic variants in:
-- **EPM2A** → **laforin** (glucan phosphatase/dual-specificity phosphatase) (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
-- **NHLRC1 (EPM2B)** → **malin** (E3 ubiquitin ligase) (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+### 2.1 Primary causal factors (genetic)
+KS is primarily a Mendelian disorder caused by **pathogenic variants in chromatin regulators**:
+- **KMT2D (KS1; autosomal dominant):** heterozygous dominant loss-of-function variants are the most common cause (often de novo). (barry2022fromgenotypeto pages 1-2, jung2023characterizingthemolecular pages 1-5, golden2023molecularinsightsof pages 1-3)
+- **KDM6A (KS2; X-linked):** heterozygous (female) or hemizygous (male) variants cause KS2. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3, wang2024sexspecificdifferencein pages 2-4)
 
-Mechanistic genetic etiology: laforin and malin regulate glycogen metabolism and prevent conversion of soluble glycogen into insoluble polyglucosan aggregates (Lafora bodies). (pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 2-4)
+Mechanistically, KMT2D is an H3K4 methyltransferase, and KDM6A is an H3K27 demethylase; both are key components of enhancer/promoter chromatin regulation during development. (golden2023molecularinsightsof pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 2-3)
 
-### 2.2 Genetic risk factors (causal variants)
-A 2023 systematic review/meta-analysis (patient-level) compiled 250 genetically confirmed cases and characterized variant classes and prognostic correlations. (pondrelli2023prognosticvalueof pages 1-2)
+### 2.2 Risk factors / protective factors / gene–environment interactions
+For KS (a monogenic syndrome), the predominant “risk factor” is carrying a pathogenic germline variant in **KMT2D** or **KDM6A**; additional environmental risk and protective factors are not well-defined in the retrieved sources. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3)
 
-| Gene (HGNC symbol) | Protein | Alternate gene name(s) | Inheritance | Typical variant types | Variant counts/statistics (Pondrelli 2023 meta-analysis) | Genotype–phenotype notes | Key citations |
-|---|---|---|---|---|---|---|---|
-| **EPM2A** | Laforin; glucan phosphatase; dual-specificity phosphatase | EPM2; myoclonic epilepsy of Lafora type 1 | Autosomal recessive; disease caused by **biallelic** pathogenic variants | Missense/in-frame (MS); protein-truncating (PT) including nonsense, frameshift, splice-site, deletions; also point mutations and large deletions reported | 67 distinct **EPM2A** variants among 250 genetically confirmed cases; 109/250 cases (43.6%) carried **EPM2A** variants; **PT/PT** genotype most common in **EPM2A** (53.2%) (pondrelli2023prognosticvalueof pages 2-4, pondrelli2023prognosticvalueof pages 1-2) | Causes classic Lafora disease via loss of laforin function and dysregulated glycogen metabolism; no specific survival HR for **EPM2A** genotype was highlighted in retrieved evidence, and some studies reported conflicting genotype–survival associations overall (zimmern2024progressivemyoclonusepilepsy pages 6-7, pondrelli2023prognosticvalueof pages 1-2) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2, pondrelli2023prognosticvalueof pages 2-4) |
-| **NHLRC1** | Malin; E3 ubiquitin ligase | **EPM2B**; myoclonic epilepsy of Lafora type 2 | Autosomal recessive; disease caused by **biallelic** pathogenic variants | Missense/in-frame (MS); protein-truncating (PT) including nonsense, frameshift, splice-site, deletions; intronless gene; point mutations also reported | 47 distinct **NHLRC1** variants among 250 genetically confirmed cases; 141/250 cases (56.4%) carried **NHLRC1** variants; **MS/MS** genotype most common in **NHLRC1** (53.2%); **MS/PT** ~28% (pondrelli2023prognosticvalueof pages 2-4, pondrelli2023prognosticvalueof pages 1-2) | **NHLRC1 PT/PT** genotype associated with shorter survival (**HR 2.88, 95% CI 1.23–6.78**) and trend to higher loss of autonomy (**HR 2.03, 95% CI 0.75–5.56**); homozygous **p.Asp146Asn** associated with a more favorable/milder course (pondrelli2023prognosticvalueof pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2) |
-| **Disease-level architecture** | Laforin–malin complex regulating glycogen metabolism | Lafora disease; progressive myoclonus epilepsy | Autosomal recessive Mendelian disorder | Extreme allelic heterogeneity with >150 causative variants reported overall; variants grouped as **MS/MS**, **MS/PT**, **PT/PT** for prognostic analyses | 250 cases from 70 articles; 114 pathogenic variants total (**67 EPM2A**, **47 NHLRC1**); about **90%** of cases attributable to **EPM2A** or **EPM2B/NHLRC1** in retrieved review/case literature (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2) | Pathogenic variation in either gene disrupts glycogen regulation, causing polyglucosan/Lafora bodies; genotype has prognostic relevance, especially truncating **NHLRC1** genotypes and **p.Asp146Asn** (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6; DOI:10.3390/brainsci13121679; https://doi.org/10.3390/brainsci13121679 (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2) |
+A plausible **gene–environment interaction** discussed in recent intervention work is that metabolic state (ketosis via dietary intervention) may modulate downstream molecular phenotypes (e.g., ribosomal/protein-translation pathways) in KMT2D-related KS. (tsang2024ketogenicdietmodifies pages 8-10, tsang2024ketogenicdietmodifies pages 2-3)
 
+## 3. Phenotypes (with HPO suggestions)
 
-*Table: This table summarizes the two established causal genes for Lafora disease, their protein products, inheritance, variant classes, and the main genotype–phenotype findings from the 2023 patient-level meta-analysis. It is useful as a compact reference for disease-gene annotation and prognostic interpretation.*
+### 3.1 Core phenotypic domains
+Across large reviews and clinical management sources, commonly described domains include:
+- **Craniofacial gestalt** (long palpebral fissures with lower-lid eversion; arched/broad eyebrows with lateral sparseness; depressed nasal tip/short columella; prominent/cupped ears) (adam2019kabukisyndromeinternational pages 1-2, dugan2021kabukisyndrome pages 1-3)
+- **Neurodevelopmental phenotype** (developmental delay; intellectual disability; hypotonia) (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3)
+- **Skeletal anomalies** and **persistent fingertip pads** (barry2022fromgenotypeto pages 1-2, adam2019kabukisyndromeinternational pages 1-2)
+- **Postnatal growth deficiency/short stature** (barry2022fromgenotypeto pages 1-2, boniel2021kabukisyndrome—clinicalreview pages 1-2)
+- **Congenital heart disease** (barry2022fromgenotypeto pages 1-2, lee2024geneticandphenotypic pages 1-2)
+- **Immune dysfunction** (recurrent infections, hypogammaglobulinemia; autoimmunity in a subset) (margot2020immunopathologicalmanifestationsin pages 1-2)
+- **Hearing loss** (conductive and sensorineural components) (kalinousky2023kmt2ddeficiencycauses pages 5-7)
 
-Key statistics from the 2023 meta-analysis:
-- 250 cases from 70 articles; 114 pathogenic variants total (67 **EPM2A**, 47 **NHLRC1**) (pondrelli2023prognosticvalueof pages 1-2)
-- Gene distribution: **NHLRC1** in ~56% vs **EPM2A** in ~44% (pondrelli2023prognosticvalueof pages 2-4, zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Prognosis: **NHLRC1 PT/PT** genotype associated with shorter survival (HR 2.88, 95% CI 1.23–6.78) (pondrelli2023prognosticvalueof pages 1-2)
+### 3.2 Recent cohort statistics (2024 Taiwanese case series)
+A 2024 Taiwanese case series (n=23) provides concrete phenotype frequencies (primarily KMT2D):
+- Distinct facial features: **100%**
+- Intellectual disability: **100%**
+- Developmental delay: **95.7%**
+- Speech delay: **78.3%**
+- Hypotonia: **69.6%**
+- Congenital heart abnormalities: **69.6%**
+- Recurrent infections: **65.2%**
+- Hearing loss: **39.1%**
+- Seizures: **26.1%**
+- Cleft palate: **26.1%**
+- Renal anomalies: **21.7%**
+(Lee et al., 2024, *Diagnostics*, Aug 2024; DOI URL: https://doi.org/10.3390/diagnostics14161815). (lee2024geneticandphenotypic pages 1-2)
 
-### 2.3 Non-genetic risk/protective factors; gene–environment interaction
-No specific environmental risk factors, protective factors, or gene–environment interactions were captured in the retrieved evidence. In the current understanding from retrieved sources, LD is primarily driven by genetic disruption of glycogen homeostasis and secondary neuroinflammation. (duran2023roleofastrocytes pages 2-4, rubio2024beneficialeffectof pages 1-2)
+**Cardiac lesion distribution within CHD subset (n=16):** ASD 37.5% (6/16), VSD 18.8% (3/16), aortic coarctation 18.8% (3/16). (lee2024geneticandphenotypic pages 6-7, lee2024geneticandphenotypic pages 4-6)
 
----
+### 3.3 Hearing phenotype (recent 2023 human+mouse study)
+A 2023 KS1 study (KMT2D; n=21 individuals) reported:
+- Current hearing loss in **71.43% (15/21)**
+- Female skew in that cohort: **all 12 females** reported hearing loss vs **3/9 (33.33%)** males
+- Among those with hearing loss and reported type (n=10): **6 sensorineural**, **1 conductive**, **3 mixed**
+- Structural ear abnormalities in **19.05% (4/21)**
+(Kalinousky et al., 2023, *Genes*, Dec 2023; DOI URL: https://doi.org/10.3390/genes15010048). (kalinousky2023kmt2ddeficiencycauses pages 5-7)
 
-## 3. Phenotypes
+### 3.4 Immune/autoimmune phenotype statistics (registry)
+A registry study (n=177; molecularly confirmed KMT2D/KDM6A) quantified:
+- Susceptibility to infections: **44.1% (78/177)**
+- Hypogammaglobulinemia: **58.2% (46/79 tested)**
+- Autoimmune disease overall: **13.6% (24/177)**; in adults: **25.6% (11/43)**
+- Immune thrombocytopenic purpura: **7.3% (13/177)**; autoimmune hemolytic anemia: **4.0% (7/177)**
+(Margot et al., 2020, *Genetics in Medicine*, Jan 2020; DOI URL: https://doi.org/10.1038/s41436-019-0623-x). (margot2020immunopathologicalmanifestationsin pages 1-2)
 
-### 3.1 Core phenotype spectrum (human)
-Clinical features described in recent clinical literature include:
-- Progressive myoclonic epilepsy: generalized tonic–clonic seizures, myoclonic jerks/spasms; visual phenomena/seizures can occur (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 4-6)
-- Progressive cognitive decline/dementia and neuropsychiatric symptoms (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 4-6)
-- Ataxia and other cerebellar signs may appear (aggradi2023laforadiseasea pages 4-6, zimmern2024progressivemyoclonusepilepsy pages 6-7)
+### 3.5 Quality of life / humanistic burden
+Caregiver/adolescent report studies indicate substantial multidimensional burden; while this run did not extract instrument-level statistics (e.g., EQ-5D), a qualitative study reports “substantial negative effects on physical, mental, emotional, and social aspects of health-related quality of life.” (barry2022fromgenotypeto pages 1-2)
 
-**Abstract quote (clinical):** “It manifests as progressive myoclonus epilepsy and cognitive decline during adolescence.” (aggradi2023laforadiseasea pages 1-2)
+### 3.6 HPO term suggestions (non-exhaustive; ontology mapping suggestions)
+(These are suggested mappings for knowledge-base structuring; the retrieved sources support the clinical concepts but do not enumerate HPO IDs.)
+- Facial gestalt: Long palpebral fissures; Everted lower eyelids; Arched eyebrows; Large/protruding ears
+- Neurodevelopment: Global developmental delay; Intellectual disability; Hypotonia; Speech delay
+- Growth: Postnatal growth retardation; Short stature
+- Cardiac: Congenital heart defect; Atrial septal defect; Ventricular septal defect; Coarctation of aorta
+- Immune: Recurrent infections; Hypogammaglobulinemia; Immune thrombocytopenia; Autoimmune hemolytic anemia
+- Hearing: Hearing impairment; Sensorineural hearing loss; Conductive hearing loss
 
-### 3.2 Phenotype characteristics (onset, progression, severity)
-- Typical onset: adolescence; Italian cohort mean onset **13.4 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Rapidly progressive course: cognitive decline commonly emerges **2–6 years after onset** in one review/case synthesis (aggradi2023laforadiseasea pages 4-6)
-- Fatal outcome: often within ~10 years of onset (multiple recent sources; also expressed as 5–10 years after onset) (aggradi2023laforadiseasea pages 4-6, duran2023roleofastrocytes pages 1-2)
+## 4. Genetic / Molecular Information
 
-### 3.3 Natural history statistics and prognosis
-From a large Italian natural-history cohort summarized in a 2024 PME scoping review:
-- Survival: **93% at 5 years**, **62% at 10 years**, **57% at 15 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Median time to loss of autonomy: **6 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Median survival: **11 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+### 4.1 Causal genes and inheritance
+- **KMT2D (KS1):** autosomal dominant; typically de novo but familial transmission occurs. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3)
+- **KDM6A (KS2):** X-linked; sex-dependent expressivity is reported in recent KS2 cohorts. (wang2024sexspecificdifferencein pages 2-4, wang2024sexspecificdifferencein pages 5-6)
 
-From a 2023 patient-level meta-analysis (subset statistics reported): for **EPM2A** cases, “overall survival was 92% at 5 years, 59% at 10 years, and 49% at 15 years (mean age at death 22.4 years).” (pondrelli2023prognosticvalueof pages 2-4)
+### 4.2 Variant classes and spectrum
+Large aggregated reviews and recent KS1-focused review note broad variant classes including nonsense, frameshift, splice-site, indels, CNVs, and missense (some clustering near functional domains). (barry2022fromgenotypeto pages 2-4, golden2023molecularinsightsof pages 9-11)
 
-### 3.4 Suggested HPO terms (not exhaustive)
-Based on the retrieved phenotype descriptions:
-- Seizures: **HP:0001250 (Seizures)**; generalized tonic–clonic seizures **HP:0002069**
-- Myoclonus: **HP:0001336 (Myoclonus)**
-- Progressive cognitive decline/dementia: **HP:0001268 (Mental deterioration)**; dementia **HP:0000726**
-- Ataxia: **HP:0001251 (Ataxia)**
-- Dysarthria: **HP:0001260 (Dysarthria)** (aggradi2023laforadiseasea pages 2-4)
-- Dysphagia: **HP:0002015 (Dysphagia)** (aggradi2023laforadiseasea pages 2-4)
+**Examples of quantitative variant spectrum reporting:**
+- In the 2024 Taiwanese series (n=23), variant class frequencies were reported (patient-level): missense 26.1%, nonsense 21.7%, frameshift 17.4%. (lee2024geneticandphenotypic pages 1-2)
+- In the same study, among **16 unique** KMT2D variants: nonsense 31.3%, missense 18.7%, frameshift 18.7%, deletions 18.7%, splicing 6.3%, insertion/deletion 6.3%. (lee2024geneticandphenotypic pages 2-4)
 
-Frequency-by-phenotype was not available in the retrieved excerpts; cohort-level frequency extraction would require additional full-text/registry sources.
+### 4.3 Epigenetic and transcriptional consequences (human evidence; 2023)
+A 2023 study profiled PBMCs from **33 individuals** with KMT2D-related KS and **36 controls**, finding:
+- Distinct enhancer signatures in H3K4me1/H3K4me2
+- **Reduced promoter-distal enhancer signals at immune-related genes** and overlap with ~**31% of normal blood-cell super-enhancers**
+- **Increased enhancer signals near promoters of metabolic genes**, with elevated transcription
+(Jung et al., 2023, *Human Molecular Genetics*, Oct 2023; DOI URL: https://doi.org/10.1101/2022.10.25.22280882). (jung2023characterizingthemolecular pages 1-5)
 
----
+**Direct abstract quote:** “*…we profiled and characterized alterations in histone modification and gene transcription in peripheral blood mononuclear cells (PBMCs) from 33 patients with KMT2D mutations and 36 unaffected healthy controls.*” (jung2023characterizingthemolecular pages 1-5)
 
-## 4. Genetic/Molecular Information
+### 4.4 Immune mechanism: integrin regulation in T cells (2024)
+A 2024 mechanistic immunology study reports that KMT2D directly regulates leukocyte integrin loci (chromatin and expression), with functional impact on thymocyte migration/egress and peripheral T-cell composition.
 
-### 4.1 Causal genes and variant architecture
-LD is caused by biallelic pathogenic variants in **EPM2A** or **NHLRC1/EPM2B**. (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+Key mechanistic findings include:
+- Reduced expression of integrins (e.g., Itgal, Itgb7) at transcript and protein levels; H3K4me3 ChIP-PCR supports direct control (potter2024kmt2dregulatesactivation pages 1-2, potter2024kmt2dregulatesactivation pages 9-11)
+- Peripheral shifts in humans and mice, including reduced naïve/RTE and increased memory phenotypes (potter2024kmt2dregulatesactivation pages 14-16)
+(Potter et al., 2024, *Frontiers in Immunology*, May 2024; DOI URL: https://doi.org/10.3389/fimmu.2024.1341745). (potter2024kmt2dregulatesactivation pages 1-2)
 
-Variant architecture highlights:
-- Extreme allelic heterogeneity: “More than 150 different causative genetic variants” reported (pondrelli2023prognosticvalueof pages 1-2)
-- Variant types: missense/in-frame vs protein truncating (nonsense/frameshift/splice/deletions) (pondrelli2023prognosticvalueof pages 2-4)
+### 4.5 Cell-type specificity of chromatin disruption (2024)
+A 2024 Genome Research study in Kabuki mouse models indicates that chromatin accessibility abnormalities in neurons are **largely distinct** from those in peripheral B and T cells, with neuron-specific enrichment at CpG islands and aging-linked elements.
 
-### 4.2 Functional consequences (protein dysfunction)
-- Laforin deficiency affects glycogen phosphate homeostasis and/or glycogen architecture; malin deficiency disrupts regulation of glycogen-related proteins (e.g., PTG) and contributes to abnormal glycogen accumulation (mitra2023laforintargetsmalin pages 10-10, duran2023roleofastrocytes pages 8-10)
+**Direct abstract-level statement from retrieved text:** “*…chromatin accessibility abnormalities in neurons are mostly distinct from those in B or T cells… Neurons, but not B or T cells, show preferential chromatin disruption at CpG islands and at regulatory elements linked to aging.*” (Boukas et al., 2024, *Genome Research*, May 2024; DOI URL: https://doi.org/10.1101/gr.278416.123). (boukas2024neuronspecificchromatindisruption pages 1-2)
 
-### 4.3 Modifier genes / epigenetics / chromosomal abnormalities
-No modifier genes, epigenetic mechanisms, or chromosomal abnormalities were captured in the retrieved evidence.
-
----
+### 4.6 KS2 growth mechanism and convergence with KS1 (2024)
+A 2024 KS2 mouse study (Kdm6a tm1d/+), focusing on endochondral ossification, found:
+- Decreased femur/tibia length; cortical and trabecular structural changes
+- Shorter growth plates, driven by reduced hypertrophic chondrocyte size and hypertrophic zone height
+- In vitro Kdm6a−/− cells showed premature/enhanced chondrocyte differentiation
+- RNA-seq showed **convergent gene expression** between Kdm6a−/− and Kmt2d−/− lines, suggesting shared downstream pathways (Gao et al., 2024, *PLOS Genetics*, Jun 2024; DOI URL: https://doi.org/10.1371/journal.pgen.1011310). (gao2024growthdeficiencyin pages 1-2, gao2024growthdeficiencyin pages 3-6)
 
 ## 5. Environmental Information
-No non-genetic environmental, lifestyle, or infectious causes were captured in the retrieved evidence, consistent with LD being a primarily genetic neurodegenerative epilepsy syndrome in these sources. (pondrelli2023prognosticvalueof pages 1-2)
+No specific, reproducible non-genetic environmental causal factors are described in the retrieved sources for Kabuki syndrome, consistent with its primary Mendelian etiology. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3)
 
----
+Dietary metabolic state (ketogenic/Modified Atkins) is an **intervention** rather than a causal environmental exposure and is covered under Treatment/Applications. (tsang2024ketogenicdietmodifies pages 8-10, NCT04722315 chunk 1)
 
 ## 6. Mechanism / Pathophysiology
 
-### 6.1 Causal chain (current model)
-A synthesis consistent across 2023–2024 sources:
-1. **Biallelic EPM2A or NHLRC1 variants** → loss of laforin/malin complex function (pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 2-4)
-2. Dysregulated glycogen metabolism → abnormal glycogen chain length/branching (and in some models hyperphosphorylation) → “transition of soluble glycogen to insoluble polyglucosan” (duran2023roleofastrocytes pages 8-10, mitra2023laforintargetsmalin pages 1-2)
-3. Formation of **Lafora bodies (polyglucosan aggregates)** containing glycogen metabolism proteins and proteostasis/adaptor proteins including **GS, ubiquitin, p62** (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
-4. Predominant accumulation in **astrocytes** (with neuronal inclusions also present) → network dysfunction, neuroinflammation, progressive seizures and neurodegeneration (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
+### 6.1 Chromatin and histone-mark dysregulation (core causal chain)
+**Upstream trigger:** germline loss-of-function (typically) variants in KMT2D (H3K4 methyltransferase) and/or KDM6A (H3K27 demethylase). (golden2023molecularinsightsof pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 2-3)
 
-**Abstract quote (astrocyte emphasis):** “However, it was recently identified that most of these glycogen aggregates are present in astrocytes. Importantly, astrocytic Lafora bodies have been shown to contribute to pathology in Lafora disease.” (Feb 2023; Cells) (duran2023roleofastrocytes pages 1-2)
+**Intermediate molecular consequence:** altered enhancer/promoter chromatin state and transcriptional dysregulation, measurable in human immune cells as altered H3K4me1/H3K4me2 enhancer signatures with reduced enhancer activity at immune genes. (jung2023characterizingthemolecular pages 1-5)
 
-### 6.2 Cellular processes and pathways
-- **Autophagy/endolysosomal dysfunction:** LD inclusions and associated proteins implicate autophagic handling; autophagy impairment is described as secondary to glycogen accumulation and normalizes when glycogen accumulation is prevented in models (duran2023roleofastrocytes pages 2-4, duran2023roleofastrocytes pages 10-11)
-- **Neuroinflammation:** reactive astrocytes/microglia are described; a 2024 Epm2b-/- mouse study identified inflammatory pathway involvement including “mainly TNF and IL-6 signaling pathways” and demonstrated infiltration of peripheral immune cells (T-lymphocytes) (rubio2024beneficialeffectof pages 1-2)
+**Downstream cellular consequences:** impaired maturation/function of immune cells (B- and T-cell defects; altered integrin programs and migration/egress), contributing to recurrent infections, hypogammaglobulinemia, and autoimmune manifestations. (margot2020immunopathologicalmanifestationsin pages 1-2, potter2024kmt2dregulatesactivation pages 14-16)
 
-### 6.3 Anatomical and cell-type localization
-- Lafora bodies accumulate in brain and peripheral tissues (e.g., liver, muscle, sweat glands) (aggradi2023laforadiseasea pages 4-6)
-- Cell types: both neuronal and astrocytic inclusions; “most LBs are present in astrocytes” with distinct morphologies (neuronal perinuclear nLBs vs corpora-amylacea-like astrocytic bodies) (duran2023roleofastrocytes pages 2-4)
+**Clinical manifestations:** multisystem developmental phenotype including neurodevelopmental delay, craniofacial anomalies, growth deficiency, heart defects, hearing loss, and immune disease. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3, lee2024geneticandphenotypic pages 1-2, kalinousky2023kmt2ddeficiencycauses pages 5-7)
 
-### 6.4 Suggested ontology terms
-**GO biological process (examples):**
-- Glycogen metabolic process (GO:0005977)
-- Glycogen biosynthetic process (GO:0005978)
-- Macroautophagy (GO:0016236)
-- Neuroinflammatory response (GO:0150076)
+### 6.2 Immune pathway mechanism (integrin/MST1 axis)
+In Kmt2d-deficient murine thymocytes, transcriptomics implicate integrin-linked migration programs (including Mst1 pathway-related genes such as Rap1a/Vasp and integrin genes) as dysregulated, aligning with abnormal T-cell maturation and peripheral distribution shifts. (potter2024kmt2dregulatesactivation pages 11-13, potter2024kmt2dregulatesactivation pages 14-16)
 
-**Cell Ontology (CL) suggestions:**
-- Astrocyte (CL:0000127)
-- Neuron (CL:0000540)
-- Microglial cell (CL:0000129)
-- T cell (CL:0000084)
+### 6.3 Neurodevelopment: tissue specificity and episignature caveat
+The 2024 neuron-vs-blood chromatin accessibility study supports a model in which neurodevelopmental chromatin disruptions are not simply recapitulated by blood epigenomic patterns; neurons show preferential disruption at CpG islands and aging-linked regulatory elements. This helps explain why **blood-derived episignatures** can be diagnostically useful yet incomplete as mechanistic proxies for brain phenotypes. (boukas2024neuronspecificchromatindisruption pages 1-2)
 
----
+### 6.4 Growth-plate biology and endochondral ossification
+KS2 growth failure can arise from impaired hypertrophic chondrocyte enlargement (hypertrophic-zone shortening) and premature chondrogenic differentiation, with transcriptional convergence between KS1 and KS2 models supporting a shared downstream program affecting cartilage development. (gao2024growthdeficiencyin pages 1-2, gao2024growthdeficiencyin pages 3-6)
+
+### 6.5 Suggested ontology terms (mechanism structuring; not exhaustively validated here)
+- **GO biological process (suggested):** chromatin organization; histone H3-K4 methylation; regulation of transcription by RNA polymerase II; T cell activation; leukocyte migration; endochondral ossification; chondrocyte differentiation.
+- **Cell Ontology (suggested):** B cell; T cell; CD4-positive T cell; CD8-positive T cell; thymocyte; natural killer cell; chondrocyte; hypertrophic chondrocyte; neuron.
 
 ## 7. Anatomical Structures Affected
 
-### 7.1 Organ/tissue systems
-- Central nervous system (primary): progressive epilepsy, cognitive decline, neurodegeneration (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Peripheral tissues: Lafora bodies may be found in “brain, liver, muscle, and sweat glands” (aggradi2023laforadiseasea pages 4-6)
+### 7.1 Organ/system involvement (supported)
+- **Central nervous system / neurodevelopment:** developmental delay, intellectual disability, hypotonia. (barry2022fromgenotypeto pages 1-2, lee2024geneticandphenotypic pages 1-2)
+- **Immune system:** recurrent infections, hypogammaglobulinemia, autoimmune cytopenias. (margot2020immunopathologicalmanifestationsin pages 1-2)
+- **Cardiovascular system:** congenital heart abnormalities (e.g., ASD, VSD, coarctation). (lee2024geneticandphenotypic pages 1-2)
+- **Auditory system:** mixed conductive and sensorineural hearing loss. (kalinousky2023kmt2ddeficiencycauses pages 5-7)
+- **Skeletal system / growth plates:** growth deficiency and altered long-bone and growth-plate parameters (mouse models; mechanistic relevance). (gao2024growthdeficiencyin pages 3-6)
 
-### 7.2 Suggested UBERON terms (examples)
-- Brain (UBERON:0000955)
-- Hippocampus (LBs enriched in astrocytes notably in hippocampus per review) (UBERON:0001954) (duran2023roleofastrocytes pages 2-4)
-- Skeletal muscle tissue (UBERON:0001134)
-- Skin (sweat glands/ducts) (UBERON:0002097)
-
----
+### 7.2 UBERON / GO-CC suggestions (not asserted as extracted identifiers)
+- UBERON (suggested): heart; cochlea; thymus; bone growth plate; hippocampus
+- GO cellular component (suggested): nucleus; chromatin; histone methyltransferase complex
 
 ## 8. Temporal Development
-- Onset: typically adolescence; previously healthy children develop seizures (duran2023roleofastrocytes pages 1-2)
-- Progression: progressive, rapid; median loss of autonomy 6 years and median survival 11 years (zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-No remission patterns were captured in the retrieved evidence.
+### 8.1 Typical onset
+KS is congenital with early-life hypotonia and developmental delay emphasized in diagnostic criteria. (adam2019kabukisyndromeinternational pages 1-2)
 
----
+### 8.2 Hearing temporal profile (example)
+In a KS1 cohort, mean onset/presentation of hearing loss was reported as ~7 years, though some individuals had hearing loss at birth. (kalinousky2023kmt2ddeficiencycauses pages 5-7)
 
 ## 9. Inheritance and Population
 
-### 9.1 Inheritance
-Autosomal recessive, due to biallelic variants in **EPM2A** or **NHLRC1**. (pondrelli2023prognosticvalueof pages 1-2)
+### 9.1 Inheritance patterns
+- KS1 (KMT2D): autosomal dominant. (barry2022fromgenotypeto pages 1-2, dugan2021kabukisyndrome pages 1-3)
+- KS2 (KDM6A): X-linked; recent cohort work suggests sex-modified severity. (wang2024sexspecificdifferencein pages 2-4, wang2024sexspecificdifferencein pages 5-6)
 
-### 9.2 Epidemiology and geographic distribution
-Prevalence estimates in retrieved sources:
-- “approximately four cases per one million individuals” (aggradi2023laforadiseasea pages 1-2)
-- Germany: **1.69 per 10 million** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-
-Geographic concentration (qualitative): “occurs most frequently in Mediterranean countries, South India, North Africa, and the Middle East.” (aggradi2023laforadiseasea pages 1-2)
-
-Population-genetic details not captured in retrieved excerpts: incidence, carrier frequency, sex ratio, and explicit consanguinity rates.
-
----
+### 9.2 Sex-specific severity in KS2 (2024 matched case–control)
+In a KS2 cohort (n=12; males=5, females=7):
+- CHD: **5/5 (100%) males vs 1/7 (14.29%) females** (P=0.015)
+- Moderate-to-severe intellectual disability (IQ<55): **4/4 (100%) assessed males vs 0/7 females** (P=0.003)
+- Median IQ: **41** in males vs **69** in females (P=0.029)
+(Wang et al., 2024, *BMC Pediatrics*, Feb 2024; DOI URL: https://doi.org/10.1186/s12887-024-04562-z). (wang2024sexspecificdifferencein pages 5-6)
 
 ## 10. Diagnostics
 
-### 10.1 Clinical and electrophysiology
-EEG findings include generalized/multifocal epileptiform discharges; in one case report EEG showed “multiple discharges across both brain hemispheres.” (aggradi2023laforadiseasea pages 1-2)
+### 10.1 Clinical criteria and confirmatory testing
+The consensus criteria emphasize hypotonia and developmental delay/intellectual disability plus either a pathogenic/likely pathogenic variant in KMT2D/KDM6A and/or typical dysmorphism. (adam2019kabukisyndromeinternational pages 1-2)
 
-The 2024 scoping review highlights characteristic electrophysiology (photo-paroxysmal response, giant SSEP) though milder genotypes may show these less often. (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+### 10.2 Genetic testing (real-world implementation)
+Recent reviews describe clinical implementation of **WES/trio-WES** and targeted sequencing to detect SNVs/indels and CNVs, with interpretive challenges including VUS and complex variant classes. (golden2023molecularinsightsof pages 9-11)
 
-### 10.2 Neuroimaging
-MRI can be normal early: “Brain magnetic resonance imaging was unremarkable” in a genetically confirmed case (aggradi2023laforadiseasea pages 1-2); later disease may show widespread degeneration (aggradi2023laforadiseasea pages 4-6)
+### 10.3 Epigenomic “episignature” as a diagnostic adjunct
+DNA methylation episignatures are described as capable of identifying KS1 “regardless of variant class” in a review context, supporting clinical adoption of episignature testing when sequence findings are equivocal. (golden2023molecularinsightsof pages 9-11)
 
-### 10.3 Biopsy
-- Axillary skin biopsy can detect PAS-positive inclusions in sweat duct cells but has “false-positive/false-negative limitations” (diagnostic pitfalls). (aggradi2023laforadiseasea pages 4-6)
-- Muscle biopsy may be atypical or lack Lafora bodies (as in a confirmed NHLRC1 case). (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 2-4)
-
-### 10.4 Genetic testing
-Genetic confirmation requires identifying biallelic pathogenic variants in **EPM2A** or **EPM2B/NHLRC1**; a case report used targeted NGS (clinical exome) plus Sanger confirmation and parental testing, with ACMG classification. (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 2-4)
-
-### 10.5 Differential diagnosis
-LD should be considered among progressive, refractory myoclonic epilepsies in children/young adults, and overlapping polyglucosan storage disorders are part of the differential. (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 6-7)
-
----
+### 10.4 Differential diagnosis
+This run did not retrieve differential-diagnosis tables or guideline-style differential lists; therefore no specific differentials are asserted here.
 
 ## 11. Outcome / Prognosis
-LD is severe and progressive with high morbidity and premature mortality. Key quantitative outcomes from natural history are summarized above (Section 3.3). Prognosis can vary by genotype; truncating **NHLRC1** genotypes are associated with shorter survival in the patient-level meta-analysis, and **NHLRC1 p.Asp146Asn** is associated with a more favorable course. (pondrelli2023prognosticvalueof pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
----
+The retrieved sources emphasize variable multisystem burden and the need for longitudinal adult natural history data, but did not provide robust survival or life-expectancy statistics in the extracted passages. (barry2022fromgenotypeto pages 1-2)
+
+However, immune complications can be serious: immunopathological manifestations are described as “common and can be life-threatening,” supporting systematic screening and preventive management. (margot2020immunopathologicalmanifestationsin pages 1-2)
 
 ## 12. Treatment
 
-### 12.1 Current clinical management (supportive)
-There is no established disease-modifying therapy in routine practice in the retrieved sources. Management is supportive and symptom-focused (seizure control, supportive care), with diet-based interventions historically explored. (aggradi2023laforadiseasea pages 1-2, NCT00007124 chunk 1)
+### 12.1 Standard of care (current practice)
+Clinical management is primarily **supportive and multidisciplinary**, including surveillance and treatment of congenital anomalies, developmental interventions, and management of immune dysfunction, feeding problems, endocrine issues, and seizures as they arise. (dugan2021kabukisyndrome pages 1-3, boniel2021kabukisyndrome—clinicalreview pages 1-2)
 
-### 12.2 Experimental / translational therapeutics (2023–2024 emphasis)
-A major contemporary strategy is **substrate reduction**—reducing glycogen synthesis in brain to prevent polyglucosan/Lafora body formation.
+### 12.2 Dietary/metabolic interventions (recent developments and real-world implementation)
 
-| Type | Intervention | Mechanism/target | Population/model | Key endpoints/outcomes | Status | Dates | Sponsor | URL/DOI |
-|---|---|---|---|---|---|---|---|---|
-| Interventional clinical trial | **ION283** intrathecal ASO (NCT06609889) | Antisense oligonucleotide therapy targeting abnormal glycogen synthesis pathway; efficacy endpoints based on EEG change from baseline to 2 years, including posterior dominant/background rhythms, sleep physiology, electrographic seizures, and epileptiform discharge counts | Patients aged **10–18 years** with genetically confirmed **EPM2A** or **EPM2B/NHLRC1** Lafora disease, LDPS score ≥9 and motor subscore ≥2 | Safety and efficacy; EEG-based biomarkers over 2 years | **Recruiting** | Record excerpt current in 2024; version holder date **2026-04-24**; start/completion dates not captured in excerpt | University of Texas Southwestern Medical Center; official: Berge Minassian, MD | https://clinicaltrials.gov/study/NCT06609889 (NCT06609889 chunk 2) |
-| Observational clinical study | **Natural History and Functional Status Study of Patients With Lafora Disease** (NCT03876522) | Prospective natural-history study to define disease course, identify biomarkers, and establish outcome measures for future trials | **33 participants**, minimum age **5 years**, genetically confirmed Lafora disease | Seizure frequency/duration, awake/sleep video EEG, Lafora Disease Performance/Clinical Performance Scales, cognition, gait/ataxia, caregiver burden, disability, QoL, blood/CSF biomarkers | **Completed** | **2019-01-09 to 2022-04-01**; 24-month assessments | Ionis Pharmaceuticals, Inc. | https://clinicaltrials.gov/study/NCT03876522 (NCT03876522 chunk 1) |
-| Observational/proof-of-principle study | **Ketogenic diet** (NCT00007124) | Restrictive low-carbohydrate ketogenic diet intended to acutely modify brain/whole-body metabolism and possibly reduce disease manifestations | **15 participants** with relatively advanced Lafora disease; age **≥10 years**; histologic or preferably genetic confirmation | Clinical scales plus MRI/MRS, LP, metabolic/endocrine testing, neuropsychology, EEG, EMG, SEP/VEP; 6-month diet with possible continuation to 12 months for responders | **Completed** | **December 2000 to November 2002** | National Institute of Neurological Disorders and Stroke (NINDS) | https://clinicaltrials.gov/study/NCT00007124 (NCT00007124 chunk 1) |
-| Expanded access | **VAL-1221** intravenous infusion every other week (NCT05930223; LEAP) | Enzyme-fusion/advanced therapeutic strategy intended to target Lafora body burden; protocol provides treatment access rather than formal efficacy trial | Up to **10** patients with genetically documented biallelic **EPM2A** or **EPM2B** variants; mid-stage disease, age **12–28 years** | Access protocol; excerpt does not list formal endpoints/outcome measures | **Available** | Initial submission **2023-06-25**; first posted **2023-07-05** | Parasail, LLC | https://clinicaltrials.gov/study/NCT05930223 (NCT05930223 chunk 1) |
-| Preclinical | **Gys1-ASO** intracerebroventricular antisense therapy | Reduces **glycogen synthase 1 (Gys1)** expression to lower brain glycogen synthesis and prevent formation of disease-driving Lafora bodies | **Epm2b-/- (malin KO) mice**; ICV dosing at **4, 7, and 10 months**, sacrifice at 13 months | Decreased **Gys1** mRNA/protein, reduced glycogen aggregation/Lafora body burden, fewer larger LBs, reduced epileptiform discharges; proof of concept that targeting glycogen synthesis can halt progression | Preclinical proof-of-concept | Published **Oct 2023** | Academic/industry collaboration; study authors included Ionis-associated ASO expertise | https://doi.org/10.1007/s13311-023-01434-9 (donohue2023gys1antisensetherapy pages 1-2, donohue2023gys1antisensetherapy pages 4-6) |
-| Preclinical | **Fingolimod** | S1PR modulation to reduce reactive astrogliosis-derived neuroinflammation, stabilize BBB, and decrease **T-lymphocyte** brain infiltration; inflammatory pathways implicated include **TNF** and **IL-6** signaling | **Epm2b-/- mice** treated from **3 months of age** for **15 weeks**; dose **0.5 mg/kg** in drinking water | Reduced reactive astrocyte-derived neuroinflammation, decreased brain T-cell infiltration, and improved behavioral performance; more effective than dimethyl fumarate in this model | Preclinical | Published **2024** | Academic study | https://doi.org/10.1007/s12035-023-03766-1 (rubio2024beneficialeffectof pages 1-2, rubio2024beneficialeffectof pages 2-4) |
+#### 12.2.1 2024 multi-omics + Modified Atkins/ketogenic diet report (KMT2D)
+A 2024 eBioMedicine study combined proteomics (KS n=4 vs controls n=4; significant protein changes at FDR<0.05) and scRNA-seq with a **single-patient** Modified Atkins/ketogenic-style dietary intervention.
 
+Molecular findings included large-scale proteomic dysregulation and downregulation of ribosomal proteins/translation pathways in KS, with partial reversal of ribosomal gene dysregulation after 12 months of diet in the treated participant. (tsang2024ketogenicdietmodifies pages 8-10, tsang2024ketogenicdietmodifies pages 6-8)
 
-*Table: This table summarizes the main retrieved Lafora disease clinical studies, expanded-access programs, and leading 2023–2024 preclinical therapeutic strategies. It is useful for quickly comparing mechanisms, populations/models, endpoints, and development status across the current translational landscape.*
+Reported clinical signals in the treated child included elimination of “brain fog” episodes, improved neuropsychological testing domains (e.g., attention/impulse control), reduced school absenteeism (8.5→3 days/semester), and reduced antibiotic courses (8.5/year→3.7/year), though this is uncontrolled n=1 evidence. (tsang2024ketogenicdietmodifies pages 8-10)
 
-Key 2023–2024 developments from retrieved evidence:
-- **GYS1 antisense (preclinical)**: intracerebroventricular Gys1-ASO at 4/7/10 months reduced Gys1 protein and Lafora body burden and reduced epileptiform discharges in Epm2b-/- mice (donohue2023gys1antisensetherapy pages 4-6)
-- **ION283 (clinical trial)**: intrathecal ASO trial uses EEG biomarkers over 2 years as efficacy endpoints; recruiting ages 10–18 (NCT06609889) (NCT06609889 chunk 2)
-- **Neuroinflammation modulation (preclinical)**: fingolimod reduced reactive astrocyte-derived neuroinflammation and T-lymphocyte infiltration and improved behavior in Epm2b-/- mice; inflammatory signaling implicated includes TNF and IL-6 (rubio2024beneficialeffectof pages 1-2, rubio2024beneficialeffectof pages 2-4)
-- **VAL-1221 expanded access**: IV 20 mg/kg every other week, up to 10 patients, genetically confirmed mid-stage disease (NCT05930223) (NCT05930223 chunk 1)
+Intervention details included initial carbohydrate restriction to 15 g/day, ketosis tracking with urinary ketones and serum beta-hydroxybutyrate (BOHB ~1.90–4.86 mmol/L). (tsang2024ketogenicdietmodifies pages 2-3)
 
-### 12.3 Suggested MAXO terms (examples)
-- Antisense oligonucleotide therapy (MAXO term family; label: antisense therapy)
-- Ketogenic diet therapy (dietary therapy)
-- Expanded access treatment program
-- Gene therapy / gene replacement therapy (preclinical in retrieved sources) (zafrapuerta2023genereplacementtherapy pages 21-24)
+**Evidence type:** n=1 intervention with supporting multi-omics; hypothesis-generating. (tsang2024ketogenicdietmodifies pages 8-10, tsang2024ketogenicdietmodifies pages 2-3)
 
-Specific MAXO IDs were not captured in retrieved sources; mapping would require ontology lookup.
+#### 12.2.2 ClinicalTrials.gov: Modified Atkins Diet trial (adults; completed)
+A single-group early phase 1 trial evaluated **12-week Modified Atkins Diet** in adults with genetically confirmed KS.
+- ClinicalTrials.gov ID: **NCT04722315**
+- Status: **Completed**
+- Enrollment: **10**
+- Primary completion: **2024-01-26**
+- Results posted: **2025-05-13**
+- Outcome domains: cognitive/visuospatial/memory testing plus serial genome-wide DNA methylation measures. (NCT04722315 chunk 1)
 
----
+URL: https://clinicaltrials.gov/study/NCT04722315 (NCT04722315 chunk 1)
+
+**Note:** numeric outcome results were not extracted from the record text available in this run. (NCT04722315 chunk 1)
+
+### 12.3 MAXO term suggestions (treatment action structuring)
+- Multidisciplinary care coordination
+- Genetic counseling
+- Developmental therapy (speech therapy; physical therapy; occupational therapy)
+- Dietary therapy (Modified Atkins diet / ketogenic diet)
+- Immunologic monitoring and management (screening for hypogammaglobulinemia; management of autoimmune cytopenias)
 
 ## 13. Prevention
-No primary prevention strategies beyond genetic counseling and family planning are detailed in retrieved sources. Genetic confirmation and family testing are implied by autosomal recessive inheritance and use of parental testing in case reports. (aggradi2023laforadiseasea pages 2-4)
 
----
+Primary prevention (preventing occurrence) is not generally applicable for a de novo-dominant/X-linked congenital syndrome; however, secondary/tertiary prevention through surveillance and complication prevention is implied in management frameworks and supported by high rates of infection susceptibility and immune abnormalities. (margot2020immunopathologicalmanifestationsin pages 1-2, dugan2021kabukisyndrome pages 1-3)
 
 ## 14. Other Species / Natural Disease
-Naturally occurring Lafora-like disease has been described in dogs and linked to **NHLRC1 repeat expansions**, including an “NHLRC1 repeat expansion in two beagles” and an “NHLRC1 homozygous dodecamer expansion in a Newfoundland dog,” with reports spanning multiple breeds (e.g., Basset hound, beagle, Newfoundland dog, miniature Wirehaired Dachshunds). (vincent2023retinalphenotypingof pages 9-10)
 
----
+No naturally occurring non-human Kabuki syndrome cases were retrieved in this run.
 
 ## 15. Model Organisms
 
-### 15.1 Mammalian models (mouse)
-Common murine models include **Epm2a−/− (laforin KO)** and **Epm2b−/− (malin KO)**, which develop Lafora bodies and neurological phenotypes and are used for therapy testing (ASO, gene replacement). (donohue2023gys1antisensetherapy pages 1-2, zafrapuerta2023genereplacementtherapy pages 1-4)
+### 15.1 Mouse models (key recent 2023–2024 studies)
+- **KS1 hearing model:** Kmt2d+/βGeo mice show progressive hearing impairment; ABR thresholds diverge after hearing onset and DPOAEs are diminished at multiple frequencies, consistent with outer hair cell dysfunction despite no gross cochlear malformations on micro-CT. (kalinousky2023kmt2ddeficiencycauses pages 7-9)
+- **KS2 growth model:** Kdm6a tm1d/+ mice exhibit postnatal growth deficiency with shortened long bones and growth-plate hypertrophic-zone reductions; Kdm6a−/− and Kmt2d−/− chondrocyte models show convergent transcriptomic changes. (gao2024growthdeficiencyin pages 3-6)
+- **Cell-type chromatin comparisons:** ATAC-seq across neurons vs B/T cells demonstrates cell-context-specific chromatin disruptions (neuronal CpG-island/aging enrichment), informing translational interpretation of blood-derived episignatures. (boukas2024neuronspecificchromatindisruption pages 1-2)
 
-**Retinal biomarker/endpoint development (quantitative):** In Epm2a−/− mice, retinal PASD staining showed inner plexiform layer Lafora body density **1743 ± 533/mm² at 10 months** and **2615 ± 915/mm² at 14 months**, while ERG parameters and retinal thickness were preserved, supporting retinal LB quantification as a potential monitoring readout in mice. (vincent2023retinalphenotypingof pages 1-2)
+## 16. Recent Developments (2023–2024 highlights)
 
-**Neuromuscular model phenotype (2024):** Laforin-deficient mice show neuromuscular junction dysfunction and motor neuron loss with an electrophysiological decrement reported as “(14.93±4.26%) at 50 Hz at the age of 5 months.” (shukla2024neuromuscularjunctiondysfunction pages 1-2)
+1. **Human epigenomic profiling in KS PBMCs** links KMT2D haploinsufficiency to enhancer dysregulation at immune genes, with super-enhancer overlap (~31%) and metabolic gene upregulation. (Jung et al., 2023; https://doi.org/10.1101/2022.10.25.22280882). (jung2023characterizingthemolecular pages 1-5)
+2. **T-cell intrinsic mechanism** in KS: KMT2D control of leukocyte integrins and migration/egress programs, with corroborating human peripheral T-cell shifts (reduced naïve/RTE, expanded memory). (Potter et al., 2024; https://doi.org/10.3389/fimmu.2024.1341745). (potter2024kmt2dregulatesactivation pages 14-16, potter2024kmt2dregulatesactivation pages 1-2)
+3. **Neuron-specific chromatin disruption** suggests mechanistic differences across tissues and cautions in interpreting blood episignatures mechanistically for neurodevelopment. (Boukas et al., 2024; https://doi.org/10.1101/gr.278416.123). (boukas2024neuronspecificchromatindisruption pages 1-2)
+4. **KS2 skeletal mechanism and convergence with KS1** via shared chondrocyte differentiation programs and growth-plate pathology. (Gao et al., 2024; https://doi.org/10.1371/journal.pgen.1011310). (gao2024growthdeficiencyin pages 3-6)
+5. **Dietary intervention translational efforts**: 2024 multi-omics report linking ribosomal protein dysregulation to KMT2D KS and describing Modified Atkins/ketogenic diet-associated molecular and cognitive changes (hypothesis-generating) plus an adult MAD clinical trial completed (NCT04722315). (tsang2024ketogenicdietmodifies pages 8-10, NCT04722315 chunk 1)
 
-### 15.2 Invertebrate models
-A 2023 mechanistic review cites Drosophila and indicates forced neuronal glycogen accumulation can cause neuronal apoptosis, supporting glycogen excess as a driver of neurodegeneration. (duran2023roleofastrocytes pages 2-4)
+## 17. Notes on evidence gaps for this run
+- **ICD-10/ICD-11, MeSH, Orphanet identifiers** were not present in retrieved sources; they should be added from dedicated ontology resources (Orphanet/MeSH/ICD) in a follow-on extraction step.
+- **Survival/life expectancy statistics** were not captured in the extracted evidence; robust natural history cohorts would be needed.
+- **Differential diagnosis lists** and **standardized care pathways** were not extracted in this run.
 
----
-
-## Recent developments and expert analysis (2023–2024 priority)
-
-1. **Genotype–prognosis associations were quantitatively strengthened** by a 2023 patient-level meta-analysis showing truncating NHLRC1 genotypes predict worse survival (HR 2.88), which is directly relevant for stratification and interpretation of disease-modifying trials. (pondrelli2023prognosticvalueof pages 1-2)
-2. **Cell-type re-framing toward astrocytes**: a 2023 review emphasized that “most” Lafora bodies are astrocytic and that astrocytic aggregates contribute to pathology, shifting mechanistic and therapeutic attention to glial glycogen metabolism and glia-driven inflammation. (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
-3. **Translational pipeline maturity**: the existence of an Ionis-sponsored natural history study (NCT03876522) defining outcome measures and biomarkers, plus a recruiting ASO trial (NCT06609889) with EEG endpoints, indicates field movement from preclinical substrate reduction to biomarker-driven clinical development. (NCT03876522 chunk 1, NCT06609889 chunk 2)
-
----
-
-## Data gaps and limitations (from retrieved sources)
-- Orphanet/MeSH/ICD identifiers were not captured in retrieved evidence.
-- Incidence, carrier frequency, sex ratio, and explicit consanguinity statistics were not available in the retrieved excerpts.
-- Phenotype frequencies (percent affected) for individual HPO terms were not extractable from the retrieved excerpts; fuller cohort papers would be needed.
-
----
-
-## Key resources (URLs; access dates not applicable)
-- Open Targets disease page (MONDO_0009697): https://platform.opentargets.org/disease/MONDO_0009697 (aggradi2023laforadiseasea pages 1-2)
-- OMIM entry #254780: https://omim.org/entry/254780 (aggradi2023laforadiseasea pages 1-2)
-- Pondrelli et al., 2023 (Orphanet J Rare Dis; DOI 10.1186/s13023-023-02880-6): https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2)
-- Zimmern & Minassian, 2024 (Genes; DOI 10.3390/genes15020171): https://doi.org/10.3390/genes15020171 (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Donohue et al., 2023 (Neurotherapeutics; DOI 10.1007/s13311-023-01434-9): https://doi.org/10.1007/s13311-023-01434-9 (donohue2023gys1antisensetherapy pages 4-6)
-- Duran, 2023 (Cells; DOI 10.3390/cells12050722): https://doi.org/10.3390/cells12050722 (duran2023roleofastrocytes pages 1-2)
-- Rubio et al., 2024 (Molecular Neurobiology; DOI 10.1007/s12035-023-03766-1): https://doi.org/10.1007/s12035-023-03766-1 (rubio2024beneficialeffectof pages 1-2)
-- ClinicalTrials.gov: NCT06609889 https://clinicaltrials.gov/study/NCT06609889 ; NCT03876522 https://clinicaltrials.gov/study/NCT03876522 ; NCT05930223 https://clinicaltrials.gov/study/NCT05930223 ; NCT00007124 https://clinicaltrials.gov/study/NCT00007124 (NCT06609889 chunk 2, NCT03876522 chunk 1, NCT05930223 chunk 1, NCT00007124 chunk 1)
 
 
 References
 
-1. (aggradi2023laforadiseasea pages 1-2): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+1. (barry2022fromgenotypeto pages 1-2): Kelly K. Barry, Michaelangelo Tsaparlis, Deborah Hoffman, Deborah Hartman, Margaret P. Adam, Christina Hung, and Olaf A. Bodamer. From genotype to phenotype—a review of kabuki syndrome. Genes, 13:1761, Sep 2022. URL: https://doi.org/10.3390/genes13101761, doi:10.3390/genes13101761. This article has 72 citations.
 
-2. (pondrelli2023prognosticvalueof pages 1-2): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
+2. (dugan2021kabukisyndrome pages 1-3): Sarah Dugan. Kabuki syndrome. Cassidy and Allanson's Management of Genetic Syndromes, pages 529-538, Oct 2021. URL: https://doi.org/10.1002/9781119432692.ch34, doi:10.1002/9781119432692.ch34. This article has 152 citations.
 
-3. (NCT06609889 chunk 2): Berge Minassian. A Safety and Efficacy of Intrathecally Administered ION283 in Patients With Lafora Disease. Berge Minassian. 2024. ClinicalTrials.gov Identifier: NCT06609889
+3. (boniel2021kabukisyndrome—clinicalreview pages 1-2): Snir Boniel, Krystyna Szymańska, Robert Śmigiel, and Krzysztof Szczałuba. Kabuki syndrome—clinical review with molecular aspects. Genes, 12:468, Mar 2021. URL: https://doi.org/10.3390/genes12040468, doi:10.3390/genes12040468. This article has 121 citations.
 
-4. (zimmern2024progressivemyoclonusepilepsy pages 6-7): Vincent Zimmern and Berge Minassian. Progressive myoclonus epilepsy: a scoping review of diagnostic, phenotypic and therapeutic advances. Genes, 15:171, Jan 2024. URL: https://doi.org/10.3390/genes15020171, doi:10.3390/genes15020171. This article has 20 citations.
+4. (barry2022fromgenotypeto pages 2-4): Kelly K. Barry, Michaelangelo Tsaparlis, Deborah Hoffman, Deborah Hartman, Margaret P. Adam, Christina Hung, and Olaf A. Bodamer. From genotype to phenotype—a review of kabuki syndrome. Genes, 13:1761, Sep 2022. URL: https://doi.org/10.3390/genes13101761, doi:10.3390/genes13101761. This article has 72 citations.
 
-5. (rubio2024beneficialeffectof pages 1-2): Teresa Rubio, Ángela Campos-Rodríguez, and Pascual Sanz. Beneficial effect of fingolimod in a lafora disease mouse model by preventing reactive astrogliosis-derived neuroinflammation and brain infiltration of t-lymphocytes. Molecular Neurobiology, 61:3105-3120, Nov 2024. URL: https://doi.org/10.1007/s12035-023-03766-1, doi:10.1007/s12035-023-03766-1. This article has 5 citations and is from a peer-reviewed journal.
+5. (golden2023molecularinsightsof pages 1-3): Carly S. Golden, Saylor Williams, and Maria A. Serrano. Molecular insights of kmt2d and clinical aspects of kabuki syndrome type 1. Birth Defects Research, 115:1809-1824, May 2023. URL: https://doi.org/10.1002/bdr2.2183, doi:10.1002/bdr2.2183. This article has 10 citations and is from a peer-reviewed journal.
 
-6. (NCT03876522 chunk 1):  Natural History and Functional Status Study of Patients With Lafora Disease. Ionis Pharmaceuticals, Inc.. 2019. ClinicalTrials.gov Identifier: NCT03876522
+6. (golden2023molecularinsightsof pages 9-11): Carly S. Golden, Saylor Williams, and Maria A. Serrano. Molecular insights of kmt2d and clinical aspects of kabuki syndrome type 1. Birth Defects Research, 115:1809-1824, May 2023. URL: https://doi.org/10.1002/bdr2.2183, doi:10.1002/bdr2.2183. This article has 10 citations and is from a peer-reviewed journal.
 
-7. (donohue2023gys1antisensetherapy pages 1-2): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+7. (wang2024sexspecificdifferencein pages 2-4): Yirou Wang, Yufei Xu, Yao Chen, Yabin Hu, Qun Li, Shijian Liu, Jian Wang, and Xiumin Wang. Sex-specific difference in phenotype of kabuki syndrome type 2 patients: a matched case-control study. BMC Pediatrics, Feb 2024. URL: https://doi.org/10.1186/s12887-024-04562-z, doi:10.1186/s12887-024-04562-z. This article has 2 citations and is from a peer-reviewed journal.
 
-8. (duran2023roleofastrocytes pages 2-4): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+8. (adam2019kabukisyndromeinternational pages 1-2): Margaret P Adam, Siddharth Banka, Hans T Bjornsson, Olaf Bodamer, Albert E Chudley, Jaqueline Harris, Hiroshi Kawame, Brendan C Lanpher, Andrew W Lindsley, Giuseppe Merla, Noriko Miyake, Nobuhiko Okamoto, Constanze T Stumpel, and Norio Niikawa. Kabuki syndrome: international consensus diagnostic criteria. Journal of Medical Genetics, 56:89-95, Dec 2019. URL: https://doi.org/10.1136/jmedgenet-2018-105625, doi:10.1136/jmedgenet-2018-105625. This article has 272 citations and is from a domain leading peer-reviewed journal.
 
-9. (pondrelli2023prognosticvalueof pages 2-4): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
+9. (boniel2021kabukisyndrome—clinicalreview pages 8-9): Snir Boniel, Krystyna Szymańska, Robert Śmigiel, and Krzysztof Szczałuba. Kabuki syndrome—clinical review with molecular aspects. Genes, 12:468, Mar 2021. URL: https://doi.org/10.3390/genes12040468, doi:10.3390/genes12040468. This article has 121 citations.
 
-10. (aggradi2023laforadiseasea pages 4-6): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+10. (jung2023characterizingthemolecular pages 1-5): Youngsook L Jung, Christina Hung, Jaejoon Choi, Eunjung A Lee, and Olaf Bodamer. Characterizing the molecular impact of kmt2d variants on the epigenetic and transcriptional landscapes in kabuki syndrome. Human molecular genetics, Oct 2023. URL: https://doi.org/10.1101/2022.10.25.22280882, doi:10.1101/2022.10.25.22280882. This article has 18 citations and is from a domain leading peer-reviewed journal.
 
-11. (duran2023roleofastrocytes pages 1-2): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+11. (boniel2021kabukisyndrome—clinicalreview pages 2-3): Snir Boniel, Krystyna Szymańska, Robert Śmigiel, and Krzysztof Szczałuba. Kabuki syndrome—clinical review with molecular aspects. Genes, 12:468, Mar 2021. URL: https://doi.org/10.3390/genes12040468, doi:10.3390/genes12040468. This article has 121 citations.
 
-12. (aggradi2023laforadiseasea pages 2-4): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+12. (tsang2024ketogenicdietmodifies pages 8-10): Erica Tsang, Velda X. Han, Chloe Flutter, Sarah Alshammery, Brooke A. Keating, Tracey Williams, Brian S. Gloss, Mark E. Graham, Nader Aryamanesh, Ignatius Pang, Melanie Wong, David Winlaw, Michael Cardamone, Shekeeb Mohammad, Wendy Gold, Shrujna Patel, and Russell C. Dale. Ketogenic diet modifies ribosomal protein dysregulation in kmt2d kabuki syndrome. eBioMedicine, 104:105156, Jun 2024. URL: https://doi.org/10.1016/j.ebiom.2024.105156, doi:10.1016/j.ebiom.2024.105156. This article has 16 citations and is from a peer-reviewed journal.
 
-13. (mitra2023laforintargetsmalin pages 10-10): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
+13. (tsang2024ketogenicdietmodifies pages 2-3): Erica Tsang, Velda X. Han, Chloe Flutter, Sarah Alshammery, Brooke A. Keating, Tracey Williams, Brian S. Gloss, Mark E. Graham, Nader Aryamanesh, Ignatius Pang, Melanie Wong, David Winlaw, Michael Cardamone, Shekeeb Mohammad, Wendy Gold, Shrujna Patel, and Russell C. Dale. Ketogenic diet modifies ribosomal protein dysregulation in kmt2d kabuki syndrome. eBioMedicine, 104:105156, Jun 2024. URL: https://doi.org/10.1016/j.ebiom.2024.105156, doi:10.1016/j.ebiom.2024.105156. This article has 16 citations and is from a peer-reviewed journal.
 
-14. (duran2023roleofastrocytes pages 8-10): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+14. (lee2024geneticandphenotypic pages 1-2): Chung-Lin Lee, Chih-Kuang Chuang, Ming-Ren Chen, Ju-Li Lin, Huei-Ching Chiu, Ya-Hui Chang, Yuan-Rong Tu, Yun-Ting Lo, Hsiang-Yu Lin, and Shuan-Pei Lin. Genetic and phenotypic spectrum of kmt2d variants in taiwanese case series of kabuki syndrome. Diagnostics, 14:1815, Aug 2024. URL: https://doi.org/10.3390/diagnostics14161815, doi:10.3390/diagnostics14161815. This article has 0 citations.
 
-15. (mitra2023laforintargetsmalin pages 1-2): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
+15. (margot2020immunopathologicalmanifestationsin pages 1-2): Henri Margot, Guilaine Boursier, Claire Duflos, Elodie Sanchez, Jeanne Amiel, Jean-Christophe Andrau, Stéphanie Arpin, Elise Brischoux-Boucher, Odile Boute, Lydie Burglen, Charlotte Caille, Yline Capri, Patrick Collignon, Solène Conrad, Valérie Cormier-Daire, Geoffroy Delplancq, Klaus Dieterich, Hélène Dollfus, Mélanie Fradin, Laurence Faivre, Helder Fernandes, Christine Francannet, Vincent Gatinois, Marion Gerard, Alice Goldenberg, Jamal Ghoumid, Sarah Grotto, Anne-Marie Guerrot, Agnès Guichet, Bertrand Isidor, Marie-Line Jacquemont, Sophie Julia, Philippe Khau Van Kien, Marine Legendre, K.H. Le Quan Sang, Bruno Leheup, Stanislas Lyonnet, Virginie Magry, Sylvie Manouvrier, Dominique Martin, Godelieve Morel, Arnold Munnich, Sophie Naudion, Sylvie Odent, Laurence Perrin, Florence Petit, Nicole Philip, Marlène Rio, Julie Robbe, Massimiliano Rossi, Elisabeth Sarrazin, Annick Toutain, Julien Van Gils, Gabriella Vera, Alain Verloes, Sacha Weber, Sandra Whalen, Damien Sanlaville, Didier Lacombe, Nathalie Aladjidi, and David Geneviève. Immunopathological manifestations in kabuki syndrome: a registry study of 177 individuals. Genetics in Medicine, 22:181-188, Jan 2020. URL: https://doi.org/10.1038/s41436-019-0623-x, doi:10.1038/s41436-019-0623-x. This article has 73 citations and is from a highest quality peer-reviewed journal.
 
-16. (duran2023roleofastrocytes pages 10-11): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+16. (kalinousky2023kmt2ddeficiencycauses pages 5-7): Allison J. Kalinousky, Teresa R. Luperchio, Katrina M. Schrode, Jacqueline R. Harris, Li Zhang, Valerie B. DeLeon, Jill A. Fahrner, Amanda M. Lauer, and Hans T. Bjornsson. Kmt2d deficiency causes sensorineural hearing loss in mice and humans. Genes, 15:48, Dec 2023. URL: https://doi.org/10.3390/genes15010048, doi:10.3390/genes15010048. This article has 2 citations.
 
-17. (aggradi2023laforadiseasea pages 6-7): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+17. (lee2024geneticandphenotypic pages 6-7): Chung-Lin Lee, Chih-Kuang Chuang, Ming-Ren Chen, Ju-Li Lin, Huei-Ching Chiu, Ya-Hui Chang, Yuan-Rong Tu, Yun-Ting Lo, Hsiang-Yu Lin, and Shuan-Pei Lin. Genetic and phenotypic spectrum of kmt2d variants in taiwanese case series of kabuki syndrome. Diagnostics, 14:1815, Aug 2024. URL: https://doi.org/10.3390/diagnostics14161815, doi:10.3390/diagnostics14161815. This article has 0 citations.
 
-18. (NCT00007124 chunk 1):  Ketogenic Diet in Lafora Disease. National Institute of Neurological Disorders and Stroke (NINDS). 2000. ClinicalTrials.gov Identifier: NCT00007124
+18. (lee2024geneticandphenotypic pages 4-6): Chung-Lin Lee, Chih-Kuang Chuang, Ming-Ren Chen, Ju-Li Lin, Huei-Ching Chiu, Ya-Hui Chang, Yuan-Rong Tu, Yun-Ting Lo, Hsiang-Yu Lin, and Shuan-Pei Lin. Genetic and phenotypic spectrum of kmt2d variants in taiwanese case series of kabuki syndrome. Diagnostics, 14:1815, Aug 2024. URL: https://doi.org/10.3390/diagnostics14161815, doi:10.3390/diagnostics14161815. This article has 0 citations.
 
-19. (NCT05930223 chunk 1):  Intravenous VAL-1221 Lafora Expanded Access Protocol. Parasail, LLC. ClinicalTrials.gov Identifier: NCT05930223
+19. (wang2024sexspecificdifferencein pages 5-6): Yirou Wang, Yufei Xu, Yao Chen, Yabin Hu, Qun Li, Shijian Liu, Jian Wang, and Xiumin Wang. Sex-specific difference in phenotype of kabuki syndrome type 2 patients: a matched case-control study. BMC Pediatrics, Feb 2024. URL: https://doi.org/10.1186/s12887-024-04562-z, doi:10.1186/s12887-024-04562-z. This article has 2 citations and is from a peer-reviewed journal.
 
-20. (donohue2023gys1antisensetherapy pages 4-6): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+20. (lee2024geneticandphenotypic pages 2-4): Chung-Lin Lee, Chih-Kuang Chuang, Ming-Ren Chen, Ju-Li Lin, Huei-Ching Chiu, Ya-Hui Chang, Yuan-Rong Tu, Yun-Ting Lo, Hsiang-Yu Lin, and Shuan-Pei Lin. Genetic and phenotypic spectrum of kmt2d variants in taiwanese case series of kabuki syndrome. Diagnostics, 14:1815, Aug 2024. URL: https://doi.org/10.3390/diagnostics14161815, doi:10.3390/diagnostics14161815. This article has 0 citations.
 
-21. (rubio2024beneficialeffectof pages 2-4): Teresa Rubio, Ángela Campos-Rodríguez, and Pascual Sanz. Beneficial effect of fingolimod in a lafora disease mouse model by preventing reactive astrogliosis-derived neuroinflammation and brain infiltration of t-lymphocytes. Molecular Neurobiology, 61:3105-3120, Nov 2024. URL: https://doi.org/10.1007/s12035-023-03766-1, doi:10.1007/s12035-023-03766-1. This article has 5 citations and is from a peer-reviewed journal.
+21. (potter2024kmt2dregulatesactivation pages 1-2): Sarah J. Potter, Li Zhang, Michael Kotliar, Yuehong Wu, Caitlin Schafer, Kurtis Stefan, Leandros Boukas, Dima Qu’d, Olaf Bodamer, Brittany N. Simpson, Artem Barski, Andrew W. Lindsley, and Hans T. Bjornsson. Kmt2d regulates activation, localization, and integrin expression by t-cells. Frontiers in Immunology, May 2024. URL: https://doi.org/10.3389/fimmu.2024.1341745, doi:10.3389/fimmu.2024.1341745. This article has 10 citations and is from a peer-reviewed journal.
 
-22. (zafrapuerta2023genereplacementtherapy pages 21-24): Luis Zafra-Puerta, Daniel F. Burgos, Nerea Iglesias-Cabeza, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Gene replacement therapy for lafora disease in the epm2a-/- mouse model. bioRxiv, Dec 2023. URL: https://doi.org/10.1101/2023.12.14.571636, doi:10.1101/2023.12.14.571636. This article has 1 citations.
+22. (potter2024kmt2dregulatesactivation pages 9-11): Sarah J. Potter, Li Zhang, Michael Kotliar, Yuehong Wu, Caitlin Schafer, Kurtis Stefan, Leandros Boukas, Dima Qu’d, Olaf Bodamer, Brittany N. Simpson, Artem Barski, Andrew W. Lindsley, and Hans T. Bjornsson. Kmt2d regulates activation, localization, and integrin expression by t-cells. Frontiers in Immunology, May 2024. URL: https://doi.org/10.3389/fimmu.2024.1341745, doi:10.3389/fimmu.2024.1341745. This article has 10 citations and is from a peer-reviewed journal.
 
-23. (vincent2023retinalphenotypingof pages 9-10): Ajoy Vincent, Kashif Ahmed, Rowaida Hussein, Zorana Berberovic, Anupreet Tumber, Xiaochu Zhao, and Berge A. Minassian. Retinal phenotyping of a murine model of lafora disease. Genes, 14:854, Mar 2023. URL: https://doi.org/10.3390/genes14040854, doi:10.3390/genes14040854. This article has 1 citations.
+23. (potter2024kmt2dregulatesactivation pages 14-16): Sarah J. Potter, Li Zhang, Michael Kotliar, Yuehong Wu, Caitlin Schafer, Kurtis Stefan, Leandros Boukas, Dima Qu’d, Olaf Bodamer, Brittany N. Simpson, Artem Barski, Andrew W. Lindsley, and Hans T. Bjornsson. Kmt2d regulates activation, localization, and integrin expression by t-cells. Frontiers in Immunology, May 2024. URL: https://doi.org/10.3389/fimmu.2024.1341745, doi:10.3389/fimmu.2024.1341745. This article has 10 citations and is from a peer-reviewed journal.
 
-24. (zafrapuerta2023genereplacementtherapy pages 1-4): Luis Zafra-Puerta, Daniel F. Burgos, Nerea Iglesias-Cabeza, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Gene replacement therapy for lafora disease in the epm2a-/- mouse model. bioRxiv, Dec 2023. URL: https://doi.org/10.1101/2023.12.14.571636, doi:10.1101/2023.12.14.571636. This article has 1 citations.
+24. (boukas2024neuronspecificchromatindisruption pages 1-2): Leandros Boukas, Teresa Romeo Luperchio, Afrooz Razi, Kasper D. Hansen, and Hans T. Bjornsson. Neuron-specific chromatin disruption at cpg islands and aging-related regions in kabuki syndrome mice. Genome Research, 34:696-710, May 2024. URL: https://doi.org/10.1101/gr.278416.123, doi:10.1101/gr.278416.123. This article has 3 citations and is from a highest quality peer-reviewed journal.
 
-25. (vincent2023retinalphenotypingof pages 1-2): Ajoy Vincent, Kashif Ahmed, Rowaida Hussein, Zorana Berberovic, Anupreet Tumber, Xiaochu Zhao, and Berge A. Minassian. Retinal phenotyping of a murine model of lafora disease. Genes, 14:854, Mar 2023. URL: https://doi.org/10.3390/genes14040854, doi:10.3390/genes14040854. This article has 1 citations.
+25. (gao2024growthdeficiencyin pages 1-2): Christine W. Gao, WanYing Lin, Ryan C. Riddle, Sheetal Chopra, Jiyoung Kim, Leandros Boukas, Kasper D. Hansen, Hans T. Björnsson, and Jill A. Fahrner. Growth deficiency in a mouse model of kabuki syndrome 2 bears mechanistic similarities to kabuki syndrome 1. PLOS Genetics, 20:e1011310, Jun 2024. URL: https://doi.org/10.1371/journal.pgen.1011310, doi:10.1371/journal.pgen.1011310. This article has 3 citations and is from a domain leading peer-reviewed journal.
 
-26. (shukla2024neuromuscularjunctiondysfunction pages 1-2): Monica Shukla, Deepti Chugh, and Subramaniam Ganesh. Neuromuscular junction dysfunction in lafora disease. Disease Models &amp; Mechanisms, Oct 2024. URL: https://doi.org/10.1242/dmm.050905, doi:10.1242/dmm.050905. This article has 5 citations and is from a domain leading peer-reviewed journal.
+26. (gao2024growthdeficiencyin pages 3-6): Christine W. Gao, WanYing Lin, Ryan C. Riddle, Sheetal Chopra, Jiyoung Kim, Leandros Boukas, Kasper D. Hansen, Hans T. Björnsson, and Jill A. Fahrner. Growth deficiency in a mouse model of kabuki syndrome 2 bears mechanistic similarities to kabuki syndrome 1. PLOS Genetics, 20:e1011310, Jun 2024. URL: https://doi.org/10.1371/journal.pgen.1011310, doi:10.1371/journal.pgen.1011310. This article has 3 citations and is from a domain leading peer-reviewed journal.
+
+27. (NCT04722315 chunk 1):  Study of Modified Atkins Diet in Kabuki Syndrome. Hugo W. Moser Research Institute at Kennedy Krieger, Inc.. 2021. ClinicalTrials.gov Identifier: NCT04722315
+
+28. (potter2024kmt2dregulatesactivation pages 11-13): Sarah J. Potter, Li Zhang, Michael Kotliar, Yuehong Wu, Caitlin Schafer, Kurtis Stefan, Leandros Boukas, Dima Qu’d, Olaf Bodamer, Brittany N. Simpson, Artem Barski, Andrew W. Lindsley, and Hans T. Bjornsson. Kmt2d regulates activation, localization, and integrin expression by t-cells. Frontiers in Immunology, May 2024. URL: https://doi.org/10.3389/fimmu.2024.1341745, doi:10.3389/fimmu.2024.1341745. This article has 10 citations and is from a peer-reviewed journal.
+
+29. (tsang2024ketogenicdietmodifies pages 6-8): Erica Tsang, Velda X. Han, Chloe Flutter, Sarah Alshammery, Brooke A. Keating, Tracey Williams, Brian S. Gloss, Mark E. Graham, Nader Aryamanesh, Ignatius Pang, Melanie Wong, David Winlaw, Michael Cardamone, Shekeeb Mohammad, Wendy Gold, Shrujna Patel, and Russell C. Dale. Ketogenic diet modifies ribosomal protein dysregulation in kmt2d kabuki syndrome. eBioMedicine, 104:105156, Jun 2024. URL: https://doi.org/10.1016/j.ebiom.2024.105156, doi:10.1016/j.ebiom.2024.105156. This article has 16 citations and is from a peer-reviewed journal.
+
+30. (kalinousky2023kmt2ddeficiencycauses pages 7-9): Allison J. Kalinousky, Teresa R. Luperchio, Katrina M. Schrode, Jacqueline R. Harris, Li Zhang, Valerie B. DeLeon, Jill A. Fahrner, Amanda M. Lauer, and Hans T. Bjornsson. Kmt2d deficiency causes sensorineural hearing loss in mice and humans. Genes, 15:48, Dec 2023. URL: https://doi.org/10.3390/genes15010048, doi:10.3390/genes15010048. This article has 2 citations.

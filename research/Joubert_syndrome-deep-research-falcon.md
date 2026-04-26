@@ -2,21 +2,21 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-04-25T18:33:17.965608'
-end_time: '2026-04-25T18:53:35.673036'
-duration_seconds: 1217.71
+start_time: '2026-04-25T18:34:55.627119'
+end_time: '2026-04-25T18:46:49.184030'
+duration_seconds: 713.56
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Lafora Disease
+  disease_name: Joubert syndrome
   mondo_id: ''
-  category: Mendelian
+  category: Genetic
 provider_config:
   timeout: null
   max_retries: 3
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 43
+citation_count: 29
 ---
 
 ## Question
@@ -24,13 +24,13 @@ citation_count: 43
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Lafora Disease
+- **Disease Name:** Joubert syndrome
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Lafora Disease** covering all of the
+Please provide a comprehensive research report on **Joubert syndrome** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -485,13 +485,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Lafora Disease
+- **Disease Name:** Joubert syndrome
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Lafora Disease** covering all of the
+Please provide a comprehensive research report on **Joubert syndrome** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -929,368 +929,325 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-## Comprehensive Disease Characteristics Report: Lafora Disease (Mendelian)
+## Comprehensive Disease Characteristics Report: Joubert syndrome (genetic ciliopathy)
 
-### Executive summary
-Lafora disease (LD) is a rare, autosomal recessive, fatal progressive myoclonus epilepsy (PME) typically beginning in adolescence, characterized by progressive seizures/myoclonus and cognitive/psychiatric decline. Pathologically, LD features intracellular inclusions (“Lafora bodies”) composed of insoluble polyglucosan (poorly branched abnormal glycogen) in brain and other tissues. LD is caused by biallelic pathogenic variants in **EPM2A** (laforin, a glucan phosphatase) or **NHLRC1/EPM2B** (malin, an E3 ubiquitin ligase) with evidence that genotype influences prognosis (e.g., biallelic truncating **NHLRC1** variants associate with shorter survival). Translational research (2023–2024) is concentrated on substrate reduction (reducing brain glycogen synthesis), gene replacement approaches, and neuroinflammation modulation; a first-in-human intrathecal antisense trial (ION283; NCT06609889) is recruiting. (aggradi2023laforadiseasea pages 1-2, pondrelli2023prognosticvalueof pages 1-2, NCT06609889 chunk 2)
+### 1. Disease information
+**Overview/definition.** Joubert syndrome (JS; also “Joubert syndrome and related disorders,” JSRD) is a genetically heterogeneous, primary-cilium disorder (ciliopathy) defined clinically by hypotonia and neurodevelopmental impairment and radiologically by the **molar tooth sign (MTS)** reflecting a characteristic mid–hindbrain malformation. In a 2023 genetics report, JS is described as a “Mendelian disorder of the primary cilium defined by the clinical triad of hypotonia, developmental delay, and a distinct cerebellar malformation called the molar tooth sign” (abstract-level definition). (strong2023toporsasa pages 1-3)
 
----
+**Key identifiers (from available evidence).**
+- **OMIM phenotypic series:** Joubert syndrome (JBTS) **OMIM #213300** is explicitly referenced in a 2023 pediatric cohort paper. (dong2023clinicalandgenetic pages 1-2)
+- **Subtypes:** multiple numbered JBTS subtypes exist (e.g., JBTS9 with **CC2D2A**, JBTS10 with **OFD1**), as reflected in case reports and molecular literature. (li2023anovelnonsense pages 1-2)
+- **Missing in current evidence capture:** MONDO ID, Orphanet/ORPHA code, MeSH ID, ICD-10/ICD-11 codes were not directly retrievable in the tool-collected sources and should be added from OMIM/Orphanet/NCBI MeSH/WHO ICD resources.
 
-## 1. Disease Information
+**Synonyms/alternative names (in use in recent literature).** Joubert syndrome (JS), JBTS, Joubert syndrome and related disorders (JSRD), “Joubert anomaly,” and “cerebello-oculo-renal syndromes (JS/CORS)” appear in recent sources. (alhashimi2024neuroimagingcharacteristicsas pages 10-11, NCT00873678 chunk 1)
 
-### 1.1 Definition and current understanding
-LD is described in recent literature as a “rare, autosomal recessive neurodegenerative disorder” and a “progressive myoclonus epilepsy” with disrupted glycogen metabolism and “pathognomonic… Lafora bodies.” (aggradi2023laforadiseasea pages 1-2)
+**Evidence origin.** Statements in this report are primarily derived from **aggregated disease-level resources and cohorts** (reviews, cohort studies, ClinicalTrials.gov records) plus **case reports** for variant expansion; not EHR-derived.
 
-**Abstract-supported definition quotes** (recent):
-- “Lafora disease is a rare genetic disorder characterized by a disruption in glycogen metabolism. It manifests as progressive myoclonus epilepsy and cognitive decline during adolescence.” (Dec 2023; Brain Sciences) (aggradi2023laforadiseasea pages 1-2)
-- “Background Lafora disease (LD) is a fatal form of progressive myoclonic epilepsy caused by biallelic pathogenic variants in EPM2A or NHLRC1.” (Sep 2023; Orphanet J Rare Dis) (pondrelli2023prognosticvalueof pages 1-2)
 
-### 1.2 Key identifiers, synonyms, and data provenance
-The retrieved evidence directly supports MONDO and OMIM identifiers; other identifier systems (Orphanet/MeSH/ICD) were not captured in the retrieved sources.
+### 2. Etiology
+#### 2.1 Disease causal factors
+**Primary cause:** **Germline pathogenic variants** in genes encoding proteins that function “in and around the primary cilium” (transition zone, basal body/centrosome, intraflagellar transport, ciliary membrane). (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 1-3)
 
-| Identifier system | ID/code | Preferred name | Synonyms/notes | URL |
-|---|---|---|---|---|
-| MONDO | MONDO:0009697 | Lafora disease | Open Targets disease record for Lafora disease; Mendelian progressive myoclonus epilepsy entity (zimmern2024progressivemyoclonusepilepsy pages 6-7) | https://platform.opentargets.org/disease/MONDO_0009697 |
-| OMIM | OMIM #254780 | Lafora disease | Also described as a rare autosomal recessive progressive myoclonic epilepsy; OMIM number explicitly stated in recent reviews/case report (aggradi2023laforadiseasea pages 1-2, rubio2024beneficialeffectof pages 1-2) | https://omim.org/entry/254780 |
-| Orphanet | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; do not infer without direct evidence (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
-| MeSH | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; progressive myoclonus epilepsy context noted in reviews, but no MeSH ID retrieved (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
-| ICD | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; no ICD-10/ICD-11 code directly retrieved in available evidence (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
+**Genetic heterogeneity:**
+- “Over 40” causal genes are widely cited. (strong2023toporsasa pages 1-3, gana2022genotype–phenotypecorrelatesin pages 1-2)
+- A 2022 review states “Over 40 causative genes have been identified… explaining up to 94% of cases.” (gana2022genotype–phenotypecorrelatesin pages 1-2)
+- Despite this, one 2023 gene-discovery paper notes molecular diagnosis is not made in **~30–40%** of individuals meeting clinical criteria (highlighting missing variant classes, non-coding variants, structural variants, and/or novel genes). (strong2023toporsasa pages 1-3)
 
+**Inheritance patterns:** Most commonly **autosomal recessive**, but **rare X-linked recessive** and **autosomal dominant** JS cases are reported. (strong2023toporsasa pages 1-3, gonzalezgordillo2023joubertsyndromea pages 1-2, li2023anovelnonsense pages 1-2)
 
-*Table: This table summarizes key disease identifiers and naming information for Lafora disease using only retrieved evidence. It highlights confirmed MONDO and OMIM identifiers and clearly marks systems not directly captured in the available sources.*
+#### 2.2 Risk factors
+- **Genetic risk:** having biallelic pathogenic variants in JS genes (AR), or hemizygous pathogenic variants in X-linked genes such as **OFD1** (JBTS10). (li2023anovelnonsense pages 1-2)
+- **Population founder effects / elevated carrier frequency:**
+  - **TOPORS p.(Pro10Gln)** is proposed as a novel JS cause with evidence for elevated carrier frequency in people of **Dominican ancestry** from a large biobank query. (strong2023toporsasa pages 1-3)
+  - A North Macedonia early-pregnancy-loss cohort identified a relatively frequent **CPLANE1 “complex allele”** (c.1819delT;c.7817T>A) with markedly higher JS incidence among **Albanian families**. (bozhinovski2024highincidenceof pages 3-5)
 
-**Common synonyms/alternative names (supported in retrieved sources):**
-- “Lafora disease” and “progressive myoclonus epilepsy” (PME) framing (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Genetic subtypes: “myoclonic epilepsy of Lafora 1/2” appear as MONDO entities in Open Targets (MONDO_0958199; MONDO_0800306), reflecting EPM2A vs NHLRC1 subtypes (Open Targets output embedded in evidence stream; disease MONDO confirmed) (aggradi2023laforadiseasea pages 1-2)
+**Environmental risk factors:** No credible non-genetic environmental causal factors are established in the provided evidence.
 
-**Evidence type note:** This report primarily uses aggregated disease-level resources (systematic review/meta-analysis; scoping review; ClinicalTrials.gov records) plus patient-level case report evidence and multiple model organism studies. (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2, NCT03876522 chunk 1)
+#### 2.3 Protective factors
+No validated genetic or environmental protective factors were identified in the tool-retrieved evidence.
 
----
+#### 2.4 Gene–environment interactions
+No specific gene–environment interaction evidence was identified in the retrieved sources.
 
-## 2. Etiology
 
-### 2.1 Disease causal factors
-LD is a Mendelian disorder caused by loss-of-function biallelic pathogenic variants in:
-- **EPM2A** → **laforin** (glucan phosphatase/dual-specificity phosphatase) (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
-- **NHLRC1 (EPM2B)** → **malin** (E3 ubiquitin ligase) (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+### 3. Phenotypes (clinical spectrum)
+#### 3.1 Core neurologic phenotype (typical early onset)
+Core features repeatedly emphasized include **developmental delay**, **hypotonia**, **ataxia**, **oculomotor apraxia/abnormal eye movements**, and **episodic neonatal breathing dysregulation**. (dong2023clinicalandgenetic pages 1-2, alhashimi2024neuroimagingcharacteristicsas pages 10-11, li2023anovelmutation pages 1-2)
 
-Mechanistic genetic etiology: laforin and malin regulate glycogen metabolism and prevent conversion of soluble glycogen into insoluble polyglucosan aggregates (Lafora bodies). (pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 2-4)
+**Cohort statistics (human clinical).** In a retrospective cohort of **36 children**:
+- **Developmental delay:** **94.44%** (34/36). (dong2023clinicalandgenetic pages 1-2)
+- **MTS on imaging:** **86.11%** (31/36) had a “typical molar tooth sign”; 5 had a “bat wing sign.” (dong2023clinicalandgenetic pages 1-2)
+- **Abnormal respiratory rhythm:** 7 cases (six neonatal respiratory distress; one neonatal intermittent apnea). (dong2023clinicalandgenetic pages 3-5)
+- **Abnormal VEEG:** 7.69% (subset tested). (dong2023clinicalandgenetic pages 1-2)
 
-### 2.2 Genetic risk factors (causal variants)
-A 2023 systematic review/meta-analysis (patient-level) compiled 250 genetically confirmed cases and characterized variant classes and prognostic correlations. (pondrelli2023prognosticvalueof pages 1-2)
+**Suggested HPO terms (non-exhaustive).**
+- Hypotonia: **HP:0001252**
+- Global developmental delay: **HP:0001263**
+- Ataxia: **HP:0001251**
+- Oculomotor apraxia: **HP:0000657**
+- Abnormal respiratory pattern / apnea: **HP:0002104** (apnea), **HP:0002793** (irregular breathing)
+- Molar tooth sign: **HP:0002419** (commonly used HPO term)
 
-| Gene (HGNC symbol) | Protein | Alternate gene name(s) | Inheritance | Typical variant types | Variant counts/statistics (Pondrelli 2023 meta-analysis) | Genotype–phenotype notes | Key citations |
-|---|---|---|---|---|---|---|---|
-| **EPM2A** | Laforin; glucan phosphatase; dual-specificity phosphatase | EPM2; myoclonic epilepsy of Lafora type 1 | Autosomal recessive; disease caused by **biallelic** pathogenic variants | Missense/in-frame (MS); protein-truncating (PT) including nonsense, frameshift, splice-site, deletions; also point mutations and large deletions reported | 67 distinct **EPM2A** variants among 250 genetically confirmed cases; 109/250 cases (43.6%) carried **EPM2A** variants; **PT/PT** genotype most common in **EPM2A** (53.2%) (pondrelli2023prognosticvalueof pages 2-4, pondrelli2023prognosticvalueof pages 1-2) | Causes classic Lafora disease via loss of laforin function and dysregulated glycogen metabolism; no specific survival HR for **EPM2A** genotype was highlighted in retrieved evidence, and some studies reported conflicting genotype–survival associations overall (zimmern2024progressivemyoclonusepilepsy pages 6-7, pondrelli2023prognosticvalueof pages 1-2) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2, pondrelli2023prognosticvalueof pages 2-4) |
-| **NHLRC1** | Malin; E3 ubiquitin ligase | **EPM2B**; myoclonic epilepsy of Lafora type 2 | Autosomal recessive; disease caused by **biallelic** pathogenic variants | Missense/in-frame (MS); protein-truncating (PT) including nonsense, frameshift, splice-site, deletions; intronless gene; point mutations also reported | 47 distinct **NHLRC1** variants among 250 genetically confirmed cases; 141/250 cases (56.4%) carried **NHLRC1** variants; **MS/MS** genotype most common in **NHLRC1** (53.2%); **MS/PT** ~28% (pondrelli2023prognosticvalueof pages 2-4, pondrelli2023prognosticvalueof pages 1-2) | **NHLRC1 PT/PT** genotype associated with shorter survival (**HR 2.88, 95% CI 1.23–6.78**) and trend to higher loss of autonomy (**HR 2.03, 95% CI 0.75–5.56**); homozygous **p.Asp146Asn** associated with a more favorable/milder course (pondrelli2023prognosticvalueof pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2) |
-| **Disease-level architecture** | Laforin–malin complex regulating glycogen metabolism | Lafora disease; progressive myoclonus epilepsy | Autosomal recessive Mendelian disorder | Extreme allelic heterogeneity with >150 causative variants reported overall; variants grouped as **MS/MS**, **MS/PT**, **PT/PT** for prognostic analyses | 250 cases from 70 articles; 114 pathogenic variants total (**67 EPM2A**, **47 NHLRC1**); about **90%** of cases attributable to **EPM2A** or **EPM2B/NHLRC1** in retrieved review/case literature (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2) | Pathogenic variation in either gene disrupts glycogen regulation, causing polyglucosan/Lafora bodies; genotype has prognostic relevance, especially truncating **NHLRC1** genotypes and **p.Asp146Asn** (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6; DOI:10.3390/brainsci13121679; https://doi.org/10.3390/brainsci13121679 (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2) |
+#### 3.2 Multisystem involvement
+A large review emphasizes that **~two-thirds** of patients show extra-CNS involvement, commonly affecting **eye/retina**, **kidney**, **liver**, and **skeleton**. (gana2022genotype–phenotypecorrelatesin pages 1-2, li2023anovelmutation pages 1-2)
 
+**Vision/ocular:** In the 36-child cohort, ocular abnormalities included nystagmus/strabismus/retinal abnormalities/optic-nerve anomalies; multiple types could co-occur in a child. (dong2023clinicalandgenetic pages 3-5)
 
-*Table: This table summarizes the two established causal genes for Lafora disease, their protein products, inheritance, variant classes, and the main genotype–phenotype findings from the 2023 patient-level meta-analysis. It is useful as a compact reference for disease-gene annotation and prognostic interpretation.*
+**Kidney/urinary:**
+- In the 36-child cohort: urinary system involvement in 7 cases (including mildly abnormal renal function, nephrolithiasis, collecting system abnormality). (dong2023clinicalandgenetic pages 3-5)
+- In a 17-child China cohort focused on renal disease: renal involvement was the second most frequent domain, including **ESKD 35%**, hematuria **29%**, proteinuria **29%**, diffuse lesions **24%**, cystic lesions **12%**. (ying2022attentiontorenal pages 1-2)
 
-Key statistics from the 2023 meta-analysis:
-- 250 cases from 70 articles; 114 pathogenic variants total (67 **EPM2A**, 47 **NHLRC1**) (pondrelli2023prognosticvalueof pages 1-2)
-- Gene distribution: **NHLRC1** in ~56% vs **EPM2A** in ~44% (pondrelli2023prognosticvalueof pages 2-4, zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Prognosis: **NHLRC1 PT/PT** genotype associated with shorter survival (HR 2.88, 95% CI 1.23–6.78) (pondrelli2023prognosticvalueof pages 1-2)
+**Liver:** The 36-child cohort reported liver damage in 4 cases (elevated transaminases; hepatosplenomegaly). (dong2023clinicalandgenetic pages 3-5)
 
-### 2.3 Non-genetic risk/protective factors; gene–environment interaction
-No specific environmental risk factors, protective factors, or gene–environment interactions were captured in the retrieved evidence. In the current understanding from retrieved sources, LD is primarily driven by genetic disruption of glycogen homeostasis and secondary neuroinflammation. (duran2023roleofastrocytes pages 2-4, rubio2024beneficialeffectof pages 1-2)
+**Hearing:** hearing abnormalities occurred in 8 cases in the 36-child cohort (including cochlear malformation). (dong2023clinicalandgenetic pages 3-5)
 
----
+**Suggested HPO terms (multisystem examples).**
+- Retinal dystrophy: **HP:0000556**
+- Chronic kidney disease: **HP:0012622**; nephronophthisis: **HP:0000090**
+- Hepatic fibrosis: **HP:0001395**
+- Polydactyly: **HP:0010442**
+- Sensorineural hearing impairment: **HP:0000407**
 
-## 3. Phenotypes
+#### 3.3 Quality-of-life impact
+Direct QoL instrument results (EQ-5D/SF-36/PROMIS) were not captured in the retrieved evidence. Functional impact is indirectly supported by the need for **rehabilitation** and, in severe cases, tracheostomy/G-tube dependence due to apnea and feeding problems. (strong2023toporsasa pages 3-4, wei2024novelcompoundheterozygous pages 6-7)
 
-### 3.1 Core phenotype spectrum (human)
-Clinical features described in recent clinical literature include:
-- Progressive myoclonic epilepsy: generalized tonic–clonic seizures, myoclonic jerks/spasms; visual phenomena/seizures can occur (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 4-6)
-- Progressive cognitive decline/dementia and neuropsychiatric symptoms (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 4-6)
-- Ataxia and other cerebellar signs may appear (aggradi2023laforadiseasea pages 4-6, zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-**Abstract quote (clinical):** “It manifests as progressive myoclonus epilepsy and cognitive decline during adolescence.” (aggradi2023laforadiseasea pages 1-2)
+### 4. Genetic / molecular information
+#### 4.1 Causal genes (representative; not exhaustive)
+Genes repeatedly referenced in 2021–2024 clinical genetics sources include **CPLANE1, CEP290, TMEM67, AHI1, RPGRIP1L, CC2D2A, CEP120, CSPP1, OFD1**, among many others. (dong2023clinicalandgenetic pages 3-5, juan2024optimalprenatalgenetic pages 4-6, li2023anovelnonsense pages 1-2, wei2024novelcompoundheterozygous pages 6-7)
 
-### 3.2 Phenotype characteristics (onset, progression, severity)
-- Typical onset: adolescence; Italian cohort mean onset **13.4 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Rapidly progressive course: cognitive decline commonly emerges **2–6 years after onset** in one review/case synthesis (aggradi2023laforadiseasea pages 4-6)
-- Fatal outcome: often within ~10 years of onset (multiple recent sources; also expressed as 5–10 years after onset) (aggradi2023laforadiseasea pages 4-6, duran2023roleofastrocytes pages 1-2)
+**New/expanded gene discovery (2023).** **TOPORS** was nominated as a **novel JS gene** based on a Dominican ancestry proband homozygous for **c.29C>A; p.(Pro10Gln)** and supportive biobank carrier-frequency evidence in Dominicans. (strong2023toporsasa pages 1-3)
 
-### 3.3 Natural history statistics and prognosis
-From a large Italian natural-history cohort summarized in a 2024 PME scoping review:
-- Survival: **93% at 5 years**, **62% at 10 years**, **57% at 15 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Median time to loss of autonomy: **6 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Median survival: **11 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+#### 4.2 Pathogenic variant classes and functional consequences
+Observed classes include:
+- **Loss-of-function** (nonsense/frameshift/splice) variants (e.g., OFD1 nonsense variant with transcript reduction consistent with nonsense-mediated decay). (li2023anovelnonsense pages 1-2)
+- **Copy-number deletions** (e.g., CC2D2A 7.16 kb deletion in a compound genotype). (strong2023toporsasa pages 1-3)
+- **Intronic/non-coding splicing variants** are recognized as an important mechanism (reviewed conceptually in non-coding/splicing-focused work), though detailed diagnostic gains were not captured from 2023–2024 primary JS cohorts in the current evidence set. (dabrusco2023exploringthenoncoding pages 106-110)
 
-From a 2023 patient-level meta-analysis (subset statistics reported): for **EPM2A** cases, “overall survival was 92% at 5 years, 59% at 10 years, and 49% at 15 years (mean age at death 22.4 years).” (pondrelli2023prognosticvalueof pages 2-4)
+**ACMG/AMP classification usage:** Case reports and cohorts explicitly classify variants as pathogenic/likely pathogenic/VUS per ACMG criteria. (dong2023clinicalandgenetic pages 3-5, li2023anovelmutation pages 1-2)
 
-### 3.4 Suggested HPO terms (not exhaustive)
-Based on the retrieved phenotype descriptions:
-- Seizures: **HP:0001250 (Seizures)**; generalized tonic–clonic seizures **HP:0002069**
-- Myoclonus: **HP:0001336 (Myoclonus)**
-- Progressive cognitive decline/dementia: **HP:0001268 (Mental deterioration)**; dementia **HP:0000726**
-- Ataxia: **HP:0001251 (Ataxia)**
-- Dysarthria: **HP:0001260 (Dysarthria)** (aggradi2023laforadiseasea pages 2-4)
-- Dysphagia: **HP:0002015 (Dysphagia)** (aggradi2023laforadiseasea pages 2-4)
+#### 4.3 Gene–phenotype correlations (actionable surveillance)
+A 2022 genotype–phenotype review highlights clinically actionable correlations:
+- **TMEM67:** significantly higher risk of **liver fibrosis**.
+- **NPHP1, RPGRIP1L, TMEM237:** frequent **renal involvement**.
+- **CEP290 and AHI1:** higher risk of **retinal dystrophy**; **CEP290** also linked to **chronic kidney disease** risk.
+These correlations are presented as guiding “personalized management” and organ surveillance. (gana2022genotype–phenotypecorrelatesin pages 1-2)
 
-Frequency-by-phenotype was not available in the retrieved excerpts; cohort-level frequency extraction would require additional full-text/registry sources.
+#### 4.4 Modifier genes / oligogenicity
+A kidney genetics review of modifier concepts (not JS-specific) and the JS/MKS/NPH spectrum review discuss the use of zebrafish/C. elegans and other systems to explore genetic interactions/modifiers in ciliopathies; specific validated JS modifier alleles were not captured in the current evidence set. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15, weghe2022thejoubert–meckel–nephronophthisisspectrum pages 15-16)
 
----
+#### 4.5 Epigenetics / chromosomal abnormalities
+No JS-specific epigenetic mechanisms were identified in the retrieved evidence.
 
-## 4. Genetic/Molecular Information
 
-### 4.1 Causal genes and variant architecture
-LD is caused by biallelic pathogenic variants in **EPM2A** or **NHLRC1/EPM2B**. (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+### 5. Environmental information
+JS is a monogenic ciliopathy in the retrieved evidence; no specific toxins/lifestyle/infectious triggers were supported by the tool-collected sources.
 
-Variant architecture highlights:
-- Extreme allelic heterogeneity: “More than 150 different causative genetic variants” reported (pondrelli2023prognosticvalueof pages 1-2)
-- Variant types: missense/in-frame vs protein truncating (nonsense/frameshift/splice/deletions) (pondrelli2023prognosticvalueof pages 2-4)
 
-### 4.2 Functional consequences (protein dysfunction)
-- Laforin deficiency affects glycogen phosphate homeostasis and/or glycogen architecture; malin deficiency disrupts regulation of glycogen-related proteins (e.g., PTG) and contributes to abnormal glycogen accumulation (mitra2023laforintargetsmalin pages 10-10, duran2023roleofastrocytes pages 8-10)
+### 6. Mechanism / pathophysiology
+#### 6.1 Core concept: primary cilium dysfunction
+Primary cilia are near-ubiquitous microtubule-based organelles acting as “cellular antennae” that mediate **Hedgehog (Hh)** and other signaling pathways; JS arises when variants disrupt proteins acting “in and around the primary cilium.” (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 1-3)
 
-### 4.3 Modifier genes / epigenetics / chromosomal abnormalities
-No modifier genes, epigenetic mechanisms, or chromosomal abnormalities were captured in the retrieved evidence.
+#### 6.2 Signaling pathways and ciliary subdomains implicated
+Mechanistic work in the JS–MKS–NPH spectrum emphasizes:
+- **Transition zone** function and ciliary membrane **phosphoinositides** (e.g., INPP5E localization and PI distribution), which influence localization of Hh regulators (e.g., SMO, GPR161, TULP3). (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15)
+- Hh-dependent neurodevelopmental processes contributing to brain malformations (vermian hypoplasia, axon guidance/decussation defects). (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 15-16)
+- Zebrafish mechanistic summaries highlight additional signaling: **Wnt** and **prostaglandin/PGE2→cAMP→IFT** and **Hippo/Yap** roles in ciliogenesis/kidney ciliopathy phenotypes. (wang2024zebrafishasa pages 1-2)
 
----
+#### 6.3 Causal chain (example: neurodevelopment)
+Variant in ciliary gene → disrupted cilium structure/transition zone/ciliary trafficking → altered cilium-dependent morphogen signaling (notably Hh; also other pathways) → impaired neural proliferation/fate specification/migration/axon guidance → mid–hindbrain malformation → MTS and hypotonia/ataxia/oculomotor/breathing dysregulation. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 15-16, weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15)
 
-## 5. Environmental Information
-No non-genetic environmental, lifestyle, or infectious causes were captured in the retrieved evidence, consistent with LD being a primarily genetic neurodegenerative epilepsy syndrome in these sources. (pondrelli2023prognosticvalueof pages 1-2)
+#### 6.4 Suggested GO / CL terms
+**GO Biological Process (examples):**
+- Hedgehog signaling pathway: **GO:0007224**
+- Cilium assembly: **GO:0060271**
+- Intraflagellar transport: **GO:0030990**
+- Neuron migration: **GO:0001764**
+- Axon guidance: **GO:0007411**
 
----
+**GO Cellular Component:**
+- Primary cilium: **GO:0072372**
+- Ciliary transition zone: **GO:0097546**
+- Centrosome: **GO:0005813**
 
-## 6. Mechanism / Pathophysiology
+**Cell Ontology (examples):**
+- Neuron: **CL:0000540**
+- Retinal photoreceptor cell: **CL:0000210**
+- Kidney epithelial cell: **CL:0000066**
 
-### 6.1 Causal chain (current model)
-A synthesis consistent across 2023–2024 sources:
-1. **Biallelic EPM2A or NHLRC1 variants** → loss of laforin/malin complex function (pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 2-4)
-2. Dysregulated glycogen metabolism → abnormal glycogen chain length/branching (and in some models hyperphosphorylation) → “transition of soluble glycogen to insoluble polyglucosan” (duran2023roleofastrocytes pages 8-10, mitra2023laforintargetsmalin pages 1-2)
-3. Formation of **Lafora bodies (polyglucosan aggregates)** containing glycogen metabolism proteins and proteostasis/adaptor proteins including **GS, ubiquitin, p62** (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
-4. Predominant accumulation in **astrocytes** (with neuronal inclusions also present) → network dysfunction, neuroinflammation, progressive seizures and neurodegeneration (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
+#### 6.5 Molecular profiling / advanced technologies
+A 2021–2024 interventional biomarker study for ciliopathies (including JS) explicitly plans **transcriptome, proteome, metabolome** profiling using urine-derived renal epithelial cells and iPSC-derived renal organoids to develop prognostic renal biomarkers. (NCT04874909 chunk 1)
 
-**Abstract quote (astrocyte emphasis):** “However, it was recently identified that most of these glycogen aggregates are present in astrocytes. Importantly, astrocytic Lafora bodies have been shown to contribute to pathology in Lafora disease.” (Feb 2023; Cells) (duran2023roleofastrocytes pages 1-2)
 
-### 6.2 Cellular processes and pathways
-- **Autophagy/endolysosomal dysfunction:** LD inclusions and associated proteins implicate autophagic handling; autophagy impairment is described as secondary to glycogen accumulation and normalizes when glycogen accumulation is prevented in models (duran2023roleofastrocytes pages 2-4, duran2023roleofastrocytes pages 10-11)
-- **Neuroinflammation:** reactive astrocytes/microglia are described; a 2024 Epm2b-/- mouse study identified inflammatory pathway involvement including “mainly TNF and IL-6 signaling pathways” and demonstrated infiltration of peripheral immune cells (T-lymphocytes) (rubio2024beneficialeffectof pages 1-2)
+### 7. Anatomical structures affected (multi-level)
+#### 7.1 Organ/system level (UBERON suggestions)
+- **Brain (CNS):** cerebellum and brainstem (mid–hindbrain) malformation producing MTS. (alhashimi2024neuroimagingcharacteristicsas pages 10-11, dong2023clinicalandgenetic media e70ab935)
+  - UBERON: brain **UBERON:0000955**, cerebellum **UBERON:0002037**, brainstem **UBERON:0002298**, cerebellar vermis **UBERON:0004670**
+- **Eye/retina:** retinal dystrophy and other ocular motor abnormalities are frequent. (dong2023clinicalandgenetic pages 3-5, gana2022genotype–phenotypecorrelatesin pages 1-2)
+  - UBERON: retina **UBERON:0000966**
+- **Kidney:** nephronophthisis/cystic disease/ESKD in a substantial subset. (ying2022attentiontorenal pages 1-2, takagi2021anymodalityof pages 1-2)
+  - UBERON: kidney **UBERON:0002113**
+- **Liver:** hepatic fibrosis/liver injury in subsets and elevated risk with TMEM67. (gana2022genotype–phenotypecorrelatesin pages 1-2, dong2023clinicalandgenetic pages 3-5)
+  - UBERON: liver **UBERON:0002107**
 
-### 6.3 Anatomical and cell-type localization
-- Lafora bodies accumulate in brain and peripheral tissues (e.g., liver, muscle, sweat glands) (aggradi2023laforadiseasea pages 4-6)
-- Cell types: both neuronal and astrocytic inclusions; “most LBs are present in astrocytes” with distinct morphologies (neuronal perinuclear nLBs vs corpora-amylacea-like astrocytic bodies) (duran2023roleofastrocytes pages 2-4)
+#### 7.2 Subcellular localization
+Primary cilium, ciliary transition zone, basal body/centrosome are central sites. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 1-3, weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15)
 
-### 6.4 Suggested ontology terms
-**GO biological process (examples):**
-- Glycogen metabolic process (GO:0005977)
-- Glycogen biosynthetic process (GO:0005978)
-- Macroautophagy (GO:0016236)
-- Neuroinflammatory response (GO:0150076)
 
-**Cell Ontology (CL) suggestions:**
-- Astrocyte (CL:0000127)
-- Neuron (CL:0000540)
-- Microglial cell (CL:0000129)
-- T cell (CL:0000084)
+### 8. Temporal development
+**Onset:** often congenital/infancy with neonatal respiratory dysregulation and early hypotonia/developmental delay. (gonzalezgordillo2023joubertsyndromea pages 1-2, dong2023clinicalandgenetic pages 3-5)
 
----
+**Progression:** variable; extra-CNS involvement may present later and requires longitudinal surveillance. (gana2022genotype–phenotypecorrelatesin pages 1-2)
 
-## 7. Anatomical Structures Affected
 
-### 7.1 Organ/tissue systems
-- Central nervous system (primary): progressive epilepsy, cognitive decline, neurodegeneration (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Peripheral tissues: Lafora bodies may be found in “brain, liver, muscle, and sweat glands” (aggradi2023laforadiseasea pages 4-6)
+### 9. Inheritance and population
+#### 9.1 Epidemiology
+- Commonly cited frequency: **1:80,000–1:100,000 live births**. (gonzalezgordillo2023joubertsyndromea pages 1-2, takagi2021anymodalityof pages 1-2)
+- Population-based prevalence estimate: **1.7 per 100,000** among ages 0–19 years. (gana2022genotype–phenotypecorrelatesin pages 1-2, li2023anovelmutation pages 1-2)
 
-### 7.2 Suggested UBERON terms (examples)
-- Brain (UBERON:0000955)
-- Hippocampus (LBs enriched in astrocytes notably in hippocampus per review) (UBERON:0001954) (duran2023roleofastrocytes pages 2-4)
-- Skeletal muscle tissue (UBERON:0001134)
-- Skin (sweat glands/ducts) (UBERON:0002097)
+#### 9.2 Population genetics / founder effects
+- **Dominican ancestry:** TOPORS p.(Pro10Gln) variant suggested to have elevated carrier frequency (biobank evidence), raising consideration for ancestry-informed testing. (strong2023toporsasa pages 1-3)
+- **Albanian families (North Macedonia):** early pregnancy loss study reports JS incidence **2.03% (5/246)** in euploid products of conception and **6.25% (5/80)** in Albanian families; supports targeted screening for a specific CPLANE1 complex allele. (bozhinovski2024highincidenceof pages 3-5)
 
----
+**Sex ratio:** a 36-child cohort had 18 male/18 female (1:1) but this is not a population-level estimate. (dong2023clinicalandgenetic pages 1-2)
 
-## 8. Temporal Development
-- Onset: typically adolescence; previously healthy children develop seizures (duran2023roleofastrocytes pages 1-2)
-- Progression: progressive, rapid; median loss of autonomy 6 years and median survival 11 years (zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-No remission patterns were captured in the retrieved evidence.
+### 10. Diagnostics
+#### 10.1 Clinical criteria and imaging
+**MRI hallmark:** MTS is repeatedly emphasized as the diagnostic hallmark; detailed anatomic description includes thickened/elongated superior cerebellar peduncles, deep interpeduncular fossa, and vermian hypoplasia/aplasia. (strong2023toporsasa pages 1-3, alhashimi2024neuroimagingcharacteristicsas pages 10-11)
 
----
+**Visual evidence (MRI).** Figure panels from a 2023 pediatric cohort show classic MTS and related signs on brain MRI (molar tooth sign and bat-wing sign). (dong2023clinicalandgenetic media e70ab935)
 
-## 9. Inheritance and Population
+#### 10.2 Genetic testing strategy
+**WES/WGS/panels:** Exome sequencing is widely used due to high locus heterogeneity; a 2023 cohort used WES in a subset and identified novel variants in several genes. (dong2023clinicalandgenetic pages 3-5)
 
-### 9.1 Inheritance
-Autosomal recessive, due to biallelic variants in **EPM2A** or **NHLRC1**. (pondrelli2023prognosticvalueof pages 1-2)
+**Prenatal diagnosis and diagnostic yield (2024).** In fetuses with posterior fossa malformation, one 2024 cohort reports WES detection rates stratified by phenotype; importantly, the detection rate for fetuses classified as JS was **83.33% (5/6)**, leading the authors to recommend WES as a first-line prenatal test for suspected JS. (juan2024optimalprenatalgenetic pages 4-6)
 
-### 9.2 Epidemiology and geographic distribution
-Prevalence estimates in retrieved sources:
-- “approximately four cases per one million individuals” (aggradi2023laforadiseasea pages 1-2)
-- Germany: **1.69 per 10 million** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+**Differential diagnosis (high-level).** Related ciliopathy-spectrum disorders include Meckel syndrome and nephronophthisis, with overlapping gene sets and organ involvement. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 1-3)
 
-Geographic concentration (qualitative): “occurs most frequently in Mediterranean countries, South India, North Africa, and the Middle East.” (aggradi2023laforadiseasea pages 1-2)
 
-Population-genetic details not captured in retrieved excerpts: incidence, carrier frequency, sex ratio, and explicit consanguinity rates.
+### 11. Outcome / prognosis
+**Prognosis drivers:** presence and severity of extra-CNS involvement (kidney, liver, retina) drive long-term outcomes. (gana2022genotype–phenotypecorrelatesin pages 1-2)
 
----
+**Cohort evidence (2023):** A 36-child cohort found prognosis after rehabilitation was better in “pure JBTS” than JBTS with multi-organ involvement (statistically significant, P<0.05). (dong2023clinicalandgenetic pages 1-2)
 
-## 10. Diagnostics
+**Renal failure outcomes and survival (RRT series).** In 11 JS patients with ESKD receiving renal replacement therapy: peritoneal dialysis was used in 7 (median duration 5.4 years), hemodialysis in 2, and kidney transplantation performed 9 times in 8 patients; only one graft failed during follow-up and all were alive except one who died of hepatic failure while on PD. (takagi2021anymodalityof pages 1-2)
 
-### 10.1 Clinical and electrophysiology
-EEG findings include generalized/multifocal epileptiform discharges; in one case report EEG showed “multiple discharges across both brain hemispheres.” (aggradi2023laforadiseasea pages 1-2)
 
-The 2024 scoping review highlights characteristic electrophysiology (photo-paroxysmal response, giant SSEP) though milder genotypes may show these less often. (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+### 12. Treatment
+#### 12.1 Disease-modifying therapy
+No specific curative therapy is supported in the retrieved evidence; management is supportive and preventive (organ surveillance). (wei2024novelcompoundheterozygous pages 6-7)
 
-### 10.2 Neuroimaging
-MRI can be normal early: “Brain magnetic resonance imaging was unremarkable” in a genetically confirmed case (aggradi2023laforadiseasea pages 1-2); later disease may show widespread degeneration (aggradi2023laforadiseasea pages 4-6)
+#### 12.2 Supportive/rehabilitative care (real-world implementation)
+- **Multidisciplinary care** is consistently emphasized (neurology, nephrology, ophthalmology, etc.). (alhashimi2024neuroimagingcharacteristicsas pages 10-11, gonzalezgordillo2023joubertsyndromea pages 1-2)
+- **Rehabilitation therapies** (physical/occupational/speech) are suggested to improve movement and speech impairment; cohort data support better outcomes in “pure JBTS” after formal rehabilitation. (dong2023clinicalandgenetic pages 1-2, wei2024novelcompoundheterozygous pages 6-7)
+- **Respiratory management** can include caffeine for central apneas in neonatal presentations (case-level evidence). (gonzalezgordillo2023joubertsyndromea pages 1-2)
+- **Renal replacement therapy** options include PD, HD, and transplantation with generally feasible outcomes (small cohort evidence). (takagi2021anymodalityof pages 1-2)
 
-### 10.3 Biopsy
-- Axillary skin biopsy can detect PAS-positive inclusions in sweat duct cells but has “false-positive/false-negative limitations” (diagnostic pitfalls). (aggradi2023laforadiseasea pages 4-6)
-- Muscle biopsy may be atypical or lack Lafora bodies (as in a confirmed NHLRC1 case). (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 2-4)
+**Suggested MAXO terms (examples):**
+- Physical therapy: **MAXO:0000011** (physical therapy)
+- Occupational therapy: **MAXO:0000012**
+- Speech therapy: **MAXO:0000013**
+- Genetic counseling: **MAXO:0000117**
+- Kidney transplantation: **MAXO:0001175**
+- Peritoneal dialysis: **MAXO:0000555**
+- Hemodialysis: **MAXO:0000556**
 
-### 10.4 Genetic testing
-Genetic confirmation requires identifying biallelic pathogenic variants in **EPM2A** or **EPM2B/NHLRC1**; a case report used targeted NGS (clinical exome) plus Sanger confirmation and parental testing, with ACMG classification. (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 2-4)
+#### 12.3 Experimental / clinical-trial landscape
+- **NCT00873678 (completed; observational; AP-HP):** aimed to assess prevalence and mutational spectrum for **AHI1, NPHP1, CEP290** and evaluate genotype–phenotype correlations in JS. (NCT00873678 chunk 1)
+- **NCT04874909 (CILLICORIRCM; interventional diagnostic/biomarker):** aims to identify prognostic biomarkers (multi-omics; patient-derived kidney models such as urine-derived renal epithelial cells and iPSC-derived organoids) to predict renal impairment progression in ciliopathies including JS. (NCT04874909 chunk 1)
 
-### 10.5 Differential diagnosis
-LD should be considered among progressive, refractory myoclonic epilepsies in children/young adults, and overlapping polyglucosan storage disorders are part of the differential. (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 6-7)
 
----
+### 13. Prevention
+**Primary prevention:** not applicable (genetic).
 
-## 11. Outcome / Prognosis
-LD is severe and progressive with high morbidity and premature mortality. Key quantitative outcomes from natural history are summarized above (Section 3.3). Prognosis can vary by genotype; truncating **NHLRC1** genotypes are associated with shorter survival in the patient-level meta-analysis, and **NHLRC1 p.Asp146Asn** is associated with a more favorable course. (pondrelli2023prognosticvalueof pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7)
+**Secondary/tertiary prevention:**
+- Prevention of complications relies on **early diagnosis** and structured multisystem surveillance guided by genotype–phenotype correlations (e.g., closer liver monitoring for TMEM67; renal for RPGRIP1L/NPHP1/TMEM237; retinal for CEP290/AHI1). (gana2022genotype–phenotypecorrelatesin pages 1-2)
 
----
+**Reproductive options / prenatal diagnosis:**
+- Prenatal imaging plus genetic testing (trio-WES) is increasingly used; a 2024 cohort supports first-line WES for prenatal suspected JS based on high detection rate (5/6). (juan2024optimalprenatalgenetic pages 4-6)
+- Targeted carrier screening may be warranted in specific populations with enriched alleles (e.g., CPLANE1 complex allele in Albanian couples with recurrent early pregnancy loss; TOPORS p.Pro10Gln in Dominican ancestry). (bozhinovski2024highincidenceof pages 3-5, strong2023toporsasa pages 1-3)
 
-## 12. Treatment
 
-### 12.1 Current clinical management (supportive)
-There is no established disease-modifying therapy in routine practice in the retrieved sources. Management is supportive and symptom-focused (seizure control, supportive care), with diet-based interventions historically explored. (aggradi2023laforadiseasea pages 1-2, NCT00007124 chunk 1)
+### 14. Other species / natural disease
+No naturally occurring non-human JS disease cases were captured in the retrieved evidence. However, comparative biology across species is central to the field because ciliary structure/function is evolutionarily conserved, enabling mechanistic inference from models. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15)
 
-### 12.2 Experimental / translational therapeutics (2023–2024 emphasis)
-A major contemporary strategy is **substrate reduction**—reducing glycogen synthesis in brain to prevent polyglucosan/Lafora body formation.
 
-| Type | Intervention | Mechanism/target | Population/model | Key endpoints/outcomes | Status | Dates | Sponsor | URL/DOI |
-|---|---|---|---|---|---|---|---|---|
-| Interventional clinical trial | **ION283** intrathecal ASO (NCT06609889) | Antisense oligonucleotide therapy targeting abnormal glycogen synthesis pathway; efficacy endpoints based on EEG change from baseline to 2 years, including posterior dominant/background rhythms, sleep physiology, electrographic seizures, and epileptiform discharge counts | Patients aged **10–18 years** with genetically confirmed **EPM2A** or **EPM2B/NHLRC1** Lafora disease, LDPS score ≥9 and motor subscore ≥2 | Safety and efficacy; EEG-based biomarkers over 2 years | **Recruiting** | Record excerpt current in 2024; version holder date **2026-04-24**; start/completion dates not captured in excerpt | University of Texas Southwestern Medical Center; official: Berge Minassian, MD | https://clinicaltrials.gov/study/NCT06609889 (NCT06609889 chunk 2) |
-| Observational clinical study | **Natural History and Functional Status Study of Patients With Lafora Disease** (NCT03876522) | Prospective natural-history study to define disease course, identify biomarkers, and establish outcome measures for future trials | **33 participants**, minimum age **5 years**, genetically confirmed Lafora disease | Seizure frequency/duration, awake/sleep video EEG, Lafora Disease Performance/Clinical Performance Scales, cognition, gait/ataxia, caregiver burden, disability, QoL, blood/CSF biomarkers | **Completed** | **2019-01-09 to 2022-04-01**; 24-month assessments | Ionis Pharmaceuticals, Inc. | https://clinicaltrials.gov/study/NCT03876522 (NCT03876522 chunk 1) |
-| Observational/proof-of-principle study | **Ketogenic diet** (NCT00007124) | Restrictive low-carbohydrate ketogenic diet intended to acutely modify brain/whole-body metabolism and possibly reduce disease manifestations | **15 participants** with relatively advanced Lafora disease; age **≥10 years**; histologic or preferably genetic confirmation | Clinical scales plus MRI/MRS, LP, metabolic/endocrine testing, neuropsychology, EEG, EMG, SEP/VEP; 6-month diet with possible continuation to 12 months for responders | **Completed** | **December 2000 to November 2002** | National Institute of Neurological Disorders and Stroke (NINDS) | https://clinicaltrials.gov/study/NCT00007124 (NCT00007124 chunk 1) |
-| Expanded access | **VAL-1221** intravenous infusion every other week (NCT05930223; LEAP) | Enzyme-fusion/advanced therapeutic strategy intended to target Lafora body burden; protocol provides treatment access rather than formal efficacy trial | Up to **10** patients with genetically documented biallelic **EPM2A** or **EPM2B** variants; mid-stage disease, age **12–28 years** | Access protocol; excerpt does not list formal endpoints/outcome measures | **Available** | Initial submission **2023-06-25**; first posted **2023-07-05** | Parasail, LLC | https://clinicaltrials.gov/study/NCT05930223 (NCT05930223 chunk 1) |
-| Preclinical | **Gys1-ASO** intracerebroventricular antisense therapy | Reduces **glycogen synthase 1 (Gys1)** expression to lower brain glycogen synthesis and prevent formation of disease-driving Lafora bodies | **Epm2b-/- (malin KO) mice**; ICV dosing at **4, 7, and 10 months**, sacrifice at 13 months | Decreased **Gys1** mRNA/protein, reduced glycogen aggregation/Lafora body burden, fewer larger LBs, reduced epileptiform discharges; proof of concept that targeting glycogen synthesis can halt progression | Preclinical proof-of-concept | Published **Oct 2023** | Academic/industry collaboration; study authors included Ionis-associated ASO expertise | https://doi.org/10.1007/s13311-023-01434-9 (donohue2023gys1antisensetherapy pages 1-2, donohue2023gys1antisensetherapy pages 4-6) |
-| Preclinical | **Fingolimod** | S1PR modulation to reduce reactive astrogliosis-derived neuroinflammation, stabilize BBB, and decrease **T-lymphocyte** brain infiltration; inflammatory pathways implicated include **TNF** and **IL-6** signaling | **Epm2b-/- mice** treated from **3 months of age** for **15 weeks**; dose **0.5 mg/kg** in drinking water | Reduced reactive astrocyte-derived neuroinflammation, decreased brain T-cell infiltration, and improved behavioral performance; more effective than dimethyl fumarate in this model | Preclinical | Published **2024** | Academic study | https://doi.org/10.1007/s12035-023-03766-1 (rubio2024beneficialeffectof pages 1-2, rubio2024beneficialeffectof pages 2-4) |
+### 15. Model organisms
+**Key model systems used in ciliopathy/JS research and phenotypes recapitulated:**
+- **Zebrafish:** frequently recapitulate ciliopathy phenotypes relevant to JS–MKS–NPH, including decreased cilia in brain ventricles/kidney structures, retinal degeneration, and pronephric cysts in many models; also laterality and craniofacial phenotypes. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15)
+- **Mouse:** primary mammalian model; phenotypes include retinal degeneration, polydactyly, disrupted Hedgehog signaling, laterality defects, fibrocystic kidney disease, craniofacial malformations, and neural developmental defects. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 15-16)
+- **C. elegans and Chlamydomonas:** used for genetic screens and foundational intraflagellar transport/ciliary biology discoveries relevant to ciliopathies. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15)
 
 
-*Table: This table summarizes the main retrieved Lafora disease clinical studies, expanded-access programs, and leading 2023–2024 preclinical therapeutic strategies. It is useful for quickly comparing mechanisms, populations/models, endpoints, and development status across the current translational landscape.*
+## High-yield evidence map
+| Domain | Key data points | Best supporting citations |
+|---|---|---|
+| Definition | Rare primary ciliopathy/neurodevelopmental disorder defined by hypotonia, developmental delay, and the molar tooth sign (MTS); variable multiorgan involvement | (strong2023toporsasa pages 1-3, dong2023clinicalandgenetic pages 1-2) |
+| Epidemiology | Prevalence/incidence commonly cited as 1:80,000–1:100,000 live births; population-based prevalence 1.7/100,000 among ages 0–19 years | (gonzalezgordillo2023joubertsyndromea pages 1-2, gana2022genotype–phenotypecorrelatesin pages 1-2, li2023anovelmutation pages 1-2) |
+| Inheritance | Mostly autosomal recessive; rare X-linked recessive and autosomal dominant cases reported | (strong2023toporsasa pages 1-3, gonzalezgordillo2023joubertsyndromea pages 1-2, li2023anovelnonsense pages 1-2) |
+| Diagnostic hallmark | MTS = thick/elongated superior cerebellar peduncles + deep interpeduncular fossa + cerebellar vermis hypoplasia/aplasia; MRI hallmark for diagnosis | (strong2023toporsasa pages 1-3, alhashimi2024neuroimagingcharacteristicsas pages 10-11, dong2023clinicalandgenetic media e70ab935) |
+| Clinical cohort (36 children) | Developmental delay 94.44% (34/36); typical MTS 86.11% (31/36); ~75% had extra-organ/system involvement; abnormal respiratory rhythm in 7 cases | (dong2023clinicalandgenetic pages 1-2, dong2023clinicalandgenetic pages 3-5) |
+| Organ involvement | About two-thirds of patients have extra-CNS involvement; retinal, kidney, liver, and skeletal disease are major non-neurologic domains | (gana2022genotype–phenotypecorrelatesin pages 1-2, li2023anovelmutation pages 1-2, li2023anovelnonsense pages 1-2) |
+| Renal involvement cohort (17 cases) | Renal involvement second most common: ESKD 35%, hematuria 29%, proteinuria 29%, diffuse renal lesions 24%, cystic lesions 12%, echogenic parenchyma 12% | (ying2022attentiontorenal pages 1-2) |
+| Genetics | >40 causal genes identified; can explain up to 94% of cases, yet 30–40% of clinically diagnosed individuals still lack molecular diagnosis in some series | (gana2022genotype–phenotypecorrelatesin pages 1-2, strong2023toporsasa pages 1-3, dong2023clinicalandgenetic pages 1-2) |
+| Recent discovery | TOPORS proposed as novel JBTS gene; homozygous p.Pro10Gln found in Dominican ancestry, with biobank evidence of elevated carrier frequency/founder effect concern | (strong2023toporsasa pages 1-3, strong2023toporsasa pages 3-4) |
+| Diagnostic yields | Prenatal posterior fossa malformation cohort: WES diagnostic rate 83.33% (5/6) in fetuses with Joubert syndrome; authors recommend WES first-line for prenatal JS | (juan2024optimalprenatalgenetic pages 4-6) |
+| Population/founder signals | Early pregnancy loss products of conception: CPLANE1-related JS incidence 2.03% overall (5/246), 6.25% in Albanian families; targeted screening suggested in this population | (bozhinovski2024highincidenceof pages 3-5) |
+| Management & outcomes | No disease-specific cure; multidisciplinary surveillance/rehab recommended. In 11 JS patients on renal replacement therapy: PD in 7, HD in 2, kidney transplant in 8 patients/9 grafts; 1 graft failure; all alive except 1 death from hepatic failure | (wei2024novelcompoundheterozygous pages 6-7, takagi2021anymodalityof pages 1-2, gonzalezgordillo2023joubertsyndromea pages 1-2) |
+| Gene–phenotype correlations | TMEM67 → higher liver fibrosis risk; NPHP1/RPGRIP1L/TMEM237 → renal involvement; CEP290 and AHI1 → retinal dystrophy risk, CEP290 also CKD risk | (gana2022genotype–phenotypecorrelatesin pages 1-2) |
 
-Key 2023–2024 developments from retrieved evidence:
-- **GYS1 antisense (preclinical)**: intracerebroventricular Gys1-ASO at 4/7/10 months reduced Gys1 protein and Lafora body burden and reduced epileptiform discharges in Epm2b-/- mice (donohue2023gys1antisensetherapy pages 4-6)
-- **ION283 (clinical trial)**: intrathecal ASO trial uses EEG biomarkers over 2 years as efficacy endpoints; recruiting ages 10–18 (NCT06609889) (NCT06609889 chunk 2)
-- **Neuroinflammation modulation (preclinical)**: fingolimod reduced reactive astrocyte-derived neuroinflammation and T-lymphocyte infiltration and improved behavior in Epm2b-/- mice; inflammatory signaling implicated includes TNF and IL-6 (rubio2024beneficialeffectof pages 1-2, rubio2024beneficialeffectof pages 2-4)
-- **VAL-1221 expanded access**: IV 20 mg/kg every other week, up to 10 patients, genetically confirmed mid-stage disease (NCT05930223) (NCT05930223 chunk 1)
 
-### 12.3 Suggested MAXO terms (examples)
-- Antisense oligonucleotide therapy (MAXO term family; label: antisense therapy)
-- Ketogenic diet therapy (dietary therapy)
-- Expanded access treatment program
-- Gene therapy / gene replacement therapy (preclinical in retrieved sources) (zafrapuerta2023genereplacementtherapy pages 21-24)
+*Table: This table summarizes high-yield facts about Joubert syndrome across epidemiology, inheritance, diagnosis, organ involvement, genetics, recent discoveries, and outcomes. It is designed as a compact evidence map with direct links to the strongest supporting context IDs.*
 
-Specific MAXO IDs were not captured in retrieved sources; mapping would require ontology lookup.
 
----
-
-## 13. Prevention
-No primary prevention strategies beyond genetic counseling and family planning are detailed in retrieved sources. Genetic confirmation and family testing are implied by autosomal recessive inheritance and use of parental testing in case reports. (aggradi2023laforadiseasea pages 2-4)
-
----
-
-## 14. Other Species / Natural Disease
-Naturally occurring Lafora-like disease has been described in dogs and linked to **NHLRC1 repeat expansions**, including an “NHLRC1 repeat expansion in two beagles” and an “NHLRC1 homozygous dodecamer expansion in a Newfoundland dog,” with reports spanning multiple breeds (e.g., Basset hound, beagle, Newfoundland dog, miniature Wirehaired Dachshunds). (vincent2023retinalphenotypingof pages 9-10)
-
----
-
-## 15. Model Organisms
-
-### 15.1 Mammalian models (mouse)
-Common murine models include **Epm2a−/− (laforin KO)** and **Epm2b−/− (malin KO)**, which develop Lafora bodies and neurological phenotypes and are used for therapy testing (ASO, gene replacement). (donohue2023gys1antisensetherapy pages 1-2, zafrapuerta2023genereplacementtherapy pages 1-4)
-
-**Retinal biomarker/endpoint development (quantitative):** In Epm2a−/− mice, retinal PASD staining showed inner plexiform layer Lafora body density **1743 ± 533/mm² at 10 months** and **2615 ± 915/mm² at 14 months**, while ERG parameters and retinal thickness were preserved, supporting retinal LB quantification as a potential monitoring readout in mice. (vincent2023retinalphenotypingof pages 1-2)
-
-**Neuromuscular model phenotype (2024):** Laforin-deficient mice show neuromuscular junction dysfunction and motor neuron loss with an electrophysiological decrement reported as “(14.93±4.26%) at 50 Hz at the age of 5 months.” (shukla2024neuromuscularjunctiondysfunction pages 1-2)
-
-### 15.2 Invertebrate models
-A 2023 mechanistic review cites Drosophila and indicates forced neuronal glycogen accumulation can cause neuronal apoptosis, supporting glycogen excess as a driver of neurodegeneration. (duran2023roleofastrocytes pages 2-4)
-
----
-
-## Recent developments and expert analysis (2023–2024 priority)
-
-1. **Genotype–prognosis associations were quantitatively strengthened** by a 2023 patient-level meta-analysis showing truncating NHLRC1 genotypes predict worse survival (HR 2.88), which is directly relevant for stratification and interpretation of disease-modifying trials. (pondrelli2023prognosticvalueof pages 1-2)
-2. **Cell-type re-framing toward astrocytes**: a 2023 review emphasized that “most” Lafora bodies are astrocytic and that astrocytic aggregates contribute to pathology, shifting mechanistic and therapeutic attention to glial glycogen metabolism and glia-driven inflammation. (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
-3. **Translational pipeline maturity**: the existence of an Ionis-sponsored natural history study (NCT03876522) defining outcome measures and biomarkers, plus a recruiting ASO trial (NCT06609889) with EEG endpoints, indicates field movement from preclinical substrate reduction to biomarker-driven clinical development. (NCT03876522 chunk 1, NCT06609889 chunk 2)
-
----
-
-## Data gaps and limitations (from retrieved sources)
-- Orphanet/MeSH/ICD identifiers were not captured in retrieved evidence.
-- Incidence, carrier frequency, sex ratio, and explicit consanguinity statistics were not available in the retrieved excerpts.
-- Phenotype frequencies (percent affected) for individual HPO terms were not extractable from the retrieved excerpts; fuller cohort papers would be needed.
-
----
-
-## Key resources (URLs; access dates not applicable)
-- Open Targets disease page (MONDO_0009697): https://platform.opentargets.org/disease/MONDO_0009697 (aggradi2023laforadiseasea pages 1-2)
-- OMIM entry #254780: https://omim.org/entry/254780 (aggradi2023laforadiseasea pages 1-2)
-- Pondrelli et al., 2023 (Orphanet J Rare Dis; DOI 10.1186/s13023-023-02880-6): https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2)
-- Zimmern & Minassian, 2024 (Genes; DOI 10.3390/genes15020171): https://doi.org/10.3390/genes15020171 (zimmern2024progressivemyoclonusepilepsy pages 6-7)
-- Donohue et al., 2023 (Neurotherapeutics; DOI 10.1007/s13311-023-01434-9): https://doi.org/10.1007/s13311-023-01434-9 (donohue2023gys1antisensetherapy pages 4-6)
-- Duran, 2023 (Cells; DOI 10.3390/cells12050722): https://doi.org/10.3390/cells12050722 (duran2023roleofastrocytes pages 1-2)
-- Rubio et al., 2024 (Molecular Neurobiology; DOI 10.1007/s12035-023-03766-1): https://doi.org/10.1007/s12035-023-03766-1 (rubio2024beneficialeffectof pages 1-2)
-- ClinicalTrials.gov: NCT06609889 https://clinicaltrials.gov/study/NCT06609889 ; NCT03876522 https://clinicaltrials.gov/study/NCT03876522 ; NCT05930223 https://clinicaltrials.gov/study/NCT05930223 ; NCT00007124 https://clinicaltrials.gov/study/NCT00007124 (NCT06609889 chunk 2, NCT03876522 chunk 1, NCT05930223 chunk 1, NCT00007124 chunk 1)
-
+## Notes on evidence gaps (important for knowledge-base curation)
+1. **Ontology identifiers (MONDO/Orphanet/MeSH/ICD)** were not directly retrieved by the current tool calls; they should be filled from authoritative resources (OMIM, Orphanet, MeSH, ICD-11 browser) in a subsequent curation pass.
+2. **PMIDs** were not available in the retrieved text extracts; therefore, this report cites DOI/URL-bearing sources and ClinicalTrials.gov identifiers as available.
+3. Quality-of-life instruments and large prospective natural history survival statistics were not captured in the retrieved evidence; current outcome statements rely on cohorts (36-child clinical cohort; 11-patient renal-replacement cohort; 17-child renal cohort). (dong2023clinicalandgenetic pages 1-2, takagi2021anymodalityof pages 1-2, ying2022attentiontorenal pages 1-2)
 
 References
 
-1. (aggradi2023laforadiseasea pages 1-2): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+1. (strong2023toporsasa pages 1-3): Alanna Strong, Hui‐Qi Qu, Sinéad Cullina, Morgan L. McManus, Elaine H. Zackai, Joseph Glessner, Eimear E. Kenny, and Hakon Hakonarson. Topors as a novel causal gene for joubert syndrome. American Journal of Medical Genetics Part A, 191:2156-2163, May 2023. URL: https://doi.org/10.1002/ajmg.a.63303, doi:10.1002/ajmg.a.63303. This article has 5 citations.
 
-2. (pondrelli2023prognosticvalueof pages 1-2): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
+2. (dong2023clinicalandgenetic pages 1-2): Yan Dong, Ke Zhang, He Yao, Tianming Jia, Jun Wang, Dengna Zhu, Falin Xu, Meiying Cheng, Shichao Zhao, and Xiaoyi Shi. Clinical and genetic characteristics of 36 children with joubert syndrome. Frontiers in Pediatrics, Jul 2023. URL: https://doi.org/10.3389/fped.2023.1102639, doi:10.3389/fped.2023.1102639. This article has 16 citations.
 
-3. (NCT06609889 chunk 2): Berge Minassian. A Safety and Efficacy of Intrathecally Administered ION283 in Patients With Lafora Disease. Berge Minassian. 2024. ClinicalTrials.gov Identifier: NCT06609889
+3. (li2023anovelnonsense pages 1-2): Chen Li, Xingwang Wang, Fake Li, Hongke Ding, Ling Liu, Ying Xiong, Chaoxiang Yang, Yan Zhang, Jing Wu, and Aihua Yin. A novel non-sense variant in the ofd1 gene caused joubert syndrome. Frontiers in Genetics, Jan 2023. URL: https://doi.org/10.3389/fgene.2022.1064762, doi:10.3389/fgene.2022.1064762. This article has 6 citations and is from a peer-reviewed journal.
 
-4. (zimmern2024progressivemyoclonusepilepsy pages 6-7): Vincent Zimmern and Berge Minassian. Progressive myoclonus epilepsy: a scoping review of diagnostic, phenotypic and therapeutic advances. Genes, 15:171, Jan 2024. URL: https://doi.org/10.3390/genes15020171, doi:10.3390/genes15020171. This article has 20 citations.
+4. (alhashimi2024neuroimagingcharacteristicsas pages 10-11): Israa Alhashimi, Sohaib Zoghoul, Sondos K Khalil, Zahra B Yousif, Ammar Jumah, and Yaman Alkailani. Neuroimaging characteristics as diagnostic tools in joubert syndrome and related disorders: a case report and literature review. Cureus, Sep 2024. URL: https://doi.org/10.7759/cureus.69872, doi:10.7759/cureus.69872. This article has 4 citations.
 
-5. (rubio2024beneficialeffectof pages 1-2): Teresa Rubio, Ángela Campos-Rodríguez, and Pascual Sanz. Beneficial effect of fingolimod in a lafora disease mouse model by preventing reactive astrogliosis-derived neuroinflammation and brain infiltration of t-lymphocytes. Molecular Neurobiology, 61:3105-3120, Nov 2024. URL: https://doi.org/10.1007/s12035-023-03766-1, doi:10.1007/s12035-023-03766-1. This article has 5 citations and is from a peer-reviewed journal.
+5. (NCT00873678 chunk 1):  Assessment of the Prevalence of Genes AHI1, NPHP1 and CEP290 in Joubert Syndrome. Assistance Publique - Hôpitaux de Paris. 2007. ClinicalTrials.gov Identifier: NCT00873678
 
-6. (NCT03876522 chunk 1):  Natural History and Functional Status Study of Patients With Lafora Disease. Ionis Pharmaceuticals, Inc.. 2019. ClinicalTrials.gov Identifier: NCT03876522
+6. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 1-3): Julie C. Van De Weghe, Arianna Gomez, and Dan Doherty. The joubert–meckel–nephronophthisis spectrum of ciliopathies. Annual Review of Genomics and Human Genetics, 23:301-329, Aug 2022. URL: https://doi.org/10.1146/annurev-genom-121321-093528, doi:10.1146/annurev-genom-121321-093528. This article has 73 citations and is from a domain leading peer-reviewed journal.
 
-7. (donohue2023gys1antisensetherapy pages 1-2): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+7. (gana2022genotype–phenotypecorrelatesin pages 1-2): Simone Gana, Valentina Serpieri, and Enza Maria Valente. Genotype–phenotype correlates in joubert syndrome: a review. American Journal of Medical Genetics. Part C, Seminars in Medical Genetics, 190:72-88, Mar 2022. URL: https://doi.org/10.1002/ajmg.c.31963, doi:10.1002/ajmg.c.31963. This article has 125 citations.
 
-8. (duran2023roleofastrocytes pages 2-4): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+8. (gonzalezgordillo2023joubertsyndromea pages 1-2): Carla I. González-Gordillo, Leslie E. Orozco-Soto, Juan R. Osegueda-Mayen, Alejandra Nava-Tapia, and Dario Martinez-Monreal. Joubert syndrome: a case report of neonatal presentation and early diagnosis. Boletín Médico del Hospital Infantil de México, Jul 2023. URL: https://doi.org/10.24875/bmhim.22000075, doi:10.24875/bmhim.22000075. This article has 3 citations.
 
-9. (pondrelli2023prognosticvalueof pages 2-4): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
+9. (bozhinovski2024highincidenceof pages 3-5): Gjorgji Bozhinovski, Marija Terzikj, Katerina Kubelka-Sabit, and Dijana Plaseska-Karanfilska. High incidence of cplane1-related joubert syndrome in the products of conceptions from early pregnancy losses. Balkan Medical Journal, pages 97-104, Mar 2024. URL: https://doi.org/10.4274/balkanmedj.galenos.2024.2023-10-72, doi:10.4274/balkanmedj.galenos.2024.2023-10-72. This article has 6 citations.
 
-10. (aggradi2023laforadiseasea pages 4-6): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+10. (li2023anovelmutation pages 1-2): Qian Li, Qianying Liu, Suwen Liu, Lichun Yu, Zhenle Yang, Cong Wang, Jing Wang, and Shuzhen Sun. A novel mutation of the rpgrip1l gene in a chinese boy with joubert syndrome with oculorenal involvement. BMC Pediatrics, Nov 2023. URL: https://doi.org/10.1186/s12887-023-04415-1, doi:10.1186/s12887-023-04415-1. This article has 1 citations and is from a peer-reviewed journal.
 
-11. (duran2023roleofastrocytes pages 1-2): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+11. (dong2023clinicalandgenetic pages 3-5): Yan Dong, Ke Zhang, He Yao, Tianming Jia, Jun Wang, Dengna Zhu, Falin Xu, Meiying Cheng, Shichao Zhao, and Xiaoyi Shi. Clinical and genetic characteristics of 36 children with joubert syndrome. Frontiers in Pediatrics, Jul 2023. URL: https://doi.org/10.3389/fped.2023.1102639, doi:10.3389/fped.2023.1102639. This article has 16 citations.
 
-12. (aggradi2023laforadiseasea pages 2-4): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+12. (ying2022attentiontorenal pages 1-2): Liang Ying, Wang Hui, FuQian, Zhou Nan, Jiang Yeping, and Mi Lan. Attention to renal involvement: report of 17 joubert syndrome cases in children of a single center in china. BMC Pediatrics, Jul 2022. URL: https://doi.org/10.1186/s12887-022-03496-8, doi:10.1186/s12887-022-03496-8. This article has 7 citations and is from a peer-reviewed journal.
 
-13. (mitra2023laforintargetsmalin pages 10-10): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
+13. (strong2023toporsasa pages 3-4): Alanna Strong, Hui‐Qi Qu, Sinéad Cullina, Morgan L. McManus, Elaine H. Zackai, Joseph Glessner, Eimear E. Kenny, and Hakon Hakonarson. Topors as a novel causal gene for joubert syndrome. American Journal of Medical Genetics Part A, 191:2156-2163, May 2023. URL: https://doi.org/10.1002/ajmg.a.63303, doi:10.1002/ajmg.a.63303. This article has 5 citations.
 
-14. (duran2023roleofastrocytes pages 8-10): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+14. (wei2024novelcompoundheterozygous pages 6-7): Caichuan Wei, Haiju Zhang, Miaoying Fu, Jingping Ye, and Baozhen Yao. Novel compound heterozygous variants in the cspp1 gene causes joubert syndrome: case report and literature review of the cspp1 gene’s pathogenic mechanism. Frontiers in Pediatrics, Mar 2024. URL: https://doi.org/10.3389/fped.2024.1305754, doi:10.3389/fped.2024.1305754. This article has 4 citations.
 
-15. (mitra2023laforintargetsmalin pages 1-2): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
+15. (juan2024optimalprenatalgenetic pages 4-6): Zhang Juan, Cui-Xia Guo, Yuanjie Cui, Liu Yan, Yao Ling, Tiejuan Zhang, Wang Li, Jijing Han, Guohui Zhang, Yousheng Yan, Qingqing Wu, and Lijuan Sun. Optimal prenatal genetic diagnostic approach for posterior fossa malformation: karyotyping, copy number variant testing, or whole-exome sequencing? European Journal of Medical Research, Jul 2024. URL: https://doi.org/10.1186/s40001-024-01993-3, doi:10.1186/s40001-024-01993-3. This article has 3 citations and is from a peer-reviewed journal.
 
-16. (duran2023roleofastrocytes pages 10-11): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+16. (dabrusco2023exploringthenoncoding pages 106-110): F D'Abrusco. Exploring the non-coding regions of the genome: the contribution of cryptic splicing variants to the onset of joubert syndrome. Unknown journal, 2023.
 
-17. (aggradi2023laforadiseasea pages 6-7): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+17. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 13-15): Julie C. Van De Weghe, Arianna Gomez, and Dan Doherty. The joubert–meckel–nephronophthisis spectrum of ciliopathies. Annual Review of Genomics and Human Genetics, 23:301-329, Aug 2022. URL: https://doi.org/10.1146/annurev-genom-121321-093528, doi:10.1146/annurev-genom-121321-093528. This article has 73 citations and is from a domain leading peer-reviewed journal.
 
-18. (NCT00007124 chunk 1):  Ketogenic Diet in Lafora Disease. National Institute of Neurological Disorders and Stroke (NINDS). 2000. ClinicalTrials.gov Identifier: NCT00007124
+18. (weghe2022thejoubert–meckel–nephronophthisisspectrum pages 15-16): Julie C. Van De Weghe, Arianna Gomez, and Dan Doherty. The joubert–meckel–nephronophthisis spectrum of ciliopathies. Annual Review of Genomics and Human Genetics, 23:301-329, Aug 2022. URL: https://doi.org/10.1146/annurev-genom-121321-093528, doi:10.1146/annurev-genom-121321-093528. This article has 73 citations and is from a domain leading peer-reviewed journal.
 
-19. (NCT05930223 chunk 1):  Intravenous VAL-1221 Lafora Expanded Access Protocol. Parasail, LLC. ClinicalTrials.gov Identifier: NCT05930223
+19. (wang2024zebrafishasa pages 1-2): Fan Wang and Fei Zhao. Zebrafish as a model for studying ciliary development and disease. International Journal of Marine Science, Jan 2024. URL: https://doi.org/10.5376/ijms.2024.14.0037, doi:10.5376/ijms.2024.14.0037. This article has 2 citations.
 
-20. (donohue2023gys1antisensetherapy pages 4-6): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+20. (NCT04874909 chunk 1):  Classification, Functional Stratification and Biomarkers in Ciliopathy (CILLICORIRCM). Assistance Publique - Hôpitaux de Paris. 2021. ClinicalTrials.gov Identifier: NCT04874909
 
-21. (rubio2024beneficialeffectof pages 2-4): Teresa Rubio, Ángela Campos-Rodríguez, and Pascual Sanz. Beneficial effect of fingolimod in a lafora disease mouse model by preventing reactive astrogliosis-derived neuroinflammation and brain infiltration of t-lymphocytes. Molecular Neurobiology, 61:3105-3120, Nov 2024. URL: https://doi.org/10.1007/s12035-023-03766-1, doi:10.1007/s12035-023-03766-1. This article has 5 citations and is from a peer-reviewed journal.
+21. (dong2023clinicalandgenetic media e70ab935): Yan Dong, Ke Zhang, He Yao, Tianming Jia, Jun Wang, Dengna Zhu, Falin Xu, Meiying Cheng, Shichao Zhao, and Xiaoyi Shi. Clinical and genetic characteristics of 36 children with joubert syndrome. Frontiers in Pediatrics, Jul 2023. URL: https://doi.org/10.3389/fped.2023.1102639, doi:10.3389/fped.2023.1102639. This article has 16 citations.
 
-22. (zafrapuerta2023genereplacementtherapy pages 21-24): Luis Zafra-Puerta, Daniel F. Burgos, Nerea Iglesias-Cabeza, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Gene replacement therapy for lafora disease in the epm2a-/- mouse model. bioRxiv, Dec 2023. URL: https://doi.org/10.1101/2023.12.14.571636, doi:10.1101/2023.12.14.571636. This article has 1 citations.
-
-23. (vincent2023retinalphenotypingof pages 9-10): Ajoy Vincent, Kashif Ahmed, Rowaida Hussein, Zorana Berberovic, Anupreet Tumber, Xiaochu Zhao, and Berge A. Minassian. Retinal phenotyping of a murine model of lafora disease. Genes, 14:854, Mar 2023. URL: https://doi.org/10.3390/genes14040854, doi:10.3390/genes14040854. This article has 1 citations.
-
-24. (zafrapuerta2023genereplacementtherapy pages 1-4): Luis Zafra-Puerta, Daniel F. Burgos, Nerea Iglesias-Cabeza, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Gene replacement therapy for lafora disease in the epm2a-/- mouse model. bioRxiv, Dec 2023. URL: https://doi.org/10.1101/2023.12.14.571636, doi:10.1101/2023.12.14.571636. This article has 1 citations.
-
-25. (vincent2023retinalphenotypingof pages 1-2): Ajoy Vincent, Kashif Ahmed, Rowaida Hussein, Zorana Berberovic, Anupreet Tumber, Xiaochu Zhao, and Berge A. Minassian. Retinal phenotyping of a murine model of lafora disease. Genes, 14:854, Mar 2023. URL: https://doi.org/10.3390/genes14040854, doi:10.3390/genes14040854. This article has 1 citations.
-
-26. (shukla2024neuromuscularjunctiondysfunction pages 1-2): Monica Shukla, Deepti Chugh, and Subramaniam Ganesh. Neuromuscular junction dysfunction in lafora disease. Disease Models &amp; Mechanisms, Oct 2024. URL: https://doi.org/10.1242/dmm.050905, doi:10.1242/dmm.050905. This article has 5 citations and is from a domain leading peer-reviewed journal.
+22. (takagi2021anymodalityof pages 1-2): Yoko Takagi, Kenichiro Miura, Tomoo Yabuuchi, Naoto Kaneko, Kiyonobu Ishizuka, Mariko Takei, Chikage Yajima, Yuka Ikeuchi, Yasuko Kobayashi, Takumi Takizawa, Masataka Hisano, Yoshinori Tsurusaki, Naomichi Matsumoto, and Motoshi Hattori. Any modality of renal replacement therapy can be a treatment option for joubert syndrome. Scientific Reports, Jan 2021. URL: https://doi.org/10.1038/s41598-020-80712-4, doi:10.1038/s41598-020-80712-4. This article has 6 citations and is from a peer-reviewed journal.

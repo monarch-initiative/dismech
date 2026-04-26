@@ -3,13 +3,13 @@
 **Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Lafora Disease
-- **MONDO ID:**  (if available)
+- **Disease Name:** Kabuki Syndrome
+- **MONDO ID:** MONDO:0016512 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Lafora Disease** covering all of the
+Please provide a comprehensive research report on **Kabuki Syndrome** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -447,48 +447,49 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-04-25T18:53:35.673036
+**Generated:** 2026-04-25T18:47:41.219641
 
-1. aggradi2023laforadiseasea pages 1-2
-2. pondrelli2023prognosticvalueof pages 1-2
-3. zimmern2024progressivemyoclonusepilepsy pages 6-7
-4. aggradi2023laforadiseasea pages 4-6
-5. pondrelli2023prognosticvalueof pages 2-4
-6. aggradi2023laforadiseasea pages 2-4
-7. duran2023roleofastrocytes pages 1-2
-8. rubio2024beneficialeffectof pages 1-2
-9. duran2023roleofastrocytes pages 2-4
-10. zafrapuerta2023genereplacementtherapy pages 21-24
-11. vincent2023retinalphenotypingof pages 9-10
-12. vincent2023retinalphenotypingof pages 1-2
-13. shukla2024neuromuscularjunctiondysfunction pages 1-2
-14. mitra2023laforintargetsmalin pages 10-10
-15. duran2023roleofastrocytes pages 8-10
-16. mitra2023laforintargetsmalin pages 1-2
-17. duran2023roleofastrocytes pages 10-11
-18. aggradi2023laforadiseasea pages 6-7
-19. rubio2024beneficialeffectof pages 2-4
-20. zafrapuerta2023genereplacementtherapy pages 1-4
-21. https://platform.opentargets.org/disease/MONDO_0009697
-22. https://omim.org/entry/254780
-23. https://doi.org/10.1186/s13023-023-02880-6
-24. https://doi.org/10.1186/s13023-023-02880-6;
-25. https://doi.org/10.3390/brainsci13121679
-26. https://clinicaltrials.gov/study/NCT06609889
-27. https://clinicaltrials.gov/study/NCT03876522
-28. https://clinicaltrials.gov/study/NCT00007124
-29. https://clinicaltrials.gov/study/NCT05930223
-30. https://doi.org/10.1007/s13311-023-01434-9
-31. https://doi.org/10.1007/s12035-023-03766-1
-32. https://doi.org/10.3390/genes15020171
-33. https://doi.org/10.3390/cells12050722
-34. https://doi.org/10.3390/brainsci13121679,
-35. https://doi.org/10.1186/s13023-023-02880-6,
-36. https://doi.org/10.3390/genes15020171,
-37. https://doi.org/10.1007/s12035-023-03766-1,
-38. https://doi.org/10.1007/s13311-023-01434-9,
-39. https://doi.org/10.3390/cells12050722,
-40. https://doi.org/10.1242/dmm.049802,
-41. https://doi.org/10.1101/2023.12.14.571636,
-42. https://doi.org/10.3390/genes14040854,
-43. https://doi.org/10.1242/dmm.050905,
+1. barry2022fromgenotypeto pages 1-2
+2. adam2019kabukisyndromeinternational pages 1-2
+3. margot2020immunopathologicalmanifestationsin pages 1-2
+4. lee2024geneticandphenotypic pages 1-2
+5. lee2024geneticandphenotypic pages 2-4
+6. jung2023characterizingthemolecular pages 1-5
+7. boukas2024neuronspecificchromatindisruption pages 1-2
+8. gao2024growthdeficiencyin pages 3-6
+9. wang2024sexspecificdifferencein pages 5-6
+10. golden2023molecularinsightsof pages 9-11
+11. tsang2024ketogenicdietmodifies pages 8-10
+12. tsang2024ketogenicdietmodifies pages 2-3
+13. dugan2021kabukisyndrome pages 1-3
+14. barry2022fromgenotypeto pages 2-4
+15. golden2023molecularinsightsof pages 1-3
+16. wang2024sexspecificdifferencein pages 2-4
+17. lee2024geneticandphenotypic pages 6-7
+18. lee2024geneticandphenotypic pages 4-6
+19. gao2024growthdeficiencyin pages 1-2
+20. tsang2024ketogenicdietmodifies pages 6-8
+21. https://doi.org/10.1136/jmedgenet-2018-105625
+22. https://doi.org/10.3390/diagnostics14161815
+23. https://doi.org/10.3390/genes15010048
+24. https://doi.org/10.1038/s41436-019-0623-x
+25. https://doi.org/10.1101/2022.10.25.22280882
+26. https://doi.org/10.3389/fimmu.2024.1341745
+27. https://doi.org/10.1101/gr.278416.123
+28. https://doi.org/10.1371/journal.pgen.1011310
+29. https://doi.org/10.1186/s12887-024-04562-z
+30. https://clinicaltrials.gov/study/NCT04722315
+31. https://doi.org/10.3390/genes13101761,
+32. https://doi.org/10.1002/9781119432692.ch34,
+33. https://doi.org/10.3390/genes12040468,
+34. https://doi.org/10.1002/bdr2.2183,
+35. https://doi.org/10.1186/s12887-024-04562-z,
+36. https://doi.org/10.1136/jmedgenet-2018-105625,
+37. https://doi.org/10.1101/2022.10.25.22280882,
+38. https://doi.org/10.1016/j.ebiom.2024.105156,
+39. https://doi.org/10.3390/diagnostics14161815,
+40. https://doi.org/10.1038/s41436-019-0623-x,
+41. https://doi.org/10.3390/genes15010048,
+42. https://doi.org/10.3389/fimmu.2024.1341745,
+43. https://doi.org/10.1101/gr.278416.123,
+44. https://doi.org/10.1371/journal.pgen.1011310,
