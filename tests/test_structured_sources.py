@@ -53,25 +53,34 @@ def test_index_filters_to_leaf_disorders(orphanet_source: OrphanetSource):
 
 def test_serialize_marfan_has_expected_blocks(orphanet_source: OrphanetSource):
     text = orphanet_source.serialize("558").render()
-    # Frontmatter
+    # Frontmatter — uses `database` (not `journal`) for structured sources.
     assert 'reference_id: "ORPHA:558"' in text
     assert 'title: "Marfan syndrome"' in text
+    assert 'database: "Orphanet"' in text
     assert 'content_type: "structured_record"' in text
+    assert "journal:" not in text  # journal is for literature, not databases
     # Body sections
     for header in [
-        "## Identification",
+        "## Synonyms",
         "## Definition",
         "## Inheritance",
-        "## Phenotypes (HPO)",
+        "## Phenotypes",
         "## Cross-references",
         "## Source",
     ]:
         assert header in text, f"missing section {header!r}"
-    # Tag-prefixed lines must be present so curators can quote them.
-    assert "ID    ORPHA:558  Marfan syndrome" in text
-    assert "INH   Autosomal dominant" in text
-    # MONDO xref roundtrip
-    assert "XREF   MONDO:0007947" in text
+    # Identification line is markdown bold prose.
+    assert "**ORPHA:558** — Marfan syndrome (Disease, Disorder)" in text
+    # Definition is plain prose (no tag prefix).
+    assert "Marfan syndrome is a systemic disease of connective tissue" in text
+    # Inheritance is a bullet.
+    assert "- Autosomal dominant" in text
+    # Tabular data lives inside fenced code blocks; rows are quotable as-is.
+    assert "Aortic root aneurysm" in text
+    assert "Very frequent (99-80%)" in text
+    # MONDO xref present and labelled with friendly relation name.
+    assert "MONDO:0007947" in text
+    assert "Exact" in text
 
 
 def test_serialize_is_byte_deterministic(orphanet_source: OrphanetSource):
@@ -105,3 +114,18 @@ def test_subtype_disorders_are_emitted(orphanet_source: OrphanetSource):
     idx = orphanet_source.index()
     subtypes = [r for r in idx.values() if r.disorder_group == "Subtype of disorder"]
     assert len(subtypes) > 100
+
+
+@pytest.mark.parametrize("identifier", ["558", "ORPHA:558", "Orphanet:558"])
+def test_serialize_accepts_prefixed_or_bare_identifier(
+    orphanet_source: OrphanetSource, identifier: str
+):
+    """serialize() must strip the prefix as a literal, not as a charset.
+
+    Regression guard: an earlier ``lstrip("ORPHA:")`` removed any character
+    in the set, so ``"Orphanet:558".lstrip("ORPHA:")`` produced
+    ``"rphanet:558"`` (stops at lowercase ``r``) and the lookup failed.
+    """
+    entry = orphanet_source.serialize(identifier)
+    assert entry.reference_id == "ORPHA:558"
+    assert entry.title == "Marfan syndrome"

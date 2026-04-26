@@ -50,6 +50,18 @@ _MAPPING_RELATION_SHORT = {
     "W (ORPHAcode is wrongly used to represent the targeted code)": "W",
 }
 
+# Curator-friendly labels for the short codes above. Used by the renderer so
+# the cross-reference block reads as English ("Exact"/"Narrower"/...) rather
+# than as cryptic acronyms.
+_RELATION_LABEL = {
+    "E": "Exact",
+    "NTBT": "Narrower",
+    "BTNT": "Broader",
+    "ND": "Not yet decided",
+    "W": "Wrong",
+    "": "",
+}
+
 # External-ref source -> CURIE prefix used in our XREF lines.
 # Where Orphanet's "Source" string already matches the CURIE prefix, we leave it.
 _XREF_PREFIX = {
@@ -299,7 +311,14 @@ class OrphanetSource(StructuredSource):
     # ----- serialization -----
 
     def serialize(self, identifier: str) -> ReferenceCacheEntry:
-        identifier = identifier.lstrip("ORPHA:").lstrip("Orphanet:")
+        # Accept "ORPHA:558", "Orphanet:558", or bare "558". `removeprefix`
+        # is used because `lstrip` removes a *character set*, not a literal
+        # prefix — e.g. `"Orphanet:558".lstrip("ORPHA:")` would yield
+        # `"rphanet:558"` (stops at lowercase `r`).
+        for _prefix in ("ORPHA:", "Orphanet:"):
+            if identifier.startswith(_prefix):
+                identifier = identifier[len(_prefix):]
+                break
         rec = self.index().get(identifier)
         if rec is None:
             raise KeyError(f"ORPHA:{identifier} not found in Orphanet index")
@@ -310,127 +329,144 @@ class OrphanetSource(StructuredSource):
             title=rec.name,
             body=body,
             content_type="structured_record",
-            extra_frontmatter={
-                "journal": "Orphadata",
-                "year": self.snapshot_date[:4] if self.snapshot_date else None,
-            },
+            extra_frontmatter={"database": "Orphanet"},
         )
 
     def _render_body(self, rec: _DisorderRecord) -> Iterator[str]:
+        """Render a Marfan-style mixed body: markdown for prose, fenced code
+        blocks for tabular row data.
+
+        Curators quote a definition sentence verbatim, or a single line from
+        a fenced block (e.g. one ``HP:0001166  Arachnodactyly  Very frequent
+        (99-80%)`` row). Both are stable substrings of the cached body.
+        """
         yield f"# ORPHA:{rec.orpha_code}  {rec.name}"
         yield ""
 
-        # ----- Identification -----
-        yield "## Identification"
-        yield ""
-        yield f"ID    ORPHA:{rec.orpha_code}  {rec.name}"
+        # Identification line — short prose, no fence needed.
         type_str = rec.disorder_type or "?"
         group_str = rec.disorder_group or "?"
-        yield f"TYPE  {type_str} ({group_str})"
-        for syn in sorted(rec.synonyms):
-            yield f"SYN   {syn}"
-        if rec.expert_link:
-            yield f"URL   {rec.expert_link}"
+        yield f"**ORPHA:{rec.orpha_code}** — {rec.name} ({type_str}, {group_str})"
         yield ""
 
-        # ----- Definition -----
+        # Synonyms — bullets are friendlier than a fenced block for short lists.
+        if rec.synonyms:
+            yield "## Synonyms"
+            yield ""
+            for syn in sorted(rec.synonyms):
+                yield f"- {syn}"
+            yield ""
+
+        # Definition — paragraph prose; the most-quoted block.
         if rec.definition:
             yield "## Definition"
             yield ""
-            yield f"DEF   {rec.definition}"
+            yield rec.definition
             yield ""
 
-        # ----- Inheritance -----
+        # Inheritance — bullets.
         if rec.inheritance:
             yield "## Inheritance"
             yield ""
             for inh in rec.inheritance:
-                yield f"INH   {inh}"
+                yield f"- {inh}"
             yield ""
 
-        # ----- Epidemiology -----
-        if rec.prevalence:
-            yield "## Epidemiology"
-            yield ""
-            rows = sorted(
-                rec.prevalence,
-                key=lambda p: (p[3] or "", p[0] or "", p[2] or "", p[4] or ""),
-            )
-            for ptype, qual, pclass, geog, source in rows:
-                parts = [
-                    f"PREV  {pclass or '-':<22}",
-                    f"{geog or '-':<14}",
-                    ptype or "-",
-                ]
-                line = "  ".join(parts)
-                if qual and qual != ptype:
-                    line += f" ({qual})"
-                if source:
-                    line += f"  source={_clean_source(source)}"
-                yield line
-            yield ""
-
-        # ----- Age of onset / death -----
+        # Age of onset / death — bullets.
         if rec.age_of_onset or rec.age_of_death:
             yield "## Natural history"
             yield ""
             for a in rec.age_of_onset:
-                yield f"ONS   {a}"
+                yield f"- Age of onset: {a}"
             for a in rec.age_of_death:
-                yield f"DTH   {a}"
+                yield f"- Age of death: {a}"
             yield ""
 
-        # ----- Genes -----
+        # Epidemiology — fenced block, columns: class, region, type, source.
+        if rec.prevalence:
+            yield "## Epidemiology"
+            yield ""
+            yield "```"
+            rows = sorted(
+                rec.prevalence,
+                key=lambda p: (p[3] or "", p[0] or "", p[2] or "", p[4] or ""),
+            )
+            cells: list[tuple[str, ...]] = []
+            for ptype, _qual, pclass, geog, source in rows:
+                cells.append(
+                    (
+                        pclass or "-",
+                        geog or "-",
+                        ptype or "-",
+                        _clean_source(source) if source else "-",
+                    )
+                )
+            for line in format_columns(cells, widths=[20, 16, 22]):
+                yield line
+            yield "```"
+            yield ""
+
+        # Genes — fenced block, columns: symbol, name, hgnc, association.
         if rec.genes:
             yield "## Genes"
             yield ""
-            rows = sorted(rec.genes, key=lambda g: (g[0] or "", g[3] or ""))
-            cells = [
-                ("GENE", sym or "-", name or "-", _hgnc(hgnc), assoc or "-")
-                for sym, name, hgnc, assoc, _src in rows
+            yield "```"
+            rows_g = sorted(rec.genes, key=lambda g: (g[0] or "", g[3] or ""))
+            cells_g = [
+                (sym or "-", name or "-", _hgnc(hgnc), assoc or "-")
+                for sym, name, hgnc, assoc, _src in rows_g
             ]
-            for line in format_columns(cells, widths=[5, 12, 50, 14]):
+            for line in format_columns(cells_g, widths=[10, 50, 12]):
                 yield line
+            yield "```"
             yield ""
 
-        # ----- Phenotypes -----
+        # Phenotypes — fenced block, columns: HPO id, label, frequency.
         if rec.phenotypes:
-            yield "## Phenotypes (HPO)"
+            yield "## Phenotypes"
             yield ""
-            rows = sorted(rec.phenotypes, key=lambda p: (p[0] or ""))
+            yield "```"
+            rows_p = sorted(rec.phenotypes, key=lambda p: (p[0] or ""))
             cells = [
-                ("PHEN", hpo_id, label or "-", freq or "-")
-                for hpo_id, label, freq, _diag in rows
+                (hpo_id, label or "-", freq or "-")
+                for hpo_id, label, freq, _diag in rows_p
             ]
-            for line in format_columns(cells, widths=[5, 12, 50]):
+            for line in format_columns(cells, widths=[12, 48]):
                 yield line
+            yield "```"
             yield ""
 
-        # ----- External references -----
+        # Cross-references — fenced block, columns: prefix:id, relation.
         if rec.xrefs:
             yield "## Cross-references"
             yield ""
+            yield "```"
             seen: set[tuple[str, str, str]] = set()
-            rows: list[tuple[str, str, str]] = []
+            rows_x: list[tuple[str, str]] = []
             for source, ref, relation in sorted(rec.xrefs):
                 key = (source, ref, relation)
                 if key in seen:
                     continue
                 seen.add(key)
                 prefix = _XREF_PREFIX.get(source, source)
-                rows.append(("XREF", f"{prefix}:{ref}", relation or ""))
-            for line in format_columns(rows, widths=[5, 28]):
+                rows_x.append((f"{prefix}:{ref}", _RELATION_LABEL.get(relation, relation)))
+            for line in format_columns(rows_x, widths=[28]):
                 yield line
+            yield "```"
             yield ""
 
-        # ----- Provenance footer -----
+        # Provenance footer — prose.
         yield "## Source"
         yield ""
         yield (
-            f"SRC   Orphadata  snapshot={self.snapshot_date or 'unknown'}  "
-            f"schema=en_product1+4+6+9_prev+9_ages"
+            f"Orphadata snapshot **{self.snapshot_date or 'unknown'}** "
+            f"(`en_product1+4+6+9_prev+9_ages`). "
+            "Licensed under "
+            "[CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)."
         )
-        yield "LIC   CC-BY-4.0  (https://creativecommons.org/licenses/by/4.0/)"
+        if rec.expert_link:
+            yield ""
+            yield f"[Orpha.net entry]({rec.expert_link})"
 
 
 # ----- helpers -----

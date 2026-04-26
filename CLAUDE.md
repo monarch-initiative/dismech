@@ -710,9 +710,10 @@ just structured-rebuild-orphanet --id 558
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
-committed and pins the snapshot date + sha256 of each bulk file. CI rebuilds
-the cache from the manifest and diffs against committed `ORPHA_*.md` to catch
-drift.
+committed and pins the snapshot date + sha256 of each bulk file. To verify
+no drift has occurred, run `just structured-rebuild-orphanet` locally and
+check `git diff references_cache/ORPHA_*.md`. (A CI workflow that does this
+automatically is a worthwhile follow-up but does not yet exist.)
 
 **Adding a new structured source:**
 
