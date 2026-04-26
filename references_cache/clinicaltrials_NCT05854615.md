@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05854615
+reference_id: "clinicaltrials:NCT05854615"
 title: "An Observational, Practice-Based, Open Label, Feasibility Study to Observe the Efficacy and Safety of Intramuscular Administration of Stempeucel® in Malaysian Patients With Critical Limb Ischemia (CLI) Due to Buerger's Disease"
 content_type: summary
 ---
