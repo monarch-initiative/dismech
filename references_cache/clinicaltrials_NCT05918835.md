@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05918835
+reference_id: "clinicaltrials:NCT05918835"
 title: Deciphering the Neural Mechanisms of Restrictive Eating in Anorexia Nervosa Using Repetitive Transcranial Magnetic Stimulation
 content_type: summary
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13063-024-07929-w
+reference_id: "DOI:10.1186/s13063-024-07929-w"
 title: "Cancer Precision-Prevention trial of Metformin in adults with Li Fraumeni syndrome (MILI) undergoing yearly MRI surveillance: a randomised controlled trial protocol"
 authors:
 - Miriam Dixon-Zegeye
