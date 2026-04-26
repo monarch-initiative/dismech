@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03914612
+reference_id: "clinicaltrials:NCT03914612"
 title: "A Phase III Randomized, Placebo-Controlled Study of Pembrolizumab (MK-3475, NSC #776864) in Addition to Paclitaxel and Carboplatin for Measurable Stage III or IVA, Stage IVB or Recurrent Endometrial Cancer"
 content_type: summary
 ---

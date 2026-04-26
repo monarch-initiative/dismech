@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01447550
+reference_id: "clinicaltrials:NCT01447550"
 title: "Treatment of Thromboangiitis Obliterans (Buerger's Disease) With Bosentan"
 content_type: summary
 ---

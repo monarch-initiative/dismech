@@ -1,0 +1,11 @@
+---
+reference_id: "clinicaltrials:NCT03199625"
+title: "Different Neural Circuit Mechanisms Between Cognitive Therapy and Behavior Therapy for Patients With Panic Disorder: a Dynamic Research"
+content_type: summary
+---
+
+# Different Neural Circuit Mechanisms Between Cognitive Therapy and Behavior Therapy for Patients With Panic Disorder: a Dynamic Research
+
+## Content
+
+Cognitive behavioral therapy (CBT), which includes cognitive therapy (CT) and behavioral therapy (BT), is the first-line treatment for patients with panic disorder (PD). However, the neural mechanism of CBT is unknown. The exploration of mechanism is of great significance for clinical strategy formulation. This study is proposed on the basis of our early PD and CBT neuroimaging studies, adopt the design of prospective randomized controlled intervention study, set up three time points: before the treatment（week 0）, the initial treatment (week 4th), the plateau treatment (week 28th). With normal subjects as black control and antidepressant therapy as intervention comparison, this study set up CT and BT two intervention groups, respectively collect all the participants'symptomatological, psychological, cognitive function and brain imaging data (3D,DTI, fMRI in resting and tasks states) at week 0, week 4th and week 28th. This study is based on the advanced analysis methods we applied in the early study,including BOLD-fMRI, DTI, topological characteristics analysis of the whole brain network and Granger causality test etc. It is from the point of multiple levels(brain regions, circuits, whole brain), multimodal (structure, function) to comprehensively analysis the role of CT and BT for the function and structure of brain regions, circuits (mood regulating circuit and cognitive control network for emotion processing) and whole brain in patients with PD. Totally, we explore the target area, path and mechanism of CBT for emotion processing neural circuits in patients with PD, and combined with the clinical data we preliminarily explore the imaging biomarkers of different intervention methods which may predict therapeutic effect.
