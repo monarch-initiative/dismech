@@ -31,7 +31,6 @@ from dismech.structured_sources.base import (
     BulkFile,
     ReferenceCacheEntry,
     StructuredSource,
-    format_columns,
 )
 
 logger = logging.getLogger(__name__)
@@ -333,12 +332,13 @@ class OrphanetSource(StructuredSource):
         )
 
     def _render_body(self, rec: _DisorderRecord) -> Iterator[str]:
-        """Render a Marfan-style mixed body: markdown for prose, fenced code
-        blocks for tabular row data.
+        """Render a mixed body: markdown prose + bullets for short lists,
+        markdown tables for tabular data.
 
-        Curators quote a definition sentence verbatim, or a single line from
-        a fenced block (e.g. one ``HP:0001166  Arachnodactyly  Very frequent
-        (99-80%)`` row). Both are stable substrings of the cached body.
+        Tables use a literal ``|`` separator so curator-quoted snippets
+        stay readable in YAML — no fragile column padding to type. A
+        single row like ``HP:0001166 | Arachnodactyly | Very frequent
+        (99-80%)`` is a stable substring of the cached body.
         """
         yield f"# ORPHA:{rec.orpha_code}  {rec.name}"
         yield ""
@@ -349,7 +349,7 @@ class OrphanetSource(StructuredSource):
         yield f"**ORPHA:{rec.orpha_code}** — {rec.name} ({type_str}, {group_str})"
         yield ""
 
-        # Synonyms — bullets are friendlier than a fenced block for short lists.
+        # Synonyms — bullets are friendlier than a table for short lists.
         if rec.synonyms:
             yield "## Synonyms"
             yield ""
@@ -382,65 +382,56 @@ class OrphanetSource(StructuredSource):
                 yield f"- Age of death: {a}"
             yield ""
 
-        # Epidemiology — fenced block, columns: class, region, type, source.
+        # Epidemiology — markdown table.
         if rec.prevalence:
             yield "## Epidemiology"
             yield ""
-            yield "```"
             rows = sorted(
                 rec.prevalence,
                 key=lambda p: (p[3] or "", p[0] or "", p[2] or "", p[4] or ""),
             )
-            cells: list[tuple[str, ...]] = []
-            for ptype, _qual, pclass, geog, source in rows:
-                cells.append(
-                    (
-                        pclass or "-",
-                        geog or "-",
-                        ptype or "-",
-                        _clean_source(source) if source else "-",
-                    )
+            data_rows = [
+                (
+                    pclass or "-",
+                    geog or "-",
+                    ptype or "-",
+                    _clean_source(source) if source else "-",
                 )
-            for line in format_columns(cells, widths=[20, 16, 22]):
-                yield line
-            yield "```"
+                for ptype, _qual, pclass, geog, source in rows
+            ]
+            yield from _md_table(["Class", "Region", "Type", "Source"], data_rows)
             yield ""
 
-        # Genes — fenced block, columns: symbol, name, hgnc, association.
+        # Genes — markdown table.
         if rec.genes:
             yield "## Genes"
             yield ""
-            yield "```"
             rows_g = sorted(rec.genes, key=lambda g: (g[0] or "", g[3] or ""))
-            cells_g = [
+            data_rows = [
                 (sym or "-", name or "-", _hgnc(hgnc), assoc or "-")
                 for sym, name, hgnc, assoc, _src in rows_g
             ]
-            for line in format_columns(cells_g, widths=[10, 50, 12]):
-                yield line
-            yield "```"
+            yield from _md_table(
+                ["Symbol", "Name", "HGNC", "Association"], data_rows
+            )
             yield ""
 
-        # Phenotypes — fenced block, columns: HPO id, label, frequency.
+        # Phenotypes — markdown table.
         if rec.phenotypes:
             yield "## Phenotypes"
             yield ""
-            yield "```"
             rows_p = sorted(rec.phenotypes, key=lambda p: (p[0] or ""))
-            cells = [
+            data_rows = [
                 (hpo_id, label or "-", freq or "-")
                 for hpo_id, label, freq, _diag in rows_p
             ]
-            for line in format_columns(cells, widths=[12, 48]):
-                yield line
-            yield "```"
+            yield from _md_table(["HPO ID", "Phenotype", "Frequency"], data_rows)
             yield ""
 
-        # Cross-references — fenced block, columns: prefix:id, relation.
+        # Cross-references — markdown table.
         if rec.xrefs:
             yield "## Cross-references"
             yield ""
-            yield "```"
             seen: set[tuple[str, str, str]] = set()
             rows_x: list[tuple[str, str]] = []
             for source, ref, relation in sorted(rec.xrefs):
@@ -449,10 +440,10 @@ class OrphanetSource(StructuredSource):
                     continue
                 seen.add(key)
                 prefix = _XREF_PREFIX.get(source, source)
-                rows_x.append((f"{prefix}:{ref}", _RELATION_LABEL.get(relation, relation)))
-            for line in format_columns(rows_x, widths=[28]):
-                yield line
-            yield "```"
+                rows_x.append(
+                    (f"{prefix}:{ref}", _RELATION_LABEL.get(relation, relation) or "-")
+                )
+            yield from _md_table(["Reference", "Mapping"], rows_x)
             yield ""
 
         # Provenance footer — prose.
@@ -470,6 +461,22 @@ class OrphanetSource(StructuredSource):
 
 
 # ----- helpers -----
+
+def _md_table(headers: list[str], rows: list[tuple[str, ...]]) -> Iterator[str]:
+    """Emit a markdown table.
+
+    Cell values containing a literal pipe are escaped (``\\|``) so the
+    table renders correctly. Curators quoting a row in YAML can write the
+    natural ``X | Y | Z`` form without worrying about column widths.
+    """
+    def _esc(cell: str) -> str:
+        return cell.replace("|", "\\|") if cell else "-"
+
+    yield "| " + " | ".join(headers) + " |"
+    yield "|" + "|".join(["---"] * len(headers)) + "|"
+    for row in rows:
+        yield "| " + " | ".join(_esc(cell) for cell in row) + " |"
+
 
 def _text(el) -> str:
     if el is None:

@@ -71,16 +71,16 @@ def test_serialize_marfan_has_expected_blocks(orphanet_source: OrphanetSource):
         assert header in text, f"missing section {header!r}"
     # Identification line is markdown bold prose.
     assert "**ORPHA:558** — Marfan syndrome (Disease, Disorder)" in text
-    # Definition is plain prose (no tag prefix).
+    # Definition is plain prose.
     assert "Marfan syndrome is a systemic disease of connective tissue" in text
     # Inheritance is a bullet.
     assert "- Autosomal dominant" in text
-    # Tabular data lives inside fenced code blocks; rows are quotable as-is.
-    assert "Aortic root aneurysm" in text
-    assert "Very frequent (99-80%)" in text
+    # Tabular data is in markdown tables — rows are quotable with pipe sep
+    # rather than fragile column-padded whitespace.
+    assert "| HPO ID | Phenotype | Frequency |" in text
+    assert "| HP:0002616 | Aortic root aneurysm | Very frequent (99-80%) |" in text
     # MONDO xref present and labelled with friendly relation name.
-    assert "MONDO:0007947" in text
-    assert "Exact" in text
+    assert "| MONDO:0007947 | Exact |" in text
 
 
 def test_serialize_is_byte_deterministic(orphanet_source: OrphanetSource):
