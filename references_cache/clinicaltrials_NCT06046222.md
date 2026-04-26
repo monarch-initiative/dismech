@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06046222
+reference_id: "clinicaltrials:NCT06046222"
 title: "A Phase 2, Double-blind, Randomized, Placebo-controlled Study to Investigate the Efficacy and Safety of NS-229 in the Treatment of Eosinophilic Granulomatosis With Polyangiitis"
 content_type: summary
 ---

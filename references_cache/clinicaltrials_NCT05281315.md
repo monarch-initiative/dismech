@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05281315
+reference_id: "clinicaltrials:NCT05281315"
 title: Cardiac Magnetic Resonance Features and Outcomes of Patients With Non-Compaction Cardiomyopathy - a Retrospective Follow-up From Pakistan
 content_type: summary
 ---
