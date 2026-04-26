@@ -447,42 +447,34 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-04-25T22:24:14.697653
+**Generated:** 2026-04-26T02:15:14.141395
 
-1. pantou2023atruncatingvariant pages 1-2
-2. tosun2025noncompactionanddilated pages 1-2
-3. prompona2007magneticresonanceimaging pages 1-2
-4. arıcı2024acaseof pages 1-2
-5. krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3
-6. selgrade2024susceptibilitytoinnate pages 1-2
-7. polivka2016combinationofpalmoplantar pages 1-2
-8. brandao2023desmoplakincardiomyopathycomprehensive pages 2-4
-9. arıcı2024acaseof pages 2-3
-10. pratt2015dsprulaspontaneous pages 1-2
-11. risato2024invivoapproaches pages 6-7
-12. pratt2015dsprulaspontaneous pages 4-6
-13. pratt2015dsprulaspontaneous pages 3-4
-14. https://doi.org/10.1017/s1047951124000222;
-15. https://doi.org/10.1161/circulationaha.107.704742
-16. https://doi.org/10.1007/s12098-010-0319-3;
-17. https://doi.org/10.33963/v.phj.101664
-18. https://doi.org/10.1016/j.yexmp.2015.01.015;
-19. https://doi.org/10.1017/S1047951125001532
-20. https://doi.org/10.1161/circulationaha.107.704742;
-21. https://doi.org/10.1136/jmedgenet-2015-103403
-22. https://doi.org/10.15829/1560-4071-2018-10-151-158
-23. https://doi.org/10.1017/s1047951124000222
-24. https://doi.org/10.1186/s12920-023-01527-6;
-25. https://doi.org/10.3390/jcm12072660;
-26. https://doi.org/10.1017/s1047951124000222,
-27. https://doi.org/10.1161/circulationaha.107.704742,
-28. https://doi.org/10.1186/s12920-023-01527-6,
-29. https://doi.org/10.1017/s1047951125001532,
-30. https://doi.org/10.1136/jmedgenet-2015-103403,
-31. https://doi.org/10.1016/j.yexmp.2015.01.015,
-32. https://doi.org/10.1172/jci180254,
-33. https://doi.org/10.1007/s12098-010-0319-3,
-34. https://doi.org/10.33963/v.phj.101664,
-35. https://doi.org/10.1101/2025.01.14.24319713,
-36. https://doi.org/10.3390/jcm12072660,
-37. https://doi.org/10.3390/cells13151264,
+1. sun2021hairandskin pages 1-2
+2. binfadel2025genotypeandcardiac pages 1-2
+3. brandao2023desmoplakincardiomyopathycomprehensive pages 1-2
+4. sun2021hairandskin pages 4-5
+5. williams2011noveldesmoplakinmutation pages 1-2
+6. polivka2016combinationofpalmoplantar pages 2-3
+7. williams2011noveldesmoplakinmutation pages 2-5
+8. karvonen2022anoveldesmoplakin pages 8-8
+9. pigors2015desmoplakinmutationswith pages 1-2
+10. binfadel2025genotypeandcardiac pages 9-9
+11. https://doi.org/10.3390/jcm12072660
+12. https://doi.org/10.33963/v.phj.101664
+13. https://doi.org/10.1136/jmedgenet-2015-103403
+14. https://doi.org/10.1186/s13023-025-03612-8
+15. https://doi.org/10.1007/s00392-011-0345-9
+16. https://doi.org/10.1111/bjd.17388
+17. https://clinicaltrials.gov/study/NCT06446271
+18. https://clinicaltrials.gov/study/NCT05450783
+19. https://clinicaltrials.gov/study/NCT03177018
+20. https://doi.org/10.1111/pde.14478,
+21. https://doi.org/10.1111/jdv.18164,
+22. https://doi.org/10.1186/s13023-025-03612-8,
+23. https://doi.org/10.1111/pde.12541,
+24. https://doi.org/10.1136/jmedgenet-2015-103403,
+25. https://doi.org/10.3390/jcm12072660,
+26. https://doi.org/10.33963/v.phj.101664,
+27. https://doi.org/10.1007/s00392-011-0345-9,
+28. https://doi.org/10.1111/bjd.17388,
+29. https://doi.org/10.2340/00015555-1974,
