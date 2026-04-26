@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02807103
+reference_id: "clinicaltrials:NCT02807103"
 title: "Evaluation of Rituximab-based Regimen Compared to Conventional Therapeutic Strategy For Remission Induction In Patients With Newly-Diagnosed or Relapsing Eosinophilic Granulomatosis With Polyangiitis. Prospective, Randomized, Controlled, Double-blind Study"
 content_type: summary
 ---
