@@ -2,9 +2,9 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-04-25T22:15:24.155206'
-end_time: '2026-04-25T22:28:16.701230'
-duration_seconds: 772.55
+start_time: '2026-04-25T18:33:17.965608'
+end_time: '2026-04-25T18:53:35.673036'
+duration_seconds: 1217.71
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Lafora Disease
@@ -16,7 +16,7 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 30
+citation_count: 43
 ---
 
 ## Question
@@ -929,291 +929,368 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-## Lafora Disease (LD) — Comprehensive Disease Characteristics Report (Mendelian)
+## Comprehensive Disease Characteristics Report: Lafora Disease (Mendelian)
 
-### Target disease
-- **Disease:** Lafora disease
-- **Category:** Mendelian (autosomal recessive progressive myoclonus epilepsy / glycogen storage disorder) (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
-- **MONDO ID:** not retrieved from the available sources in this run (see identifiers table below) (pondrelli2021naturalhistoryof pages 1-2, turnbull2016laforadisease. pages 1-2)
+### Executive summary
+Lafora disease (LD) is a rare, autosomal recessive, fatal progressive myoclonus epilepsy (PME) typically beginning in adolescence, characterized by progressive seizures/myoclonus and cognitive/psychiatric decline. Pathologically, LD features intracellular inclusions (“Lafora bodies”) composed of insoluble polyglucosan (poorly branched abnormal glycogen) in brain and other tissues. LD is caused by biallelic pathogenic variants in **EPM2A** (laforin, a glucan phosphatase) or **NHLRC1/EPM2B** (malin, an E3 ubiquitin ligase) with evidence that genotype influences prognosis (e.g., biallelic truncating **NHLRC1** variants associate with shorter survival). Translational research (2023–2024) is concentrated on substrate reduction (reducing brain glycogen synthesis), gene replacement approaches, and neuroinflammation modulation; a first-in-human intrathecal antisense trial (ION283; NCT06609889) is recruiting. (aggradi2023laforadiseasea pages 1-2, pondrelli2023prognosticvalueof pages 1-2, NCT06609889 chunk 2)
 
-### Evidence note (source types)
-This report synthesizes: (i) peer‑reviewed reviews and primary studies (2012–2024, emphasizing 2023–2024), (ii) systematic reviews/meta-analyses with individual participant data, and (iii) ClinicalTrials.gov records for real‑world clinical implementation and trial readiness. ClinicalTrials.gov records provide MeSH terms and operational definitions for outcomes/biomarkers but do not substitute for peer‑reviewed efficacy evidence. (NCT03876522 chunk 1, NCT06609889 chunk 1)
-
-| Disease name | MONDO ID | OMIM | Orphanet | MeSH | ICD | Synonyms / alternate names | Inheritance | Causal genes |
-|---|---|---|---|---|---|---|---|---|
-| Lafora disease |  (not retrieved) | OMIM #254780 (turnbull2016laforadisease. pages 1-2, pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 1-2, pondrelli2021naturalhistoryof pages 1-2, burgos2023earlytreatmentwith pages 1-2) | ORPHA:501 (burgos2023earlytreatmentwith pages 1-2) | MeSH: D020192 “Lafora Disease” (NCT03876522 chunk 1, NCT00007124 chunk 1) | ICD-10/ICD-11: not retrieved in current context | Lafora body disease; progressive myoclonus epilepsy; progressive myoclonus epilepsy type 2 / EPM2; Lafora progressive myoclonus epilepsy (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2, imbrici2024sodiumglucosecotransporter2inhibitors pages 1-3) | Autosomal recessive (turnbull2016laforadisease. pages 1-2, pondrelli2023prognosticvalueof pages 1-2, skurat2024impairedmalinexpression pages 1-2, pondrelli2021naturalhistoryof pages 1-2, burgos2023earlytreatmentwith pages 1-2) | EPM2A (laforin) and NHLRC1 / EPM2B (malin); PRDM8 tentatively linked in one early-onset family, not confirmed as a major cause (turnbull2016laforadisease. pages 1-2, pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 1-2, pondrelli2021naturalhistoryof pages 1-2, burgos2023earlytreatmentwith pages 1-2) |
-
-
-*Table: This table compiles the core identifiers, nomenclature, inheritance pattern, and causal genes for Lafora disease from the retrieved literature and clinical-trial metadata. It is useful as a compact knowledge-base starter for standardized disease naming and cross-references.*
+---
 
 ## 1. Disease Information
 
-### 1.1 What is Lafora disease?
-Lafora disease is an **ultra‑rare, fatal, autosomal recessive** form of **progressive myoclonus epilepsy** characterized pathologically by **intracellular polyglucosan (abnormal glycogen) inclusions** called **Lafora bodies** that accumulate in brain and other tissues. (turnbull2016laforadisease. pages 1-2, duran2023roleofastrocytes pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+### 1.1 Definition and current understanding
+LD is described in recent literature as a “rare, autosomal recessive neurodegenerative disorder” and a “progressive myoclonus epilepsy” with disrupted glycogen metabolism and “pathognomonic… Lafora bodies.” (aggradi2023laforadiseasea pages 1-2)
 
-**Current clinical understanding** is that affected individuals are typically previously healthy and develop seizures and myoclonus in late childhood/adolescence, followed by rapid neurodegeneration (cognitive/psychiatric decline, ataxia, dysarthria) and death often within ~10 years of onset. (turnbull2016laforadisease. pages 3-4, pondrelli2021naturalhistoryof pages 1-2)
+**Abstract-supported definition quotes** (recent):
+- “Lafora disease is a rare genetic disorder characterized by a disruption in glycogen metabolism. It manifests as progressive myoclonus epilepsy and cognitive decline during adolescence.” (Dec 2023; Brain Sciences) (aggradi2023laforadiseasea pages 1-2)
+- “Background Lafora disease (LD) is a fatal form of progressive myoclonic epilepsy caused by biallelic pathogenic variants in EPM2A or NHLRC1.” (Sep 2023; Orphanet J Rare Dis) (pondrelli2023prognosticvalueof pages 1-2)
 
 ### 1.2 Key identifiers, synonyms, and data provenance
-- **OMIM:** #254780 (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
-- **Orphanet:** ORPHA:501 (burgos2023earlytreatmentwith pages 1-2)
-- **MeSH:** “Lafora Disease” (MeSH **D020192** appears in ClinicalTrials.gov metadata) (NCT03876522 chunk 1)
-- **ICD‑10/ICD‑11:** not retrieved in the available sources for this run (turnbull2016laforadisease. pages 1-2)
-- **Synonyms/alternate names:** “Lafora body disease,” “progressive myoclonus epilepsy type 2 (EPM2),” “Lafora progressive myoclonus epilepsy.” (turnbull2016laforadisease. pages 1-2, imbrici2024sodiumglucosecotransporter2inhibitors pages 1-3)
+The retrieved evidence directly supports MONDO and OMIM identifiers; other identifier systems (Orphanet/MeSH/ICD) were not captured in the retrieved sources.
 
-**Data sources:** largely **aggregated disease-level resources** (systematic reviews/meta‑analyses; clinical trial registries; reviews) plus individual **case reports** used for genotype–phenotype and diagnostic nuance. (pondrelli2021naturalhistoryof pages 1-2, pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2)
+| Identifier system | ID/code | Preferred name | Synonyms/notes | URL |
+|---|---|---|---|---|
+| MONDO | MONDO:0009697 | Lafora disease | Open Targets disease record for Lafora disease; Mendelian progressive myoclonus epilepsy entity (zimmern2024progressivemyoclonusepilepsy pages 6-7) | https://platform.opentargets.org/disease/MONDO_0009697 |
+| OMIM | OMIM #254780 | Lafora disease | Also described as a rare autosomal recessive progressive myoclonic epilepsy; OMIM number explicitly stated in recent reviews/case report (aggradi2023laforadiseasea pages 1-2, rubio2024beneficialeffectof pages 1-2) | https://omim.org/entry/254780 |
+| Orphanet | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; do not infer without direct evidence (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
+| MeSH | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; progressive myoclonus epilepsy context noted in reviews, but no MeSH ID retrieved (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
+| ICD | Not captured in retrieved sources | Lafora disease | Not captured in retrieved sources; no ICD-10/ICD-11 code directly retrieved in available evidence (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | Not captured in retrieved sources |
+
+
+*Table: This table summarizes key disease identifiers and naming information for Lafora disease using only retrieved evidence. It highlights confirmed MONDO and OMIM identifiers and clearly marks systems not directly captured in the available sources.*
+
+**Common synonyms/alternative names (supported in retrieved sources):**
+- “Lafora disease” and “progressive myoclonus epilepsy” (PME) framing (aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Genetic subtypes: “myoclonic epilepsy of Lafora 1/2” appear as MONDO entities in Open Targets (MONDO_0958199; MONDO_0800306), reflecting EPM2A vs NHLRC1 subtypes (Open Targets output embedded in evidence stream; disease MONDO confirmed) (aggradi2023laforadiseasea pages 1-2)
+
+**Evidence type note:** This report primarily uses aggregated disease-level resources (systematic review/meta-analysis; scoping review; ClinicalTrials.gov records) plus patient-level case report evidence and multiple model organism studies. (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2, NCT03876522 chunk 1)
+
+---
 
 ## 2. Etiology
 
 ### 2.1 Disease causal factors
-**Primary cause:** biallelic pathogenic variants in **EPM2A** or **NHLRC1 (EPM2B)** leading to loss of function of **laforin** (glucan phosphatase) or **malin** (E3 ubiquitin ligase), respectively, and consequent disruption of glycogen structure/solubility with Lafora body formation. (pondrelli2023prognosticvalueof pages 1-2, skurat2024impairedmalinexpression pages 1-2, turnbull2016laforadisease. pages 1-2)
+LD is a Mendelian disorder caused by loss-of-function biallelic pathogenic variants in:
+- **EPM2A** → **laforin** (glucan phosphatase/dual-specificity phosphatase) (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+- **NHLRC1 (EPM2B)** → **malin** (E3 ubiquitin ligase) (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
 
-**Abstract quote (mechanism + fatal course):** Duran (2023) states that LD is caused by “loss of function mutations in either the EPM2A or NHLRC1 gene” and that the hallmark is “accumulation of poorly branched glycogen in the form of aggregates known as Lafora bodies.” (duran2023roleofastrocytes pages 1-2)
+Mechanistic genetic etiology: laforin and malin regulate glycogen metabolism and prevent conversion of soluble glycogen into insoluble polyglucosan aggregates (Lafora bodies). (pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 2-4)
 
-### 2.2 Risk factors
-- **Genetic risk factor:** autosomal recessive inheritance; **consanguinity** increases frequency and LD is more frequent in regions/populations with higher consanguinity rates. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
-- **Geographic association:** relatively higher frequency in Mediterranean countries, North Africa, Middle East, and some regions of Southern India. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+### 2.2 Genetic risk factors (causal variants)
+A 2023 systematic review/meta-analysis (patient-level) compiled 250 genetically confirmed cases and characterized variant classes and prognostic correlations. (pondrelli2023prognosticvalueof pages 1-2)
 
-### 2.3 Protective factors
-No established genetic or environmental protective factors were identified in the retrieved evidence set. The best available “protective” signals in current evidence are **prognostic modifiers** (below) rather than preventive factors. (pondrelli2023prognosticvalueof pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+| Gene (HGNC symbol) | Protein | Alternate gene name(s) | Inheritance | Typical variant types | Variant counts/statistics (Pondrelli 2023 meta-analysis) | Genotype–phenotype notes | Key citations |
+|---|---|---|---|---|---|---|---|
+| **EPM2A** | Laforin; glucan phosphatase; dual-specificity phosphatase | EPM2; myoclonic epilepsy of Lafora type 1 | Autosomal recessive; disease caused by **biallelic** pathogenic variants | Missense/in-frame (MS); protein-truncating (PT) including nonsense, frameshift, splice-site, deletions; also point mutations and large deletions reported | 67 distinct **EPM2A** variants among 250 genetically confirmed cases; 109/250 cases (43.6%) carried **EPM2A** variants; **PT/PT** genotype most common in **EPM2A** (53.2%) (pondrelli2023prognosticvalueof pages 2-4, pondrelli2023prognosticvalueof pages 1-2) | Causes classic Lafora disease via loss of laforin function and dysregulated glycogen metabolism; no specific survival HR for **EPM2A** genotype was highlighted in retrieved evidence, and some studies reported conflicting genotype–survival associations overall (zimmern2024progressivemyoclonusepilepsy pages 6-7, pondrelli2023prognosticvalueof pages 1-2) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2, pondrelli2023prognosticvalueof pages 2-4) |
+| **NHLRC1** | Malin; E3 ubiquitin ligase | **EPM2B**; myoclonic epilepsy of Lafora type 2 | Autosomal recessive; disease caused by **biallelic** pathogenic variants | Missense/in-frame (MS); protein-truncating (PT) including nonsense, frameshift, splice-site, deletions; intronless gene; point mutations also reported | 47 distinct **NHLRC1** variants among 250 genetically confirmed cases; 141/250 cases (56.4%) carried **NHLRC1** variants; **MS/MS** genotype most common in **NHLRC1** (53.2%); **MS/PT** ~28% (pondrelli2023prognosticvalueof pages 2-4, pondrelli2023prognosticvalueof pages 1-2) | **NHLRC1 PT/PT** genotype associated with shorter survival (**HR 2.88, 95% CI 1.23–6.78**) and trend to higher loss of autonomy (**HR 2.03, 95% CI 0.75–5.56**); homozygous **p.Asp146Asn** associated with a more favorable/milder course (pondrelli2023prognosticvalueof pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2) |
+| **Disease-level architecture** | Laforin–malin complex regulating glycogen metabolism | Lafora disease; progressive myoclonus epilepsy | Autosomal recessive Mendelian disorder | Extreme allelic heterogeneity with >150 causative variants reported overall; variants grouped as **MS/MS**, **MS/PT**, **PT/PT** for prognostic analyses | 250 cases from 70 articles; 114 pathogenic variants total (**67 EPM2A**, **47 NHLRC1**); about **90%** of cases attributable to **EPM2A** or **EPM2B/NHLRC1** in retrieved review/case literature (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2) | Pathogenic variation in either gene disrupts glycogen regulation, causing polyglucosan/Lafora bodies; genotype has prognostic relevance, especially truncating **NHLRC1** genotypes and **p.Asp146Asn** (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7) | DOI:10.1186/s13023-023-02880-6; https://doi.org/10.1186/s13023-023-02880-6; DOI:10.3390/brainsci13121679; https://doi.org/10.3390/brainsci13121679 (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2) |
 
-### 2.4 Gene–environment interactions
-No clear gene–environment interaction evidence was retrieved in the available corpus; the major risk architecture is Mendelian biallelic loss-of-function with possible population/founder effects. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
 
-## 3. Phenotypes (clinical features)
+*Table: This table summarizes the two established causal genes for Lafora disease, their protein products, inheritance, variant classes, and the main genotype–phenotype findings from the 2023 patient-level meta-analysis. It is useful as a compact reference for disease-gene annotation and prognostic interpretation.*
 
-### 3.1 Core neurological phenotype (with suggested HPO)
-Lafora disease is clinically described as relatively homogeneous (except for rare atypical forms), with onset usually in adolescence and rapid progression. (turnbull2016laforadisease. pages 1-2, turnbull2016laforadisease. pages 3-4)
+Key statistics from the 2023 meta-analysis:
+- 250 cases from 70 articles; 114 pathogenic variants total (67 **EPM2A**, 47 **NHLRC1**) (pondrelli2023prognosticvalueof pages 1-2)
+- Gene distribution: **NHLRC1** in ~56% vs **EPM2A** in ~44% (pondrelli2023prognosticvalueof pages 2-4, zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Prognosis: **NHLRC1 PT/PT** genotype associated with shorter survival (HR 2.88, 95% CI 1.23–6.78) (pondrelli2023prognosticvalueof pages 1-2)
 
-Key phenotypes include:
-- **Progressive myoclonic epilepsy**: action- and stimulus‑sensitive myoclonus and generalized seizures including tonic–clonic, absence, atonic, and **visual seizures**; **photosensitivity** can be prominent. (turnbull2016laforadisease. pages 1-2, turnbull2016laforadisease. pages 3-4)
-  - Suggested HPO: **Myoclonus (HP:0001336)**; **Generalized tonic-clonic seizure (HP:0002069)**; **Absence seizures (HP:0002121)**; **Photosensitivity (HP:0001338)**; **Visual seizures (HP:0001121)**
-- **Neuropsychiatric symptoms** (behavioral change, depression/apathy; hallucinations/psychosis reported): (turnbull2016laforadisease. pages 1-2, aggradi2023laforadiseasea pages 2-4)
-  - Suggested HPO: **Behavioral abnormality (HP:0000708)**; **Depression (HP:0000716)**; **Hallucinations (HP:0000738)**; **Psychosis (HP:0000709)**
-- **Cognitive decline / dementia** progressing to severe disability and vegetative state: (turnbull2016laforadisease. pages 3-4, pondrelli2021naturalhistoryof pages 1-2)
-  - Suggested HPO: **Cognitive impairment (HP:0100543)**; **Dementia (HP:0000726)**; **Loss of ambulation (HP:0002505)**
-- **Cerebellar and bulbar dysfunction**: ataxia, dysarthria, mutism, dysphagia in advanced disease. (turnbull2016laforadisease. pages 3-4, aggradi2023laforadiseasea pages 2-4)
-  - Suggested HPO: **Ataxia (HP:0001251)**; **Dysarthria (HP:0001260)**; **Dysphagia (HP:0002015)**; **Mutism (HP:0002317)**
+### 2.3 Non-genetic risk/protective factors; gene–environment interaction
+No specific environmental risk factors, protective factors, or gene–environment interactions were captured in the retrieved evidence. In the current understanding from retrieved sources, LD is primarily driven by genetic disruption of glycogen homeostasis and secondary neuroinflammation. (duran2023roleofastrocytes pages 2-4, rubio2024beneficialeffectof pages 1-2)
 
-### 3.2 EEG and electrophysiology phenotype (diagnostic signature)
-A key real‑world clinical discriminator is the progression of EEG abnormalities:
-- Early EEG may be near normal or slightly slowed; **occipital discharges** on a slowed posterior dominant rhythm are described as highly suggestive in context. (turnbull2016laforadisease. pages 1-2)
-- Over time, EEG progresses to frequent diffuse epileptic discharges, long bursts of spike‑waves/polyspikes with major myoclonic jerks, and marked **photic stimulation enhancement**. (turnbull2016laforadisease. pages 3-4)
+---
 
-### 3.3 Laboratory/pathology phenotypes
-- **Lafora bodies** (PAS‑positive glycogen‑like inclusions) can be found in multiple tissues (brain, liver, muscle, sweat glands). (turnbull2016laforadisease. pages 1-2)
-- Atypical pathology can occur: a 2023 case report found increased lipid droplets and mild intermyofibrillar glycogen with **PAS‑D negative for Lafora bodies**, illustrating that biopsy sensitivity can be limited. (aggradi2023laforadiseasea pages 2-4)
+## 3. Phenotypes
 
-### 3.4 Frequency/penetrance and QoL impact
-Quantitative phenotype frequencies were not directly enumerated in the retrieved excerpts. However, severe QoL impact is implicit from the high probability of loss of autonomy and the use of epilepsy QoL instruments in longitudinal studies/trials. (pondrelli2021naturalhistoryof pages 1-2, NCT06609889 chunk 1)
+### 3.1 Core phenotype spectrum (human)
+Clinical features described in recent clinical literature include:
+- Progressive myoclonic epilepsy: generalized tonic–clonic seizures, myoclonic jerks/spasms; visual phenomena/seizures can occur (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 4-6)
+- Progressive cognitive decline/dementia and neuropsychiatric symptoms (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 4-6)
+- Ataxia and other cerebellar signs may appear (aggradi2023laforadiseasea pages 4-6, zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-QoL instruments used in current trial infrastructure include **QOLCE‑55**, **QOLIE‑AD48**, and **QOLIE‑31P**. (NCT06609889 chunk 1)
+**Abstract quote (clinical):** “It manifests as progressive myoclonus epilepsy and cognitive decline during adolescence.” (aggradi2023laforadiseasea pages 1-2)
 
-## 4. Genetic / Molecular Information
+### 3.2 Phenotype characteristics (onset, progression, severity)
+- Typical onset: adolescence; Italian cohort mean onset **13.4 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Rapidly progressive course: cognitive decline commonly emerges **2–6 years after onset** in one review/case synthesis (aggradi2023laforadiseasea pages 4-6)
+- Fatal outcome: often within ~10 years of onset (multiple recent sources; also expressed as 5–10 years after onset) (aggradi2023laforadiseasea pages 4-6, duran2023roleofastrocytes pages 1-2)
 
-### 4.1 Causal genes
-- **EPM2A** encodes **laforin**, described as a protein with an N‑terminal carbohydrate‑binding domain and a C‑terminal dual‑specificity phosphatase domain. (pondrelli2023prognosticvalueof pages 1-2, skurat2024impairedmalinexpression pages 1-2)
-- **NHLRC1 / EPM2B** encodes **malin**, an E3 ubiquitin ligase with a RING finger domain and NHL repeats/domains. (pondrelli2023prognosticvalueof pages 1-2, skurat2024impairedmalinexpression pages 1-2)
+### 3.3 Natural history statistics and prognosis
+From a large Italian natural-history cohort summarized in a 2024 PME scoping review:
+- Survival: **93% at 5 years**, **62% at 10 years**, **57% at 15 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Median time to loss of autonomy: **6 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Median survival: **11 years** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-**Third gene claim:** **PRDM8** has been reported in a single early‑onset family and remains tentative/not confirmed as a common cause in systematic summaries. (pondrelli2021naturalhistoryof pages 1-2, turnbull2012earlyonsetlaforabody pages 4-5)
+From a 2023 patient-level meta-analysis (subset statistics reported): for **EPM2A** cases, “overall survival was 92% at 5 years, 59% at 10 years, and 49% at 15 years (mean age at death 22.4 years).” (pondrelli2023prognosticvalueof pages 2-4)
 
-### 4.2 Pathogenic variants and genotype–phenotype modifiers (recent quantitative synthesis)
-A 2023 systematic review/meta‑analysis of genetically confirmed cases analyzed variant classes:
-- In 250 cases, mutated gene was **NHLRC1 in 56%** and **EPM2A in 44%**, with **114 distinct pathogenic variants** identified (67 EPM2A; 47 NHLRC1). (pondrelli2023prognosticvalueof pages 1-2)
-- **NHLRC1 PT/PT** (biallelic truncating) genotype associated with **shorter survival** (HR **2.88**, 95% CI 1.23–6.78). (pondrelli2023prognosticvalueof pages 6-9)
-- A specific homozygous missense variant **p.Asp146Asn (NHLRC1)** was confirmed to have a **more favorable prognosis** (disease duration >15 years in the described subgroup). (pondrelli2023prognosticvalueof pages 6-9)
+### 3.4 Suggested HPO terms (not exhaustive)
+Based on the retrieved phenotype descriptions:
+- Seizures: **HP:0001250 (Seizures)**; generalized tonic–clonic seizures **HP:0002069**
+- Myoclonus: **HP:0001336 (Myoclonus)**
+- Progressive cognitive decline/dementia: **HP:0001268 (Mental deterioration)**; dementia **HP:0000726**
+- Ataxia: **HP:0001251 (Ataxia)**
+- Dysarthria: **HP:0001260 (Dysarthria)** (aggradi2023laforadiseasea pages 2-4)
+- Dysphagia: **HP:0002015 (Dysphagia)** (aggradi2023laforadiseasea pages 2-4)
 
-### 4.3 Functional consequences and protein dysfunction
-Mechanistically, loss of laforin/malin function yields glycogen molecules with abnormal structure (poor branching, long chains; often hyperphosphorylated) that become insoluble and aggregate into Lafora bodies, driving neuroinflammation and neurodegeneration. (donohue2023gys1antisensetherapy pages 1-2, duran2023roleofastrocytes pages 1-2)
+Frequency-by-phenotype was not available in the retrieved excerpts; cohort-level frequency extraction would require additional full-text/registry sources.
 
-**Abstract quote (polyglucosan → neuroinflammation/degeneration):** Mitra et al. describe LD as “continuous formation of glycogen molecules with overlong and overphosphorylated branches called polyglucosans, which precipitate and gradually aggregate… [Lafora bodies]. These drive escalating neuroinflammation and neurodegeneration… and death within 10 years of onset.” (mitra2023laforintargetsmalin pages 1-2)
+---
 
-### 4.4 Modifier genes, epigenetics, chromosomal abnormalities
-No robust modifier genes or epigenetic signatures were identified in the available evidence set for this run.
+## 4. Genetic/Molecular Information
+
+### 4.1 Causal genes and variant architecture
+LD is caused by biallelic pathogenic variants in **EPM2A** or **NHLRC1/EPM2B**. (pondrelli2023prognosticvalueof pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+
+Variant architecture highlights:
+- Extreme allelic heterogeneity: “More than 150 different causative genetic variants” reported (pondrelli2023prognosticvalueof pages 1-2)
+- Variant types: missense/in-frame vs protein truncating (nonsense/frameshift/splice/deletions) (pondrelli2023prognosticvalueof pages 2-4)
+
+### 4.2 Functional consequences (protein dysfunction)
+- Laforin deficiency affects glycogen phosphate homeostasis and/or glycogen architecture; malin deficiency disrupts regulation of glycogen-related proteins (e.g., PTG) and contributes to abnormal glycogen accumulation (mitra2023laforintargetsmalin pages 10-10, duran2023roleofastrocytes pages 8-10)
+
+### 4.3 Modifier genes / epigenetics / chromosomal abnormalities
+No modifier genes, epigenetic mechanisms, or chromosomal abnormalities were captured in the retrieved evidence.
+
+---
 
 ## 5. Environmental Information
-No specific toxin/lifestyle/infectious environmental causes were identified; LD is primarily Mendelian. (pondrelli2021naturalhistoryof pages 1-2, turnbull2016laforadisease. pages 1-2)
+No non-genetic environmental, lifestyle, or infectious causes were captured in the retrieved evidence, consistent with LD being a primarily genetic neurodegenerative epilepsy syndrome in these sources. (pondrelli2023prognosticvalueof pages 1-2)
+
+---
 
 ## 6. Mechanism / Pathophysiology
 
-### 6.1 Causal chain (upstream → downstream)
-**Upstream trigger:** biallelic LOF in **EPM2A** or **NHLRC1/EPM2B** → dysfunctional laforin/malin complex (pondrelli2023prognosticvalueof pages 1-2, aggradi2023laforadiseasea pages 1-2)
+### 6.1 Causal chain (current model)
+A synthesis consistent across 2023–2024 sources:
+1. **Biallelic EPM2A or NHLRC1 variants** → loss of laforin/malin complex function (pondrelli2023prognosticvalueof pages 1-2, duran2023roleofastrocytes pages 2-4)
+2. Dysregulated glycogen metabolism → abnormal glycogen chain length/branching (and in some models hyperphosphorylation) → “transition of soluble glycogen to insoluble polyglucosan” (duran2023roleofastrocytes pages 8-10, mitra2023laforintargetsmalin pages 1-2)
+3. Formation of **Lafora bodies (polyglucosan aggregates)** containing glycogen metabolism proteins and proteostasis/adaptor proteins including **GS, ubiquitin, p62** (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
+4. Predominant accumulation in **astrocytes** (with neuronal inclusions also present) → network dysfunction, neuroinflammation, progressive seizures and neurodegeneration (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
 
-**Primary molecular defect:** abnormal glycogen structure (poor branching; long chains; often hyperphosphorylation) → insoluble polyglucosan → **Lafora bodies** (duran2023roleofastrocytes pages 1-2, skurat2024impairedmalinexpression pages 1-2)
+**Abstract quote (astrocyte emphasis):** “However, it was recently identified that most of these glycogen aggregates are present in astrocytes. Importantly, astrocytic Lafora bodies have been shown to contribute to pathology in Lafora disease.” (Feb 2023; Cells) (duran2023roleofastrocytes pages 1-2)
 
-**Cellular/tissue response:** Lafora bodies and abnormal glycogen associate with neuroinflammation and neurodegeneration; increasing seizure burden and cognitive decline. (mitra2023laforintargetsmalin pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
+### 6.2 Cellular processes and pathways
+- **Autophagy/endolysosomal dysfunction:** LD inclusions and associated proteins implicate autophagic handling; autophagy impairment is described as secondary to glycogen accumulation and normalizes when glycogen accumulation is prevented in models (duran2023roleofastrocytes pages 2-4, duran2023roleofastrocytes pages 10-11)
+- **Neuroinflammation:** reactive astrocytes/microglia are described; a 2024 Epm2b-/- mouse study identified inflammatory pathway involvement including “mainly TNF and IL-6 signaling pathways” and demonstrated infiltration of peripheral immune cells (T-lymphocytes) (rubio2024beneficialeffectof pages 1-2)
 
-### 6.2 Cell type involvement — astrocytes as a key recent concept (2023)
-A major shift in “current understanding” is the cell type distribution of Lafora bodies:
-- Historically thought to be neuronal; now evidence indicates **most glycogen aggregates are present in astrocytes** and that **astrocytic Lafora bodies contribute to pathology**. (duran2023roleofastrocytes pages 1-2)
+### 6.3 Anatomical and cell-type localization
+- Lafora bodies accumulate in brain and peripheral tissues (e.g., liver, muscle, sweat glands) (aggradi2023laforadiseasea pages 4-6)
+- Cell types: both neuronal and astrocytic inclusions; “most LBs are present in astrocytes” with distinct morphologies (neuronal perinuclear nLBs vs corpora-amylacea-like astrocytic bodies) (duran2023roleofastrocytes pages 2-4)
 
-**Suggested Cell Ontology (CL) terms (candidate):** astrocyte (CL:0000127); neuron (CL:0000540).
-
-### 6.3 Protein interaction and localization (2023–2024 mechanistic advances)
-- **Laforin targets malin to glycogen**: Mitra et al. generated a FLAG-tagged malin mouse and showed that malin localizes to glycogen and its presence at glycogen depends on laforin. (mitra2023laforintargetsmalin pages 1-2)
-- **Malin stabilization and interactome requires laforin**: Skurat et al. report that malin interacts with laforin and multiple glycogen-metabolizing enzymes; “interaction of malin with partner proteins requires laforin” (not dependent on laforin catalytic activity). (skurat2024impairedmalinexpression pages 1-2)
-
-### 6.4 Pathways and ontology suggestions
-**Candidate GO Biological Process terms (suggested):**
+### 6.4 Suggested ontology terms
+**GO biological process (examples):**
 - Glycogen metabolic process (GO:0005977)
 - Glycogen biosynthetic process (GO:0005978)
-- Protein ubiquitination (GO:0016567)
-- Inflammatory response (GO:0006954)
-- Neuroinflammatory response (candidate; map to inflammatory response + CNS context)
+- Macroautophagy (GO:0016236)
+- Neuroinflammatory response (GO:0150076)
 
-**Candidate GO Cellular Component terms (suggested):** cytosol (GO:0005829); glycogen granule (GO:0042587); lysosome (GO:0005764).
+**Cell Ontology (CL) suggestions:**
+- Astrocyte (CL:0000127)
+- Neuron (CL:0000540)
+- Microglial cell (CL:0000129)
+- T cell (CL:0000084)
+
+---
 
 ## 7. Anatomical Structures Affected
 
-### 7.1 Organ/tissue distribution
-Pathology includes Lafora bodies in:
-- **Brain** (major driver of clinical manifestations),
-- **Liver**, **skeletal muscle**, **cardiac muscle**, and **sweat gland cells** (eccrine/apocrine). (turnbull2016laforadisease. pages 1-2)
+### 7.1 Organ/tissue systems
+- Central nervous system (primary): progressive epilepsy, cognitive decline, neurodegeneration (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Peripheral tissues: Lafora bodies may be found in “brain, liver, muscle, and sweat glands” (aggradi2023laforadiseasea pages 4-6)
 
-**Suggested UBERON terms (candidate):** brain (UBERON:0000955); liver (UBERON:0002107); skeletal muscle tissue (UBERON:0001134); heart (UBERON:0000948); skin (UBERON:0002097).
+### 7.2 Suggested UBERON terms (examples)
+- Brain (UBERON:0000955)
+- Hippocampus (LBs enriched in astrocytes notably in hippocampus per review) (UBERON:0001954) (duran2023roleofastrocytes pages 2-4)
+- Skeletal muscle tissue (UBERON:0001134)
+- Skin (sweat glands/ducts) (UBERON:0002097)
+
+---
 
 ## 8. Temporal Development
+- Onset: typically adolescence; previously healthy children develop seizures (duran2023roleofastrocytes pages 1-2)
+- Progression: progressive, rapid; median loss of autonomy 6 years and median survival 11 years (zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-### 8.1 Onset
-Natural history meta-analysis reports:
-- **Mean onset age 13.4 years (SD 3.7)**; **9.1%** with onset ≥18 years. (pondrelli2021naturalhistoryof pages 1-2)
-- Reviews commonly state onset in adolescence; some cases are late-onset. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+No remission patterns were captured in the retrieved evidence.
 
-### 8.2 Progression pattern and staging
-LD course is progressive with escalating seizures and neurodegeneration leading to severe disability. (turnbull2016laforadisease. pages 3-4)
-
-A 2025 cohort analysis described three stages (presenting symptoms → progressive neurodegeneration → terminal stage) with increasing seizure emergencies and medical complications; included here as an example of operational clinical staging (though not 2023–2024). (d’orsi2025clinicalcourseand pages 1-2)
+---
 
 ## 9. Inheritance and Population
 
 ### 9.1 Inheritance
-- **Autosomal recessive** (biallelic pathogenic variants). (turnbull2016laforadisease. pages 1-2, pondrelli2023prognosticvalueof pages 1-2)
+Autosomal recessive, due to biallelic variants in **EPM2A** or **NHLRC1**. (pondrelli2023prognosticvalueof pages 1-2)
 
-### 9.2 Epidemiology (statistics)
-- **Worldwide prevalence ~4 cases per million**. (pondrelli2021naturalhistoryof pages 1-2, aggradi2023laforadiseasea pages 1-2)
-- Higher frequency in Mediterranean countries/North Africa/Middle East/Southern India; association with consanguinity. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+### 9.2 Epidemiology and geographic distribution
+Prevalence estimates in retrieved sources:
+- “approximately four cases per one million individuals” (aggradi2023laforadiseasea pages 1-2)
+- Germany: **1.69 per 10 million** (zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-### 9.3 Population/prognostic demographic factors
-- In pooled survival analyses, **Asian origin** and onset <18 years were negative prognostic factors. (pondrelli2021naturalhistoryof pages 1-2, pondrelli2023prognosticvalueof pages 6-9)
+Geographic concentration (qualitative): “occurs most frequently in Mediterranean countries, South India, North Africa, and the Middle East.” (aggradi2023laforadiseasea pages 1-2)
+
+Population-genetic details not captured in retrieved excerpts: incidence, carrier frequency, sex ratio, and explicit consanguinity rates.
+
+---
 
 ## 10. Diagnostics
 
-### 10.1 Clinical tests and biomarkers used in practice/research
-- **EEG**: progressive abnormalities including occipital discharges early and later diffuse spike‑waves/polyspikes with photic sensitivity. (turnbull2016laforadisease. pages 3-4, turnbull2016laforadisease. pages 1-2)
-- **MRI**: often unremarkable at onset. (turnbull2016laforadisease. pages 1-2, aggradi2023laforadiseasea pages 2-4)
+### 10.1 Clinical and electrophysiology
+EEG findings include generalized/multifocal epileptiform discharges; in one case report EEG showed “multiple discharges across both brain hemispheres.” (aggradi2023laforadiseasea pages 1-2)
 
-### 10.2 Biopsy/pathology
-- **Skin biopsy** can demonstrate PAS‑positive inclusions (Lafora bodies) in sweat gland myoepithelial cells; however, systematic natural history review cautions about **false positives/false negatives** and positions **genetic testing as reference standard**. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+The 2024 scoping review highlights characteristic electrophysiology (photo-paroxysmal response, giant SSEP) though milder genotypes may show these less often. (zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-### 10.3 Genetic testing (recommended approach)
-- **Targeted genetic testing for biallelic EPM2A or EPM2B/NHLRC1 variants** is the current reference standard for confirmation. (pondrelli2021naturalhistoryof pages 1-2)
-- Example implementation (2023 case): targeted next-generation sequencing (clinical exome) + Sanger confirmation identified homozygous **c.137G>A, p.(Cys46Tyr)** in EPM2B. (aggradi2023laforadiseasea pages 2-4)
+### 10.2 Neuroimaging
+MRI can be normal early: “Brain magnetic resonance imaging was unremarkable” in a genetically confirmed case (aggradi2023laforadiseasea pages 1-2); later disease may show widespread degeneration (aggradi2023laforadiseasea pages 4-6)
 
-### 10.4 Differential diagnosis
-Differentials for progressive myoclonic epilepsies include Unverricht–Lundborg disease (EPM1), neuronal ceroid lipofuscinoses, MERRF, and sialidosis. (turnbull2016laforadisease. pages 3-4)
+### 10.3 Biopsy
+- Axillary skin biopsy can detect PAS-positive inclusions in sweat duct cells but has “false-positive/false-negative limitations” (diagnostic pitfalls). (aggradi2023laforadiseasea pages 4-6)
+- Muscle biopsy may be atypical or lack Lafora bodies (as in a confirmed NHLRC1 case). (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 2-4)
+
+### 10.4 Genetic testing
+Genetic confirmation requires identifying biallelic pathogenic variants in **EPM2A** or **EPM2B/NHLRC1**; a case report used targeted NGS (clinical exome) plus Sanger confirmation and parental testing, with ACMG classification. (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 2-4)
+
+### 10.5 Differential diagnosis
+LD should be considered among progressive, refractory myoclonic epilepsies in children/young adults, and overlapping polyglucosan storage disorders are part of the differential. (aggradi2023laforadiseasea pages 1-2, aggradi2023laforadiseasea pages 6-7)
+
+---
 
 ## 11. Outcome / Prognosis
+LD is severe and progressive with high morbidity and premature mortality. Key quantitative outcomes from natural history are summarized above (Section 3.3). Prognosis can vary by genotype; truncating **NHLRC1** genotypes are associated with shorter survival in the patient-level meta-analysis, and **NHLRC1 p.Asp146Asn** is associated with a more favorable course. (pondrelli2023prognosticvalueof pages 1-2, zimmern2024progressivemyoclonusepilepsy pages 6-7)
 
-### 11.1 Survival and disability (quantitative natural history)
-Individual participant data meta-analysis (2021) provides key statistics:
-- **Survival:** 93% at 5 years; 62% at 10 years; 57% at 15 years; **median survival 11 years**. (pondrelli2021naturalhistoryof pages 1-2)
-- **Loss of autonomy:** 45% at 5 years; 75% at 10 years; 83% at 15 years; **median time to loss of autonomy 6 years**. (pondrelli2021naturalhistoryof pages 1-2)
-
-### 11.2 Genotype-informed prognosis (2023)
-- NHLRC1 truncating/truncating genotype (PT/PT) confers higher hazard of death (HR 2.88) and possible increased risk for loss of autonomy. (pondrelli2023prognosticvalueof pages 6-9)
+---
 
 ## 12. Treatment
 
-### 12.1 Current standard of care (real-world implementation)
-- **Antiseizure medications (ASMs)** are used symptomatically but do not stop the neurodegenerative process; drug resistance develops. (imbrici2024sodiumglucosecotransporter2inhibitors pages 1-3, turnbull2016laforadisease. pages 1-2)
-- **Supportive care** becomes critical in advanced stages (preventing/handling status epilepticus, aspiration pneumonia, respiratory compromise). (turnbull2016laforadisease. pages 3-4, d’orsi2025clinicalcourseand pages 1-2)
+### 12.1 Current clinical management (supportive)
+There is no established disease-modifying therapy in routine practice in the retrieved sources. Management is supportive and symptom-focused (seizure control, supportive care), with diet-based interventions historically explored. (aggradi2023laforadiseasea pages 1-2, NCT00007124 chunk 1)
 
-**Suggested MAXO terms (candidate):** antiseizure therapy (MAXO:0001298, candidate); supportive care (MAXO:0000747, candidate); ketogenic diet therapy (MAXO:0000088, candidate).
+### 12.2 Experimental / translational therapeutics (2023–2024 emphasis)
+A major contemporary strategy is **substrate reduction**—reducing glycogen synthesis in brain to prevent polyglucosan/Lafora body formation.
 
-### 12.2 Disease-modifying and emerging therapies (2023–2024 prioritized)
-
-| Approach | Target/mechanism | Evidence type | Key findings | Source (citation) | Publication date | URL | ClinicalTrials.gov NCT |
-|---|---|---|---|---|---|---|---|
-| Disease-modifying | **Gys1-ASO** lowers brain glycogen synthase 1 to reduce glycogen synthesis, Lafora body formation, and network hyperexcitability | Mouse model (Epm2b-/-) | Intracerebroventricular dosing at 4, 7, and 10 months led to **decreased Gys1 protein**, **decreased glycogen aggregation**, and **reduced epileptiform discharges**; prior genetic work cited in the paper suggested ~**50% reduction** in glycogen synthesis strongly suppresses pathology | Donohue et al., *Neurotherapeutics* (donohue2023gys1antisensetherapy pages 1-2) | 2023-09-12 | https://doi.org/10.1007/s13311-023-01434-9 | — |
-| Disease-modifying / repurposed | **Metformin**; AMPK activation with downstream effects on oxidative stress, neuroinflammation, mitochondrial dysfunction, and neuronal hyperexcitability | Mouse models + human observational follow-up | In Epm2a-/- and Epm2b-/- mice, **early treatment from conception to adulthood** improved PTZ sensitivity, motor/memory outcomes, neurodegeneration, astrogliosis, and decreased Lafora bodies; human follow-up included **18 patients** (**8 treated**, **10 untreated**), with treated patients showing **slower disease progression** and slower decline in daily living activities | Burgos et al., *Neurotherapeutics* (burgos2023earlytreatmentwith pages 1-2) | 2022-10-27 / 2023 issue | https://doi.org/10.1007/s13311-022-01304-w | — |
-| Disease-modifying / hypothesis-generating repurposing | **SGLT2 inhibitors (gliflozins)** proposed to reduce neuronal/astrocytic glucose entry, lower glycogen storage/polyglucosan formation, reduce sodium-dependent excitability, and promote ketogenesis | Review / mechanistic hypothesis | No efficacy data in LD patients yet; article argues these drugs may reduce glucose available for glycogen accumulation and could mimic some antiepileptic/metabolic benefits; emphasizes LD prevalence **<4 per 1,000,000**, onset around **10–11 years**, life expectancy about **10 years from diagnosis** | Imbrici et al., *Pharmacological Research* (imbrici2024sodiumglucosecotransporter2inhibitors pages 1-3) | 2024-01 | https://doi.org/10.1016/j.phrs.2023.107012 | — |
-| Disease-modifying | **ION283** intrathecal antisense oligonucleotide for Lafora disease | Phase 1/2 open-label clinical trial | Recruiting **10** participants; **15 mg intrathecal every 12 weeks** for 24 months; primary endpoint safety (treatment-related AEs); efficacy endpoints include Lafora Disease Performance Scale, PEDI, global impression scales, seizure frequency, and EEG measures | ClinicalTrials.gov trial record (NCT06609889 chunk 1) | First posted 2024-09-24; updated 2025-12-18 | https://clinicaltrials.gov/study/NCT06609889 | **NCT06609889** |
-| Disease-modifying / expanded access | **VAL-1221** intravenous investigational therapy; expanded-access program for genetically confirmed mid-stage LD | Expanded access program | Protocol allows up to **10** patients; dosing **20 mg/kg IV every other week**; eligibility includes genetically confirmed LD with pathogenic/likely pathogenic variants in **EPM2A** or **EPM2B** and age **12–28 years** | ClinicalTrials.gov expanded access record (NCT05930223 chunk 1) | First posted 2023-07-05 | https://clinicaltrials.gov/study/NCT05930223 | **NCT05930223** |
-| Symptomatic / possibly disease-modifying | **Ketogenic diet**; restrictive minimum-carbohydrate diet aimed at altering substrate availability and seizure burden | NIH open-label clinical study | Planned enrollment **15**; 6-month protocol in patients ≥10 years with relatively advanced LD; outcomes included standardized clinical scales plus MRI/MRS, CSF, EEG, EMG, evoked potentials, and metabolic testing; designed to assess acute and potential disease-modifying effects | ClinicalTrials.gov trial record (NCT00007124 chunk 1) | First posted 2000-12-08; completed 2002-11 | https://clinicaltrials.gov/study/NCT00007124 | **NCT00007124** |
-| Natural history / trial-readiness / biomarker platform | Prospective natural history and functional status study to define clinical course, biomarkers, and outcome measures for future intervention trials | Prospective observational cohort | Completed study with **33** participants over **24 months**; collected blood and CSF for biomarker work and longitudinal assessments including Lafora Disease Performance Scale, seizure diary, video-EEG, cognitive/motor testing, caregiver burden, ataxia scales, and QoL instruments | ClinicalTrials.gov observational study record (NCT03876522 chunk 1) | First posted 2019-03-15; completed 2022-04-01 | https://clinicaltrials.gov/study/NCT03876522 | **NCT03876522** |
+| Type | Intervention | Mechanism/target | Population/model | Key endpoints/outcomes | Status | Dates | Sponsor | URL/DOI |
+|---|---|---|---|---|---|---|---|---|
+| Interventional clinical trial | **ION283** intrathecal ASO (NCT06609889) | Antisense oligonucleotide therapy targeting abnormal glycogen synthesis pathway; efficacy endpoints based on EEG change from baseline to 2 years, including posterior dominant/background rhythms, sleep physiology, electrographic seizures, and epileptiform discharge counts | Patients aged **10–18 years** with genetically confirmed **EPM2A** or **EPM2B/NHLRC1** Lafora disease, LDPS score ≥9 and motor subscore ≥2 | Safety and efficacy; EEG-based biomarkers over 2 years | **Recruiting** | Record excerpt current in 2024; version holder date **2026-04-24**; start/completion dates not captured in excerpt | University of Texas Southwestern Medical Center; official: Berge Minassian, MD | https://clinicaltrials.gov/study/NCT06609889 (NCT06609889 chunk 2) |
+| Observational clinical study | **Natural History and Functional Status Study of Patients With Lafora Disease** (NCT03876522) | Prospective natural-history study to define disease course, identify biomarkers, and establish outcome measures for future trials | **33 participants**, minimum age **5 years**, genetically confirmed Lafora disease | Seizure frequency/duration, awake/sleep video EEG, Lafora Disease Performance/Clinical Performance Scales, cognition, gait/ataxia, caregiver burden, disability, QoL, blood/CSF biomarkers | **Completed** | **2019-01-09 to 2022-04-01**; 24-month assessments | Ionis Pharmaceuticals, Inc. | https://clinicaltrials.gov/study/NCT03876522 (NCT03876522 chunk 1) |
+| Observational/proof-of-principle study | **Ketogenic diet** (NCT00007124) | Restrictive low-carbohydrate ketogenic diet intended to acutely modify brain/whole-body metabolism and possibly reduce disease manifestations | **15 participants** with relatively advanced Lafora disease; age **≥10 years**; histologic or preferably genetic confirmation | Clinical scales plus MRI/MRS, LP, metabolic/endocrine testing, neuropsychology, EEG, EMG, SEP/VEP; 6-month diet with possible continuation to 12 months for responders | **Completed** | **December 2000 to November 2002** | National Institute of Neurological Disorders and Stroke (NINDS) | https://clinicaltrials.gov/study/NCT00007124 (NCT00007124 chunk 1) |
+| Expanded access | **VAL-1221** intravenous infusion every other week (NCT05930223; LEAP) | Enzyme-fusion/advanced therapeutic strategy intended to target Lafora body burden; protocol provides treatment access rather than formal efficacy trial | Up to **10** patients with genetically documented biallelic **EPM2A** or **EPM2B** variants; mid-stage disease, age **12–28 years** | Access protocol; excerpt does not list formal endpoints/outcome measures | **Available** | Initial submission **2023-06-25**; first posted **2023-07-05** | Parasail, LLC | https://clinicaltrials.gov/study/NCT05930223 (NCT05930223 chunk 1) |
+| Preclinical | **Gys1-ASO** intracerebroventricular antisense therapy | Reduces **glycogen synthase 1 (Gys1)** expression to lower brain glycogen synthesis and prevent formation of disease-driving Lafora bodies | **Epm2b-/- (malin KO) mice**; ICV dosing at **4, 7, and 10 months**, sacrifice at 13 months | Decreased **Gys1** mRNA/protein, reduced glycogen aggregation/Lafora body burden, fewer larger LBs, reduced epileptiform discharges; proof of concept that targeting glycogen synthesis can halt progression | Preclinical proof-of-concept | Published **Oct 2023** | Academic/industry collaboration; study authors included Ionis-associated ASO expertise | https://doi.org/10.1007/s13311-023-01434-9 (donohue2023gys1antisensetherapy pages 1-2, donohue2023gys1antisensetherapy pages 4-6) |
+| Preclinical | **Fingolimod** | S1PR modulation to reduce reactive astrogliosis-derived neuroinflammation, stabilize BBB, and decrease **T-lymphocyte** brain infiltration; inflammatory pathways implicated include **TNF** and **IL-6** signaling | **Epm2b-/- mice** treated from **3 months of age** for **15 weeks**; dose **0.5 mg/kg** in drinking water | Reduced reactive astrocyte-derived neuroinflammation, decreased brain T-cell infiltration, and improved behavioral performance; more effective than dimethyl fumarate in this model | Preclinical | Published **2024** | Academic study | https://doi.org/10.1007/s12035-023-03766-1 (rubio2024beneficialeffectof pages 1-2, rubio2024beneficialeffectof pages 2-4) |
 
 
-*Table: This table summarizes the current Lafora disease therapeutic landscape, emphasizing 2023-2024 developments while also including key older clinical studies that support trial readiness. It is useful for quickly comparing mechanisms, evidence levels, and active/available clinical programs.*
+*Table: This table summarizes the main retrieved Lafora disease clinical studies, expanded-access programs, and leading 2023–2024 preclinical therapeutic strategies. It is useful for quickly comparing mechanisms, populations/models, endpoints, and development status across the current translational landscape.*
 
-Key developments:
-- **GYS1 reduction strategies (ASO)**: 2023 preclinical work demonstrates that a brain‑delivered Gys1-ASO reduces glycogen aggregation and epileptiform discharges in LD mouse models. (donohue2023gys1antisensetherapy pages 1-2)
-- **Clinical translation to ASO trials:** a Phase 1/2 intrathecal ASO program (ION283) is recruiting (NCT06609889). (NCT06609889 chunk 1)
-- **Metformin repurposing:** metformin shows improved outcomes in LD mouse models and is associated with slower progression in a small human observational cohort (8 treated vs 10 untreated). (burgos2023earlytreatmentwith pages 1-2)
-- **SGLT2 inhibitor repurposing hypothesis (2024):** proposed mechanism includes limiting neuronal/astrocytic glucose entry (reducing glycogen substrate), reducing sodium-driven excitability, and promoting ketogenesis; currently hypothesis‑generating. (imbrici2024sodiumglucosecotransporter2inhibitors pages 1-3)
+Key 2023–2024 developments from retrieved evidence:
+- **GYS1 antisense (preclinical)**: intracerebroventricular Gys1-ASO at 4/7/10 months reduced Gys1 protein and Lafora body burden and reduced epileptiform discharges in Epm2b-/- mice (donohue2023gys1antisensetherapy pages 4-6)
+- **ION283 (clinical trial)**: intrathecal ASO trial uses EEG biomarkers over 2 years as efficacy endpoints; recruiting ages 10–18 (NCT06609889) (NCT06609889 chunk 2)
+- **Neuroinflammation modulation (preclinical)**: fingolimod reduced reactive astrocyte-derived neuroinflammation and T-lymphocyte infiltration and improved behavior in Epm2b-/- mice; inflammatory signaling implicated includes TNF and IL-6 (rubio2024beneficialeffectof pages 1-2, rubio2024beneficialeffectof pages 2-4)
+- **VAL-1221 expanded access**: IV 20 mg/kg every other week, up to 10 patients, genetically confirmed mid-stage disease (NCT05930223) (NCT05930223 chunk 1)
 
-### 12.3 Visual evidence (preclinical application)
-Figures in Donohue et al. (2023) provide a schematic for the glycogen/metabolic rationale and show reductions in Lafora body burden and epileptiform discharges after Gys1-ASO treatment in a mouse model, supporting the mechanistic application of glycogen synthase lowering. (donohue2023gys1antisensetherapy media 599505f0, donohue2023gys1antisensetherapy media 63d9a679)
+### 12.3 Suggested MAXO terms (examples)
+- Antisense oligonucleotide therapy (MAXO term family; label: antisense therapy)
+- Ketogenic diet therapy (dietary therapy)
+- Expanded access treatment program
+- Gene therapy / gene replacement therapy (preclinical in retrieved sources) (zafrapuerta2023genereplacementtherapy pages 21-24)
+
+Specific MAXO IDs were not captured in retrieved sources; mapping would require ontology lookup.
+
+---
 
 ## 13. Prevention
-No primary prevention strategies exist beyond genetic counseling and reproductive planning for at-risk families; LD is Mendelian with autosomal recessive inheritance. (turnbull2016laforadisease. pages 1-2, pondrelli2021naturalhistoryof pages 1-2)
+No primary prevention strategies beyond genetic counseling and family planning are detailed in retrieved sources. Genetic confirmation and family testing are implied by autosomal recessive inheritance and use of parental testing in case reports. (aggradi2023laforadiseasea pages 2-4)
+
+---
 
 ## 14. Other Species / Natural Disease
-Animal models are referenced as recapitulating pathology/phenotype in reviews; detailed natural disease in non-human species was not retrieved in the evidence set for this run. (turnbull2016laforadisease. pages 1-2)
+Naturally occurring Lafora-like disease has been described in dogs and linked to **NHLRC1 repeat expansions**, including an “NHLRC1 repeat expansion in two beagles” and an “NHLRC1 homozygous dodecamer expansion in a Newfoundland dog,” with reports spanning multiple breeds (e.g., Basset hound, beagle, Newfoundland dog, miniature Wirehaired Dachshunds). (vincent2023retinalphenotypingof pages 9-10)
+
+---
 
 ## 15. Model Organisms
-- **Mouse knockout models (Epm2a−/−, Epm2b−/−)** recapitulate key neurological and histopathological features and are used for therapeutic testing (metformin, Gys1-ASO). (burgos2023earlytreatmentwith pages 1-2, donohue2023gys1antisensetherapy pages 1-2)
-- A 2023 mechanistic study generated a **FLAG-tagged malin (Nhlrc1) mouse** to localize and study endogenous malin. (mitra2023laforintargetsmalin pages 1-2)
 
-## Expert opinions / analysis (authoritative perspectives)
-- **Astrocyte primacy:** Duran (2023) argues that identifying astrocytic Lafora bodies as a major aggregate pool “identify a primary role of astrocytes in the pathophysiology,” shifting target cell assumptions for therapy design. (duran2023roleofastrocytes pages 1-2)
-- **Trial design implication:** The 2023 patient-level meta-analysis explicitly notes that genotype-defined functional impact (e.g., NHLRC1 PT/PT) should be considered when launching disease-modifying trials to interpret outcomes appropriately. (pondrelli2023prognosticvalueof pages 1-2, pondrelli2023prognosticvalueof pages 6-9)
+### 15.1 Mammalian models (mouse)
+Common murine models include **Epm2a−/− (laforin KO)** and **Epm2b−/− (malin KO)**, which develop Lafora bodies and neurological phenotypes and are used for therapy testing (ASO, gene replacement). (donohue2023gys1antisensetherapy pages 1-2, zafrapuerta2023genereplacementtherapy pages 1-4)
 
-## Key gaps / not available in this run
-- MONDO ID and ICD-10/ICD-11 mappings were not retrieved from the available sources.
-- Population carrier frequency estimates and gnomAD-based allele frequencies were not retrieved.
-- Detailed per-phenotype frequency percentages (beyond survival/disability) were not captured in available excerpts.
+**Retinal biomarker/endpoint development (quantitative):** In Epm2a−/− mice, retinal PASD staining showed inner plexiform layer Lafora body density **1743 ± 533/mm² at 10 months** and **2615 ± 915/mm² at 14 months**, while ERG parameters and retinal thickness were preserved, supporting retinal LB quantification as a potential monitoring readout in mice. (vincent2023retinalphenotypingof pages 1-2)
 
+**Neuromuscular model phenotype (2024):** Laforin-deficient mice show neuromuscular junction dysfunction and motor neuron loss with an electrophysiological decrement reported as “(14.93±4.26%) at 50 Hz at the age of 5 months.” (shukla2024neuromuscularjunctiondysfunction pages 1-2)
+
+### 15.2 Invertebrate models
+A 2023 mechanistic review cites Drosophila and indicates forced neuronal glycogen accumulation can cause neuronal apoptosis, supporting glycogen excess as a driver of neurodegeneration. (duran2023roleofastrocytes pages 2-4)
+
+---
+
+## Recent developments and expert analysis (2023–2024 priority)
+
+1. **Genotype–prognosis associations were quantitatively strengthened** by a 2023 patient-level meta-analysis showing truncating NHLRC1 genotypes predict worse survival (HR 2.88), which is directly relevant for stratification and interpretation of disease-modifying trials. (pondrelli2023prognosticvalueof pages 1-2)
+2. **Cell-type re-framing toward astrocytes**: a 2023 review emphasized that “most” Lafora bodies are astrocytic and that astrocytic aggregates contribute to pathology, shifting mechanistic and therapeutic attention to glial glycogen metabolism and glia-driven inflammation. (duran2023roleofastrocytes pages 1-2, duran2023roleofastrocytes pages 2-4)
+3. **Translational pipeline maturity**: the existence of an Ionis-sponsored natural history study (NCT03876522) defining outcome measures and biomarkers, plus a recruiting ASO trial (NCT06609889) with EEG endpoints, indicates field movement from preclinical substrate reduction to biomarker-driven clinical development. (NCT03876522 chunk 1, NCT06609889 chunk 2)
+
+---
+
+## Data gaps and limitations (from retrieved sources)
+- Orphanet/MeSH/ICD identifiers were not captured in retrieved evidence.
+- Incidence, carrier frequency, sex ratio, and explicit consanguinity statistics were not available in the retrieved excerpts.
+- Phenotype frequencies (percent affected) for individual HPO terms were not extractable from the retrieved excerpts; fuller cohort papers would be needed.
+
+---
+
+## Key resources (URLs; access dates not applicable)
+- Open Targets disease page (MONDO_0009697): https://platform.opentargets.org/disease/MONDO_0009697 (aggradi2023laforadiseasea pages 1-2)
+- OMIM entry #254780: https://omim.org/entry/254780 (aggradi2023laforadiseasea pages 1-2)
+- Pondrelli et al., 2023 (Orphanet J Rare Dis; DOI 10.1186/s13023-023-02880-6): https://doi.org/10.1186/s13023-023-02880-6 (pondrelli2023prognosticvalueof pages 1-2)
+- Zimmern & Minassian, 2024 (Genes; DOI 10.3390/genes15020171): https://doi.org/10.3390/genes15020171 (zimmern2024progressivemyoclonusepilepsy pages 6-7)
+- Donohue et al., 2023 (Neurotherapeutics; DOI 10.1007/s13311-023-01434-9): https://doi.org/10.1007/s13311-023-01434-9 (donohue2023gys1antisensetherapy pages 4-6)
+- Duran, 2023 (Cells; DOI 10.3390/cells12050722): https://doi.org/10.3390/cells12050722 (duran2023roleofastrocytes pages 1-2)
+- Rubio et al., 2024 (Molecular Neurobiology; DOI 10.1007/s12035-023-03766-1): https://doi.org/10.1007/s12035-023-03766-1 (rubio2024beneficialeffectof pages 1-2)
+- ClinicalTrials.gov: NCT06609889 https://clinicaltrials.gov/study/NCT06609889 ; NCT03876522 https://clinicaltrials.gov/study/NCT03876522 ; NCT05930223 https://clinicaltrials.gov/study/NCT05930223 ; NCT00007124 https://clinicaltrials.gov/study/NCT00007124 (NCT06609889 chunk 2, NCT03876522 chunk 1, NCT05930223 chunk 1, NCT00007124 chunk 1)
 
 
 References
 
-1. (turnbull2016laforadisease. pages 1-2): Julie Turnbull, Erica Tiberia, Pasquale Striano, Pierre Genton, Stirling Carpenter, Cameron A. Ackerley, and Berge A. Minassian. Lafora disease. Epileptic disorders : international epilepsy journal with videotape, 18 S2:38-62, Sep 2016. URL: https://doi.org/10.1684/epd.2016.0842, doi:10.1684/epd.2016.0842. This article has 195 citations.
+1. (aggradi2023laforadiseasea pages 1-2): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
 
-2. (pondrelli2021naturalhistoryof pages 1-2): Federica Pondrelli, Lorenzo Muccioli, Laura Licchetta, Barbara Mostacci, Corrado Zenesini, Paolo Tinuper, Luca Vignatelli, and Francesca Bisulli. Natural history of lafora disease: a prognostic systematic review and individual participant data meta-analysis. Orphanet Journal of Rare Diseases, Aug 2021. URL: https://doi.org/10.1186/s13023-021-01989-w, doi:10.1186/s13023-021-01989-w. This article has 62 citations and is from a peer-reviewed journal.
+2. (pondrelli2023prognosticvalueof pages 1-2): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
 
-3. (NCT03876522 chunk 1):  Natural History and Functional Status Study of Patients With Lafora Disease. Ionis Pharmaceuticals, Inc.. 2019. ClinicalTrials.gov Identifier: NCT03876522
+3. (NCT06609889 chunk 2): Berge Minassian. A Safety and Efficacy of Intrathecally Administered ION283 in Patients With Lafora Disease. Berge Minassian. 2024. ClinicalTrials.gov Identifier: NCT06609889
 
-4. (NCT06609889 chunk 1): Berge Minassian. A Safety and Efficacy of Intrathecally Administered ION283 in Patients With Lafora Disease. Berge Minassian. 2024. ClinicalTrials.gov Identifier: NCT06609889
+4. (zimmern2024progressivemyoclonusepilepsy pages 6-7): Vincent Zimmern and Berge Minassian. Progressive myoclonus epilepsy: a scoping review of diagnostic, phenotypic and therapeutic advances. Genes, 15:171, Jan 2024. URL: https://doi.org/10.3390/genes15020171, doi:10.3390/genes15020171. This article has 20 citations.
 
-5. (pondrelli2023prognosticvalueof pages 1-2): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
+5. (rubio2024beneficialeffectof pages 1-2): Teresa Rubio, Ángela Campos-Rodríguez, and Pascual Sanz. Beneficial effect of fingolimod in a lafora disease mouse model by preventing reactive astrogliosis-derived neuroinflammation and brain infiltration of t-lymphocytes. Molecular Neurobiology, 61:3105-3120, Nov 2024. URL: https://doi.org/10.1007/s12035-023-03766-1, doi:10.1007/s12035-023-03766-1. This article has 5 citations and is from a peer-reviewed journal.
 
-6. (duran2023roleofastrocytes pages 1-2): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
+6. (NCT03876522 chunk 1):  Natural History and Functional Status Study of Patients With Lafora Disease. Ionis Pharmaceuticals, Inc.. 2019. ClinicalTrials.gov Identifier: NCT03876522
 
-7. (burgos2023earlytreatmentwith pages 1-2): Daniel F. Burgos, María Machío-Castello, Nerea Iglesias-Cabeza, Beatriz G. Giráldez, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Early treatment with metformin improves neurological outcomes in lafora disease. Neurotherapeutics, 20:230-244, Jan 2023. URL: https://doi.org/10.1007/s13311-022-01304-w, doi:10.1007/s13311-022-01304-w. This article has 32 citations and is from a peer-reviewed journal.
+7. (donohue2023gys1antisensetherapy pages 1-2): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
 
-8. (NCT00007124 chunk 1):  Ketogenic Diet in Lafora Disease. National Institute of Neurological Disorders and Stroke (NINDS). 2000. ClinicalTrials.gov Identifier: NCT00007124
+8. (duran2023roleofastrocytes pages 2-4): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
 
-9. (imbrici2024sodiumglucosecotransporter2inhibitors pages 1-3): Paola Imbrici, Giuseppe d’Orsi, Massimo Carella, Orazio Nicolotti, Annamaria De Luca, Cosimo Damiano Altomare, and Antonella Liantonio. Sodium-glucose cotransporter-2 inhibitors: a potential novel treatment for lafora disease? Pharmacological Research, 199:107012, Jan 2024. URL: https://doi.org/10.1016/j.phrs.2023.107012, doi:10.1016/j.phrs.2023.107012. This article has 5 citations and is from a highest quality peer-reviewed journal.
+9. (pondrelli2023prognosticvalueof pages 2-4): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
 
-10. (skurat2024impairedmalinexpression pages 1-2): Alexander V. Skurat, Dyann M. Segvich, Christopher J. Contreras, Yueh-Chiang Hu, Thomas D. Hurley, Anna A. DePaoli-Roach, and Peter J. Roach. Impaired malin expression and interaction with partner proteins in lafora disease. Journal of Biological Chemistry, 300:107271, May 2024. URL: https://doi.org/10.1016/j.jbc.2024.107271, doi:10.1016/j.jbc.2024.107271. This article has 10 citations and is from a domain leading peer-reviewed journal.
+10. (aggradi2023laforadiseasea pages 4-6): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
 
-11. (turnbull2016laforadisease. pages 3-4): Julie Turnbull, Erica Tiberia, Pasquale Striano, Pierre Genton, Stirling Carpenter, Cameron A. Ackerley, and Berge A. Minassian. Lafora disease. Epileptic disorders : international epilepsy journal with videotape, 18 S2:38-62, Sep 2016. URL: https://doi.org/10.1684/epd.2016.0842, doi:10.1684/epd.2016.0842. This article has 195 citations.
+11. (duran2023roleofastrocytes pages 1-2): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
 
-12. (aggradi2023laforadiseasea pages 1-2): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+12. (aggradi2023laforadiseasea pages 2-4): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
 
-13. (aggradi2023laforadiseasea pages 2-4): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
+13. (mitra2023laforintargetsmalin pages 10-10): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
 
-14. (turnbull2012earlyonsetlaforabody pages 4-5): Julie Turnbull, Jean-Marie Girard, Hannes Lohi, Elayne M. Chan, Peixiang Wang, Erica Tiberia, Salah Omer, Mushtaq Ahmed, Christopher Bennett, Aruna Chakrabarty, Atul Tyagi, Yan Liu, Nela Pencea, XiaoChu Zhao, Stephen W. Scherer, Cameron A. Ackerley, and Berge A. Minassian. Early-onset lafora body disease. Brain, 135:2684-2698, Aug 2012. URL: https://doi.org/10.1093/brain/aws205, doi:10.1093/brain/aws205. This article has 113 citations and is from a highest quality peer-reviewed journal.
+14. (duran2023roleofastrocytes pages 8-10): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
 
-15. (pondrelli2023prognosticvalueof pages 6-9): Federica Pondrelli, Raffaella Minardi, Lorenzo Muccioli, Corrado Zenesini, Luca Vignatelli, Laura Licchetta, Barbara Mostacci, Paolo Tinuper, Craig W. Vander Kooi, Matthew S. Gentry, and Francesca Bisulli. Prognostic value of pathogenic variants in lafora disease: systematic review and meta-analysis of patient-level data. Orphanet Journal of Rare Diseases, Sep 2023. URL: https://doi.org/10.1186/s13023-023-02880-6, doi:10.1186/s13023-023-02880-6. This article has 16 citations and is from a peer-reviewed journal.
+15. (mitra2023laforintargetsmalin pages 1-2): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
 
-16. (donohue2023gys1antisensetherapy pages 1-2): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+16. (duran2023roleofastrocytes pages 10-11): Jordi Duran. Role of astrocytes in the pathophysiology of lafora disease and other glycogen storage disorders. Cells, 12:722, Feb 2023. URL: https://doi.org/10.3390/cells12050722, doi:10.3390/cells12050722. This article has 9 citations.
 
-17. (mitra2023laforintargetsmalin pages 1-2): Sharmistha Mitra, Baozhi Chen, Peixiang Wang, Erin E. Chown, Mathew Dear, Dikran R. Guisso, Ummay Mariam, Jun Wu, Emrah Gumusgoz, and Berge A. Minassian. Laforin targets malin to glycogen in lafora progressive myoclonus epilepsy. Disease Models &amp; Mechanisms, Jan 2023. URL: https://doi.org/10.1242/dmm.049802, doi:10.1242/dmm.049802. This article has 19 citations and is from a domain leading peer-reviewed journal.
+17. (aggradi2023laforadiseasea pages 6-7): Carola Rita Ferrari Aggradi, Martina Rimoldi, Gloria Romagnoli, Daniele Velardo, Megi Meneri, Davide Iacobucci, Michela Ripolone, Laura Napoli, Patrizia Ciscato, Maurizio Moggio, Giacomo Pietro Comi, Dario Ronchi, Stefania Corti, and Elena Abati. Lafora disease: a case report and evolving treatment advancements. Brain Sciences, 13:1679, Dec 2023. URL: https://doi.org/10.3390/brainsci13121679, doi:10.3390/brainsci13121679. This article has 8 citations.
 
-18. (d’orsi2025clinicalcourseand pages 1-2): G. d’Orsi, Maria Teresa Di Claudio, A. Liantonio, P. Imbrici, C. Altomare, O. Palumbo, P. Palumbo, Mario Benvenuto, Nicola Gambacorta, G. Lolli, Francesca Cinzia Giuseppe Lidia Valentina Laura Raffaele Lor Bisulli Costa Damante Di Vito Imperatore Licchetta, F. Bisulli, Cinzia Costa, Giuseppe Damante, L. Di Vito, Valentina Imperatore, L. Licchetta, Raffaele Lodi, L. Muccioli, P. Mantuano, Serena Mazzone, Roberto Michelucci, E. Pasini, Paolo Prontera, M. Tappatà, L. Vignatelli, C. Zenesini, and M. Carella. Clinical course and management challenges in lafora disease: a narrative analysis in an apulian cohort. Orphanet Journal of Rare Diseases, Aug 2025. URL: https://doi.org/10.1186/s13023-025-03976-x, doi:10.1186/s13023-025-03976-x. This article has 0 citations and is from a peer-reviewed journal.
+18. (NCT00007124 chunk 1):  Ketogenic Diet in Lafora Disease. National Institute of Neurological Disorders and Stroke (NINDS). 2000. ClinicalTrials.gov Identifier: NCT00007124
 
 19. (NCT05930223 chunk 1):  Intravenous VAL-1221 Lafora Expanded Access Protocol. Parasail, LLC. ClinicalTrials.gov Identifier: NCT05930223
 
-20. (donohue2023gys1antisensetherapy media 599505f0): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+20. (donohue2023gys1antisensetherapy pages 4-6): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
 
-21. (donohue2023gys1antisensetherapy media 63d9a679): Katherine J. Donohue, Bethany Fitzsimmons, Ronald C. Bruntz, Kia H. Markussen, Lyndsay E.A. Young, Harrison A. Clarke, Peyton T. Coburn, Laiken E. Griffith, William Sanders, Jack Klier, Sara N. Burke, Andrew P. Maurer, Berge A. Minassian, Ramon C. Sun, Holly B. Kordasiewisz, and Matthew S. Gentry. Gys1 antisense therapy prevents disease-driving aggregates and epileptiform discharges in a lafora disease mouse model. Neurotherapeutics, 20:1808-1819, Oct 2023. URL: https://doi.org/10.1007/s13311-023-01434-9, doi:10.1007/s13311-023-01434-9. This article has 18 citations and is from a peer-reviewed journal.
+21. (rubio2024beneficialeffectof pages 2-4): Teresa Rubio, Ángela Campos-Rodríguez, and Pascual Sanz. Beneficial effect of fingolimod in a lafora disease mouse model by preventing reactive astrogliosis-derived neuroinflammation and brain infiltration of t-lymphocytes. Molecular Neurobiology, 61:3105-3120, Nov 2024. URL: https://doi.org/10.1007/s12035-023-03766-1, doi:10.1007/s12035-023-03766-1. This article has 5 citations and is from a peer-reviewed journal.
+
+22. (zafrapuerta2023genereplacementtherapy pages 21-24): Luis Zafra-Puerta, Daniel F. Burgos, Nerea Iglesias-Cabeza, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Gene replacement therapy for lafora disease in the epm2a-/- mouse model. bioRxiv, Dec 2023. URL: https://doi.org/10.1101/2023.12.14.571636, doi:10.1101/2023.12.14.571636. This article has 1 citations.
+
+23. (vincent2023retinalphenotypingof pages 9-10): Ajoy Vincent, Kashif Ahmed, Rowaida Hussein, Zorana Berberovic, Anupreet Tumber, Xiaochu Zhao, and Berge A. Minassian. Retinal phenotyping of a murine model of lafora disease. Genes, 14:854, Mar 2023. URL: https://doi.org/10.3390/genes14040854, doi:10.3390/genes14040854. This article has 1 citations.
+
+24. (zafrapuerta2023genereplacementtherapy pages 1-4): Luis Zafra-Puerta, Daniel F. Burgos, Nerea Iglesias-Cabeza, Juan González-Fernández, Gema Sánchez-Martín, Marina P. Sánchez, and José M. Serratosa. Gene replacement therapy for lafora disease in the epm2a-/- mouse model. bioRxiv, Dec 2023. URL: https://doi.org/10.1101/2023.12.14.571636, doi:10.1101/2023.12.14.571636. This article has 1 citations.
+
+25. (vincent2023retinalphenotypingof pages 1-2): Ajoy Vincent, Kashif Ahmed, Rowaida Hussein, Zorana Berberovic, Anupreet Tumber, Xiaochu Zhao, and Berge A. Minassian. Retinal phenotyping of a murine model of lafora disease. Genes, 14:854, Mar 2023. URL: https://doi.org/10.3390/genes14040854, doi:10.3390/genes14040854. This article has 1 citations.
+
+26. (shukla2024neuromuscularjunctiondysfunction pages 1-2): Monica Shukla, Deepti Chugh, and Subramaniam Ganesh. Neuromuscular junction dysfunction in lafora disease. Disease Models &amp; Mechanisms, Oct 2024. URL: https://doi.org/10.1242/dmm.050905, doi:10.1242/dmm.050905. This article has 5 citations and is from a domain leading peer-reviewed journal.
