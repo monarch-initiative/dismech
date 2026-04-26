@@ -102,6 +102,23 @@ def test_check_cache_file_allows_mixed_case_doi_filename(tmp_path: Path):
     assert check_cache_file(doi) is None
 
 
+def test_check_cache_file_accepts_database_field(tmp_path: Path):
+    """Local extension: structured-source caches set ``database`` instead of
+    ``journal``. Ensure the frontmatter contract accepts it."""
+    good = tmp_path / "ORPHA_558.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "ORPHA:558"\n'
+        'title: "Marfan syndrome"\n'
+        'database: "Orphanet"\n'
+        'content_type: "structured_record"\n'
+        "---\n\n"
+        "# ORPHA:558  Marfan syndrome\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 @pytest.mark.skipif(not CACHE_DIR.is_dir(), reason="references_cache/ not present")
 def test_existing_repo_caches_match_frontmatter_contract():
     findings = scan_cache_dir(CACHE_DIR)
