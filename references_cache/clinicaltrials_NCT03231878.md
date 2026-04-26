@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03231878
+reference_id: "clinicaltrials:NCT03231878"
 title: "A Randomized, Double-blind, Placebo-controlled, Multinational, Multicenter Study With Open-label Treatment Extension to Assess the Effect of MIN-102 (IMP) on the Progression of Adrenomyeloneuropathy in Male Patients With X-linked Adrenoleukodystrophy"
 content_type: summary
 ---

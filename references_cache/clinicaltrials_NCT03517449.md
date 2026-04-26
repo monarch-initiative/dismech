@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03517449
+reference_id: "clinicaltrials:NCT03517449"
 title: "A Multicenter, Open-label, Randomized, Phase 3 Trial to Compare the Efficacy and Safety of Lenvatinib in Combination With Pembrolizumab Versus Treatment of Physician's Choice in Participants With Advanced Endometrial Cancer"
 content_type: summary
 ---
