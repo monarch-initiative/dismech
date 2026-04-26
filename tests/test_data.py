@@ -88,10 +88,11 @@ def test_evidence_items_have_references(filepath):
                     "file:",
                     "url:",
                     "GEO:",
+                    "ORPHA:",
                 )
             ):
                 errors.append(
-                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, file:, url:, or GEO: got {item['reference']}"
+                    f"{path}[{i}]: reference should start with PMID:, DOI:, clinicaltrials:, file:, url:, GEO:, or ORPHA: got {item['reference']}"
                 )
         return errors
 
