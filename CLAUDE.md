@@ -88,6 +88,14 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
+### Structured-Database Sources (`src/dismech/structured_sources/`)
+- Framework for ingesting structured knowledge bases (Orphanet today; OMIM /
+  MONDO / HGNC pluggable) into `references_cache/` as line-oriented markdown
+- Flagship: `OrphanetSource` — pre-caches all 8,823 leaf disorders from
+  Orphadata XML so curators can cite `ORPHA:<code>` and quote individual rows
+  (definition, prevalence, HPO phenotypes, gene-disease, xrefs)
+- See "Structured-Database Reference Sources" below
+
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
 - **linkml-term-validator**: Validates ontology term references against authoritative sources (critical for catching AI hallucinations)
@@ -653,6 +661,74 @@ snippet matching the wrong cached paper.
 **Agent guardrail:** Claude Code and Codex must never create or hand-edit
 `references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
 with `just fetch-reference <ID>` instead of patching the frontmatter manually.
+
+## Structured-Database Reference Sources
+
+In addition to fetched literature references (PMID, DOI, NCT), dismech ingests
+structured knowledge bases — currently **Orphanet** — into
+`references_cache/` as deterministic line-oriented markdown files. Each file
+holds one entity (one ORPHA disorder) and curators can quote individual rows
+as evidence `snippet:` values.
+
+**Available structured prefixes:**
+
+| Prefix | Source | Coverage | License |
+|--------|--------|----------|---------|
+| `ORPHA:` | Orphadata bulk XML | 8,823 leaf disorders + subtypes | CC-BY 4.0 |
+
+**Citing an Orphanet entry:**
+
+```yaml
+evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "Marfan syndrome is a systemic disease of connective tissue"
+    explanation: Orphadata definition supports this characterization.
+```
+
+Snippets must be exact substrings of the cache file's body. The body uses
+fixed-column tag-prefixed lines (`ID`, `SYN`, `DEF`, `INH`, `PREV`, `ONS`,
+`GENE`, `PHEN`, `XREF`, `SRC`) so per-row quotes are stable across refreshes:
+
+```
+PHEN   HP:0002616    Aortic root aneurysm                                Very frequent (99-80%)
+GENE   FBN1          fibrillin-1                                         hgnc:3603        Disease-causing germline mutation(s) in
+XREF   MONDO:0007947                  E
+```
+
+**How the cache is built:**
+
+```bash
+# 1. Refresh the bulk XML pinned in data/orphadata/MANIFEST.yaml
+just refresh-orphadata
+
+# 2. Rebuild every references_cache/ORPHA_*.md
+just structured-rebuild-orphanet
+
+# Or rebuild a single ID
+just structured-rebuild-orphanet --id 558
+```
+
+`data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
+committed and pins the snapshot date + sha256 of each bulk file. CI rebuilds
+the cache from the manifest and diffs against committed `ORPHA_*.md` to catch
+drift.
+
+**Adding a new structured source:**
+
+The framework is in `src/dismech/structured_sources/`. To add a new source
+(OMIM, MONDO, HGNC, …):
+
+1. Subclass `StructuredSource` (`base.py`) and implement `build_index`,
+   `identifiers`, `serialize`.
+2. Pin bulk-data files in `data/<source>/MANIFEST.yaml`.
+3. Register a CLI entry in `src/dismech/structured_sources/cli.py`.
+4. Use the same UniProt-flat-file-style line layout — fixed column widths,
+   sorted within each tag block — so curator-quoted snippets remain valid
+   across refreshes.
+
+**Agent guardrail:** Like literature cache files, `references_cache/ORPHA_*.md`
+must NEVER be hand-edited. Regenerate via `just structured-rebuild-orphanet`.
 
 ## Git/GitHub Best Practices
 
