@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02828969
+reference_id: "clinicaltrials:NCT02828969"
 title: Clinical Trajectory of Children and Adolescents With Disruptive Behavior Admitted to Pediatric and Psychiatric Emergencies.
 content_type: summary
 ---

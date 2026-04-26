@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/2159-8290.CD-23-0456
+reference_id: "DOI:10.1158/2159-8290.CD-23-0456"
 title: Early Cancer Detection in Li–Fraumeni Syndrome with Cell-Free DNA
 authors:
 - Derek Wong

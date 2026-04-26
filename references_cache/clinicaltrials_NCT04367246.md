@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04367246
+reference_id: "clinicaltrials:NCT04367246"
 title: Clinical and Molecular Studies of Li-Fraumeni Syndrome and TP53-associated Disorders
 content_type: summary
 ---

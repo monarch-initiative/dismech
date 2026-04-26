@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07215416
+reference_id: "clinicaltrials:NCT07215416"
 title: A Phase 1/2 Study of Antisense Oligonucleotide Therapy for Treatment of Ataxia-Telangiectasia
 content_type: summary
 ---

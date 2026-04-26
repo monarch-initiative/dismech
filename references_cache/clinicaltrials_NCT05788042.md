@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05788042
+reference_id: "clinicaltrials:NCT05788042"
 title: Randomised Controlled Trial of Neurostimulation for Symptoms of Anorexia Nervosa
 content_type: summary
 ---
