@@ -687,13 +687,23 @@ evidence:
 ```
 
 Snippets must be exact substrings of the cache file's body. The body uses
-fixed-column tag-prefixed lines (`ID`, `SYN`, `DEF`, `INH`, `PREV`, `ONS`,
-`GENE`, `PHEN`, `XREF`, `SRC`) so per-row quotes are stable across refreshes:
+markdown section headings (`## Definition`, `## Inheritance`, `## Phenotypes`,
+`## Genes`, `## Epidemiology`, `## Cross-references`, `## Source`) with
+markdown tables for tabular data. Each table row is a stable quotable
+substring across refreshes:
 
 ```
-PHEN   HP:0002616    Aortic root aneurysm                                Very frequent (99-80%)
-GENE   FBN1          fibrillin-1                                         hgnc:3603        Disease-causing germline mutation(s) in
-XREF   MONDO:0007947                  E
+| HP:0002616 | Aortic root aneurysm | Very frequent (99-80%) |
+| FBN1 | fibrillin-1 | hgnc:3603 | Disease-causing germline mutation(s) in |
+| MONDO:0007947 | Exact |
+```
+
+A curator-quoted snippet may include or omit the leading and trailing
+pipes — both substring-match against the cached body. Prefer the
+unbracketed form for cleaner YAML:
+
+```yaml
+snippet: "HP:0002616 | Aortic root aneurysm | Very frequent (99-80%)"
 ```
 
 **How the cache is built:**
