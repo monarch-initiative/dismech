@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00676429
+reference_id: "clinicaltrials:NCT00676429"
 title: "Ziprasidone for Severe Conduct and Other Disruptive Behavior Disorders in Children and Adolescents - a Placebo Controlled, Randomized, Double Blind Clinical Trial"
 content_type: summary
 ---

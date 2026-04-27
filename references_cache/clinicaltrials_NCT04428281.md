@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04428281
+reference_id: "clinicaltrials:NCT04428281"
 title: "An Open-label, Multicenter Study to Investigate the Safety, Tolerability, Pharmacokinetics and Pharmacodynamics of RO7248824 in Participants With Angelman Syndrome"
 content_type: summary
 ---
