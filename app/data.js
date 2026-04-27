@@ -2304,7 +2304,7 @@ window.searchData = [
       "Congenital heart disease"
     ],
     "creation_date": "2026-04-22T00:00:00Z",
-    "updated_date": "2026-04-23T00:00:00Z",
+    "updated_date": "2026-04-26T22:34:05Z",
     "subtypes": [
       "AOS1",
       "AOS2",
@@ -10791,7 +10791,7 @@ window.searchData = [
       "Inflammatory Lung Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-26T23:00:50Z",
     "subtypes": [],
     "description": "Persistent microbial infections and inflammation damage airway walls, leading to dilation and thickening.",
     "pathophysiology": [
@@ -10863,6 +10863,8 @@ window.searchData = [
     "treatments": [
       "Airway Clearance Techniques",
       "Antibiotic Therapy",
+      "Long-term Macrolide Therapy",
+      "Brensocatib",
       "Bronchodilators",
       "Inhaled Corticosteroids",
       "Surgery",
@@ -10884,8 +10886,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 8,
     "num_genes": 2,
-    "num_treatments": 6,
-    "causal_graph_edges": "2",
+    "num_treatments": 8,
+    "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
   },
   {
@@ -11219,7 +11221,7 @@ window.searchData = [
       "Small Vessel Disease"
     ],
     "creation_date": "2026-02-14T02:39:04Z",
-    "updated_date": "2026-04-25T20:00:00Z",
+    "updated_date": "2026-04-25T20:30:00Z",
     "subtypes": [],
     "description": "Cerebral Autosomal Dominant Arteriopathy with Subcortical Infarcts and Leukoencephalopathy (CADASIL) is a hereditary small vessel disease caused by mutations in the NOTCH3 gene. It is the most common monogenic cause of stroke and vascular dementia in adults. The disease is characterized by recurrent ischemic strokes, progressive cognitive decline, migraine with aura, and psychiatric disturbances. Pathologically, it involves progressive degeneration of vascular smooth muscle cells in small arteries, abnormal accumulation of the NOTCH3 extracellular domain (ECD) as granular osmiophilic material (GOM), and co-deposition of extracellular matrix proteins, leading to thickening of vessel walls and luminal narrowing.",
     "pathophysiology": [
@@ -13948,7 +13950,7 @@ window.searchData = [
       "RYR1-related myopathy"
     ],
     "creation_date": "2026-02-13T18:01:36Z",
-    "updated_date": "2026-04-26T06:33:41Z",
+    "updated_date": "2026-04-26T19:00:00Z",
     "subtypes": [],
     "description": "Central core myopathy (central core disease, CCD) is a congenital myopathy caused predominantly by mutations in the RYR1 gene encoding the skeletal muscle ryanodine receptor (RyR1), the principal sarcoplasmic reticulum calcium release channel. It is characterized histopathologically by central cores \u2014 areas of sarcomeric disorganization and mitochondrial depletion running along the longitudinal axis of type 1 muscle fibers. Clinical features include proximal muscle weakness, hypotonia, delayed motor milestones, orthopaedic complications, and susceptibility to malignant hyperthermia. Inheritance is most commonly autosomal dominant with incomplete penetrance and variable expressivity, though autosomal recessive forms exist and tend to be more severe. First described by Shy and Magee in 1956, CCD was the first congenital myopathy defined by a specific histological abnormality.\n",
     "pathophysiology": [
@@ -13985,6 +13987,8 @@ window.searchData = [
       "Neonatal hypotonia",
       "Delayed gross motor development",
       "Central core regions in muscle fibers",
+      "Type 1 muscle fiber predominance",
+      "Axial muscle weakness",
       "Scoliosis",
       "Congenital hip dislocation",
       "Malignant hyperthermia susceptibility",
@@ -14007,6 +14011,8 @@ window.searchData = [
       "HP:0001319",
       "HP:0002194",
       "HP:0030230",
+      "HP:0003803",
+      "HP:0003327",
       "HP:0002650",
       "HP:0001374",
       "HP:0002047",
@@ -14035,11 +14041,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Central_Core_Myopathy.yaml",
     "page_url": "../pages/disorders/Central_Core_Myopathy.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -19625,7 +19631,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-03-31T02:48:22Z",
+    "updated_date": "2026-04-27T01:12:40Z",
     "subtypes": [
       "Class I - No Protein Production",
       "Class II - Processing/Trafficking Defect",
@@ -22337,7 +22343,7 @@ window.searchData = [
       "Neuromuscular Disease"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-04-26T08:44:00Z",
+    "updated_date": "2026-04-27T08:39:26Z",
     "subtypes": [
       "Classic Duchenne",
       "Intermediate DMD"
@@ -22389,13 +22395,24 @@ window.searchData = [
       "Pseudohypertrophy of Calves",
       "Elevated Creatine Kinase",
       "Cardiomyopathy",
-      "Respiratory Insufficiency"
+      "Respiratory Insufficiency",
+      "Motor Delay",
+      "Proximal Muscle Weakness",
+      "Waddling Gait",
+      "Skeletal Muscle Atrophy",
+      "Flexion Contracture",
+      "Scoliosis",
+      "Delayed Speech and Language Development",
+      "Global Developmental Delay",
+      "Specific Learning Disability",
+      "Cognitive Impairment"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
       "Laboratory",
       "Cardiovascular",
-      "Respiratory"
+      "Respiratory",
+      "Neurodevelopmental"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -22412,13 +22429,24 @@ window.searchData = [
       "HP:0003707",
       "HP:0003236",
       "HP:0001644",
-      "HP:0002093"
+      "HP:0002093",
+      "HP:0001270",
+      "HP:0003701",
+      "HP:0002515",
+      "HP:0003202",
+      "HP:0001371",
+      "HP:0002650",
+      "HP:0000750",
+      "HP:0001263",
+      "HP:0001328",
+      "HP:0100543"
     ],
     "frequencies": [
       "VERY_FREQUENT"
     ],
     "genes": [
-      "DMD pathogenic variants"
+      "DMD pathogenic variants",
+      "LTBP4 modifier variants"
     ],
     "treatments": [
       "Corticosteroids",
@@ -22435,9 +22463,9 @@ window.searchData = [
     ],
     "source_file": "Duchenne_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Duchenne_Muscular_Dystrophy.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 17,
     "num_pathophysiology": 13,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 6,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "12"
@@ -28496,7 +28524,7 @@ window.searchData = [
       "Sphingolipidosis"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-04-26T05:25:25Z",
+    "updated_date": "2026-04-27T01:12:02Z",
     "subtypes": [
       "Type 1",
       "Type 2",
@@ -28544,7 +28572,9 @@ window.searchData = [
       "Splenomegaly",
       "Thrombocytopenia",
       "Anemia",
+      "Fatigue",
       "Bone Pain",
+      "Osteopenia",
       "Pathologic Fractures",
       "Erlenmeyer Flask Deformity",
       "Oculomotor Apraxia",
@@ -28561,6 +28591,7 @@ window.searchData = [
     "phenotype_categories": [
       "Gastrointestinal",
       "Hematologic",
+      "Constitutional",
       "Musculoskeletal",
       "Neurologic",
       "Growth"
@@ -28582,7 +28613,9 @@ window.searchData = [
       "HP:0001744",
       "HP:0001873",
       "HP:0001903",
+      "HP:0012378",
       "HP:0002653",
+      "HP:0000938",
       "HP:0002756",
       "HP:0004975",
       "HP:0000657",
@@ -28620,7 +28653,7 @@ window.searchData = [
     ],
     "source_file": "Gaucher_Disease.yaml",
     "page_url": "../pages/disorders/Gaucher_Disease.html",
-    "num_phenotypes": 17,
+    "num_phenotypes": 19,
     "num_pathophysiology": 14,
     "num_genes": 4,
     "num_treatments": 4,
@@ -29714,7 +29747,7 @@ window.searchData = [
       "Hedgehog pathway disease"
     ],
     "creation_date": "2026-02-03T04:23:32Z",
-    "updated_date": "2026-04-23T02:16:55Z",
+    "updated_date": "2026-04-27T01:15:26Z",
     "subtypes": [
       "PTCH1-related",
       "SUFU-related"
@@ -29765,6 +29798,7 @@ window.searchData = [
       "Multiple Basal Cell Carcinomas",
       "Palmar Pits",
       "Plantar Pits",
+      "Melanocytic Nevi",
       "Odontogenic Keratocysts",
       "Macrocephaly",
       "Rib Anomalies",
@@ -29814,6 +29848,7 @@ window.searchData = [
       "HP:0002671",
       "HP:0010610",
       "HP:0010612",
+      "HP:0000995",
       "HP:0010603",
       "HP:0000256",
       "HP:0000772",
@@ -29862,7 +29897,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Gorlin_Syndrome.yaml",
     "page_url": "../pages/disorders/Gorlin_Syndrome.html",
-    "num_phenotypes": 24,
+    "num_phenotypes": 25,
     "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 7,
@@ -33508,90 +33543,26 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
-    "name": "Holt-Oram Syndrome",
-    "disease_id": "MONDO:0007732",
-    "category": "Mendelian",
-    "parents": [
-      "Limb Development Disorders"
-    ],
-    "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-03-08T00:00:00Z",
-    "subtypes": [],
-    "description": "Holt-Oram syndrome (HOS) is an autosomal dominant heart-hand syndrome caused by mutations in TBX5, a T-box transcription factor critical for upper limb and cardiac development. It is characterized by preaxial radial ray upper limb malformations (ranging from triphalangeal thumb to phocomelia) and congenital heart defects (predominantly atrial septal defects). Cardiac conduction abnormalities may occur independently of structural heart disease. The phenotype is highly variable even within families due to genetic background and stochastic modifiers.\n",
-    "pathophysiology": [
-      "Cardiac Septation and Conduction Defects",
-      "Upper Limb Morphogenesis Disruption"
-    ],
-    "cell_types": [
-      "Cardiomyocyte"
-    ],
-    "cell_type_ids": [
-      "CL:0000746"
-    ],
-    "biological_processes": [
-      "Heart Development",
-      "Embryonic Limb Morphogenesis"
-    ],
-    "phenotypes": [
-      "Preaxial Radial Ray Upper Limb Defect",
-      "Atrial Septal Defect",
-      "Ventricular Septal Defect",
-      "Cardiac Conduction Abnormalities",
-      "Radial Hypoplasia",
-      "Proarrhythmic Activity in TBX5-Null Cardiomyocytes"
-    ],
-    "phenotype_categories": [
-      "Cellular"
-    ],
-    "phenotype_hpo_categories": [
-      "Cardiovascular",
-      "Limbs",
-      "Musculoskeletal"
-    ],
-    "phenotype_ids": [
-      "HP:0001172",
-      "HP:0001631",
-      "HP:0001629",
-      "HP:0011675",
-      "HP:0002984"
-    ],
-    "frequencies": [],
-    "genes": [
-      "TBX5 Mutations"
-    ],
-    "treatments": [
-      "Cardiac Surgical Repair",
-      "Orthopedic Management",
-      "Cardiac Monitoring"
-    ],
-    "environmental": [],
-    "biochemical": [],
-    "source_file": "Holt-Oram_Syndrome.yaml",
-    "page_url": "../pages/disorders/Holt-Oram_Syndrome.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 2,
-    "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
-  },
-  {
     "name": "Holt-Oram syndrome",
     "disease_id": "MONDO:0007732",
     "category": "Genetic",
     "parents": [],
     "creation_date": "2026-01-07T19:35:34Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-26T00:00:00Z",
     "subtypes": [],
     "description": "Holt-Oram syndrome is caused by heterozygous loss-of-function mutations in TBX5, a T-box transcription factor that acts as a dosage-sensitive regulator of cardiac and forelimb development. TBX5 haploinsufficiency disrupts enhancer accessibility and 3D chromatin architecture at regulatory regions controlling genes essential for atrial identity, chamber septation, and conduction system development. In the limb, TBX5 is critical for forelimb bud initiation and radial patterning in the lateral plate mesoderm. TBX5 cooperates with cardiac transcription factors GATA4 and NKX2-5 at conserved enhancers and requires chromatin remodeling partners (BAF/SWI-SNF and NuRD/CHD4) to maintain cell-type-specific gene expression programs.\n",
     "pathophysiology": [
       "TBX5 Haploinsufficiency and Enhancer Dysfunction",
-      "Cofactor and Chromatin Remodeling Dysfunction"
+      "Cofactor and Chromatin Remodeling Dysfunction",
+      "Cardiac Septation and Conduction Defects",
+      "Upper Limb Morphogenesis Disruption"
     ],
     "cell_types": [
+      "Atrial cardiomyocyte",
       "Cardiac muscle cell"
     ],
     "cell_type_ids": [
+      "CL:0002129",
       "CL:0000746"
     ],
     "biological_processes": [
@@ -33599,20 +33570,24 @@ window.searchData = [
       "Atrial septum morphogenesis",
       "Cardiac conduction",
       "Limb bud formation",
-      "Regulation of gene expression, epigenetic"
+      "Regulation of gene expression, epigenetic",
+      "Embryonic limb morphogenesis"
     ],
     "phenotypes": [
       "Upper limb abnormality",
       "Radial ray defect",
       "Triphalangeal thumb",
+      "Hypoplasia of the radius",
       "Atrial septal defect",
       "Atrioventricular block",
       "Atrial fibrillation",
-      "Ventricular septal defect"
+      "Ventricular septal defect",
+      "Proarrhythmic Activity in TBX5-Null Cardiomyocytes"
     ],
     "phenotype_categories": [
       "Skeletal",
-      "Cardiac"
+      "Cardiac",
+      "Cellular"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -33623,10 +33598,12 @@ window.searchData = [
       "HP:0002817",
       "HP:0002986",
       "HP:0001199",
+      "HP:0002984",
       "HP:0001631",
       "HP:0001678",
       "HP:0005110",
-      "HP:0001629"
+      "HP:0001629",
+      "HP:0011675"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -33639,18 +33616,19 @@ window.searchData = [
     "treatments": [
       "Cardiac monitoring and evaluation",
       "Surgical repair of cardiac defects",
-      "Orthopedic management"
+      "Orthopedic Surgical Reconstruction",
+      "Physical and Rehabilitation Therapy"
     ],
     "environmental": [],
     "biochemical": [],
-    "source_file": "Holt_Oram.yaml",
+    "source_file": "Holt-Oram_Syndrome.yaml",
     "page_url": "../pages/disorders/Holt-Oram_syndrome.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Homocystinuria",
@@ -37262,7 +37240,7 @@ window.searchData = [
       "Ciliopathy"
     ],
     "creation_date": "2026-01-28T21:44:07Z",
-    "updated_date": "2026-02-02T19:28:32Z",
+    "updated_date": "2026-04-25T12:00:00Z",
     "subtypes": [
       "Joubert syndrome 1",
       "Joubert syndrome 2",
@@ -37305,17 +37283,50 @@ window.searchData = [
     ],
     "description": "Joubert syndrome is a rare neurodevelopmental ciliopathy with a characteristic molar tooth sign on brain MRI and multisystem involvement affecting the nervous system, eyes, kidneys, liver, and skeleton.",
     "pathophysiology": [
+      "Pathogenic JBTS gene defects",
       "Ciliary gene mutations disrupt primary cilium assembly",
       "Abnormal cilium structure and length",
       "Impaired intraciliary transport",
-      "Neurodevelopmental defects"
+      "Neurodevelopmental defects",
+      "Defective ciliary tip microtubule dynamics",
+      "Ciliary transition zone gating defect",
+      "Defective Sonic hedgehog signaling",
+      "Defective canonical Wnt signaling at the cerebellar midline",
+      "Defective midbrain-hindbrain patterning",
+      "Defective superior cerebellar peduncle decussation",
+      "Hippocampal neurogenesis defect",
+      "Photoreceptor outer segment dystrophy",
+      "Renal tubular ciliary dysfunction",
+      "Biliary ductal plate malformation via ciliary tight junction defect",
+      "Brainstem control center dysfunction"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "neuron",
+      "cerebellar granule cell",
+      "neural progenitor cell",
+      "cerebellar granule cell precursor",
+      "photoreceptor cell",
+      "kidney tubule cell",
+      "cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0001031",
+      "CL:0011020",
+      "CL:0002362",
+      "CL:0000210",
+      "CL:1000507",
+      "CL:1000488"
+    ],
     "biological_processes": [
       "cilium assembly",
       "cilium organization",
-      "intraciliary transport"
+      "intraciliary transport",
+      "smoothened signaling pathway",
+      "canonical Wnt signaling pathway",
+      "midbrain-hindbrain boundary morphogenesis",
+      "axon guidance",
+      "tight junction assembly"
     ],
     "phenotypes": [
       "Molar tooth sign on MRI",
@@ -37341,7 +37352,8 @@ window.searchData = [
       "Dysphagia",
       "Seizure",
       "Sleep apnea",
-      "Polydactyly"
+      "Polydactyly",
+      "Hearing impairment"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -37352,11 +37364,13 @@ window.searchData = [
       "Renal",
       "Hepatic",
       "Gastrointestinal",
-      "Skeletal"
+      "Skeletal",
+      "Otologic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Ear",
       "Eye",
       "Genitourinary",
       "Limbs",
@@ -37388,7 +37402,8 @@ window.searchData = [
       "HP:0002015",
       "HP:0001250",
       "HP:0010535",
-      "HP:0010442"
+      "HP:0010442",
+      "HP:0000365"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -37425,7 +37440,9 @@ window.searchData = [
       "Orthotic device usage",
       "Genetic counseling",
       "Liver transplantation",
-      "Nasobiliary drainage"
+      "Nasobiliary drainage",
+      "Kidney transplantation",
+      "Renal dialysis"
     ],
     "environmental": [],
     "biochemical": [
@@ -37436,12 +37453,12 @@ window.searchData = [
     ],
     "source_file": "Joubert_syndrome.yaml",
     "page_url": "../pages/disorders/Joubert_syndrome.html",
-    "num_phenotypes": 24,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 25,
+    "num_pathophysiology": 16,
     "num_genes": 18,
-    "num_treatments": 8,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 10,
+    "causal_graph_edges": "70",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Junctional Epidermolysis Bullosa",
@@ -38085,7 +38102,7 @@ window.searchData = [
       "Multiple Congenital Anomaly Syndrome"
     ],
     "creation_date": "2026-03-15T23:04:41Z",
-    "updated_date": "2026-03-16T21:00:00Z",
+    "updated_date": "2026-04-25T18:45:00Z",
     "subtypes": [
       "KMT2D-related Kabuki syndrome",
       "KDM6A-related Kabuki syndrome"
@@ -38095,19 +38112,30 @@ window.searchData = [
       "Chromatin dysregulation from KMT2D and KDM6A haploinsufficiency",
       "Neural crest developmental dysregulation",
       "B-cell terminal differentiation defect",
-      "Postnatal neurogenesis deficit"
+      "Postnatal neurogenesis deficit",
+      "Cardiomyocyte gene-expression dysregulation",
+      "Chondrocyte differentiation defect",
+      "Pancreatic beta-cell dysfunction",
+      "Cochlear outer hair cell dysfunction"
     ],
     "cell_types": [
       "neural crest cell",
       "B cell",
       "chondrocyte",
-      "neuron"
+      "neuron",
+      "cardiac muscle cell",
+      "hypertrophic chondrocyte",
+      "pancreatic beta cell",
+      "outer hair cell of cochlea"
     ],
     "cell_type_ids": [
       "CL:0011012",
       "CL:0000236",
       "CL:0000138",
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000746",
+      "CL:0000169",
+      "CL:0000855"
     ],
     "biological_processes": [
       "chromatin organization",
@@ -38116,7 +38144,15 @@ window.searchData = [
       "neural crest cell migration involved in heart formation",
       "B cell differentiation",
       "somatic hypermutation of immunoglobulin genes",
-      "neuron development"
+      "neuron development",
+      "heart development",
+      "Notch signaling pathway",
+      "outflow tract morphogenesis",
+      "chondrocyte differentiation",
+      "endochondral ossification",
+      "insulin secretion",
+      "regulation of insulin secretion",
+      "inner ear development"
     ],
     "phenotypes": [
       "Long Palpebral Fissures",
@@ -38132,7 +38168,11 @@ window.searchData = [
       "Hearing Impairment",
       "Cleft Palate",
       "Congenital Anomalies of the Kidney and Urinary Tract",
-      "Autoimmunity"
+      "Autoimmunity",
+      "Hyperinsulinemic Hypoglycemia",
+      "Sensorineural Hearing Loss",
+      "Seizures",
+      "Speech Delay"
     ],
     "phenotype_categories": [
       "Craniofacial",
@@ -38142,13 +38182,15 @@ window.searchData = [
       "Immunological",
       "Musculoskeletal",
       "Otological",
-      "Genitourinary"
+      "Genitourinary",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Cellular",
       "Ear",
+      "Endocrine",
       "Genitourinary",
       "Growth",
       "Head and Neck",
@@ -38173,9 +38215,17 @@ window.searchData = [
       "HP:0000365",
       "HP:0000175",
       "HP:0000079",
-      "HP:0002960"
+      "HP:0002960",
+      "HP:0000825",
+      "HP:0000407",
+      "HP:0001250",
+      "HP:0000750"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "KMT2D",
       "KDM6A"
@@ -38185,18 +38235,21 @@ window.searchData = [
       "Growth Hormone Therapy",
       "Speech Therapy",
       "Cardiac Surgery",
-      "Immunoglobulin Replacement"
+      "Immunoglobulin Replacement",
+      "KDM1A Inhibitor (Experimental)",
+      "Modified Atkins Diet (Investigational)",
+      "Diazoxide"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Kabuki_Syndrome.yaml",
     "page_url": "../pages/disorders/Kabuki_Syndrome.html",
-    "num_phenotypes": 14,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 18,
+    "num_pathophysiology": 8,
     "num_genes": 2,
-    "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 8,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Kaposi Sarcoma",
@@ -39851,85 +39904,132 @@ window.searchData = [
       "Glycogen Storage Disease"
     ],
     "creation_date": "2026-03-08T00:00:00Z",
-    "updated_date": "2026-04-26T12:32:06Z",
+    "updated_date": "2026-04-26T17:00:00Z",
     "subtypes": [
       "EPM2A-related Lafora disease",
       "NHLRC1-related Lafora disease"
     ],
-    "description": "Lafora disease is a rare, fatal form of progressive myoclonus epilepsy (PME type 2) with autosomal recessive inheritance, typically presenting in late childhood or adolescence (ages 12-17). It is caused by biallelic pathogenic variants in EPM2A (encoding laforin, a dual-specificity glycogen phosphatase) or NHLRC1/EPM2B (encoding malin, an E3 ubiquitin ligase). The hallmark pathological feature is the accumulation of Lafora bodies - insoluble, poorly branched polyglucosan inclusions - in neurons, astrocytes, and other tissues. The disease is characterized by progressive myoclonus, epileptic seizures (generalized tonic-clonic, absence, and occipital), visual hallucinations, and relentless cognitive decline leading to dementia and death within approximately 10 years of onset. No currently approved disease-modifying therapy exists.\n",
+    "description": "Lafora disease is a rare, fatal form of progressive myoclonus epilepsy (PME type 2) with autosomal recessive inheritance, typically presenting in late childhood or adolescence (ages 12-17). It is caused by biallelic pathogenic variants in EPM2A (encoding laforin, a dual-specificity glycogen phosphatase) or NHLRC1/EPM2B (encoding malin, an E3 ubiquitin ligase). The hallmark pathological feature is the accumulation of Lafora bodies - insoluble, poorly branched polyglucosan inclusions - in neurons, astrocytes, and other tissues. The disease is characterized by progressive myoclonus, epileptic seizures (generalized tonic-clonic, absence, and occipital), visual hallucinations, and relentless cognitive decline leading to dementia and death within approximately 10 years of onset. There is currently no disease-modifying therapy.\n",
     "pathophysiology": [
-      "Lafora body formation through aberrant glycogen metabolism",
-      "Malin-laforin complex dysfunction in glycogen regulation",
-      "Neuronal dysfunction and death",
-      "Cortical hyperexcitability and epileptic network dysfunction"
+      "Loss of laforin glycogen phosphatase activity",
+      "Loss of laforin-malin complex regulation of glycogen synthesis",
+      "PTG/glycogen synthase overactivation and excessive glycogen synthesis",
+      "Aberrant glycogen chain length and hyperphosphorylation",
+      "Lafora body accumulation in neurons and astrocytes",
+      "Reactive astrogliosis and neuroinflammation",
+      "Oxidative stress and proteostasis impairment",
+      "Autophagy and mitophagy impairment",
+      "Synaptic dysfunction and cortical hyperexcitability",
+      "Neurodegeneration"
     ],
     "cell_types": [
       "Neuron",
-      "Astrocyte"
+      "Astrocyte",
+      "Pyramidal neuron",
+      "Microglial cell",
+      "Interneuron",
+      "Purkinje cell"
     ],
     "cell_type_ids": [
       "CL:0000540",
-      "CL:0000127"
+      "CL:0000127",
+      "CL:0000598",
+      "CL:0000129",
+      "CL:0000099",
+      "CL:0000121"
     ],
     "biological_processes": [
       "Glycogen metabolic process",
       "Protein ubiquitination",
-      "Neuron apoptotic process",
+      "Glycogen biosynthetic process",
+      "Neuroinflammatory response",
       "Inflammatory response",
-      "Chemical synaptic transmission"
+      "Response to oxidative stress",
+      "Autophagy",
+      "Autophagy of mitochondrion",
+      "Transmission of nerve impulse",
+      "Regulation of long-term neuronal synaptic plasticity",
+      "Neuron apoptotic process"
     ],
     "phenotypes": [
       "Myoclonus",
       "Seizures",
-      "Photosensitive seizures",
       "Generalized tonic-clonic seizures",
       "Absence seizures",
       "Visual hallucinations",
       "Progressive cognitive decline and dementia",
       "Progressive neurologic deterioration",
-      "Ataxia"
+      "Ataxia",
+      "Photosensitive seizures",
+      "Status epilepticus",
+      "Atonic (drop) attacks",
+      "Apraxia",
+      "Cortical visual impairment",
+      "Cerebral atrophy",
+      "Cerebellar atrophy",
+      "Dysarthria",
+      "Dysphagia",
+      "Vegetative state",
+      "Neuropsychiatric symptoms"
     ],
     "phenotype_categories": [
-      "Neurological"
+      "Neurological",
+      "Behavioral"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001336",
       "HP:0001250",
-      "HP:0020216",
       "HP:0002069",
       "HP:0002121",
       "HP:0002367",
       "HP:0000726",
       "HP:0002344",
-      "HP:0001251"
+      "HP:0001251",
+      "HP:0001327",
+      "HP:0002133",
+      "HP:0010819",
+      "HP:0002186",
+      "HP:0000505",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0031358",
+      "HP:0000708"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
-      "EPM2A pathogenic variants",
-      "NHLRC1 pathogenic variants"
+      "EPM2A",
+      "NHLRC1"
     ],
     "treatments": [
       "Antiseizure medications",
       "Metformin",
       "Supportive and palliative care",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Glycogen synthase 1 (GYS1) antisense oligonucleotide therapy (experimental)",
+      "Perampanel",
+      "Ketogenic diet (experimental)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Lafora_Disease.yaml",
     "page_url": "../pages/disorders/Lafora_Disease.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 19,
+    "num_pathophysiology": 10,
     "num_genes": 2,
-    "num_treatments": 4,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 7,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Lane Hamilton Syndrome",
@@ -44593,7 +44693,7 @@ window.searchData = [
       "Connective Tissue Disorder"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-17T21:53:14Z",
+    "updated_date": "2026-04-27T12:39:26Z",
     "subtypes": [],
     "description": "Marfan syndrome is an autosomal dominant connective tissue disorder caused by mutations in FBN1, which encodes fibrillin-1. It affects multiple organ systems including the cardiovascular system (aortic root dilation and dissection), skeleton (tall stature, arachnodactyly, scoliosis), and eyes (ectopia lentis).",
     "pathophysiology": [
@@ -44634,39 +44734,75 @@ window.searchData = [
       "Arachnodactyly",
       "Ectopia Lentis",
       "Scoliosis",
-      "Pneumothorax",
+      "Spontaneous Pneumothorax",
+      "Sleep Apnea",
       "Aortic Dissection",
       "Mitral Valve Prolapse",
-      "Aortic Root Aneurysm"
+      "Tricuspid Valve Prolapse",
+      "Aortic Root Aneurysm",
+      "Ascending Tubular Aorta Aneurysm",
+      "Pectus Carinatum",
+      "Striae Distensae",
+      "Pes Planus",
+      "Slender Build",
+      "Dural Ectasia",
+      "Chronic Fatigue",
+      "Pectus Excavatum",
+      "Joint Hypermobility",
+      "Protrusio Acetabuli",
+      "Myopia",
+      "Mitral Regurgitation",
+      "Aortic Regurgitation"
     ],
     "phenotype_categories": [
       "Cardiovascular",
       "Musculoskeletal",
       "Ocular",
-      "Respiratory"
+      "Respiratory",
+      "Dermatologic",
+      "Constitutional",
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Eye",
       "Growth",
+      "Integument",
       "Limbs",
       "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0004942",
-      "HP:0000098",
+      "HP:0001519",
       "HP:0001166",
       "HP:0001083",
       "HP:0002650",
-      "HP:0002107",
+      "HP:0002108",
+      "HP:0010535",
       "HP:0002647",
       "HP:0001634",
-      "HP:0002616"
+      "HP:0001704",
+      "HP:0002616",
+      "HP:0004970",
+      "HP:0000768",
+      "HP:0001065",
+      "HP:0001763",
+      "HP:0001533",
+      "HP:0100775",
+      "HP:0012432",
+      "HP:0000767",
+      "HP:0001382",
+      "HP:0003179",
+      "HP:0000545",
+      "HP:0001653",
+      "HP:0001659"
     ],
     "frequencies": [
-      "FREQUENT",
       "VERY_FREQUENT",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [
@@ -44696,7 +44832,7 @@ window.searchData = [
     ],
     "source_file": "Marfan_Syndrome.yaml",
     "page_url": "../pages/disorders/Marfan_Syndrome.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 24,
     "num_pathophysiology": 6,
     "num_genes": 10,
     "num_treatments": 5,
@@ -59295,7 +59431,7 @@ window.searchData = [
       "Connective Tissue Disorder"
     ],
     "creation_date": "2026-04-22T00:00:00Z",
-    "updated_date": "2026-04-22T00:00:00Z",
+    "updated_date": "2026-04-26T22:37:52Z",
     "subtypes": [
       "PHOAR1",
       "PHOAR2",
@@ -59333,7 +59469,7 @@ window.searchData = [
       "Cutis Verticis Gyrata",
       "Arthralgia",
       "Hyperhidrosis",
-      "Sebaceous Hyperplasia",
+      "Acne",
       "Joint Swelling",
       "Delayed Cranial Suture Closure",
       "Anemia",
@@ -59353,6 +59489,7 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Head and Neck",
+      "Immune",
       "Integument",
       "Limbs",
       "Metabolism",
@@ -59365,7 +59502,7 @@ window.searchData = [
       "HP:0010541",
       "HP:0002829",
       "HP:0000975",
-      "HP:0032227",
+      "HP:0001061",
       "HP:0001386",
       "HP:0000270",
       "HP:0001903",
@@ -61865,7 +62002,7 @@ window.searchData = [
       "X-linked Dominant Disorder"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-04-26T06:39:55Z",
+    "updated_date": "2026-04-27T01:15:34Z",
     "subtypes": [
       "Classic Rett Syndrome",
       "Atypical Rett Syndrome"
@@ -61899,6 +62036,7 @@ window.searchData = [
       "regulation of synaptic plasticity"
     ],
     "phenotypes": [
+      "Global Developmental Delay",
       "Developmental Regression",
       "Stereotypical Hand Movements",
       "Loss of Spoken Language",
@@ -61909,6 +62047,7 @@ window.searchData = [
       "Scoliosis",
       "Intellectual Disability",
       "Autistic Behavior",
+      "Bruxism",
       "Sleep Disturbance",
       "Constipation"
     ],
@@ -61927,16 +62066,18 @@ window.searchData = [
       "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0001263",
       "HP:0002376",
       "HP:0012171",
       "HP:0001344",
-      "HP:0002066",
+      "HP:0001288",
       "HP:0005484",
       "HP:0001250",
-      "HP:0005957",
+      "HP:0002793",
       "HP:0002650",
       "HP:0001249",
       "HP:0000729",
+      "HP:0003763",
       "HP:0002360",
       "HP:0002019"
     ],
@@ -61961,7 +62102,7 @@ window.searchData = [
     ],
     "source_file": "Rett_Syndrome.yaml",
     "page_url": "../pages/disorders/Rett_Syndrome.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 14,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 6,
@@ -69774,7 +69915,7 @@ window.searchData = [
       "mTOR Pathway Disorder"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-04-26T05:41:18Z",
+    "updated_date": "2026-04-27T08:31:39Z",
     "subtypes": [],
     "description": "Tuberous sclerosis complex (TSC) is an autosomal dominant multisystem disorder caused by loss-of-function mutations in TSC1 (hamartin) or TSC2 (tuberin), which form a complex that inhibits the mechanistic target of rapamycin (mTOR) signaling pathway. Constitutive mTOR activation leads to hamartoma formation in multiple organ systems including brain, skin, kidneys, heart, and lungs. Nearly 2 million people are affected worldwide. Major clinical features include cortical tubers, subependymal giant cell astrocytomas, cardiac rhabdomyomas, renal angiomyolipomas, facial angiofibromas, and pulmonary lymphangioleiomyomatosis. TSC-associated neuropsychiatric disorders (TAND) including epilepsy, intellectual disability, and autism spectrum disorder are among the most disabling manifestations.\n",
     "pathophysiology": [
@@ -69814,8 +69955,11 @@ window.searchData = [
     ],
     "phenotypes": [
       "Epileptic Seizures",
+      "Status Epilepticus",
       "Intellectual Disability",
+      "Specific Learning Disability",
       "Autism Spectrum Disorder",
+      "Sleep Abnormality",
       "Facial Angiofibromas",
       "Shagreen Patch",
       "Cortical Tubers",
@@ -69823,7 +69967,12 @@ window.searchData = [
       "Subependymal Giant Cell Astrocytoma",
       "Renal Angiomyolipoma",
       "Pulmonary Lymphangioleiomyomatosis",
-      "Cardiac Rhabdomyoma"
+      "Cardiac Rhabdomyoma",
+      "Hypomelanotic Macules",
+      "Confetti-like Hypopigmented Macules",
+      "Retinal Hamartoma",
+      "Infantile Spasms",
+      "Ungual Fibroma"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -69831,11 +69980,15 @@ window.searchData = [
       "Dermatologic",
       "Renal",
       "Pulmonary",
-      "Cardiac"
+      "Cardiac",
+      "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Eye",
       "Genitourinary",
+      "Head and Neck",
+      "Immune",
       "Integument",
       "Musculoskeletal",
       "Neoplasm",
@@ -69844,16 +69997,24 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001250",
+      "HP:0002133",
       "HP:0001249",
+      "HP:0001328",
       "HP:0000717",
+      "HP:0002360",
       "HP:0010615",
       "HP:0009721",
       "HP:0009717",
       "HP:0009716",
       "HP:0009718",
       "HP:0006772",
-      "HP:0005948",
-      "HP:0009729"
+      "HP:0012798",
+      "HP:0009729",
+      "HP:0009719",
+      "HP:0007449",
+      "HP:0009594",
+      "HP:0012469",
+      "HP:0100804"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -69875,7 +70036,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Tuberous_Sclerosis_Complex.yaml",
     "page_url": "../pages/disorders/Tuberous_Sclerosis_Complex.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 19,
     "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 5,
@@ -73600,11 +73761,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 797,
-  "total_unique_evidence_sources": 12825,
+  "total_disorder_pages": 796,
+  "total_unique_evidence_sources": 12880,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 148,
-  "total_pathographs": 788,
-  "total_unique_pathological_events": 3634
+  "total_pathographs": 787,
+  "total_unique_pathological_events": 3655
 };
 window.dispatchEvent(new Event('searchDataReady'));
