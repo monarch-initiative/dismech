@@ -2,6 +2,19 @@
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
+## Important: Open PRs from Origin Branches, Not Forks
+
+Do not open pull requests from forks. This repository depends on automated AI
+review and GitHub does not expose repository secrets to workflows triggered from
+forks, so fork-based PRs will not receive automated AI review.
+
+Contributors should push branches directly to `origin` and open PRs from those
+branches. If you are a new contributor and do not yet have access, first open an
+issue asking to be added to the repository. Known members of the Monarch and
+biomedical informatics communities will be added promptly. Other contributors
+are welcome to join a community call and introduce themselves before being
+granted branch access.
+
 ## Prerequisites for Contributing
 
 This repository uses **Claude Code** for AI-assisted curation. To contribute as an agent manager:
@@ -171,7 +184,7 @@ Use ISO 8601/RFC 3339 datetime strings (for example, `2025-06-12T20:16:27Z`), an
 
 ## Pull Request Process
 
-1. Create a branch for your changes
+1. Create a branch for your changes on `origin`, not on a fork
 2. Make edits to YAML files in `kb/disorders/`
 3. Run `just qc` to validate
 4. Submit a pull request
