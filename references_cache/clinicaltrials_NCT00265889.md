@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00265889
+reference_id: "clinicaltrials:NCT00265889"
 title: "Tandem Autologous Stem Cell Transplantation for Patients With Primary Progressive or Poor Risk Recurrent Hodgkin's Disease"
 content_type: summary
 ---

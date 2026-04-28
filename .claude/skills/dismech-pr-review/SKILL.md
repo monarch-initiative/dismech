@@ -14,6 +14,26 @@ Use all appropriate skills. What follows are some specific guidelines
 aimed to catch common suboptimal things we see in PRs a lot. This list
 is not complete and you should always consult skills and comparable entries.
 
+## IMPORTANT: check for silent reversions when the PR owner has resolved conflicts
+
+Although your primary objective is to evaluate the biological and clinical content of PRs,
+you MUST be vigilant for cases where the committed has botched a rebase or merge arising from
+merge conflict resolution (usually in cache files). You should also try ensure that all changes in the PR
+are in scope. If files are touched that are not relevant to the original request this is a warning sign.
+
+If in doubt, mark the PR as being review-required, and assign to cmungall.
+
+If the author truly did intend to include changes that seem out of scope, they will label the PR as scope-override.
+
+If you see a massive number of files touched and these are not relevant, this is a sure sign something has gone horribly wrong.
+Flag the PR assign to cmungall and stop.
+
+Typically conflicts arise from difference in cache files. We don't really care so much how these are resolved as they
+are derived files. More care should be taken when looking at conflicts resolution in anything authored, whether it is yaml, python,
+markdown etc.
+
+If the case seems nuanced, consult issue #1430 for further guidance.
+
 ## Trust the Validation Process
 
 **Do NOT second-guess deterministic validation.**
@@ -42,10 +62,7 @@ When a PR adds or updates a disorder YAML and matching deep-research artifacts e
 At minimum:
 - Find the matching `research/*-deep-research-*.md` file and corresponding `.citations.md`.
 - Read the research artifact before finalizing review.
-- Compare the research artifact against the YAML and ask:
-  - Are central mechanisms, phenotypes, diagnostics, treatments, biomarkers, or subtype distinctions present in research but absent or oversimplified in YAML?
-  - Are there high-value disease-specific PMIDs or DOIs surfaced by research, especially ones already fetched into `references_cache/`, that never made it into the YAML?
-  - Does the YAML appear intentionally narrower than the research artifact, or does it look like the research was simply under-consumed?
+- Compare the research artifact against the YAML using the **Content-Completeness Checklist** below.
 - For narrative providers, pay special attention to sections that explicitly call out omitted themes, unmodeled mechanisms, future work, or broader disease context.
 - For `asta` outputs, do NOT treat every retrieved paper as a review issue. Prioritize disease-specific, central, quotable, cache-backed items with clear modeling value.
 - Classify research-backed omissions:
@@ -57,7 +74,65 @@ At minimum:
 Always check the deep research markdown file. Occasionally agents will cheat and put a "fake" deep research entry. Real entries will always have a frontmatter block
 with metadata about the run, and after some rote repetition of the original prompt, should have dense narrative results, with citations.
 
-For NEW dismech entries, there MUST be at least one deep research entry in the PR. A dismech entry that lacks this will likely be highly incomplete
+For NEW dismech entries, there MUST be at least one deep research entry in the PR. A dismech entry that lacks this will likely be highly incomplete.
+
+### Content-Completeness Checklist
+
+When deep-research artifacts are present, the reviewer MUST walk through each dimension
+below and note whether the YAML adequately covers what the research surfaced. This
+checklist exists because schema-compliance review alone systematically misses content
+gaps (see issue #1673 — the HHT retrospective).
+
+For each dimension, compare the research artifact against the YAML and record one of:
+- **Adequate**: YAML covers the central items surfaced by research.
+- **Gaps noted**: Specific omissions listed; classify each as blocking or non-blocking.
+- **N/A**: Research did not surface meaningful content for this dimension.
+
+Include the completed checklist (or a summary of it) in your review body.
+
+#### 1. Phenotype coverage
+- Does the YAML capture the major organ-system manifestations described in research?
+- Are organ-specific phenotypes present (e.g., pulmonary, hepatic, cerebral AVMs for vascular diseases)?
+- Are frequency data and subtype-specific phenotype assignments included when the research provides them?
+- Missing a phenotype that affects >10% of patients and has an HPO term is blocking.
+
+#### 2. Subtype completeness
+- Do all subtypes listed in research appear in `has_subtypes`?
+- Does each subtype have a `disease_term` with MONDO or OMIM identifier when the research provides one?
+- Are subtype-specific phenotype, genetic, and treatment distinctions captured?
+- Missing MONDO/OMIM mappings for well-characterized subtypes is blocking when identifiers are available in the research.
+
+#### 3. Pathophysiology depth
+- Are the key mechanistic models described in research represented as atomic pathophysiology nodes?
+- Are secondary or recently discovered mechanisms captured (e.g., somatic second-hit models, immune involvement at lesion sites)?
+- Is histopathological detail (e.g., AVM morphogenesis, perivascular infiltrates) modeled when the research describes it?
+- A central disease mechanism described in research with PMID support that is entirely absent from the YAML is blocking.
+
+#### 4. Treatments and clinical trials
+- Are all drug treatments named in research present in the YAML `treatments` section?
+- Are off-label or emerging therapies with observational data or mechanistic rationale included?
+- Are clinical trials (NCT identifiers) surfaced by research captured in `clinical_trials`?
+- Missing a treatment with published trial data (Phase II+) is blocking.
+
+#### 5. Genetic section depth
+- Does the genetic section include penetrance data when research provides it?
+- Are modifier genes with evidence included?
+- Are variant class summaries (missense, splice-site, CNV, etc.) present?
+- Is somatic mutation evidence (e.g., second-hit models) captured when described in research?
+- A genetic section that lists only gene names when the research provides penetrance, modifiers, and variant data is blocking.
+
+#### 6. Biomarkers and diagnostics
+- Are diagnostic biomarkers and imaging findings described in research reflected in the YAML?
+- Are diagnostic criteria or screening protocols mentioned in research captured?
+
+#### 7. PMIDs and references
+- Are high-value disease-specific PMIDs surfaced by research, especially ones already fetched into `references_cache/`, incorporated into the YAML?
+- Does the YAML appear to under-consume the available references relative to what the research provided?
+- Note: deep-research PMIDs can be hallucinated — do not flag missing PMIDs as blocking unless you have verified they are real.
+
+#### 8. Overall consumption assessment
+- Does the YAML appear intentionally narrower than the research artifact (acceptable if signaled), or does it look like the research was simply under-consumed (blocking)?
+- As a rough heuristic: if the research artifact surfaces N major themes and the YAML covers fewer than half, the entry is likely under-consumed unless the PR description explains the scoping decision.
 
 ## Common things to suggest fixing
 
@@ -141,11 +216,14 @@ Put non-genetic data in `biochemical` or appropriate sections.
 11. Evidence at Cell-Type Granularity
 When possible, consider evidence at the cell-type level and annotate `cell_types` accordingly.
 
-12. Research-Backed Completeness
-If matching deep-research artifacts exist, use them as a completeness baseline for non-deterministic review.
+12. Research-Backed Completeness (Content-Completeness Checklist)
+If matching deep-research artifacts exist, walk through the **Content-Completeness Checklist**
+in the "Deep Research Cross-Check" section above. This is not optional — it is the primary
+defence against schema-valid but content-incomplete entries.
 - Flag omissions when a central research-backed mechanism, phenotype, diagnostic, treatment, biomarker, or subtype is missing and the evidence is both quotable and in scope for the current YAML.
 - If the YAML is narrower than the research artifact, ask whether that narrowing is intentional and sufficiently signaled rather than assuming it is correct.
 - Do not flood the review with every uncited paper from a retrieval-heavy artifact; focus on the highest-value misses.
+- Include the checklist results (or a summary) in the review body so the curation agent knows exactly what to address.
 
 13. Pathograph completeness
 - insofar as evidence allows, the pathograph should include both proximal events/perturbations/mutations, and distal events (phenotypes, histopathology)
@@ -170,7 +248,7 @@ Submit `--approve` when **all** of the following hold:
 - No fabricated snippets or wrong PMIDs detected through spot-checking
 - No major ontology placement errors (e.g., GO molecular function term in `biological_processes`)
 - All pathophysiology entries are atomic (not chained multi-step sentences)
-- When matching deep-research artifacts exist, they were checked and no blocking research-backed omissions remain
+- When matching deep-research artifacts exist, the **Content-Completeness Checklist** was completed and no blocking omissions remain across any dimension (phenotypes, subtypes, pathophysiology, treatments, genetics, biomarkers, references)
 - At most minor wording / completeness issues
 - (CI handles schema/term/reference validation — do not duplicate that work)
 

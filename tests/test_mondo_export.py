@@ -2,8 +2,10 @@ import csv
 import sqlite3
 from pathlib import Path
 
+import pytest
 import yaml
 
+from dismech.compare import mondo_export
 from dismech.compare.mondo_export import export_mondo_priority_candidates
 
 
@@ -185,3 +187,98 @@ def test_export_mondo_priority_candidates_limit_applies_after_curated_filter(
     rows = _read_tsv(output_path)
     assert result["exported_rows"] == 2
     assert len(rows) == 2
+
+
+def test_export_mondo_priority_candidates_materializes_default_mondo_db(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    default_path = tmp_path / "oaklib" / "mondo.db"
+    materialized_path = tmp_path / "downloaded" / "mondo.db"
+    output_path = tmp_path / "candidates.tsv"
+
+    default_path.parent.mkdir(parents=True)
+    default_path.write_bytes(b"")
+    materialized_path.parent.mkdir(parents=True)
+    _create_schema(materialized_path)
+    _insert_rows(
+        materialized_path,
+        "statements",
+        [
+            ("MONDO:0000001", "rdfs:label", None, "disease"),
+            ("MONDO:1000000", "rdfs:label", None, "system disease"),
+            ("MONDO:1000000", "rdfs:subClassOf", "MONDO:0000001", None),
+            ("MONDO:2000000", "rdfs:label", None, "Downloaded disease"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:1000000", None),
+        ],
+    )
+    _insert_rows(
+        materialized_path,
+        "entailed_edge",
+        [
+            ("MONDO:1000000", "rdfs:subClassOf", "MONDO:0000001"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:0000001"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:1000000"),
+        ],
+    )
+
+    def fake_materialize_default_mondo_db() -> Path:
+        assert not default_path.exists()
+        return materialized_path
+
+    monkeypatch.setattr(mondo_export, "DEFAULT_MONDO_DB_PATH", default_path)
+    monkeypatch.setattr(
+        mondo_export,
+        "_materialize_default_mondo_db",
+        fake_materialize_default_mondo_db,
+    )
+
+    result = export_mondo_priority_candidates(
+        mondo_db_path=default_path,
+        output_path=output_path,
+    )
+
+    rows = _read_tsv(output_path)
+    assert result["exported_rows"] == 2
+    assert [row["mondo_id"] for row in rows] == ["MONDO:1000000", "MONDO:2000000"]
+
+
+def test_export_mondo_priority_candidates_missing_custom_db_does_not_create_file(
+    tmp_path: Path,
+) -> None:
+    missing_path = tmp_path / "missing.db"
+
+    with pytest.raises(FileNotFoundError, match="MONDO SQLite database not found"):
+        export_mondo_priority_candidates(
+            mondo_db_path=missing_path,
+            output_path=tmp_path / "candidates.tsv",
+        )
+
+    assert not missing_path.exists()
+
+
+def test_export_mondo_priority_candidates_reports_incompatible_schema(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "bad.db"
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        CREATE TABLE statements (
+            subject TEXT,
+            predicate TEXT,
+            object TEXT,
+            value TEXT
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(
+        RuntimeError, match="missing required semantic-sql tables/views"
+    ):
+        export_mondo_priority_candidates(
+            mondo_db_path=db_path,
+            output_path=tmp_path / "candidates.tsv",
+        )
