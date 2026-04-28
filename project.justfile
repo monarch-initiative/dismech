@@ -884,6 +884,29 @@ cohd-signal *args="":
 cohd-add-signal file *args="":
     uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
 
+# ============== Structured-database reference sources ==============
+#
+# Structured sources (e.g. Orphanet) ingest a knowledge base and emit
+# deterministic, line-oriented markdown into references_cache/ so curators
+# can cite individual rows as evidence snippets. See
+# src/dismech/structured_sources/ for the framework and CLAUDE.md for usage.
+
+# Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
+[group('Research')]
+refresh-orphadata:
+    uv run python -m dismech.structured_sources.cli refresh orphanet
+
+# Rebuild every references_cache/ORPHA_*.md from current bulk XML
+# Use --id to limit to specific ORPHA codes.
+[group('Research')]
+structured-rebuild-orphanet *args="":
+    uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# List the first N identifiers from a structured source
+[group('Research')]
+structured-list source="orphanet" limit="20":
+    uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
+
 # ============== Classification Schemas ==============
 
 classifications_dir := "src/dismech/schema/classifications"
