@@ -555,12 +555,30 @@ class TabularExporter:
                 self._append_if_value(aggregated, "postcomp_modifier", value_text or value_literal)
             elif relation_type == "laterality":
                 self._append_if_value(aggregated, "postcomp_laterality", value_text or value_literal)
+            elif relation_type == "temporality":
+                self._append_if_value(aggregated, "postcomp_temporality", value_text or value_literal)
+            elif relation_type == "clinical_course":
+                self._append_if_value(aggregated, "postcomp_clinical_course", value_text or value_literal)
+            elif relation_type == "severity":
+                self._append_if_value(aggregated, "postcomp_severity", value_text or value_literal)
+            elif relation_type == "onset":
+                self._append_if_value(aggregated, "postcomp_onset", value_text or value_literal)
             elif relation_type == "located_in":
                 self._append_if_value(aggregated, "postcomp_located_in", value_text)
                 self._append_if_value(aggregated, "postcomp_located_in_ids", value_id)
             elif relation_type == "therapeutic_agent":
                 self._append_if_value(aggregated, "postcomp_therapeutic_agent", value_text)
                 self._append_if_value(aggregated, "postcomp_therapeutic_agent_ids", value_id)
+            elif relation_type == "dietary_modification":
+                action = str(row.get("predicate_preferred_term", "") or "")
+                combined = f"{action} {value_text}".strip()
+                self._append_if_value(
+                    aggregated,
+                    "postcomp_dietary_modification",
+                    combined or value_text,
+                )
+                self._append_if_value(aggregated, "postcomp_dietary_modification_ids", value_id)
+                self._append_if_value(aggregated, "postcomp_dietary_modification_actions", action)
             elif relation_type == "qualifier":
                 predicate_label = str(row.get("predicate_term_label", "") or row.get("predicate_preferred_term", "") or "")
                 predicate_id = str(row.get("predicate_term_id", "") or "")
@@ -659,6 +677,10 @@ class TabularExporter:
                 "MIN(value_term_label) FILTER (WHERE relation_type = 'located_in') AS located_in_term_label, "
                 "MIN(value_literal) FILTER (WHERE relation_type = 'laterality') AS laterality, "
                 "MIN(value_literal) FILTER (WHERE relation_type = 'modifier') AS modifier, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'temporality') AS temporality, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'clinical_course') AS clinical_course, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'severity') AS severity, "
+                "MIN(value_literal) FILTER (WHERE relation_type = 'onset') AS onset, "
                 "STRING_AGG(value_term_label, '; ' ORDER BY relation_index) FILTER (WHERE relation_type = 'therapeutic_agent') AS therapeutic_agents, "
                 "STRING_AGG(predicate_term_label, '; ' ORDER BY relation_index) FILTER (WHERE relation_type = 'qualifier') AS qualifier_predicates, "
                 "STRING_AGG(value_term_label, '; ' ORDER BY relation_index) FILTER (WHERE relation_type = 'qualifier') AS qualifier_values "
@@ -748,6 +770,65 @@ class TabularExporter:
                 raw_value=laterality,
             )
 
+        temporality = descriptor.get("temporality")
+        if temporality not in (None, ""):
+            add_row(
+                relation_type="temporality",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.temporality",
+                predicate_preferred_term="temporality",
+                value_literal=str(temporality),
+                raw_value=temporality,
+            )
+
+        clinical_course = descriptor.get("clinical_course")
+        if clinical_course not in (None, ""):
+            add_row(
+                relation_type="clinical_course",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.clinical_course",
+                predicate_preferred_term="clinical_course",
+                value_literal=str(clinical_course),
+                raw_value=clinical_course,
+            )
+
+        severity = descriptor.get("severity")
+        if severity not in (None, ""):
+            add_row(
+                relation_type="severity",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.severity",
+                predicate_preferred_term="severity",
+                value_literal=str(severity),
+                raw_value=severity,
+            )
+
+        onset = descriptor.get("onset")
+        if isinstance(onset, dict):
+            onset_parts: list[str] = []
+            onset_category = onset.get("onset_category")
+            mean_age_years = onset.get("mean_age_years")
+            min_age_years = onset.get("min_age_years")
+            max_age_years = onset.get("max_age_years")
+            if onset_category not in (None, ""):
+                onset_parts.append(str(onset_category))
+            if mean_age_years is not None:
+                onset_parts.append(f"mean {mean_age_years}y")
+            if min_age_years is not None and max_age_years is not None:
+                onset_parts.append(f"{min_age_years}-{max_age_years}y")
+            elif min_age_years is not None:
+                onset_parts.append(f"from {min_age_years}y")
+            elif max_age_years is not None:
+                onset_parts.append(f"up to {max_age_years}y")
+            add_row(
+                relation_type="onset",
+                relation_index=0,
+                relation_path=f"{descriptor_path}.onset",
+                predicate_preferred_term="onset",
+                value_literal="; ".join(onset_parts),
+                raw_value=onset,
+            )
+
         located_in = descriptor.get("located_in")
         if isinstance(located_in, dict):
             located_pref, located_id, located_label = descriptor_fields(located_in)
@@ -780,6 +861,28 @@ class TabularExporter:
                 value_term_id=therapeutic_id,
                 value_term_label=therapeutic_label,
                 raw_value=therapeutic_value,
+            )
+
+        dietary_modifications = descriptor.get("dietary_modifications")
+        if isinstance(dietary_modifications, dict):
+            dietary_items = [dietary_modifications]
+        elif isinstance(dietary_modifications, list):
+            dietary_items = [value for value in dietary_modifications if isinstance(value, dict)]
+        else:
+            dietary_items = []
+        for index, dietary_value in enumerate(dietary_items):
+            action = str(dietary_value.get("action", "") or "")
+            food = dietary_value.get("food")
+            food_pref, food_id, food_label = descriptor_fields(food)
+            add_row(
+                relation_type="dietary_modification",
+                relation_index=index,
+                relation_path=f"{descriptor_path}.dietary_modifications[{index}]",
+                predicate_preferred_term=action,
+                value_preferred_term=food_pref,
+                value_term_id=food_id,
+                value_term_label=food_label,
+                raw_value=dietary_value,
             )
 
         qualifiers = descriptor.get("qualifiers")
@@ -835,7 +938,21 @@ class TabularExporter:
             return False
         if "preferred_term" in value:
             return True
-        if any(key in value for key in ("modifier", "located_in", "laterality", "qualifiers", "therapeutic_agent")):
+        if any(
+            key in value
+            for key in (
+                "modifier",
+                "located_in",
+                "laterality",
+                "temporality",
+                "clinical_course",
+                "severity",
+                "onset",
+                "qualifiers",
+                "therapeutic_agent",
+                "dietary_modifications",
+            )
+        ):
             return True
         if key_hint and key_hint.endswith("_term"):
             term = value.get("term")

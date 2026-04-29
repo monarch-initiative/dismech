@@ -58,6 +58,17 @@ def test_extract_disorder_with_valid_data():
         "biochemical": [
             {"name": "Biomarker 1"},
         ],
+        "references": [
+            {"reference": "PMID:123"},
+            {"reference": "DOI:10.1000/test"},
+        ],
+        "phenotypes": [
+            {
+                "name": "Phenotype A",
+                "category": "Musculoskeletal",
+                "evidence": [{"reference": "PMID:123"}],
+            }
+        ],
     }
 
     exporter = BrowserExporter()
@@ -71,6 +82,7 @@ def test_extract_disorder_with_valid_data():
     assert record["treatments"] == ["Treatment A", "Treatment B"]
     assert record["environmental"] == ["Environmental Factor 1"]
     assert record["biochemical"] == ["Biomarker 1"]
+    assert record["phenotype_categories"] == ["Musculoskeletal"]
 
 
 def test_export_to_js_with_problematic_file():
@@ -110,4 +122,50 @@ biochemical:
         with open(output_file) as f:
             content = f.read()
         assert "window.searchData" in content
+        assert "window.searchMetrics" in content
         assert "Test Disorder" in content
+
+
+def test_build_summary_metrics():
+    """Test landing-page summary metrics aggregation from raw disorder data."""
+    disorders = [
+        {
+            "category": "Genetic",
+            "phenotypes": [
+                {"category": "Musculoskeletal"},
+                {"category": "Systemic"},
+            ],
+            "pathophysiology": [
+                {"name": "Shared Event"},
+                {"name": "Unique Event A"},
+            ],
+            "references": [
+                {"reference": "PMID:1"},
+                {"reference": "DOI:10.1/test"},
+            ],
+        },
+        {
+            "category": "Genetic",
+            "phenotypes": [{"category": "Musculoskeletal"}],
+            "pathophysiology": [{"name": "Shared Event"}],
+            "treatments": [
+                {"name": "Treatment", "evidence": [{"reference": "PMID:2"}]},
+            ],
+        },
+        {
+            "category": "Inflammatory",
+            "phenotypes": [],
+            "pathophysiology": [],
+        },
+    ]
+
+    metrics = BrowserExporter.build_summary_metrics(disorders)
+
+    assert metrics == {
+        "total_disorder_pages": 3,
+        "total_unique_evidence_sources": 3,
+        "total_unique_disease_categories": 2,
+        "total_unique_phenotype_categories": 2,
+        "total_pathographs": 2,
+        "total_unique_pathological_events": 2,
+    }

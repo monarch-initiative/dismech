@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2026-01-30T19:25:26.428518'
-end_time: '2026-01-30T19:33:07.137209'
-duration_seconds: 460.71
+cached: true
+start_time: '2026-04-02T15:45:48.753214'
+end_time: '2026-04-02T15:45:48.757962'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Thanatophoric Dysplasia Type 2

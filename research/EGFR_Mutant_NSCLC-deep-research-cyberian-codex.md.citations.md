@@ -1,0 +1,20 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for EGFR-Mutant Non-Small Cell Lung Cancer
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:52Z
+
+1. DOI:10.1016/j.jncc.2024.06.004
+2. DOI:10.1016/j.pccm.2024.08.002
+3. DOI:10.1038/s41417-024-00761-z
+4. DOI:10.1038/s41418-024-01317-2
+5. DOI:10.1038/s41419-024-06945-7
+6. DOI:10.1080/14728222.2023.2218613
+7. DOI:10.1186/s12943-023-01780-4
+8. DOI:10.21037/tlcr-23-98
+9. DOI:10.32604/or.2025.059311
+10. DOI:10.3390/biomedicines13020470
+11. DOI:10.3390/ijms25115917
+12. DOI:10.3390/ijms26072957
+13. DOI:10.3892/ol.2025.15121
+14. DOI:10.62347/wtmu5537

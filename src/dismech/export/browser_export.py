@@ -145,6 +145,23 @@ def _longest_path_length(edges: list[tuple[str, str]]) -> int:
     return max(distances.values()) if distances else 0
 
 
+def _collect_reference_ids(value: Any) -> set[str]:
+    """Recursively collect evidence/reference identifiers from nested disorder data."""
+    references: set[str] = set()
+
+    if isinstance(value, dict):
+        reference_value = value.get("reference")
+        if isinstance(reference_value, str) and reference_value.strip():
+            references.add(reference_value.strip())
+        for nested_value in value.values():
+            references.update(_collect_reference_ids(nested_value))
+    elif isinstance(value, list):
+        for item in value:
+            references.update(_collect_reference_ids(item))
+
+    return references
+
+
 def slugify(name: str) -> str:
     """Convert a disorder name to a filename-safe slug."""
     return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
@@ -252,7 +269,6 @@ class BrowserExporter:
         causal_edges = len(graph.edges)
         causal_longest_path = _longest_path_length(
             [(edge.source, edge.target) for edge in graph.edges])
-
         return {
             "name": name,
             "disease_id": disease_id,
@@ -286,6 +302,44 @@ class BrowserExporter:
             "causal_graph_longest_path": str(causal_longest_path),
         }
 
+    @staticmethod
+    def build_summary_metrics(disorders: list[dict[str, Any]]) -> dict[str, int]:
+        """Aggregate landing-page summary metrics directly from disorder data."""
+        categories = {
+            category.strip() for disorder in disorders if (category := disorder.get("category"))
+        }
+        phenotype_categories = {
+            phenotype_category.strip()
+            for disorder in disorders
+            for phenotype in (disorder.get("phenotypes") or [])
+            if (phenotype_category := phenotype.get("category"))
+        }
+        evidence_references = {
+            reference_id.strip()
+            for disorder in disorders
+            for reference_id in _collect_reference_ids(disorder)
+            if reference_id
+        }
+        unique_pathological_events = {
+            pathophysiology_name.strip()
+            for disorder in disorders
+            for pathophysiology in (disorder.get("pathophysiology") or [])
+            if (pathophysiology_name := pathophysiology.get("name"))
+            if pathophysiology_name
+        }
+        total_pathographs = sum(
+            1 for disorder in disorders if disorder.get("pathophysiology")
+        )
+
+        return {
+            "total_disorder_pages": len(disorders),
+            "total_unique_evidence_sources": len(evidence_references),
+            "total_unique_disease_categories": len(categories),
+            "total_unique_phenotype_categories": len(phenotype_categories),
+            "total_pathographs": total_pathographs,
+            "total_unique_pathological_events": len(unique_pathological_events),
+        }
+
     def _write_hpo_category_cache(self, output_path: Path) -> None:
         """Write the accumulated HP-to-category cache as JSON for use by the renderer."""
         cache_path = output_path.parent / "hpo_category_cache.json"
@@ -311,12 +365,16 @@ class BrowserExporter:
     def export_to_js(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a JavaScript data file."""
         records = []
+        disorders = []
         for file_path in disorder_files:
             disorder = self.load_disorder(file_path)
+            disorders.append(disorder)
             record = self.extract_disorder(disorder, file_path.name)
             records.append(record)
 
+        metrics = self.build_summary_metrics(disorders)
         js_content = f"window.searchData = {json.dumps(records, indent=2)};\n"
+        js_content += f"window.searchMetrics = {json.dumps(metrics, indent=2)};\n"
         js_content += "window.dispatchEvent(new Event('searchDataReady'));\n"
 
         with open(output_path, "w") as f:

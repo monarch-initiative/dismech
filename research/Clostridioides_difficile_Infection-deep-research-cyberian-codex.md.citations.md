@@ -1,0 +1,18 @@
+# Citations for Research Query
+
+**Query:** Codex secondary synthesis for Clostridioides difficile Infection
+**Provider:** cyberian-codex
+**Generated:** 2026-02-17T08:39:52Z
+
+1. DOI:10.1080/1040841x.2022.2054307
+2. DOI:10.1080/19490976.2024.2393766
+3. DOI:10.1128/cmr.00135-23
+4. DOI:10.1128/mbio.03562-24
+5. DOI:10.1177/17562848211017725
+6. DOI:10.1177/20503121241274192
+7. DOI:10.1186/s12879-024-09422-w
+8. DOI:10.3389/fmicb.2020.01939
+9. DOI:10.3389/fphar.2024.1430724
+10. DOI:10.3390/microorganisms12051004
+11. DOI:10.3390/toxins15110643
+12. DOI:10.3390/toxins16060241

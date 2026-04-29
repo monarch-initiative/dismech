@@ -3,7 +3,14 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 kb_dir := "kb/disorders"
+modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
+ref_validator_config := "conf/reference_validator_config.yaml"
+mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db')
+# Wrapper script that patches linkml-reference-validator for network resilience
+ref_validator := "scripts/run_reference_validator.sh"
+# Wrapper script that enforces warning-fail behavior for term validation
+term_validator := "scripts/run_term_validator.sh"
 
 # Validate all disorder YAML files (schema + terms + references)
 # Runs all validations and reports ALL errors at the end
@@ -24,12 +31,12 @@ validate-all:
             errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
         fi
         # Term validation
-        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
+        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
         if ! echo "$term_output" | grep -q "Validation passed"; then
             errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
-        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1)
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
         fi
@@ -60,10 +67,10 @@ validate file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -105,10 +112,10 @@ validate-comorbidity file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
     echo "Term validation..."
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
 # Full validation of all comorbidity YAML files (schema + terms + references)
@@ -132,12 +139,12 @@ validate-comorbidities-all:
             errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "$f" 2>&1 | grep -v "^$")\n"
         fi
         # Term validation
-        term_output=$(uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} 2>&1 || true)
+        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} 2>&1 || true)
         if ! echo "$term_output" | grep -q "Validation passed"; then
             errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
-        ref_output=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation 2>&1 || true)
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} 2>&1 || true)
         if echo "$ref_output" | grep -q "\[ERROR\]"; then
             errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
         elif ! echo "$ref_output" | grep -q "All validations passed"; then
@@ -162,11 +169,67 @@ validate-comorbidities-all:
         exit 1
     fi
 
+# Validate all mechanism module YAML files (schema + references)
+[group('QC')]
+validate-modules:
+    #!/usr/bin/env bash
+    shopt -s nullglob
+    files=({{modules_dir}}/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No module files found in {{modules_dir}}"
+        exit 0
+    fi
+    just fix-references-cache
+    failed_files=()
+    echo "Validating all mechanism module files..."
+    for f in "${files[@]}"; do
+        echo "=== $(basename $f) ==="
+        errors=""
+        # Schema validation (modules use the Disease class)
+        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
+            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Reference validation
+        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
+        if echo "$ref_output" | grep -q "\[ERROR\]"; then
+            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
+        fi
+        if [ -n "$errors" ]; then
+            failed_files+=("$f")
+            echo -e "$errors"
+        else
+            echo "  ✓ OK"
+        fi
+    done
+    echo ""
+    echo "================================"
+    if [ ${#failed_files[@]} -eq 0 ]; then
+        echo "✓ All module files validated successfully!"
+    else
+        echo "✗ ${#failed_files[@]} module file(s) with errors:"
+        for f in "${failed_files[@]}"; do
+            echo "  - $f"
+        done
+        exit 1
+    fi
+
+# Validate a single mechanism module file
+[group('QC')]
+validate-module file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Reference validation..."
+    just fix-references-cache
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    echo "✓ All validations passed for {{file}}"
+
 # Run term validation on schema (checks dynamic enum definitions)
 [group('QC')]
 validate-terms-schema:
     @echo "Validating schema term references..."
-    uv run linkml-term-validator validate-schema {{schema_path}}
+    uv run linkml-term-validator validate-schema {{schema_path}} -c {{oak_config}}
 
 # OAK config for ontology adapters
 oak_config := "conf/oak_config.yaml"
@@ -181,14 +244,14 @@ validate-terms-all:
     echo "Validating terms in all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
         echo "Validating: $(basename $f)"
-        uv run linkml-term-validator validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+        {{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     done
     echo "✓ All terms valid!"
 
 # Validate terms in a single file
 [group('QC')]
 validate-terms file:
-    uv run linkml-term-validator validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
 [group('QC')]
@@ -200,9 +263,9 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (full validation + deep-research report checks)
+# Run all QC checks (cache contract + validation + modules + deep-research report checks)
 [group('QC')]
-qc: validate-all qc-deep-research
+qc: check-reference-cache-frontmatter validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -304,14 +367,47 @@ gen-dashboard:
     fi
     uv run linkml-data-qc "${files[@]}" -s {{schema_path}} -t Disease -c conf/qc_config.yaml --dashboard-dir dashboard/
     uv run python scripts/qc_uncurated_disease_links.py --kb-dir {{kb_dir}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    just gen-priority-dashboard
     echo "Dashboard generated in dashboard/"
+
+# Generate MONDO curation priority dashboard
+[group('QC')]
+gen-priority-dashboard candidates='tmp/mondo_priority_candidates_full.tsv' config='conf/mondo_prioritizer.yaml':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    candidates="{{candidates}}"
+    if [ "$candidates" = "tmp/mondo_priority_candidates_full.tsv" ] || [ ! -f "$candidates" ]; then
+        mkdir -p "$(dirname "$candidates")"
+        uv run python scripts/export_mondo_priority_candidates.py --mondo-db {{mondo_db}} --output "$candidates" --kb-dir {{kb_dir}}
+    fi
+    uv run python scripts/generate_priority_dashboard.py --candidates "$candidates" --kb-dir {{kb_dir}} --config {{config}} --dashboard-dir dashboard/ --dashboard-index dashboard/index.html
+    echo "Priority dashboard generated in dashboard/"
+
+# Generate a local-only all-MONDO priority dashboard under tmp/ (gitignored)
+[group('QC')]
+gen-priority-dashboard-all-mondo:
+    #!/usr/bin/env bash
+    set -e
+    out_dir="tmp/priority-dashboard-all-mondo"
+    mkdir -p "$out_dir"
+    uv run python scripts/export_mondo_priority_candidates.py --mondo-db {{mondo_db}} --output "$out_dir"/all_mondo_candidates.tsv --kb-dir {{kb_dir}}
+    uv run python scripts/generate_priority_dashboard.py --candidates "$out_dir"/all_mondo_candidates.tsv --kb-dir {{kb_dir}} --config conf/mondo_prioritizer.yaml --dashboard-dir "$out_dir" --dashboard-index "$out_dir"/index.html
+    echo "Local-only all-MONDO priority dashboard generated at $out_dir/priority.html"
+    echo "Outputs are under tmp/ and are gitignored; do not commit them."
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
 [group('QC')]
 validate-references file:
     @just fix-references-cache
-    uv run linkml-reference-validator validate data {{file}} --schema {{schema_path}} --target-class Disease
+    {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Deterministically validate reference cache frontmatter against the
+# linkml-reference-validator cache contract before the heavier data validators.
+[group('QC')]
+check-reference-cache-frontmatter:
+    @just fix-references-cache
+    uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Validate ALL snippet/reference pairs against PubMed across all disorder files
 # Warning: First run may take a while as it fetches ~1400 uncached PMIDs from PubMed
@@ -324,8 +420,8 @@ validate-references-all:
     total_errors=0
     for f in {{kb_dir}}/*.yaml; do
         echo "Checking: $f"
-        if ! uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1 | grep -q "All validations passed"; then
-            errors=$(uv run linkml-reference-validator validate data "$f" --schema {{schema_path}} --target-class Disease 2>&1 | grep -c "ERROR" || true)
+        if ! {{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -q "All validations passed"; then
+            errors=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1 | grep -c "ERROR" || true)
             if [ "$errors" -gt 0 ]; then
                 echo "  Found $errors errors in $f"
                 total_errors=$((total_errors + errors))
@@ -374,6 +470,11 @@ fix-references-cache:
         if modified:
             md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
 
+# Run browser search tests (JavaScript, uses Node.js + MiniSearch)
+[group('QC')]
+test-search:
+    node --test tests/js/*.test.mjs
+
 # Run pytest tests (with verbose output)
 [group('QC')]
 pytest-all:
@@ -387,8 +488,7 @@ quick-test:
 # List all disorders in the KB
 [group('KB')]
 list-disorders:
-    @echo "Disorders in the KB:"
-    @ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | sort
+    @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort
 
 # Count disorders
 [group('KB')]
@@ -447,16 +547,22 @@ deploy-browser: gen-browser-data
     @echo "Browser app ready at app/index.html"
     @echo "Data generated with $(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | wc -l | tr -d ' ') disorders"
 
-# Generate individual HTML pages for all disorders and comorbidities
+# Generate individual HTML pages for all disorders, comorbidities, and modules
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
-    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages and $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages"
+    @echo "Generated $(ls -1 pages/disorders/*.html 2>/dev/null | wc -l | tr -d ' ') disorder pages, $(ls -1 pages/comorbidities/*.html 2>/dev/null | wc -l | tr -d ' ') comorbidity pages, and $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single disorder page
 [group('Pages')]
 gen-page file:
     uv run python -m dismech.render {{file}}
+
+# Generate all shared module pages
+[group('Pages')]
+gen-module-pages:
+    uv run python -m dismech.render --module {{modules_dir}}
+    @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
 
 # Generate a single comorbidity page
 [group('Pages')]
@@ -485,11 +591,134 @@ gen-all: gen-browser-data gen-pages gen-schema-docs
 
 # ============== KGX Export ==============
 
+# Generate derived disease-to-ontology context score tables
+[group('Export')]
+export-context-scores output_dir="output/context_scores":
+    mkdir -p {{output_dir}}
+    uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
+
 # Generate KGX edges from disorder knowledge base
 [group('Export')]
 export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
+
+# ============== CX2 Export ==============
+
+cx2_output_dir := "output/cx2"
+ndex_test_host := "https://test.ndexbio.org"
+
+# Export a single disorder pathograph to CX2 JSON for spot-checking.
+# Examples:
+#   just export-cx2 kb/disorders/Stargardt_Disease.yaml
+#   just export-cx2 kb/disorders/Stargardt_Disease.yaml --dot-layout
+[group('Export')]
+export-cx2 file *args="":
+    uv run dismech-cx2 {{file}} {{args}}
+
+# Export all disorder pathographs to CX2 JSON files under output/cx2/.
+# Examples:
+#   just export-cx2-all
+#   just export-cx2-all -o /tmp/cx2
+#   just export-cx2-all --output /tmp/cx2 --dot-layout
+[group('Export')]
+export-cx2-all *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out_dir="{{cx2_output_dir}}"
+    passthrough_args=()
+    set -- {{args}}
+    while (($#)); do
+        case "$1" in
+            -o|--output)
+                if (($# < 2)); then
+                    echo "Missing value for $1" >&2
+                    exit 2
+                fi
+                out_dir="$2"
+                shift 2
+                ;;
+            *)
+                passthrough_args+=("$1")
+                shift
+                ;;
+        esac
+    done
+    mkdir -p "$out_dir"
+    shopt -s nullglob
+    count=0
+    skipped=0
+    for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
+        stem="$(basename "$f" .yaml)"
+        out="$out_dir/${stem}.cx2.json"
+        echo "Exporting: $f -> $out"
+        if [[ ${#passthrough_args[@]} -gt 0 ]]; then
+            output=$(uv run dismech-cx2 "$f" -o "$out" --skip-empty "${passthrough_args[@]}" 2>&1) && status=0 || status=$?
+        else
+            output=$(uv run dismech-cx2 "$f" -o "$out" --skip-empty 2>&1) && status=0 || status=$?
+        fi
+        echo "$output"
+        if [[ $status -ne 0 ]]; then
+            exit $status
+        fi
+        if [[ "$output" == Skipping* ]]; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+        count=$((count + 1))
+    done
+    echo "Exported $count CX2 network(s) to $out_dir/"
+    if [[ $skipped -gt 0 ]]; then
+        echo "Skipped $skipped disorder(s) with no pathograph edges"
+    fi
+
+# Upload a single disorder pathograph to the NDEx test server as a public network.
+# Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
+# Examples:
+#   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml
+#   just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --dot-layout
+[group('Export')]
+upload-cx2-test file *args="":
+    NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}" uv run dismech-cx2 {{file}} --ndex-upload --ndex-replace-existing {{args}}
+
+# Upload all disorder pathographs to the NDEx test server as public networks.
+# Requires NDEX_USERNAME and NDEX_PASSWORD to be set.
+# Examples:
+#   just upload-cx2-test-all
+#   just upload-cx2-test-all --dot-layout
+[group('Export')]
+upload-cx2-test-all *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${NDEX_USERNAME:?Set NDEX_USERNAME before running upload-cx2-test-all}"
+    : "${NDEX_PASSWORD:?Set NDEX_PASSWORD before running upload-cx2-test-all}"
+    export NDEX_HOST="${NDEX_TEST_HOST:-{{ndex_test_host}}}"
+    shopt -s nullglob
+    count=0
+    skipped=0
+    for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
+        echo "Uploading: $f -> $NDEX_HOST"
+        output=$(uv run dismech-cx2 "$f" --ndex-upload --ndex-replace-existing --skip-empty {{args}} 2>&1) && status=0 || status=$?
+        echo "$output"
+        if [[ $status -ne 0 ]]; then
+            exit $status
+        fi
+        if [[ "$output" == Skipping* ]]; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+        count=$((count + 1))
+    done
+    echo "Uploaded $count CX2 network(s) to $NDEX_HOST"
+    if [[ $skipped -gt 0 ]]; then
+        echo "Skipped $skipped disorder(s) with no pathograph edges"
+    fi
 
 # ============== Deep Research ==============
 
@@ -500,6 +729,7 @@ templates_dir := "templates"
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
+#   just research-disorder asta Liver_Cirrhosis
 #   just research-disorder openai Huntingtons_Disease --model gpt-4o
 #   just research-disorder cborg Crohn_Disease
 [group('Research')]
@@ -510,16 +740,17 @@ research-disorder provider disorder *args="":
     yaml_file="{{kb_dir}}/{{disorder}}.yaml"
     if [ ! -f "$yaml_file" ]; then
         echo "Error: Disorder file not found: $yaml_file"
-        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
+    template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     uv run deep-research-client research \
-        --template {{templates_dir}}/disease_pathophysiology_research.md \
+        --template "$template_file" \
         --var "disease_name=$disease_name" \
         --var "mondo_id=" \
         --var "category=$category" \
@@ -604,7 +835,7 @@ research-disorder-cyberian-codex disorder *args="":
     yaml_file="{{kb_dir}}/{{disorder}}.yaml"
     if [ ! -f "$yaml_file" ]; then
         echo "Error: Disorder file not found: $yaml_file"
-        ls -1 {{kb_dir}}/*.yaml | xargs -I {} basename {} .yaml | head -20
+        for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort | head -20
         exit 1
     fi
     disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
@@ -652,6 +883,29 @@ cohd-signal *args="":
 [group('Research')]
 cohd-add-signal file *args="":
     uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
+
+# ============== Structured-database reference sources ==============
+#
+# Structured sources (e.g. Orphanet) ingest a knowledge base and emit
+# deterministic, line-oriented markdown into references_cache/ so curators
+# can cite individual rows as evidence snippets. See
+# src/dismech/structured_sources/ for the framework and CLAUDE.md for usage.
+
+# Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
+[group('Research')]
+refresh-orphadata:
+    uv run python -m dismech.structured_sources.cli refresh orphanet
+
+# Rebuild every references_cache/ORPHA_*.md from current bulk XML
+# Use --id to limit to specific ORPHA codes.
+[group('Research')]
+structured-rebuild-orphanet *args="":
+    uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# List the first N identifiers from a structured source
+[group('Research')]
+structured-list source="orphanet" limit="20":
+    uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
 
 # ============== Classification Schemas ==============
 
@@ -902,17 +1156,175 @@ embed-mechanisms-all:
     just embed-mechanisms-data
     @echo "=== Done! Open app/embeddings/mechanisms.html ==="
 
+# ============== Reactome Pathways ==============
+
+reactome_dir := "pathways/reactome"
+
+# Fetch Reactome disease pathway data for a single disease
+# Examples:
+#   just reactome-fetch "cystic fibrosis"
+#   just reactome-fetch DOID:13636
+#   just reactome-fetch "chronic myeloid leukemia" --format md
+[group('Reactome')]
+reactome-fetch query *args="":
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" {{args}}
+
+# Fetch Reactome data for all diseases overlapping with dismech KB
+[group('Reactome')]
+reactome-fetch-all:
+    uv run python scripts/fetch_reactome_disease.py --all-overlap
+
+# List cached Reactome disease files
+[group('Reactome')]
+reactome-list:
+    @echo "Cached Reactome disease pathways:"
+    @ls {{reactome_dir}}/*.yaml 2>/dev/null | grep -q . \
+      && ls -1 {{reactome_dir}}/*.yaml | xargs -I {} basename {} .yaml | sort \
+      || echo "  (none yet — run 'just reactome-fetch-all')"
+
+# Show Reactome summary for a disease (prints to stdout)
+[group('Reactome')]
+reactome-show query:
+    uv run python scripts/fetch_reactome_disease.py "{{query}}" --format md -o /dev/stdout
+
+# Normalize all term and enum cache files for deterministic diffs
+# Sorts term caches by CURIE (via linkml-term-validator migrate-cache)
+# and sorts enum membership caches by CURIE.
+# See: https://github.com/linkml/linkml-term-validator/issues/15
+[group('QC')]
+normalize-cache:
+    #!/usr/bin/env bash
+    set -e
+    echo "Normalizing term caches..."
+    uv run linkml-term-validator migrate-cache --cache-dir cache --sort-only
+    echo "Normalizing enum caches..."
+    for f in cache/enums/*.csv; do
+        header=$(head -1 "$f")
+        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
+        echo "$header" > "$f"
+        cat /tmp/_sorted_enum.csv >> "$f"
+    done
+    rm -f /tmp/_sorted_enum.csv
+    echo "✓ All caches normalized"
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]
 d2p-compare disease:
-    uv run python -m dismech.d2p_compare compare "{{disease}}"
+    uv run python -m dismech.compare.d2p compare "{{disease}}"
 
 # Compare all diseases in the KB against OMIM/Orphanet
 [group('Analysis')]
 d2p-compare-all:
-    uv run python -m dismech.d2p_compare compare-all
+    uv run python -m dismech.compare.d2p compare-all
 
 # Compare with JSON output
 [group('Analysis')]
 d2p-compare-json disease:
-    uv run python -m dismech.d2p_compare compare "{{disease}}" --format json
+    uv run python -m dismech.compare.d2p compare "{{disease}}" --format json
+
+# Compare G2P gene assertions against dismech for a single gene
+[group('Analysis')]
+g2p-compare gene:
+    uv run python -m dismech.compare.g2p compare "{{gene}}"
+
+# Compare multiple G2P genes against dismech
+[group('Analysis')]
+g2p-compare-all *genes:
+    uv run python -m dismech.compare.g2p compare-all {{genes}}
+
+# Compare the full current G2P release against dismech
+[group('Analysis')]
+g2p-compare-release:
+    uv run python -m dismech.compare.g2p compare-all --all-genes
+
+# Export actionable row-level triage for the full current G2P release
+[group('Analysis')]
+g2p-compare-release-triage:
+    uv run python -m dismech.compare.g2p compare-all --all-genes --format tsv --actionable-only
+
+# Compare G2P with JSON output
+[group('Analysis')]
+g2p-compare-json gene:
+    uv run python -m dismech.compare.g2p compare "{{gene}}" --format json
+
+# Run causal perturbation analysis on a disorder
+# Examples:
+#   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --gene CASR --effect LoF
+#   just perturb kb/disorders/CKD-Mineral_Bone_Disorder.yaml --all
+[group('Analysis')]
+perturb file *args="":
+    uv run python -m dismech.perturb {{file}} {{args}}
+
+# ============== Agent Helper Commands ==============
+# These commands help Claude Code agents explore the KB without requiring
+# manual permission approvals for common lookup patterns.
+
+# Check if a disorder exists (case-insensitive partial match)
+# Example: just find-disorder kleefstra
+[group('KB')]
+find-disorder pattern:
+    @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | grep -i "{{pattern}}" || echo "No match found for '{{pattern}}'"
+
+# Show how a specific YAML field is used across existing disorder files
+# Example: just show-field-pattern genetic gene_term
+#          just show-field-pattern treatments treatment_term
+[group('KB')]
+show-field-pattern section field:
+    #!/usr/bin/env bash
+    echo "Pattern for '{{field}}' in '{{section}}' section:"
+    count=0
+    for f in {{kb_dir}}/*.yaml; do
+        # Extract lines from the target section (top-level key) then grep within it
+        section_text=$(sed -n '/^{{section}}:/,/^[a-z_]*:/{ /^[a-z_]*:/!p; /^{{section}}:/p; }' "$f" 2>/dev/null)
+        match=$(echo "$section_text" | grep -FA6 "{{field}}:" 2>/dev/null | head -7)
+        if [ -n "$match" ]; then
+            echo "--- $(basename $f) ---"
+            echo "$match"
+            echo ""
+            count=$((count+1))
+            if [ $count -ge 3 ]; then
+                break
+            fi
+        fi
+    done
+
+# Find cached references matching a pattern (PMID, DOI, keyword)
+# Example: just find-cached-refs kleefstra
+#          just find-cached-refs 16826528
+[group('Research')]
+find-cached-refs pattern:
+    @ls -1 references_cache/*.md 2>/dev/null | grep -i "{{pattern}}" || echo "No cached refs matching '{{pattern}}'"
+
+# Check if deep research exists for a disorder
+# Example: just check-research Kleefstra_Syndrome
+[group('Research')]
+check-research disorder:
+    @ls -1 research/{{disorder}}* 2>/dev/null || echo "No research files found for '{{disorder}}'"
+
+# List all available deep research files
+[group('Research')]
+list-research:
+    @for f in research/*-deep-research-*.md; do [ -f "$f" ] && basename "$f"; done | grep -v '\.citations\.md$$' | sort || echo "No research files found"
+
+# Generate a disorder review report (markdown + PDF) for expert review
+# Example: just disorder-report kb/disorders/Kleefstra_Syndrome.yaml
+# Output: Kleefstra_Syndrome_review.md and Kleefstra_Syndrome_review.pdf
+[group('Pages')]
+disorder-report file:
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p reports
+    stem=$(basename "{{file}}" .yaml)
+    md_out="reports/${stem}_review.md"
+    pdf_out="reports/${stem}_review.pdf"
+    echo "Generating review report for {{file}}..."
+    uv run python scripts/render_review_pdf.py "{{file}}" --md-only -o "$md_out"
+    echo "  Markdown: $md_out"
+    if command -v pandoc >/dev/null 2>&1; then
+        pandoc "$md_out" -o "$pdf_out" --pdf-engine=xelatex \
+            -V geometry:margin=2.5cm -V geometry:bottom=3cm -V fontsize=11pt \
+            -V mainfont="Palatino" -V monofont="Menlo" \
+            --include-in-header=scripts/pdf_header.tex 2>/dev/null
+        echo "  PDF: $pdf_out"
+    else
+        echo "  (pandoc not found — skipping PDF generation)"
+    fi

@@ -1,0 +1,995 @@
+#!/usr/bin/env python3
+"""Backfill disorder evidence from deep-research citation files."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import glob
+import os
+import re
+import subprocess
+import time
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Set, Tuple
+
+import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+
+CITATION_FILE_RE = re.compile(r"^(?P<name>.+)-deep-research-[^.]+\.md\.citations\.md$")
+PMID_RE = re.compile(r"\bPMID\s*[:#]?\s*(\d{4,9})\b", re.IGNORECASE)
+PUBMED_URL_RE = re.compile(
+    r"https?://(?:www\.)?pubmed\.ncbi\.nlm\.nih\.gov/(\d{4,9})(?:/|\b)", re.IGNORECASE
+)
+DOI_URL_RE = re.compile(r"https?://(?:dx\.)?doi\.org/([^\s\],)]+)", re.IGNORECASE)
+DOI_PREFIX_RE = re.compile(r"\bDOI\s*:\s*([^\s\],)]+)", re.IGNORECASE)
+DOI_TOKEN_RE = re.compile(r"\b10\.\d{4,9}/[^\s\],;]+", re.IGNORECASE)
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9(])")
+LEADING_SECTION_LABEL_RE = re.compile(
+    r"^(?:abstract|summary)\s*[:/\-]?\s*",
+    re.IGNORECASE,
+)
+LEADING_SUBSECTION_LABEL_RE = re.compile(
+    r"^(?:background(?:/introduction)?|context and justification|purpose|objectives?|"
+    r"methods(?: and main results)?|results?|conclusions?|discussion|introduction|aims?)"
+    r"\s*[:/\-]?\s*",
+    re.IGNORECASE,
+)
+
+HOLDER_NAME = "Deep research literature mapping"
+
+
+@dataclass
+class DisorderResult:
+    disorder: str
+    cited_refs: int
+    existing_refs: int
+    missing_refs: int
+    added_refs: int
+    unresolved_refs: int
+    changed: bool
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Parse deep-research citation files and backfill missing references "
+            "into disorder evidence blocks."
+        )
+    )
+    parser.add_argument("--kb-dir", default="kb/disorders")
+    parser.add_argument("--research-dir", default="research")
+    parser.add_argument("--references-cache-dir", default="references_cache")
+    parser.add_argument("--output-dir", default="output")
+    parser.add_argument(
+        "--max-disorders",
+        type=int,
+        default=None,
+        help="Optional cap on disorders to process.",
+    )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        default=None,
+        help="Only process these disorder file stems.",
+    )
+    parser.add_argument(
+        "--max-new-refs-per-disorder",
+        type=int,
+        default=None,
+        help="Optional cap on new references added per disorder.",
+    )
+    parser.add_argument(
+        "--fetch-missing-cache",
+        action="store_true",
+        help="Call `just fetch-reference` when a cited ID is not cached.",
+    )
+    parser.add_argument(
+        "--fetch-timeout-seconds",
+        type=int,
+        default=45,
+        help="Timeout for each fetch-reference call.",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write changes to files. Without this flag, run as dry-run.",
+    )
+    parser.add_argument(
+        "--add-findings",
+        action="store_true",
+        help=(
+            "Create a top-level references[].findings[].evidence item for deep-research "
+            "references that do not already have one."
+        ),
+    )
+    parser.add_argument(
+        "--repair-findings",
+        action="store_true",
+        help=(
+            "Normalize existing top-level reference findings generated from deep research "
+            "(repair snippets, evidence_source values, and cache-derived titles)."
+        ),
+    )
+    return parser.parse_args()
+
+
+def normalize_doi(doi: str) -> str:
+    value = doi.strip()
+    value = value.split("?", 1)[0].split("#", 1)[0]
+    value = value.rstrip(".,;)]")
+    value = value.lstrip("(")
+
+    for suffix in ("/full", "/pdf", "/abstract", "/epub"):
+        if value.lower().endswith(suffix):
+            value = value[: -len(suffix)]
+            break
+
+    return value
+
+
+def canonical_ref(reference: str) -> str | None:
+    ref = reference.strip()
+    if ref.upper().startswith("PMID:"):
+        digits = re.sub(r"\D", "", ref.split(":", 1)[1])
+        return f"PMID:{digits}"
+    if ref.upper().startswith("DOI:"):
+        doi = normalize_doi(ref.split(":", 1)[1]).lower()
+        if not valid_doi(doi):
+            return None
+        return f"DOI:{doi}"
+    if re.fullmatch(r"\d{4,9}", ref):
+        return f"PMID:{ref}"
+    if ref.lower().startswith("10."):
+        doi = normalize_doi(ref).lower()
+        if not valid_doi(doi):
+            return None
+        return f"DOI:{doi}"
+    return None
+
+
+def valid_doi(doi: str) -> bool:
+    if not doi:
+        return False
+    if not doi.startswith("10."):
+        return False
+    if "/" not in doi:
+        return False
+    if doi.endswith(("/", ".")):
+        return False
+    if any(ch in doi for ch in ("|", "\\", "<", ">", "{", "}", '"', "'")):
+        return False
+    if doi.count("(") != doi.count(")"):
+        return False
+    if "%" in doi:
+        return False
+    # Minimal structural check after normalization.
+    return re.fullmatch(r"10\.\d{4,9}/\S+", doi) is not None
+
+
+def extract_refs(text: str) -> Set[str]:
+    refs: Set[str] = set()
+
+    def add_ref(raw: str) -> None:
+        value = canonical_ref(raw)
+        if value and (value.startswith("PMID:") or value.startswith("DOI:")):
+            refs.add(value)
+
+    for pmid in PMID_RE.findall(text):
+        add_ref(f"PMID:{pmid}")
+
+    for pmid in PUBMED_URL_RE.findall(text):
+        add_ref(f"PMID:{pmid}")
+
+    for doi in DOI_URL_RE.findall(text):
+        add_ref(f"DOI:{doi}")
+
+    for doi in DOI_PREFIX_RE.findall(text):
+        add_ref(f"DOI:{doi}")
+
+    for doi in DOI_TOKEN_RE.findall(text):
+        add_ref(f"DOI:{doi}")
+
+    return refs
+
+
+def citations_by_disorder(research_dir: str) -> Dict[str, Dict[str, Set[str]]]:
+    by_disorder: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
+    for path in glob.glob(
+        os.path.join(research_dir, "*-deep-research-*.md.citations.md")
+    ):
+        filename = os.path.basename(path)
+        if filename.startswith("com_"):
+            continue
+        match = CITATION_FILE_RE.match(filename)
+        if not match:
+            continue
+        disorder = match.group("name")
+        research_file = filename.removesuffix(".citations.md")
+        text = Path(path).read_text(encoding="utf-8", errors="ignore")
+        refs = extract_refs(text)
+        for ref in refs:
+            by_disorder[disorder][ref].add(research_file)
+    return by_disorder
+
+
+def collect_existing_refs(node: Any, out: Set[str]) -> None:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "reference" and isinstance(value, str):
+                canon = canonical_ref(value)
+                if canon:
+                    out.add(canon)
+            else:
+                collect_existing_refs(value, out)
+    elif isinstance(node, list):
+        for item in node:
+            collect_existing_refs(item, out)
+
+
+def cache_path_for_ref(reference: str, references_cache_dir: str) -> Path:
+    safe = reference.replace(":", "_").replace("/", "_")
+    return Path(references_cache_dir) / f"{safe}.md"
+
+
+def parse_cache_title(cache_path: Path) -> str | None:
+    meta, _ = parse_cache_metadata_and_body(cache_path)
+    title = meta.get("title")
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+
+    if not cache_path.exists():
+        return None
+
+    text = cache_path.read_text(encoding="utf-8", errors="ignore")
+    lines = text.splitlines()
+    for line in lines:
+        if line.startswith("# "):
+            title = line[2:].strip()
+            if title:
+                return title
+
+    return None
+
+
+def parse_cache_metadata_and_body(cache_path: Path) -> tuple[dict[str, Any], str]:
+    if not cache_path.exists():
+        return {}, ""
+
+    text = cache_path.read_text(encoding="utf-8", errors="ignore")
+    lines = text.splitlines()
+    if len(lines) >= 3 and lines[0].strip() == "---":
+        end_idx = None
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end_idx = i
+                break
+        if end_idx is not None:
+            frontmatter = "\n".join(lines[1:end_idx])
+            try:
+                meta = yaml.safe_load(frontmatter) or {}
+                body = "\n".join(lines[end_idx + 1 :]).strip()
+                return meta, body
+            except Exception:
+                return {}, text
+
+    return {}, text
+
+
+def normalize_title(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+
+
+def collect_existing_titles(node: Any, out: Set[str]) -> None:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in {"title", "reference_title"} and isinstance(value, str):
+                normalized = normalize_title(value)
+                if normalized:
+                    out.add(normalized)
+            else:
+                collect_existing_titles(value, out)
+    elif isinstance(node, list):
+        for item in node:
+            collect_existing_titles(item, out)
+
+
+def normalize_cache_body(body: str) -> str:
+    text = body
+    if "## Content" in text:
+        text = text.split("## Content", 1)[1]
+    text = text.replace("\r", "\n")
+    text = text.replace("&lt;", "<").replace("&gt;", ">")
+    text = re.sub(r"</?[^>\n]+>", " ", text)
+    text = re.sub(r"\n{2,}", "\n\n", text)
+    if "BACKGROUND:" in text:
+        text = text.split("BACKGROUND:", 1)[1]
+    elif "\nBackground:" in text:
+        text = text.split("\nBackground:", 1)[1]
+    text = re.sub(
+        r"\b(BACKGROUND|OBJECTIVES|METHODS(?: AND MAIN RESULTS)?|RESULTS|CONCLUSION|DISCUSSION|INTRODUCTION|AIMS?)\s*:\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def extract_cache_context(cache_path: Path) -> str:
+    _, body = parse_cache_metadata_and_body(cache_path)
+    return normalize_cache_body(body)
+
+
+def strip_leading_section_labels(text: str) -> str:
+    cleaned = text.strip().lstrip("•").strip()
+    while True:
+        updated = LEADING_SECTION_LABEL_RE.sub("", cleaned, count=1)
+        updated = LEADING_SUBSECTION_LABEL_RE.sub("", updated, count=1)
+        updated = updated.strip().lstrip("•").strip()
+        if updated == cleaned:
+            return cleaned
+        cleaned = updated
+
+
+def extract_supporting_text(cache_path: Path, title: str) -> str | None:
+    normalized = extract_cache_context(cache_path)
+    if normalized:
+        for sentence in SENTENCE_SPLIT_RE.split(normalized):
+            candidate = strip_leading_section_labels(sentence.strip(" \"'"))
+            if len(candidate) < 40:
+                continue
+            if candidate.lower().startswith(("author information", "copyright")):
+                continue
+            if normalize_title(candidate) == normalize_title(title):
+                continue
+            return candidate
+    return None
+
+
+def guess_evidence_source(
+    title: str, supporting_text: str | None, context_text: str | None = None
+) -> str:
+    title_haystack = title.lower()
+    haystack = f"{title} {supporting_text or ''} {context_text or ''}".lower()
+
+    def has(text: str, pattern: str) -> bool:
+        return re.search(pattern, text) is not None
+
+    review_pattern = (
+        r"\b(systematic review|meta-analysis|consensus|guideline|statement)\b"
+    )
+    computational_pattern = (
+        r"\b(in silico|simulation|docking|machine learning|network analysis|"
+        r"computational|algorithm|predict(?:ion)?|forecast(?:ing)?|mathematical "
+        r"model(?:ling|ing)|transmission models?|epifil|geofil|indirect measure)\b"
+    )
+    title_model_pattern = (
+        r"\b(experimental models?|animal models?|infected mice|infected rats|murine|"
+        r"mouse|mice|rat|rats|zebrafish|drosophila|porcine|pig|rabbit|rabbits|"
+        r"nonhuman primate|macaque|hamster|hamsters|guinea pigs?|gerbil|gerbils|"
+        r"mongolian gerbils?|veterinary)\b"
+    )
+    combined_model_pattern = (
+        r"\b(mouse|mice|murine|rat|rats|zebrafish|drosophila|canine|dog|dogs|"
+        r"porcine|pig|rabbit|rabbits|cat|cats|horse|horses|equine|bovine|cattle|"
+        r"nonhuman primate|macaque|hamster|hamsters|guinea pigs?|gerbil|gerbils|"
+        r"mongolian gerbils?|veterinary)\b"
+    )
+    human_pattern = (
+        r"\b(patient|patients|cohort|trial|participants|adult|adults|child|children|"
+        r"infants?|newborns?|neonates?|women|men|people|persons|population|"
+        r"human|humans|epidemiolog(?:y|ical)|cross-sectional|mixed methods|survey|"
+        r"dog bite cases?|dog owners?|case report|case series|prospective|retrospective|"
+        r"hospital-based|post-exposure prophylaxis|preexposure prophylaxis|"
+        r"vaccination schedule|public health|mortality|deaths?)\b"
+    )
+    in_vitro_pattern = (
+        r"\b(in vitro|cell line|cell-based|cell culture|organoid|ex vivo|fibroblast|"
+        r"keratinocyte)\b"
+    )
+
+    if has(haystack, review_pattern):
+        return "OTHER"
+    if has(haystack, computational_pattern):
+        return "COMPUTATIONAL"
+    if has(title_haystack, title_model_pattern):
+        return "MODEL_ORGANISM"
+    if has(title_haystack, in_vitro_pattern) and has(
+        title_haystack, combined_model_pattern
+    ):
+        return "MODEL_ORGANISM"
+    if has(haystack, in_vitro_pattern) and not has(haystack, human_pattern):
+        return "IN_VITRO"
+    if has(haystack, human_pattern):
+        return "HUMAN_CLINICAL"
+    if has(haystack, combined_model_pattern):
+        return "MODEL_ORGANISM"
+    if has(haystack, in_vitro_pattern):
+        return "IN_VITRO"
+    return "OTHER"
+
+
+def ensure_findings_list(ref_item: MutableMapping[str, Any]) -> CommentedSeq:
+    findings = ref_item.get("findings")
+    if findings is None:
+        findings = CommentedSeq()
+        ref_item["findings"] = findings
+        return findings
+    if isinstance(findings, CommentedSeq):
+        return findings
+    if isinstance(findings, list):
+        out = CommentedSeq()
+        out.extend(findings)
+        ref_item["findings"] = out
+        return out
+    out = CommentedSeq()
+    ref_item["findings"] = out
+    return out
+
+
+def has_findings(ref_item: Mapping[str, Any]) -> bool:
+    findings = ref_item.get("findings")
+    return isinstance(findings, list) and len(findings) > 0
+
+
+def append_auto_finding(
+    ref_item: MutableMapping[str, Any],
+    reference: str,
+    title: str,
+    disorder: str,
+    cache_path: Path,
+) -> bool:
+    if has_findings(ref_item):
+        return False
+
+    supporting_text = extract_supporting_text(cache_path, title)
+    context_text = extract_cache_context(cache_path)
+    if supporting_text:
+        statement = (
+            supporting_text if len(supporting_text) <= 240 else title.rstrip(".")
+        )
+    else:
+        statement = title.rstrip(".")
+
+    finding = CommentedMap()
+    finding["statement"] = statement
+    finding["supporting_text"] = supporting_text or title
+
+    if supporting_text:
+        evidence_source = guess_evidence_source(title, supporting_text, context_text)
+        evidence_item = CommentedMap()
+        evidence_item["reference"] = reference
+        evidence_item["reference_title"] = title
+        evidence_item["supports"] = "SUPPORT"
+        evidence_item["evidence_source"] = evidence_source
+        evidence_item["snippet"] = supporting_text
+        evidence_item["explanation"] = (
+            f"Deep research cited this publication as relevant literature for "
+            f"{disorder.replace('_', ' ')}."
+        )
+        finding["evidence"] = CommentedSeq([evidence_item])
+
+    findings = ensure_findings_list(ref_item)
+    findings.append(finding)
+    return True
+
+
+def repair_existing_findings(
+    ref_item: MutableMapping[str, Any],
+    reference: str,
+    title: str,
+    cache_path: Path,
+) -> bool:
+    changed = False
+    cache_title = parse_cache_title(cache_path)
+    effective_title = cache_title or title
+    if ref_item.get("title") != effective_title:
+        ref_item["title"] = effective_title
+        changed = True
+
+    findings = ref_item.get("findings")
+    if not isinstance(findings, list):
+        return changed
+
+    supporting_text = extract_supporting_text(cache_path, effective_title)
+    context_text = extract_cache_context(cache_path)
+    statement = (
+        supporting_text
+        if supporting_text and len(supporting_text) <= 240
+        else effective_title.rstrip(".")
+    )
+
+    for finding in findings:
+        if not isinstance(finding, MutableMapping):
+            continue
+        if supporting_text:
+            if finding.get("statement") != statement:
+                finding["statement"] = statement
+                changed = True
+            if finding.get("supporting_text") != supporting_text:
+                finding["supporting_text"] = supporting_text
+                changed = True
+
+        evidence_items = finding.get("evidence")
+        if not isinstance(evidence_items, list):
+            continue
+
+        if not supporting_text:
+            del finding["evidence"]
+            changed = True
+            continue
+
+        evidence_source = guess_evidence_source(
+            effective_title, supporting_text, context_text
+        )
+        for evidence in evidence_items:
+            if not isinstance(evidence, MutableMapping):
+                continue
+            if evidence.get("reference_title") != effective_title:
+                evidence["reference_title"] = effective_title
+                changed = True
+            if evidence.get("snippet") != supporting_text:
+                evidence["snippet"] = supporting_text
+                changed = True
+            if evidence.get("evidence_source") != evidence_source:
+                evidence["evidence_source"] = evidence_source
+                changed = True
+
+    return changed
+
+
+def fetch_reference(reference: str, timeout_seconds: int) -> bool:
+    cmd = ["just", "fetch-reference", reference]
+    try:
+        result = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def ensure_references_list(data: MutableMapping[str, Any]) -> CommentedSeq:
+    refs = data.get("references")
+    if refs is None:
+        refs = CommentedSeq()
+        data["references"] = refs
+        return refs
+    if isinstance(refs, CommentedSeq):
+        return refs
+    if isinstance(refs, list):
+        out = CommentedSeq()
+        out.extend(refs)
+        data["references"] = out
+        return out
+    out = CommentedSeq()
+    data["references"] = out
+    return out
+
+
+def append_publication_reference(
+    refs: MutableMapping[str, Any] | CommentedSeq,
+    reference: str,
+    title: str,
+    found_in: Iterable[str] | None = None,
+) -> None:
+    if not isinstance(refs, (list, CommentedSeq)):
+        return
+    ref_item = CommentedMap()
+    ref_item["reference"] = reference
+    ref_item["title"] = title
+    if found_in:
+        ref_item["found_in"] = CommentedSeq(sorted(set(found_in)))
+    ref_item["findings"] = CommentedSeq()
+    refs.append(ref_item)
+
+
+def normalize_found_in_entries(value: Any) -> Set[str]:
+    if isinstance(value, str):
+        entry = value.strip()
+        return {entry} if entry else set()
+    if isinstance(value, list):
+        out = set()
+        for item in value:
+            if isinstance(item, str):
+                entry = item.strip()
+                if entry:
+                    out.add(entry)
+        return out
+    return set()
+
+
+def merge_found_in(ref_item: MutableMapping[str, Any], found_in: Iterable[str]) -> bool:
+    new_entries = {
+        entry.strip() for entry in found_in if isinstance(entry, str) and entry.strip()
+    }
+    if not new_entries:
+        return False
+
+    existing_entries = normalize_found_in_entries(ref_item.get("found_in"))
+    merged_entries = sorted(existing_entries.union(new_entries))
+    if merged_entries == sorted(existing_entries):
+        return False
+
+    seq = CommentedSeq()
+    seq.extend(merged_entries)
+    ref_item["found_in"] = seq
+    return True
+
+
+def migrate_holder_to_references(
+    data: MutableMapping[str, Any],
+    references_cache_dir: str,
+) -> int:
+    """Move legacy deep-research holder evidence refs to top-level references."""
+    pathophys = data.get("pathophysiology")
+    if not isinstance(pathophys, (list, CommentedSeq)):
+        return 0
+
+    refs = ensure_references_list(data)
+    existing_top_refs: Set[str] = set()
+    for item in refs:
+        if isinstance(item, Mapping) and isinstance(item.get("reference"), str):
+            canon = canonical_ref(item.get("reference", ""))
+            if canon:
+                existing_top_refs.add(canon)
+
+    moved = 0
+    to_remove = []
+    for idx, item in enumerate(pathophys):
+        if not (isinstance(item, MutableMapping) and item.get("name") == HOLDER_NAME):
+            continue
+        ev = item.get("evidence")
+        if isinstance(ev, list):
+            for e in ev:
+                if not isinstance(e, Mapping):
+                    continue
+                ref_val = e.get("reference")
+                if not isinstance(ref_val, str):
+                    continue
+                canon = canonical_ref(ref_val)
+                if not canon or canon in existing_top_refs:
+                    continue
+                title = None
+                snip = e.get("snippet")
+                if isinstance(snip, str) and snip.strip():
+                    title = snip.strip()
+                if not title:
+                    cache_path = cache_path_for_ref(canon, references_cache_dir)
+                    title = parse_cache_title(cache_path) or canon
+                append_publication_reference(refs, canon, title)
+                existing_top_refs.add(canon)
+                moved += 1
+        to_remove.append(idx)
+
+    for idx in reversed(to_remove):
+        del pathophys[idx]
+
+    return moved
+
+
+def main() -> int:
+    args = parse_args()
+    only = set(args.only or [])
+
+    kb_paths = {
+        Path(path).stem: Path(path)
+        for path in glob.glob(os.path.join(args.kb_dir, "*.yaml"))
+        if not path.endswith(".history.yaml")
+    }
+    deep_refs_by_disorder = citations_by_disorder(args.research_dir)
+
+    disorders = sorted(name for name in deep_refs_by_disorder if name in kb_paths)
+    if only:
+        disorders = [name for name in disorders if name in only]
+    if args.max_disorders is not None:
+        disorders = disorders[: args.max_disorders]
+
+    yaml_rt = YAML()
+    yaml_rt.preserve_quotes = True
+    yaml_rt.indent(mapping=2, sequence=2, offset=0)
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    results: List[DisorderResult] = []
+    unresolved_rows: List[Tuple[str, str, str]] = []
+
+    for idx, disorder in enumerate(disorders, start=1):
+        yaml_path = kb_paths[disorder]
+        cited_ref_to_files = deep_refs_by_disorder[disorder]
+        cited_refs = set(cited_ref_to_files.keys())
+
+        with yaml_path.open("r", encoding="utf-8") as handle:
+            data = yaml_rt.load(handle)
+        if data is None:
+            continue
+
+        existing_refs: Set[str] = set()
+        collect_existing_refs(data, existing_refs)
+        existing_titles: Set[str] = set()
+        collect_existing_titles(data, existing_titles)
+
+        preloaded_titles: Dict[str, str] = {}
+        missing_refs = []
+        for ref in sorted(cited_refs):
+            if ref in existing_refs:
+                continue
+            cache_path = cache_path_for_ref(ref, args.references_cache_dir)
+            if not cache_path.exists() and args.fetch_missing_cache:
+                fetch_reference(ref, args.fetch_timeout_seconds)
+            title = parse_cache_title(cache_path)
+            if title:
+                preloaded_titles[ref] = title
+                if normalize_title(title) in existing_titles:
+                    continue
+            missing_refs.append(ref)
+        if args.max_new_refs_per_disorder is not None:
+            missing_refs = missing_refs[: args.max_new_refs_per_disorder]
+
+        print(
+            f"[{idx}/{len(disorders)}] {disorder}: "
+            f"cited={len(cited_refs)} existing={len(existing_refs)} missing={len(missing_refs)}"
+        )
+
+        added = 0
+        unresolved = 0
+        changed = False
+
+        migrated = migrate_holder_to_references(
+            data=data,
+            references_cache_dir=args.references_cache_dir,
+        )
+        if migrated > 0:
+            changed = True
+
+        if missing_refs:
+            refs = ensure_references_list(data)
+            top_ref_items: Dict[str, MutableMapping[str, Any]] = {}
+            top_ref_titles: Dict[str, MutableMapping[str, Any]] = {}
+            for item in refs:
+                if (
+                    isinstance(item, MutableMapping)
+                    and isinstance(item.get("reference"), str)
+                    and (canon := canonical_ref(item.get("reference", "")))
+                ):
+                    top_ref_items[canon] = item
+                    item_title = item.get("title")
+                    if isinstance(item_title, str):
+                        normalized = normalize_title(item_title)
+                        if normalized:
+                            top_ref_titles[normalized] = item
+
+            for reference, found_in in cited_ref_to_files.items():
+                existing_item = top_ref_items.get(reference)
+                if existing_item is None:
+                    title = preloaded_titles.get(reference)
+                    if title:
+                        existing_item = top_ref_titles.get(normalize_title(title))
+                if existing_item and merge_found_in(existing_item, found_in):
+                    changed = True
+                if (
+                    existing_item
+                    and args.add_findings
+                    and isinstance(existing_item.get("reference"), str)
+                ):
+                    canon = canonical_ref(existing_item["reference"])
+                    if canon:
+                        cache_path = cache_path_for_ref(
+                            canon, args.references_cache_dir
+                        )
+                        if not cache_path.exists() and args.fetch_missing_cache:
+                            fetch_reference(canon, args.fetch_timeout_seconds)
+                        title = existing_item.get("title")
+                        if isinstance(title, str) and title.strip():
+                            if append_auto_finding(
+                                existing_item,
+                                canon,
+                                title.strip(),
+                                disorder,
+                                cache_path,
+                            ):
+                                changed = True
+
+            for reference in missing_refs:
+                if reference in top_ref_items:
+                    continue
+
+                cache_path = cache_path_for_ref(reference, args.references_cache_dir)
+                if not cache_path.exists() and args.fetch_missing_cache:
+                    fetch_reference(reference, args.fetch_timeout_seconds)
+
+                title = preloaded_titles.get(reference) or parse_cache_title(cache_path)
+                if not title:
+                    unresolved += 1
+                    unresolved_rows.append(
+                        (disorder, reference, "cache_not_found_or_no_title")
+                    )
+                    continue
+
+                existing_by_title = top_ref_titles.get(normalize_title(title))
+                if existing_by_title is not None:
+                    if merge_found_in(
+                        existing_by_title, cited_ref_to_files.get(reference, set())
+                    ):
+                        changed = True
+                    existing_ref_value = existing_by_title.get("reference")
+                    existing_title = existing_by_title.get("title")
+                    if (
+                        args.add_findings
+                        and isinstance(existing_ref_value, str)
+                        and isinstance(existing_title, str)
+                        and (canon := canonical_ref(existing_ref_value))
+                    ):
+                        existing_cache_path = cache_path_for_ref(
+                            canon, args.references_cache_dir
+                        )
+                        if (
+                            not existing_cache_path.exists()
+                            and args.fetch_missing_cache
+                        ):
+                            fetch_reference(canon, args.fetch_timeout_seconds)
+                        if append_auto_finding(
+                            existing_by_title,
+                            canon,
+                            existing_title,
+                            disorder,
+                            existing_cache_path,
+                        ):
+                            changed = True
+                    continue
+
+                append_publication_reference(
+                    refs,
+                    reference,
+                    title,
+                    found_in=cited_ref_to_files.get(reference, set()),
+                )
+                new_item = refs[-1]
+                if isinstance(new_item, MutableMapping):
+                    top_ref_items[reference] = new_item
+                    top_ref_titles[normalize_title(title)] = new_item
+                    if args.add_findings and append_auto_finding(
+                        new_item,
+                        reference,
+                        title,
+                        disorder,
+                        cache_path,
+                    ):
+                        changed = True
+                added += 1
+                changed = True
+        else:
+            refs = ensure_references_list(data)
+            for item in refs:
+                if (
+                    isinstance(item, MutableMapping)
+                    and isinstance(item.get("reference"), str)
+                    and (canon := canonical_ref(item.get("reference", "")))
+                    and canon in cited_ref_to_files
+                    and merge_found_in(item, cited_ref_to_files[canon])
+                ):
+                    changed = True
+                if (
+                    args.add_findings
+                    and isinstance(item, MutableMapping)
+                    and isinstance(item.get("reference"), str)
+                    and (canon := canonical_ref(item.get("reference", "")))
+                    and canon in cited_ref_to_files
+                ):
+                    cache_path = cache_path_for_ref(canon, args.references_cache_dir)
+                    if not cache_path.exists() and args.fetch_missing_cache:
+                        fetch_reference(canon, args.fetch_timeout_seconds)
+                    title = item.get("title")
+                    if isinstance(title, str) and title.strip():
+                        if append_auto_finding(
+                            item,
+                            canon,
+                            title.strip(),
+                            disorder,
+                            cache_path,
+                        ):
+                            changed = True
+
+        if args.repair_findings:
+            refs = ensure_references_list(data)
+            for item in refs:
+                if not (
+                    isinstance(item, MutableMapping)
+                    and isinstance(item.get("reference"), str)
+                    and (canon := canonical_ref(item.get("reference", "")))
+                    and canon in cited_ref_to_files
+                ):
+                    continue
+                cache_path = cache_path_for_ref(canon, args.references_cache_dir)
+                if not cache_path.exists() and args.fetch_missing_cache:
+                    fetch_reference(canon, args.fetch_timeout_seconds)
+                title = item.get("title")
+                if not isinstance(title, str) or not title.strip():
+                    title = canon
+                if repair_existing_findings(
+                    item,
+                    canon,
+                    title.strip(),
+                    cache_path,
+                ):
+                    changed = True
+
+        if changed and args.apply:
+            if "updated_date" in data:
+                data["updated_date"] = now_iso
+            with yaml_path.open("w", encoding="utf-8") as handle:
+                yaml_rt.dump(data, handle)
+
+        results.append(
+            DisorderResult(
+                disorder=disorder,
+                cited_refs=len(cited_refs),
+                existing_refs=len(existing_refs),
+                missing_refs=len(missing_refs),
+                added_refs=added,
+                unresolved_refs=unresolved,
+                changed=changed,
+            )
+        )
+
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    summary_path = Path(args.output_dir) / f"deep_research_evidence_backfill_{ts}.tsv"
+    unresolved_path = Path(args.output_dir) / f"deep_research_unresolved_refs_{ts}.tsv"
+
+    with summary_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerow(
+            [
+                "disorder",
+                "cited_refs",
+                "existing_refs",
+                "missing_refs",
+                "added_refs",
+                "unresolved_refs",
+                "changed",
+            ]
+        )
+        for row in results:
+            writer.writerow(
+                [
+                    row.disorder,
+                    row.cited_refs,
+                    row.existing_refs,
+                    row.missing_refs,
+                    row.added_refs,
+                    row.unresolved_refs,
+                    str(row.changed),
+                ]
+            )
+
+    with unresolved_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle, delimiter="\t")
+        writer.writerow(["disorder", "reference", "reason"])
+        writer.writerows(unresolved_rows)
+
+    total_added = sum(r.added_refs for r in results)
+    total_missing = sum(r.missing_refs for r in results)
+    total_unresolved = sum(r.unresolved_refs for r in results)
+    changed_count = sum(1 for r in results if r.changed)
+    mode = "APPLY" if args.apply else "DRY_RUN"
+    print(
+        f"{mode} summary: disorders={len(results)} changed={changed_count} "
+        f"missing_refs={total_missing} added_refs={total_added} "
+        f"unresolved_refs={total_unresolved}"
+    )
+    print(f"Summary report: {summary_path}")
+    print(f"Unresolved refs: {unresolved_path}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

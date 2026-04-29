@@ -33,7 +33,12 @@ ls kb/disorders/*yaml
 ```
 If it exists, edit the existing file instead of creating a new one.
 
-### Step 2: Create initial YAML file
+### Step 2a: Setup git worktree
+
+The preferred mode of working is to use git worktrees, unless the user has expressed
+a preference not to do this in advance.
+
+### Step 2b: Create initial YAML file
 
 Create an initial yaml file using the underscore form of the disease, e.g.
 
@@ -82,16 +87,60 @@ not perform your own deep research.
 
 Depending on user preference, use one or more of the following commands
 
+- `just research-disorder asta DISORDER_NAME`
 - `just research-disorder perplexity DISORDER_NAME`
 - `just research-disorder falcon DISORDER_NAME`
 - `just research-disorder openai DISORDER_NAME`
 - `just research-disorder cyberian DISORDER_NAME`
+- `just research-disorder openscientist DISORDER_NAME`
 
 Use the filesystem-friendly name here.
 
-On completion (may be several minutes, be patient), this will create a file here:
+`asta` requires `ASTA_API_KEY` to be exported in the environment. Asta behaves
+more like a literature search agent than a full narrative deep-research agent:
+its outputs are primarily lists of relevant papers, usually with summaries,
+evidence snippets, and relevance scores. The `just research-disorder asta ...`
+command automatically uses an Asta-specific template tailored for this output
+style.
 
-`./research/DISORDER_NAME.md`
+`openscientist` requires `OPENSCIENTIST_API_KEY` to be exported in the
+environment. OpenScientist (https://www.openscientist.io) is an autonomous AI
+research agent from Berkeley Lab that runs iterative hypothesis-driven research
+using PubMed search and code execution. It produces markdown reports with PMID
+citations. To set up:
+
+1. Sign up at https://www.openscientist.io
+2. Wait for admin approval (required before jobs can run)
+3. Generate an API key (shown once in `name:secret` format)
+4. `export OPENSCIENTIST_API_KEY="name:secret"`
+
+OpenScientist jobs are asynchronous — the provider submits a job, then polls
+until completion. Jobs are queued server-side and processed sequentially, so
+wait times depend on queue depth. The API's `/report` endpoint returns PDF;
+the provider automatically extracts the markdown `final_report.md` from the
+`/artifacts` ZIP. The artifacts ZIP also contains provenance data (iteration
+transcripts, generated plots as PNG/JSON) and agent logs.
+
+Timing varies by provider. As a rule of thumb:
+
+- `asta` usually completes in seconds
+- `openai` and `perplexity` usually complete within a few minutes
+- `falcon` may take 20 minutes or longer
+- `cyberian` runtime varies with workflow complexity and can also be long-running
+- `openscientist` typically takes 10–30 minutes depending on queue depth and iteration count
+
+On completion, this will create a file here:
+
+`./research/DISORDER_NAME-deep-research-PROVIDER.md`
+
+and a separate citations file here:
+
+`./research/DISORDER_NAME-deep-research-PROVIDER.md.citations.md`
+
+For example:
+
+- `research/Urticaria-deep-research-openai.md`
+- `research/Urticaria-deep-research-openai.md.citations.md`
 
 You MUST read this before progressing.
 
@@ -109,6 +158,122 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 - `just fetch-reference PMID:nnnnnnn DOI:nn.nnnn`
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
+
+#### Finding Additional References
+
+Use PubMed first whenever possible. Use Semantic Scholar as a backup discovery
+tool if PubMed search is not finding the paper you want.
+
+##### Search the PubMed API
+
+Use the NCBI E-utilities API to search PubMed directly. A typical workflow is:
+
+1. Search for candidate papers with `esearch`
+2. Inspect metadata with `esummary`
+3. Retrieve the abstract text with `efetch` if needed
+3. Cache the paper locally with `just fetch-reference`
+
+Example search:
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "retmode=json" \
+  --data-urlencode "term=<SEARCH_TERMS>"
+```
+
+Example summary lookup once you have one or more PMIDs:
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "retmode=json" \
+  --data-urlencode "id=<PMID1>,<PMID2>"
+```
+
+Example abstract fetch:
+
+```bash
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi" \
+  --data-urlencode "db=pubmed" \
+  --data-urlencode "id=<PMID>" \
+  --data-urlencode "rettype=abstract" \
+  --data-urlencode "retmode=text"
+```
+
+Once you identify the paper you want, cache it with:
+
+```bash
+just fetch-reference PMID:nnnnnnn
+```
+
+##### Search the Semantic Scholar API as a backup
+
+If PubMed search is sparse or the deep research output only gives you a title,
+DOI, or Semantic Scholar paper ID, use the Semantic Scholar API to find the
+paper and recover identifiers.
+
+Important: the Semantic Scholar search endpoint may return `429 Too
+Many Requests` without an API key, even for simple queries. If you have a
+Semantic Scholar API key, include it as an `x-api-key` header. If you do not,
+use Semantic Scholar as a secondary/manual fallback rather than your primary
+search method.
+
+Example paper search (often requires an API key):
+
+```bash
+curl -sG "https://api.semanticscholar.org/graph/v1/paper/search" \
+  -H "x-api-key: <SEMANTIC_SCHOLAR_API_KEY>" \
+  --data-urlencode "query=<SEARCH_TERMS>" \
+  --data-urlencode "limit=10" \
+  --data-urlencode "fields=title,year,externalIds,url"
+```
+
+Example lookup by Semantic Scholar paper ID (this should work without an
+API key):
+
+```bash
+curl -s "https://api.semanticscholar.org/graph/v1/paper/<S2_PAPER_ID>?fields=title,year,externalIds,url"
+```
+
+Prefer records that expose `externalIds` such as DOI, PubMed, or PMC.
+
+##### Get a PMID and PMCID from a DOI or Semantic Scholar ID
+
+If you have a DOI, use the PMC ID Converter API to recover PubMed/PMC IDs when
+available:
+
+```bash
+curl -sG "https://pmc.ncbi.nlm.nih.gov/tools/idconv/api/v1/articles/" \
+  --data-urlencode "ids=<DOI>" \
+  --data-urlencode "format=json" \
+  --data-urlencode "tool=dismech" \
+  --data-urlencode "email=<YOUR_EMAIL>"
+```
+
+This can return:
+
+- `pmid`
+- `pmcid`
+- the normalized `doi`
+
+If you start from a Semantic Scholar paper ID:
+
+1. Query the Semantic Scholar paper endpoint and inspect `externalIds`
+2. If `PubMed` is present, use that PMID directly
+3. If `PMC` is present, keep the PMCID as supporting metadata
+4. If only `DOI` is present, run the DOI through the PMC ID Converter API above
+
+Then cache the article locally with whichever identifier you recovered:
+
+```bash
+just fetch-reference PMID:nnnnnnn
+just fetch-reference DOI:10.xxxx/xxxxx
+```
+
+Use PMID-based references in YAML evidence whenever possible. Keep PMCID as
+useful supporting metadata, but Dismech evidence validation is centered on PMID
+abstracts.
 
 Then use this to provide snippets/excerpts and explanations for assertions. For example, for a phenotype assertion:
 
@@ -178,7 +343,7 @@ uv run runoak -i sqlite:obo:go relationships --direction both GO:nnnnnnn
 ```
 
 
-### Step 6: Final review and validation
+### Step 6: Validation
 
 Strict validation check (adherence to schema, term and reference checks):
 
@@ -191,6 +356,47 @@ Compliance report (completeness, term and evidence coverage):
 ```bash
 just compliance kb/disorders/<Disease_Name>.yaml
 ```
+
+### Step 7: Review
+
+Use the `dismech-pr-review/` to do an initial round of review. Use a subagent for fresh context
+(note that we haven't made the PR yet, but we want to do our own "red team" before making the actual PR
+
+### Step 8: Make a PR
+
+IF THE USER asks, then go ahead and make a PR on behalf of the user
+
+### Step 9: Check reviews on the PR
+
+Some time (~5 mins) after making the PR, a review will appear. You should prioritize in order:
+
+1. reviews from a human/curator -- always take precedence
+2. reviews from claude -- high quality but sometimes focuses on wrong thing
+3. copilot -- useful for targeted line-level edits but in general lower quality
+
+Follow these priorities but use judgment. If something doesn't sit right, ask for clarification on the PR.
+Be proactive. If the review says "moderate" go ahead and fix it as you are fixing things anyway.
+Ignore things that seem super-minor but if there is no cost in making a fix and you agree, do it.
+
+Once you have made the changes:
+
+1. **Stage ONLY disorder-relevant files** — never use `git add -A` or `git add .`:
+   ```bash
+   git add kb/disorders/ references_cache/ research/
+   ```
+   This prevents committing unrelated generated files (HTML, schema docs, cache CSVs) that cause merge conflicts.
+
+2. **Commit and push**:
+   ```bash
+   git commit --no-verify -m "feat: Add <Disease Name> (<gene>) with deep research and validated evidence"
+   git push
+   ```
+
+3. **Post a PR comment** summarizing what you did:
+   - What was created/changed
+   - Key PMIDs used
+   - Validation results
+   - Any issues you found but intentionally did NOT fix (with reasoning)
 
 
 ## File Naming Convention
@@ -252,6 +458,36 @@ Use all loaded skills, including:
 - Use **dismech-terms** to add additional ontology term bindings
 - Use **dismech-references** to validate/repair evidence items
 - Use **dismech-compliance** to check completeness and identify gaps
+
+## Responding to PR Review Comments
+
+When asked to address review comments on an existing PR:
+
+1. **Read the full review carefully** — understand each issue before making changes
+2. **Address ALL 🔴 CRITICAL and 🟡 IMPORTANT issues** — don't skip any
+3. **For issues you disagree with**, don't silently ignore them. Post a PR comment explaining why:
+   - e.g. "The reviewer flagged X as a typo, but this matches the canonical MONDO label (verified with OAK). Filed upstream issue."
+4. **After pushing fixes, post a PR comment** with a table summarizing:
+   - Each reviewer issue and how you addressed it
+   - Any issues you intentionally did NOT fix, with reasoning
+   - Validation results after fixes
+5. **Use `supports: PARTIAL`** when evidence is indirect — don't overstate evidence strength
+6. **If evidence doesn't support a claim, find better evidence** rather than arguing about evidence_source classification
+7. **Verify ontology terms with OAK** when the reviewer questions them — don't assume
+
+### Git discipline for review fixes
+
+```bash
+# ONLY stage disorder-relevant files
+git add kb/disorders/ references_cache/ research/
+
+# NEVER do this — picks up generated files from other disorders
+# git add -A
+# git add .
+
+git commit --no-verify -m "fix: Address PR review comments"
+git push
+```
 
 ## Anti-Hallucination Checklist
 
