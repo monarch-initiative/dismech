@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05374187
+reference_id: "clinicaltrials:NCT05374187"
 title: Efficacy of External Trigeminal Nerve Stimulation for Treatment of ADHD
 content_type: summary
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06482437
+reference_id: "clinicaltrials:NCT06482437"
 title: "A Phase 2a, Randomised, Double-Blind, Placebo-Controlled Study to Evaluate the Efficacy, Safety, and Tolerability of NMD670 Over 21 Days in Ambulatory Adult Patients With Type 1 and Type 2 Charcot-Marie-Tooth Disease"
 content_type: summary
 ---
