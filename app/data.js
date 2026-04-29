@@ -44805,6 +44805,113 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Machado-Joseph Disease",
+    "disease_id": "MONDO:0007182",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary cerebellar ataxia",
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-04-25T00:00:00Z",
+    "updated_date": "2026-04-29T15:13:18Z",
+    "subtypes": [
+      "Type 1",
+      "Type 2",
+      "Type 3",
+      "Type 4"
+    ],
+    "description": "Machado-Joseph disease (MJD), also known as spinocerebellar ataxia type 3 (SCA3), is the most common autosomal dominant spinocerebellar ataxia worldwide. It arises from a CAG trinucleotide repeat expansion in exon 10 of ATXN3 (14q32.1), producing a polyglutamine-expanded ataxin-3 protein that misfolds, aggregates, and disrupts multiple cellular systems including the ubiquitin- proteasome system, autophagy, transcription, and mitochondrial function. The disorder is clinically heterogeneous and classically divided into four subtypes (Types 1-4) based on age at onset and predominant features. There is no approved disease-modifying therapy; antisense oligonucleotide (ASO)-based gene silencing is the most clinically advanced investigational strategy.",
+    "pathophysiology": [
+      "PolyQ-expanded ataxin-3 misfolding and nuclear aggregation",
+      "Impaired ATXN3 deubiquitinase activity and proteostasis failure",
+      "Oligodendrocyte dysfunction",
+      "Multifocal neurodegeneration",
+      "Spinal cord transcriptomic dysregulation and RNA splicing defects"
+    ],
+    "cell_types": [
+      "Purkinje cell",
+      "motor neuron",
+      "oligodendrocyte",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0000100",
+      "CL:0000128",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "response to unfolded protein",
+      "protein deubiquitination",
+      "autophagy",
+      "protein folding",
+      "myelination",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Gait ataxia",
+      "Limb ataxia",
+      "Ophthalmoplegia",
+      "Dysarthria",
+      "Dysphagia",
+      "Spasticity and pyramidal signs",
+      "Dystonia",
+      "Peripheral neuropathy",
+      "Areflexia",
+      "Muscle weakness and amyotrophy",
+      "Parkinsonism",
+      "Cerebellar atrophy",
+      "Nystagmus",
+      "Intention tremor"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002066",
+      "HP:0002070",
+      "HP:0000602",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0009830",
+      "HP:0001284",
+      "HP:0001324",
+      "HP:0001300",
+      "HP:0001272",
+      "HP:0000639",
+      "HP:0002080"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATXN3 CAG repeat expansion"
+    ],
+    "treatments": [
+      "Supportive and rehabilitative care",
+      "Antisense oligonucleotide (ASO) therapy targeting ATXN3",
+      "Physical therapy",
+      "Intravenous trehalose (SLS-005)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Machado_Joseph_Disease.yaml",
+    "page_url": "../pages/disorders/Machado-Joseph_Disease.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Major Depressive Disorder",
     "disease_id": "MONDO:0002009",
     "category": "Complex",
@@ -75708,11 +75815,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 806,
-  "total_unique_evidence_sources": 13081,
+  "total_disorder_pages": 807,
+  "total_unique_evidence_sources": 13097,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 153,
-  "total_pathographs": 798,
-  "total_unique_pathological_events": 3731
+  "total_pathographs": 799,
+  "total_unique_pathological_events": 3736
 };
 window.dispatchEvent(new Event('searchDataReady'));
