@@ -1,10 +1,10 @@
 ---
 provider: falcon
 model: Edison Scientific Literature
-cached: false
-start_time: '2026-04-25T22:15:09.589475'
-end_time: '2026-04-25T22:24:14.697653'
-duration_seconds: 545.11
+cached: true
+start_time: '2026-04-26T02:15:14.137184'
+end_time: '2026-04-26T02:15:14.141395'
+duration_seconds: 0.0
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
   disease_name: Carvajal Syndrome
@@ -16,7 +16,7 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 37
+citation_count: 29
 ---
 
 ## Question
@@ -929,294 +929,350 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Carvajal Syndrome (Carvajal–Huerta syndrome): Disease Characteristics Research Report
+# Carvajal Syndrome (Genetic Cardiocutaneous Syndrome) — Comprehensive Disease Characteristics Report
+
+## Target Disease
+- **Disease name:** Carvajal syndrome
+- **Category:** Genetic cardiocutaneous syndrome (desmosomal disease)
+- **Probable MONDO concept(s) observed in retrieved curated evidence:** *arrhythmogenic cardiomyopathy with wooly hair and keratoderma* (**MONDO:0011581**) (sun2021hairandskin pages 1-2)
+
+---
 
 ## 1. Disease Information
 
-### 1.1 Concise overview
-Carvajal syndrome is a rare **cardiocutaneous** disorder classically defined by a triad of **woolly/curly hair**, **palmoplantar keratoderma (PPK)** (often described as epidermolytic/striate), and **arrhythmogenic cardiomyopathy** that commonly has prominent **left‑ventricular involvement** and may present as dilated cardiomyopathy or left‑dominant arrhythmogenic cardiomyopathy. (arıcı2024acaseof pages 1-2, prompona2007magneticresonanceimaging pages 1-2)
+### 1.1 Concise overview (current understanding)
+Carvajal syndrome is a rare inherited **cardiocutaneous disorder** classically defined by the triad of **woolly/curly hair**, **palmoplantar keratoderma (often striate/focal)**, and **predominantly left-ventricular (LV) cardiomyopathy** that often presents in childhood and may progress to heart failure, malignant ventricular arrhythmias, sudden death, or need for heart transplantation. It is most commonly caused by **pathogenic variants in the desmosomal gene DSP (desmoplakin)**, reflecting shared reliance of epidermis and myocardium on desmosome-mediated mechanical coupling. (sun2021hairandskin pages 4-5, karvonen2022anoveldesmoplakin pages 8-8)
 
-### 1.2 Key identifiers (disease database identifiers)
-* **OMIM phenotype:** Carvajal syndrome is cited in the DSP literature as **MIM/OMIM #605676**. (pantou2023atruncatingvariant pages 1-2)
-* **MONDO / Orphanet / MeSH / ICD-10/11:** These identifiers were **not retrievable from the available evidence corpus** used in this run; therefore they are not asserted here.
+### 1.2 Key identifiers and ontology mappings (from retrieved sources)
+- **OMIM:** Carvajal syndrome **OMIM #605656** (review) (sun2021hairandskin pages 1-2). Another excerpt cites **MIM #605,676** in the context of “dilated cardiomyopathy with wooly hair and keratoderma” (Carvajal syndrome) (binfadel2025genotypeandcardiac pages 1-2).
+- **Related disorder (for differential/synonymy):** Naxos disease **OMIM #601214** (sun2021hairandskin pages 1-2).
+- **MONDO:** In Open Targets curated associations, the closely aligned disease concept is **“arrhythmogenic cardiomyopathy with wooly hair and keratoderma” (MONDO_0011581)** linked to **DSP** (sun2021hairandskin pages 1-2).
+- **ICD-10/ICD-11, MeSH, Orphanet:** Not explicitly present in the retrieved full-text excerpts; mapping should therefore be confirmed in those databases separately (limitation of current evidence set). (sun2021hairandskin pages 1-2, binfadel2025genotypeandcardiac pages 1-2)
 
-### 1.3 Synonyms and alternative names
-* **Carvajal–Huerta syndrome** (common synonym). (tosun2025noncompactionanddilated pages 1-2)
-* **“Naxos disease variant” / “Naxos–Carvajal phenotype”**: historical overlap terminology; Carvajal is often described as a Naxos-like cardiocutaneous phenotype with more left‑sided disease. (prompona2007magneticresonanceimaging pages 1-2)
+### 1.3 Synonyms / alternative names
+- **“Naxos disease variant”** (explicitly used as *Naxos disease variant (Carvajal syndrome)*) (binfadel2025genotypeandcardiac pages 1-2).
+- Combined/overlapping nomenclature in the literature includes: **“Naxos-Carvajal disease,” “Carvajal/Naxos syndrome,” “Naxos-like syndrome,”** reflecting phenotypic overlap between desmosomal cardiocutaneous disorders. (molho‐pessach2015twonovelhomozygous pages 5-6)
 
-### 1.4 Evidence source type
-The clinical disease characterization in the retrieved sources is derived primarily from **case reports/series** and **systematic reviews** (human clinical evidence), plus **animal and human iPSC-engineered tissue models** for mechanisms. (arıcı2024acaseof pages 1-2, polivka2016combinationofpalmoplantar pages 1-2, pratt2015dsprulaspontaneous pages 1-2, selgrade2024susceptibilitytoinnate pages 1-2)
+### 1.4 Evidence provenance: individual vs aggregated resources
+Most available information in the retrieved set is derived from **case reports/series**, small cohorts, and **systematic or narrative reviews** rather than large EHR-based datasets, which is typical for ultra-rare syndromes. (sun2021hairandskin pages 1-2, binfadel2025genotypeandcardiac pages 1-2, polivka2016combinationofpalmoplantar pages 2-3)
 
+---
 
 ## 2. Etiology
 
 ### 2.1 Disease causal factors
-**Primary cause:** pathogenic variants in **DSP (desmoplakin)**, a desmosomal protein essential for cell–cell adhesion and intermediate filament anchoring, are repeatedly reported as causal in Carvajal syndrome. (arıcı2024acaseof pages 1-2, krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3, ziołkowska2024carvajalsyndromerelated pages 1-2)
+**Primary cause:** germline **DSP (desmoplakin)** variants causing defective desmosome structure/function, resulting in combined skin/hair and myocardial disease (a “desmosomal disease”). (sun2021hairandskin pages 1-2, karvonen2022anoveldesmoplakin pages 8-8)
 
-**Inheritance:** typically **autosomal recessive**, often in the setting of consanguinity; rare dominant or de novo presentations with overlapping cardiocutaneous phenotypes have been described in the broader DSP spectrum. (arıcı2024acaseof pages 1-2, arıcı2024acaseof pages 2-3)
+**Abstract-supported primary claim (quote):** A review of DSP cardiomyopathy notes: “**The first association between DSP genetic variants and the presence of a myocardial disease referred to patients with Carvajal syndrome.**” (Apr 2023; URL: https://doi.org/10.3390/jcm12072660) (brandao2023desmoplakincardiomyopathycomprehensive pages 1-2)
 
-### 2.2 Genetic risk factors (causal variants; variant classes)
-Carvajal syndrome is most often associated with **biallelic DSP loss-of-function / truncating variants**, frequently in the **C-terminal region** (including exon 24 in many reports), consistent with a loss of desmoplakin function and impaired intermediate filament binding. (arıcı2024acaseof pages 1-2, pantou2023atruncatingvariant pages 1-2)
+### 2.2 Risk factors
+- **Genetic risk factors (causal):** Bi-allelic (homozygous or compound heterozygous) **loss-of-function (LoF)** DSP variants are strongly associated with classic Carvajal syndrome; variant location influences cutaneous/cardiac patterns (see Genotype–Phenotype below). (sun2021hairandskin pages 4-5, molho‐pessach2015twonovelhomozygous pages 3-5, ziołkowska2024carvajalsyndromerelated pages 1-2, williams2011noveldesmoplakinmutation pages 2-5)
+- **Family structure/consanguinity:** Consanguinity increases risk of homozygous disease, illustrated by a consanguineous pedigree with severe childhood cardiomyopathy. (williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2)
 
-Concrete examples from recent and classic cases include:
-* **DSP c.4297C>T (p.Gln1433\*) homozygous** in a 7‑year‑old with severe biventricular dilatation and LVEF 22%. (arıcı2024acaseof pages 1-2)
-* **DSP c.3901C>T (p.Gln1301X) homozygous** in an 11‑year‑old with woolly hair, PPK, and arrhythmogenic dilated cardiomyopathy. (krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3)
-* **Compound/dual-allele case** (2024): de novo **DSP c.1339C>T p.(Gln447\*)** (predicted nonsense-mediated decay) plus a paternal **DSP c.8204G>C p.(Gly2735Ala)** missense variant; severe arrhythmogenic cardiomyopathy and cardiocutaneous signs. (ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 2.3 Protective factors
+No specific genetic or environmental protective factors were identified in the retrieved evidence excerpts.
 
-**Allele frequency example:** in the 2024 Polish Heart Journal vignette, the novel missense allele **p.(Gly2735Ala)** is reported at **~7×10⁻⁷** in gnomAD. (ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 2.4 Gene–environment interactions
+No direct GxE studies were identified in the retrieved evidence excerpts. However, the desmosomal mechanism implies that **mechanical stress** could plausibly modulate myocardial injury risk; this remains to be substantiated by disease-specific studies (not established in the provided sources).
 
-### 2.3 Environmental risk factors / protective factors
-No disease-specific, validated environmental risk or protective factors were identified in the retrieved Carvajal-specific clinical evidence. However, in the broader DSP cardiomyopathy literature, disease exacerbation can occur with **physiologic stress/strain**; in engineered and animal models, **mechanical strain** increases functional deficits. (selgrade2024susceptibilitytoinnate pages 1-2, bona2025dsps311aknockinmice pages 13-16)
+---
 
-### 2.4 Gene–environment interaction (current understanding)
-**Current concept:** DSP deficiency creates a myocardium that is more vulnerable to inflammatory/innate immune activation and mechanical strain.
-* In 2024, a human iPSC engineered heart tissue (EHT) model showed **DSP reduction** increases baseline immune activation and causes **hypersensitivity to Toll-like receptor stimulation**, with worsened contractile impairment, supporting a gene–environment/stressor interaction model for myocarditis-like episodes in DSP disease. (selgrade2024susceptibilitytoinnate pages 1-2)
+## 3. Phenotypes
 
+### 3.1 Core phenotype spectrum (with characteristics)
+**Classic triad (high-level):**
+- **Woolly/curly hair** (often congenital)
+- **Palmoplantar keratoderma (PPK)** (often striate or focal; tends to appear in early childhood)
+- **Cardiomyopathy** (commonly LV-dominant dilated/arrhythmogenic phenotype; childhood onset) (sun2021hairandskin pages 4-5, karvonen2022anoveldesmoplakin pages 8-8, polivka2016combinationofpalmoplantar pages 2-3)
 
-## 3. Phenotypes (with ontology suggestions)
+**Representative image evidence:** A 2024 Carvajal case report shows cutaneous findings (woolly hair and palmoplantar keratoderma) and a 4-chamber cardiac MRI with dilated ventricles and reduced systolic function (Sep 2024; URL: https://doi.org/10.33963/v.phj.101664). (ziołkowska2024carvajalsyndromerelated media 9732cda8)
 
-### 3.1 Core phenotypes
-**A. Hair phenotype (woolly/curly hair)**
-* Typical onset: **from birth** (woolly hair is repeatedly described as congenital/early). (prompona2007magneticresonanceimaging pages 1-2)
-* HPO suggestions: **Woolly hair (HP:0002210)**; **Abnormal hair texture (HP:0011357)**.
+**Additional/variable features reported in reviews/series:** poor dentition/enamel defects, nail dystrophy, ichthyosis/erythrokeratodermia-spectrum skin changes in related DSP cardiocutaneous phenotypes. (sun2021hairandskin pages 4-5)
 
-**B. Palmoplantar keratoderma (PPK)**
-* Typical onset: **first year of life** (described in the Naxos/Carvajal cardiocutaneous spectrum). (prompona2007magneticresonanceimaging pages 1-2)
-* HPO suggestions: **Palmoplantar keratoderma (HP:0000972)**; **Epidermolytic palmoplantar keratoderma (HP:0031882)** (if epidermolytic features are present);
+### 3.2 Age of onset / progression
+- Hair findings can be evident at birth; keratoderma often appears in toddler age and can precede cardiac disease, serving as an early clinical cue. (williams2011noveldesmoplakinmutation pages 1-2)
+- In a systematic review of genetic desmosomal diseases with PPK + hair anomalies, the **median age of first cardiac manifestation was 8 years** (range 3–35). (polivka2016combinationofpalmoplantar pages 2-3)
 
-**C. Cardiomyopathy and arrhythmias**
-* Cardiac phenotype in Carvajal is commonly **left-dominant / dilated cardiomyopathy** with arrhythmias and myocardial fibrosis. (prompona2007magneticresonanceimaging pages 1-2, arıcı2024acaseof pages 1-2)
-* HPO suggestions: **Dilated cardiomyopathy (HP:0001644)**; **Arrhythmogenic right ventricular cardiomyopathy (HP:0001658)** (when RV phenotype is emphasized); **Ventricular tachycardia (HP:0004756)**; **Premature ventricular contractions (HP:0011700)**; **Syncope (HP:0001279)**; **Sudden cardiac death (HP:0001645)**.
+### 3.3 Frequency statistics (recently cited quantitative data)
+- **Systematic review evidence (2016):** In 458 desmosomal disease patients analyzed, the **combination of PPK + hair shaft anomalies** was associated with high cardiac risk: **129/161 (80.1%)** had cardiac disease, and skin features had led to cardiac monitoring in only 2.3%. (Sep 2016; URL: https://doi.org/10.1136/jmedgenet-2015-103403) (polivka2016combinationofpalmoplantar pages 2-3)
+- **Pediatric cohort outcomes (2025):** In a Saudi cohort of 10 pediatric patients with “Naxos disease variant” (Carvajal syndrome), all had woolly hair, half had PPK, 9/10 had frequent PVCs, 3 received ICDs, 4 underwent heart transplantation, and 3 died while waiting for transplant; 8/10 were homozygous for DSP mutations. (Mar 2025; URL: https://doi.org/10.1186/s13023-025-03612-8) (binfadel2025genotypeandcardiac pages 1-2)
 
-### 3.2 Phenotype frequencies and notable statistics
-Because Carvajal syndrome is rare, frequency data are often aggregated across related desmosomal cardiocutaneous disorders.
+### 3.4 Quality of life impact
+Direct validated QoL instrument results (e.g., SF-36, EQ-5D) were not identified in the retrieved excerpts. Clinically, progressive heart failure, ICD shocks, transplantation, and visible cutaneous manifestations imply major QoL burden. (binfadel2025genotypeandcardiac pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
 
-* In a systematic review of **458 patients** with inherited desmosomal diseases, the combination of **PPK + hair shaft anomalies** occurred in **161 patients** and was associated with cardiac disease in **129/161 (80.1%)**; nevertheless, skin findings led to cardiac monitoring in only **2.3%** of these patients, indicating major under-recognition of the dermatologic “red flag.” (polivka2016combinationofpalmoplantar pages 1-2)
-* In DSP cardiomyopathy cohorts (broader than classic Carvajal), a recognizable cutaneous phenotype (woolly hair and/or PPK) has been reported in **~44–55%** of affected individuals. (brandao2023desmoplakincardiomyopathycomprehensive pages 2-4)
+### 3.5 Suggested HPO terms (non-exhaustive)
+- **Woolly hair:** HP:0002210
+- **Curly hair:** HP:0002224
+- **Palmoplantar keratoderma:** HP:0000972
+- **Striate palmoplantar keratoderma:** HP:0007574
+- **Dilated cardiomyopathy:** HP:0001644
+- **Arrhythmogenic cardiomyopathy:** HP:0031677
+- **Ventricular tachycardia:** HP:0004756
+- **Premature ventricular contractions:** HP:0011703
+- **Heart failure:** HP:0001635
+- **Myocardial fibrosis (imaging/pathology):** HP:0012337
+- **Left ventricular noncompaction (subset):** HP:0001695 (supported by a Carvajal family report) (williams2011noveldesmoplakinmutation pages 2-5)
 
-### 3.3 Disease severity, progression, quality-of-life impact
-* Carvajal syndrome can progress to **severe heart failure** and life-threatening arrhythmias; a 2024 pediatric case died two years after diagnosis following non-compliance with therapy, underscoring the potential for rapid progression in childhood. (arıcı2024acaseof pages 1-2)
-* A 2024 Carvajal case required escalation to **ICD**, **ablation**, and ultimately **orthotopic heart transplantation**. (ziołkowska2024carvajalsyndromerelated pages 1-2)
-
-Quality-of-life instruments (e.g., SF-36, PROMIS) were not identified in the retrieved Carvajal-specific evidence; QOL burden is inferred from severe cardiomyopathy, hospitalizations, device therapy, and transplant. (ziołkowska2024carvajalsyndromerelated pages 1-2)
-
+---
 
 ## 4. Genetic / Molecular Information
 
-### 4.1 Causal gene(s)
-* **DSP (desmoplakin)** is the primary causal gene supported by multiple Carvajal cases with homozygous or compound variants. (arıcı2024acaseof pages 1-2, krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3, ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 4.1 Causal genes
+- **DSP (desmoplakin)** is the primary causal gene for classic Carvajal syndrome. (sun2021hairandskin pages 1-2, karvonen2022anoveldesmoplakin pages 8-8)
 
-### 4.2 Functional role and molecular consequences
-Desmoplakin is a core desmosomal protein; a key function is **anchoring intermediate filaments to desmosomes**, which is central to mechanical integrity in both epidermis and myocardium. (pantou2023atruncatingvariant pages 1-2)
+### 4.2 Pathogenic variant classes and examples (from retrieved primary reports)
+**Loss-of-function (LoF) is a common mechanism**:
+- **Homozygous DSP frameshift truncation:** 5208_5209delAG → frameshift downstream of amino acid 1736 with premature truncation of the predominant cardiac isoform DSP-1; associated with severe early-onset biventricular cardiomyopathy, woolly hair, and acantholytic PPK. (Jul 2011; URL: https://doi.org/10.1007/s00392-011-0345-9) (williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2)
+- **Compound heterozygous DSP variants (2024 case):** de novo truncation **c.1339C>T** and a paternally inherited missense **c.8204G>C (p.Gly2735Ala)** associated with severe biventricular cardiomyopathy and arrhythmia requiring transplant; the missense was reported as extremely rare in gnomAD in the case report narrative. (Sep 2024; URL: https://doi.org/10.33963/v.phj.101664) (ziołkowska2024carvajalsyndromerelated pages 1-2)
 
-Carvajal-associated DSP variants often disrupt the C-terminus (intermediate filament–binding region), and are interpreted mechanistically as reducing effective desmoplakin at junctions and weakening tissue resilience under mechanical stress. (pantou2023atruncatingvariant pages 1-2, prompona2007magneticresonanceimaging pages 1-2)
+**Genotype–phenotype correlation clues (review-level):** DSP variant location appears to correlate with cardiocutaneous phenotype patterns; truncations removing the C-terminus are emphasized in classic Carvajal syndrome, while other domain-localized variants can yield overlapping dominant or recessive DSP cardiomyopathy phenotypes. (sun2021hairandskin pages 4-5)
 
-### 4.3 Variant types and interpretation
-* Commonly: **nonsense/frameshift truncating variants** consistent with loss-of-function, often biallelic in Carvajal. (arıcı2024acaseof pages 1-2, krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3)
-* Missense alleles can contribute in compound states; one recent case combines a de novo nonsense and paternal missense allele with severe phenotype. (ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 4.3 Variant interpretation framework
+The retrieved case literature and reviews interpret truncating/LoF DSP variants as pathogenic and frequently invoke **nonsense-mediated decay (NMD) / haploinsufficiency** as a mechanism in some dominant DSP cardiocutaneous syndromes. (maruthappu2019loss‐of‐functiondesmoplakini pages 7-11, ziołkowska2024carvajalsyndromerelated pages 1-2)
 
-Variant classification per ACMG/AMP was not directly extractable from the cited text snippets; the 2024 vignette describes the missense as “likely pathogenic.” (ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 4.4 Modifier genes / epigenetics
+No validated modifier genes specific to Carvajal syndrome were identified in the retrieved excerpts.
 
-### 4.4 Modifier genes / epigenetics / chromosomal abnormalities
-No validated modifier genes, epigenetic mechanisms, or chromosomal abnormalities specific to Carvajal syndrome were identified in the retrieved evidence set.
+**Research direction note:** A completed exploratory study tested feasibility of **cardiomyocyte-derived DNA** for genetic/epigenetic analyses of ACM genes including **DSP** (NCT03177018). (NCT03177018 chunk 1)
 
+---
 
 ## 5. Environmental Information
-No Carvajal-specific environmental toxin/lifestyle/infectious etiology was identified. Within DSP cardiomyopathy, **stressors that activate innate immunity (e.g., inflammatory triggers)** and **mechanical strain** are increasingly discussed as modifiers of “hot phase”/myocarditis-like episodes. (selgrade2024susceptibilitytoinnate pages 1-2)
+No specific environmental, lifestyle, or infectious triggers were identified as causal in the retrieved evidence excerpts. The disease is primarily genetic, though clinical management often includes avoidance of arrhythmia triggers in broader ACM practice (not directly evidenced here).
 
+---
 
 ## 6. Mechanism / Pathophysiology
 
-### 6.1 Causal chain (genotype → tissue dysfunction → clinical phenotype)
-1. **DSP pathogenic variants** reduce functional desmoplakin at desmosomes, impairing intermediate filament anchoring and junctional integrity. (pantou2023atruncatingvariant pages 1-2)
-2. In myocardium, defective desmosomes predispose to **myocyte dissociation and death**, followed by **fibrous and/or adipose tissue infiltration** and scar formation. (arıcı2024acaseof pages 2-3)
-3. Myocardial remodeling plus scar provides substrate for **ventricular arrhythmias** and progressive systolic dysfunction, leading to **heart failure, syncope, sudden cardiac death**, and sometimes the need for transplantation. (prompona2007magneticresonanceimaging pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 6.1 Core mechanism (causal chain)
+**Upstream trigger:** Germline DSP pathogenic variants → **desmosome dysfunction**.
 
-### 6.2 Inflammation and myocarditis-like episodes (recent development, 2024)
-A major recent direction is the concept of **DSP-associated “genetically mediated myocarditis”** (sometimes described clinically as a sterile myocarditis-like process) contributing to injury episodes and progression.
+**Cellular/tissue consequence:** Impaired anchoring of intermediate filaments (keratin/desmin) and altered desmosomal protein localization → compromised mechanical integrity and electrical coupling, contributing to **conduction defects**, myocardial injury and remodeling (fibrosis/fibrofatty replacement), and progressive cardiomyopathy. (maruthappu2019loss‐of‐functiondesmoplakini pages 7-11, brandao2023desmoplakincardiomyopathycomprehensive pages 1-2)
 
-In 2024 (JCI), Selgrade et al. modeled DSP-associated myocarditis using **human iPSC-derived engineered heart tissues**:
-* **DSP−/− EHTs** showed baseline transcriptomic immune activation and cytokine release and were **hypersensitive to TLR stimulation**, with greater impairment of contractile function; heterozygous DSP truncation EHTs also showed heightened TLR sensitivity and strain-induced deficits. (selgrade2024susceptibilitytoinnate pages 1-2)
-* **Therapeutic implications in vitro:** **colchicine** or **NF‑κB inhibitors** improved baseline/strain-induced force deficits, and **adenine base editing** correction of a DSP truncation reduced inflammatory biomarker release—supporting innate immunity as a potentially targetable downstream pathway. (selgrade2024susceptibilitytoinnate pages 1-2)
+**Clinical manifestation:** LV-dominant or biventricular cardiomyopathy with ventricular arrhythmias and heart failure plus cutaneous phenotypes (woolly hair, PPK). (sun2021hairandskin pages 4-5, williams2011noveldesmoplakinmutation pages 2-5)
 
-### 6.3 Pathways and ontology suggestions
-* GO biological processes (suggested): **cell–cell adhesion (GO:0098609)**; **intermediate filament organization (GO:0045104)**; **cardiac muscle cell death (GO:0097285)**; **extracellular matrix organization (GO:0030198)**; **inflammatory response (GO:0006954)**; **NF‑κB signaling (GO:0043122)**.
-* Cell types (CL suggestions): **cardiac muscle cell / cardiomyocyte (CL:0000746)**; **cardiac fibroblast (CL:0002548)**; **macrophage (CL:0000235)** (inflammatory infiltrates are emphasized in models and DSP cardiomyopathy). (bona2025dsps311aknockinmice pages 16-19, risato2024invivoapproaches pages 6-7)
+### 6.2 Mechanistic evidence highlights
+- A dominant DSP cardiocutaneous cohort paper links DSP LoF to cardiac structural/electrical pathology, stating mislocalization of desmosomal proteins with reduced connexin 43 is associated with “**conduction defects, fibrofatty infiltration and cardiomyopathy**.” (Jan 2019; URL: https://doi.org/10.1111/bjd.17388) (maruthappu2019loss‐of‐functiondesmoplakini pages 7-11)
+- A clinical review frames DSP as essential for cardiomyocyte cell-to-cell adhesion and summarizes the emerging entity of “desmoplakin cardiomyopathy,” characterized by LV involvement, extensive fibrosis, high arrhythmic risk, and episodes of acute myocardial injury, building historically from Carvajal syndrome observations. (Apr 2023; URL: https://doi.org/10.3390/jcm12072660) (brandao2023desmoplakincardiomyopathycomprehensive pages 1-2)
 
+### 6.3 Suggested ontology terms
+**GO biological process (examples):**
+- Desmosome organization (GO:0031581)
+- Cell-cell adhesion (GO:0098609)
+- Intermediate filament organization (GO:0045109)
+- Cardiac muscle tissue remodeling (GO:0055001)
+- Regulation of cardiac conduction (e.g., GO terms around cardiac muscle cell action potential/conduction)
+
+**Cell Ontology (CL) — key cell types implicated:**
+- Keratinocyte (CL:0000312)
+- Cardiomyocyte / cardiac muscle cell (CL:0000746)
+
+**GO cellular component (examples):**
+- Desmosome (GO:0030057)
+- Intercalated disc (GO:0014704)
+
+---
 
 ## 7. Anatomical Structures Affected
 
-### 7.1 Organ level
-* **Heart** (primary): ventricular myocardium with fibrotic replacement and dysfunction; often with prominent LV involvement. (prompona2007magneticresonanceimaging pages 1-2)
-* **Skin/hair** (primary): palmoplantar keratoderma and woolly hair. (arıcı2024acaseof pages 1-2)
+### 7.1 Organ-level
+- **Heart** (primary): LV-dominant or biventricular cardiomyopathy with fibrosis and arrhythmia, often severe in pediatric cases. (binfadel2025genotypeandcardiac pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2, williams2011noveldesmoplakinmutation pages 2-5)
+- **Skin** (primary): palmoplantar keratoderma (including acantholytic variants in some reports). (williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2)
+- **Hair** (primary): woolly/curly hair, often congenital. (sun2021hairandskin pages 4-5, ziołkowska2024carvajalsyndromerelated media 9732cda8)
 
-### 7.2 Tissue and cell level (suggestions)
-* UBERON suggestions: **heart (UBERON:0000948)**; **left ventricle (UBERON:0002084)**; **right ventricle (UBERON:0002083)**; **palm skin (UBERON:0001463)**; **sole of foot (UBERON:0001467)**; **hair follicle (UBERON:0002070)**.
+### 7.2 Suggested UBERON terms
+- Heart (UBERON:0000948)
+- Left ventricle (UBERON:0002084)
+- Right ventricle (UBERON:0002085)
+- Palm skin (UBERON:0001514) and plantar skin (UBERON:0001516)
+- Hair follicle (UBERON:0002074)
 
+---
 
 ## 8. Temporal Development
 
 ### 8.1 Onset
-Within the cardiocutaneous (Naxos/Carvajal) spectrum:
-* **Woolly hair**: present **from birth**. (prompona2007magneticresonanceimaging pages 1-2)
-* **PPK**: develops in the **first year of life**. (prompona2007magneticresonanceimaging pages 1-2)
-* **Cardiomyopathy**: clinically manifests **in childhood/adolescence**, with Carvajal tending to manifest earlier and with more heart-failure presentations. (prompona2007magneticresonanceimaging pages 1-2)
+- Cutaneous/hair findings often appear **early** (hair congenital; keratoderma in toddler age), potentially enabling pre-symptomatic identification of children at risk for cardiac death. (williams2011noveldesmoplakinmutation pages 1-2)
 
-### 8.2 Progression and stages
-Carvajal syndrome can follow a progressive course from early dermatologic signs to myocardial scarring, arrhythmias, and end-stage heart failure requiring transplant. Severe pediatric presentations can occur (e.g., LVEF 22% at age 7). (arıcı2024acaseof pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
+### 8.2 Progression / staging (clinical)
+- Disease can progress from asymptomatic or mild early findings to **progressive ventricular dysfunction**, ventricular arrhythmias, syncope, and end-stage heart failure requiring transplant. (binfadel2025genotypeandcardiac pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
 
+---
 
 ## 9. Inheritance and Population
 
-### 9.1 Inheritance pattern
-Carvajal syndrome is primarily **autosomal recessive**, commonly reported in consanguineous families. (arıcı2024acaseof pages 1-2)
+### 9.1 Inheritance
+- **Classically autosomal recessive** (homozygous/compound heterozygous DSP variants), with consanguinity frequently reported. (williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2)
+- **Dominant DSP cardiocutaneous phenotypes** with Carvajal-like features have been described, underscoring variable expressivity and penetrance depending on variant class and location. (maruthappu2019loss‐of‐functiondesmoplakini pages 7-11)
 
 ### 9.2 Epidemiology
-Population prevalence/incidence were not identified in the retrieved Carvajal-specific sources.
+Robust prevalence/incidence estimates were not identified in the retrieved excerpts. The 2025 cohort and prior literature note geographic clustering and reports from regions including Greece/Turkey/Israel/Saudi Arabia/India/Ecuador, but these are not population-based estimates. (binfadel2025genotypeandcardiac pages 1-2)
 
-However, outcome-related epidemiologic statements are reported in classic imaging literature:
-* Carvajal syndrome can manifest with childhood dilated cardiomyopathy; one Circulation imaging report states that **~50% develop heart failure and most die during adolescence** (historical summary within that report). (prompona2007magneticresonanceimaging pages 1-2)
-
-Founder effects and carrier frequencies were not extractable from the cited sources, except for the gnomAD frequency note above for one missense allele. (ziołkowska2024carvajalsyndromerelated pages 1-2)
-
+---
 
 ## 10. Diagnostics
 
 ### 10.1 Clinical recognition
-A key clinical diagnostic clue is that **hair + palmoplantar keratoderma** may precede cardiac symptoms; dermatologic recognition should trigger **cardiac evaluation** and **genetic testing**. (polivka2016combinationofpalmoplantar pages 1-2)
+The combination of **woolly hair** and **PPK** (especially when distinct from family members) is emphasized as a clinical cue that should **prompt cardiac evaluation and genetic testing**. (sun2021hairandskin pages 1-2, karvonen2022anoveldesmoplakin pages 8-8, maruthappu2019loss‐of‐functiondesmoplakini pages 7-11)
 
-### 10.2 Cardiac testing (real-world implementation)
-Commonly implemented diagnostics in reported cases include:
-* **Echocardiography**: ventricular dilation, impaired systolic function (e.g., LVEF 22% in a 7‑year‑old). (arıcı2024acaseof pages 1-2)
-* **24‑hour Holter monitoring**: ventricular ectopy/arrhythmias. (arıcı2024acaseof pages 1-2)
-* **Cardiac MRI (CMR)**: myocardial fibrosis/late gadolinium enhancement; non-ischemic scarring; sometimes noncompaction-like trabeculation. (prompona2007magneticresonanceimaging pages 1-2, arıcı2024acaseof pages 1-2)
+### 10.2 Cardiac testing used in real-world practice (from cohorts/case reports)
+- ECG and Holter monitoring to detect ventricular ectopy and VT (binfadel2025genotypeandcardiac pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
+- Echocardiography for ventricular size and systolic function (binfadel2025genotypeandcardiac pages 1-2)
+- Cardiac MRI to evaluate ventricular dilation/dysfunction and fibrosis (ziołkowska2024carvajalsyndromerelated pages 1-2, ziołkowska2024carvajalsyndromerelated media 9732cda8)
+- Biomarkers such as troponin/pro-BNP are suggested for DSP cardiomyopathy surveillance in a DSP-PPK context. (karvonen2022anoveldesmoplakin pages 8-8)
 
 ### 10.3 Genetic testing
-* **DSP sequencing** (single gene or cardiomyopathy/arrhythmia panels using NGS) is used for confirmation; homozygous truncating variants and compound genotypes have been diagnosed by molecular genetic evaluation in multiple cases. (arıcı2024acaseof pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
+Molecular confirmation via DSP sequencing (single-gene, panel, or exome) is used in reported cases and recommended when dermatologic warning signs are present. (karvonen2022anoveldesmoplakin pages 8-8, williams2011noveldesmoplakinmutation pages 2-5)
 
 ### 10.4 Differential diagnosis
-Clinical reports note overlap with other syndromes featuring cardiomyopathy and ectodermal findings (e.g., Naxos disease and other RASopathies), emphasizing the need for genotype-guided differentiation. (krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3)
-
-
-## 11. Outcomes / Prognosis
-
-Carvajal syndrome is associated with high morbidity from heart failure and arrhythmias and can lead to death in childhood/adolescence without timely advanced management.
-
-Illustrative data:
-* A pediatric case report (2024) documents death two years after diagnosis due to acute heart failure exacerbation after non-compliance. (arıcı2024acaseof pages 1-2)
-* Historical summary within a Circulation MRI report describes frequent progression to heart failure and high adolescent mortality. (prompona2007magneticresonanceimaging pages 1-2)
-* A modern (2024) vignette documents progression from initial childhood presentation to ICD, ablation, stroke, and eventual successful heart transplant at age 19. (ziołkowska2024carvajalsyndromerelated pages 1-2)
-
-Prognostic biomarkers beyond imaging scar and arrhythmic history were not identified in the Carvajal-specific evidence set.
-
-
-## 12. Treatment
-
-### 12.1 Standard-of-care cardiology (real-world implementations)
-Management follows advanced heart-failure and arrhythmia prevention principles:
-* **Guideline-directed medical therapy for heart failure** is used in pediatric and adolescent cases (e.g., diuretics and neurohormonal blockade are described in case reports). (krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3, arıcı2024acaseof pages 1-2)
-* **ICD implantation** is emphasized as the effective prevention for sudden cardiac death in severe arrhythmogenic disease, and is used in Carvajal/DSP cases. (arıcı2024acaseof pages 2-3, ziołkowska2024carvajalsyndromerelated pages 1-2)
-* **Catheter ablation** may be used for refractory ventricular arrhythmias but is not considered reliably protective against sudden death by itself. (arıcı2024acaseof pages 2-3, ziołkowska2024carvajalsyndromerelated pages 1-2)
-* **Heart transplantation** is pursued in end-stage disease and has been successful in multiple Carvajal reports. (prompona2007magneticresonanceimaging pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
-
-MAXO suggestions:
-* **Implantation of cardioverter-defibrillator (MAXO:0000479)**
-* **Heart transplantation (MAXO:0001193)**
-* **Pharmacotherapy for heart failure (MAXO:0000745)**
-
-### 12.2 Experimental / emerging approaches (2024)
-Mechanism-driven therapeutic hypotheses are emerging from iPSC engineered tissue models:
-* In DSP-reduced EHTs, **colchicine** and **NF‑κB inhibition** improved functional deficits, and **adenine base editing** correction reduced inflammatory biomarker release—supporting anti-inflammatory and gene-editing strategies as investigational directions for DSP-mediated inflammatory injury. (selgrade2024susceptibilitytoinnate pages 1-2)
-
-### 12.3 Clinical trials
-No Carvajal syndrome–specific interventional trials were identified in the retrieved ClinicalTrials.gov search results for this run.
-
-
-## 13. Prevention
-
-Primary prevention is not applicable because Carvajal syndrome is genetic; however:
-* **Secondary/tertiary prevention** focuses on **early recognition** of hair/PPK signs, **cascade family screening**, longitudinal cardiac surveillance, and timely ICD/transplant evaluation. (polivka2016combinationofpalmoplantar pages 1-2, arıcı2024acaseof pages 2-3)
-
-
-## 14. Other Species / Natural Disease
-No naturally occurring Carvajal syndrome outside humans was identified in the retrieved veterinary literature in this run. Mouse spontaneous mutations in Dsp serve as disease models rather than natural disease in domestic species. (pratt2015dsprulaspontaneous pages 1-2)
-
-
-## 15. Model Organisms and Experimental Models
-
-### 15.1 Mouse models
-**Dsp^rul (ruffled) spontaneous mouse model (2015)**
-* A spontaneous autosomal recessive frameshift mutation in mouse **Dsp** truncates the C-terminus and produces a cardiocutaneous phenotype (abnormal hair coat, epidermal blistering, hair shaft defects, and age-dependent ventricular fibrosis with ECG defects). Authors state the phenotype closely models **Carvajal–Huerta syndrome**. (pratt2015dsprulaspontaneous pages 1-2, pratt2015dsprulaspontaneous pages 4-6, pratt2015dsprulaspontaneous pages 3-4)
-
-### 15.2 Broader in vivo ACM/DSP modeling (review, 2024)
-A 2024 review of arrhythmogenic cardiomyopathy animal models highlights multiple DSP perturbation strategies (conduction-system knockout, cardiomyocyte-restricted knockout, C-terminal mutant overexpression) producing desmosomal defects, inflammation, fibrosis/adiposis, and ventricular arrhythmias, and it explicitly notes the relevance of the **Dsp^rul** model for Carvajal–Huerta-like disease. (risato2024invivoapproaches pages 6-7)
-
-### 15.3 Human iPSC engineered heart tissue models (2024)
-A 2024 JCI study used patient-derived and gene-edited hiPSC cardiomyocytes to build engineered heart tissues demonstrating innate immune hypersensitivity and strain-dependent functional deficits with DSP reduction, providing a platform for testing anti-inflammatory interventions and gene editing. (selgrade2024susceptibilitytoinnate pages 1-2)
-
+- **Naxos disease** (typically JUP-related, classically more right-ventricular ARVC phenotype) vs Carvajal (more LV-dominant DCM/ACM) is repeatedly emphasized. (sun2021hairandskin pages 4-5, binfadel2025genotypeandcardiac pages 1-2)
+- Other desmosomal cardiocutaneous disorders with PPK + hair anomalies (systematic review context). (polivka2016combinationofpalmoplantar pages 2-3)
 
 ---
 
-## Structured identifier/nomenclature summary
+## 11. Outcome / Prognosis
 
-| Item | Value | Evidence (with citation id) | URL | Publication date |
-|---|---|---|---|---|
-| Disease overview | Rare cardiocutaneous disorder characterized by woolly hair, palmoplantar keratoderma, and cardiomyopathy; classically left-ventricular-predominant/dilated cardiomyopathy in the Carvajal form | Carvajal syndrome is described as a “very rare autosomal recessive cardiocutaneous disorder” with the triad of “woolly hair, epidermolytic palmoplantar keratoderma, and arrhythmogenic cardiomyopathy” (arıcı2024acaseof pages 1-2); Carvajal syndrome is also described as a syndrome with the “same cutaneous phenotype and predominantly left ventricular involvement” compared with Naxos disease (prompona2007magneticresonanceimaging pages 1-2) | https://doi.org/10.1017/s1047951124000222; https://doi.org/10.1161/circulationaha.107.704742 | 2024-03; 2007-11 |
-| Preferred disease name | Carvajal syndrome | Multiple reports use “Carvajal syndrome” as the primary disease name (arıcı2024acaseof pages 1-2, krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3, ziołkowska2024carvajalsyndromerelated pages 1-2) | https://doi.org/10.1017/s1047951124000222; https://doi.org/10.1007/s12098-010-0319-3; https://doi.org/10.33963/v.phj.101664 | 2024-03; 2011-07; 2024-09 |
-| Common synonym | Carvajal-Huerta syndrome | A spontaneous mouse model paper states the phenotype closely models the rare human disorder “Carvajal-Huerta syndrome” (supported in search results); a 2025 case report uses “Carvajal–Huerta” for the same disorder (tosun2025noncompactionanddilated pages 1-2) | https://doi.org/10.1016/j.yexmp.2015.01.015; https://doi.org/10.1017/S1047951125001532 | 2015-04; 2025-04 |
-| Related nomenclature | Naxos disease variant / Naxos-Carvajal phenotype (historical/overlap terminology) | Carvajal syndrome is presented as a variant of Naxos disease with similar cutaneous findings but predominantly left-ventricular disease (prompona2007magneticresonanceimaging pages 1-2); overlapping “Naxos-Carvajal” terminology has been used for mixed cardiocutaneous phenotypes (polivka2016combinationofpalmoplantar pages 1-2) | https://doi.org/10.1161/circulationaha.107.704742; https://doi.org/10.1136/jmedgenet-2015-103403 | 2007-11; 2016-09 |
-| OMIM identifier | OMIM 605676 | Review/case literature explicitly cites “Carvajal syndrome (OMIM 605676)” (pantou2023atruncatingvariant pages 1-2) | https://doi.org/10.15829/1560-4071-2018-10-151-158 | 2018-11 |
-| Inheritance | Usually autosomal recessive; rare autosomal dominant presentations have been reported | 2024 case report: “very rare autosomal recessive cardiocutaneous disorder” (arıcı2024acaseof pages 1-2); companion excerpt notes the condition is “primarily an autosomal recessive hereditary disease, though rare autosomal dominant forms have been reported” (arıcı2024acaseof pages 2-3) | https://doi.org/10.1017/s1047951124000222 | 2024-03 |
-| Primary causal gene | DSP (desmoplakin) | Homozygous/compound DSP variants are repeatedly reported as causal in Carvajal syndrome (arıcı2024acaseof pages 1-2, krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3, ziołkowska2024carvajalsyndromerelated pages 1-2) | https://doi.org/10.1017/s1047951124000222; https://doi.org/10.1007/s12098-010-0319-3; https://doi.org/10.33963/v.phj.101664 | 2024-03; 2011-07; 2024-09 |
-| Gene/protein function relevant to nomenclature | DSP encodes desmoplakin, a desmosomal protein that anchors intermediate filaments to desmosomes | DSP’s “main function is the anchoring of intermediate filaments to desmosomes” (pantou2023atruncatingvariant pages 1-2); defective desmosomal proteins lead to myocyte dissociation/death and fibrofatty/fibrotic myocardial change (arıcı2024acaseof pages 2-3) | https://doi.org/10.1186/s12920-023-01527-6; https://doi.org/10.1017/s1047951124000222 | 2023-05; 2024-03 |
-| Key distinguishing clinical nomenclature point vs Naxos disease | Carvajal syndrome is associated more often with left ventricular/biventricular cardiomyopathy, whereas Naxos disease is classically right-ventricular | Circulation MRI paper distinguishes Carvajal by “predominantly left ventricular involvement” (prompona2007magneticresonanceimaging pages 1-2); review systematic data support the Carvajal phenotype as part of DSP-related cardiocutaneous disease (polivka2016combinationofpalmoplantar pages 1-2) | https://doi.org/10.1161/circulationaha.107.704742; https://doi.org/10.1136/jmedgenet-2015-103403 | 2007-11; 2016-09 |
-| Key recent citations | 2023-2024 literature continues to define Carvajal syndrome within the broader DSP cardiomyopathy spectrum | Recent reports/reviews include Brandão et al. 2023 on desmoplakin cardiomyopathy (brandao2023desmoplakincardiomyopathycomprehensive pages 2-4), Arıcı et al. 2024 case report (arıcı2024acaseof pages 1-2), and Ziółkowska et al. 2024 case report (ziołkowska2024carvajalsyndromerelated pages 1-2) | https://doi.org/10.3390/jcm12072660; https://doi.org/10.1017/s1047951124000222; https://doi.org/10.33963/v.phj.101664 | 2023-04; 2024-03; 2024-09 |
+### 11.1 Prognostic patterns
+- Severe pediatric disease may lead to transplantation or early death; in the 10-patient Saudi pediatric cohort, 4 underwent transplant and 3 died awaiting transplant. (binfadel2025genotypeandcardiac pages 1-2)
+- Reviews summarize a high-risk course where a substantial fraction develop heart failure and many die before early adulthood without intervention, though survival into adulthood is reported in some families/cases. (sun2021hairandskin pages 4-5, molho‐pessach2015twonovelhomozygous pages 3-5)
+
+### 11.2 Prognostic factors
+Severity of cutaneous signs (e.g., presence of PPK in some dominant DSP families) was associated with more severe cardiac symptoms in one cohort, suggesting potential phenotype-based risk stratification. (maruthappu2019loss‐of‐functiondesmoplakini pages 7-11)
+
+---
+
+## 12. Treatment
+
+### 12.1 Current applications / real-world implementations
+Carvajal syndrome management is primarily supportive and follows cardiomyopathy and arrhythmia standards of care:
+- Guideline-directed **heart failure pharmacotherapy** (e.g., ACE inhibitor/diuretics/beta-blockers; specific drugs reported in pediatric series include captopril, furosemide, carvedilol, digoxin) (molho‐pessach2015twonovelhomozygous pages 3-5)
+- **Antiarrhythmic therapy** and rhythm monitoring (ziołkowska2024carvajalsyndromerelated pages 1-2)
+- **ICD implantation** for uncontrolled/high-risk ventricular arrhythmias (binfadel2025genotypeandcardiac pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2)
+- **Catheter ablation** in selected arrhythmia cases (ziołkowska2024carvajalsyndromerelated pages 1-2)
+- **Heart transplantation** for end-stage disease (binfadel2025genotypeandcardiac pages 1-2, ziołkowska2024carvajalsyndromerelated pages 1-2, williams2011noveldesmoplakinmutation pages 2-5)
+
+### 12.2 Suggested MAXO terms (examples)
+- Heart failure pharmacotherapy (MAXO:0000602)
+- Implantation of cardioverter-defibrillator (MAXO:0000507)
+- Catheter ablation (MAXO:0000460)
+- Heart transplantation (MAXO:0000473)
+- Genetic counseling (MAXO:0000066)
+
+### 12.3 Experimental / research landscape (clinical trials/registries)
+While there are no Carvajal-specific interventional trials in the retrieved trial set, multiple **2022–2024 observational studies explicitly include DSP variant carriers** and are therefore relevant for desmoplakin cardiomyopathy / Carvajal-related phenotypes:
+
+1) **Bio-SCOTCH registry** (ClinicalTrials.gov **NCT06446271**; start **2024-06-26**; recruiting; n=750; includes DSP arm up to ~50): biomarker discovery and natural history across genetic cardiomyopathies including DSP. URL: https://clinicaltrials.gov/study/NCT06446271 (NCT06446271 chunk 1)
+
+2) **CharACTPET-MR** hybrid PET-MRI characterization in genetically diagnosed arrhythmogenic cardiomyopathy (ClinicalTrials.gov **NCT05450783**; start **2022-09-01**; recruiting; n=80): evaluates PET-MR patterns, prognostic associations (death, transplant, resuscitated sudden death, unstable VT, HF hospitalization, myocarditis), and immune correlates; inclusion lists DSP among genotypes. URL: https://clinicaltrials.gov/study/NCT05450783 (NCT05450783 chunk 1)
+
+3) **Cardiomyocyte DNA aspiration feasibility study** (ClinicalTrials.gov **NCT03177018**; start **2016-09-13**; completed; n=34): feasibility of obtaining cardiomyocytes during voltage mapping for DNA extraction; includes DSP in molecular/epigenetic targets. URL: https://clinicaltrials.gov/study/NCT03177018 (NCT03177018 chunk 1)
+
+---
+
+## 13. Prevention
+No primary prevention exists for the genetic cause. Evidence-supported preventive strategies are **secondary/tertiary prevention** through early detection and complication avoidance:
+- **Cascade screening / genetic counseling** for relatives, especially in settings with consanguinity. (binfadel2025genotypeandcardiac pages 1-2, williams2011noveldesmoplakinmutation pages 2-5)
+- **Long-term cardiac monitoring** in individuals with PPK + hair shaft anomalies due to high cardiac risk in systematic review data. (polivka2016combinationofpalmoplantar pages 2-3)
+
+---
+
+## 14. Other Species / Natural Disease
+No naturally occurring non-human Carvajal syndrome analogs were identified in the retrieved evidence excerpts.
+
+---
+
+## 15. Model Organisms
+No specific Carvajal-focused animal models were identified in the retrieved evidence excerpts. Mechanistic inference is nevertheless consistent with established desmosome biology in cardiomyocytes and keratinocytes (review-level). (brandao2023desmoplakincardiomyopathycomprehensive pages 1-2)
+
+---
+
+## Recent Developments (prioritizing 2023–2024)
+
+1) **Conceptual consolidation of “desmoplakin cardiomyopathy” (2023):** A comprehensive review describes DSP cardiomyopathy as increasingly recognized, characterized by frequent LV involvement, extensive fibrosis, high arrhythmic risk, and episodes of acute myocardial injury, while explicitly linking the historical first DSP-myocardial disease association to Carvajal syndrome. Publication date **Apr 2023**; URL: https://doi.org/10.3390/jcm12072660 (brandao2023desmoplakincardiomyopathycomprehensive pages 1-2)
+
+2) **Expanded genotype evidence with detailed contemporary management (2024 case):** A 19-year-old with classic cutaneous findings and severe biventricular dysfunction had compound DSP variants and required ICD, antiarrhythmics, ablation, and ultimately transplantation, illustrating current real-world management pathways and genotype–phenotype expansion. Publication date **Sep 2024**; URL: https://doi.org/10.33963/v.phj.101664 (ziołkowska2024carvajalsyndromerelated pages 1-2, ziołkowska2024carvajalsyndromerelated media 9732cda8)
+
+3) **New DSP-focused observational infrastructure (2024):** Bio-SCOTCH (NCT06446271) is a large prospective biomarker registry explicitly enrolling DSP variant carriers, representing a practical path to improved risk prediction and earlier intervention in DSP-related cardiomyopathies. Start date **2024-06-26**; URL: https://clinicaltrials.gov/study/NCT06446271 (NCT06446271 chunk 1)
+
+---
+
+## Expert opinion / consensus themes (authoritative sources in retrieved set)
+- Dermatologic findings are repeatedly emphasized as an underused “warning signal” for life-threatening cardiomyopathy, with systematic review evidence indicating that PPK + hair anomalies warrant long-term cardiac monitoring. (polivka2016combinationofpalmoplantar pages 2-3)
+- DSP variant heterogeneity and genotype–phenotype complexity are stressed; early diagnosis and regular cardiac surveillance are prioritized. (pigors2015desmoplakinmutationswith pages 1-2, karvonen2022anoveldesmoplakin pages 8-8)
+
+---
+
+## Structured summary table
+The following table condenses key disease facts for knowledge-base ingestion:
+
+| Domain | Key facts |
+|---|---|
+| Identifiers / synonyms | **Carvajal syndrome**; OMIM **605656** / **605676** reported in the literature excerpts; often described as **“Naxos disease variant”** or a related **cardiocutaneous syndrome**; related comparator: **Naxos disease OMIM 601214** (sun2021hairandskin pages 1-2, binfadel2025genotypeandcardiac pages 1-2, brandao2023desmoplakincardiomyopathycomprehensive pages 1-2, binfadel2025genotypeandcardiac pages 9-9) |
+| Primary evidence source type | Evidence is mainly from **aggregated disease reviews**, **case reports/series**, and small **retrospective cohorts** rather than EHR-scale datasets; knowledge remains based on rare-patient observations (sun2021hairandskin pages 1-2, binfadel2025genotypeandcardiac pages 1-2, brandao2023desmoplakincardiomyopathycomprehensive pages 1-2) |
+| Causal gene | **DSP (desmoplakin)** is the principal causal gene for classic Carvajal syndrome; disease belongs to the desmosomal cardiocutaneous disorders (sun2021hairandskin pages 1-2, pigors2015desmoplakinmutationswith pages 1-2, brandao2023desmoplakincardiomyopathycomprehensive pages 1-2) |
+| Variant types / molecular pattern | Predominantly **loss-of-function/truncating** DSP variants, especially **C-terminal** changes in classic recessive disease; reported mechanisms include **frameshift**, **nonsense**, **compound heterozygous**, and homozygous truncating variants; some cases involve **nonsense-mediated decay / haploinsufficiency** (ziołkowska2024carvajalsyndromerelated pages 1-2, maruthappu2019loss‐of‐functiondesmoplakini pages 7-11, williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2) |
+| Inheritance | Usually **autosomal recessive** in classic Carvajal syndrome, often in **consanguineous** families; **dominant DSP cardiocutaneous phenotypes** with overlapping “Carvajal-like” features are also reported (sun2021hairandskin pages 4-5, karvonen2022anoveldesmoplakin pages 8-8, maruthappu2019loss‐of‐functiondesmoplakini pages 7-11, williams2011noveldesmoplakinmutation pages 1-2) |
+| Hallmark phenotype triad | **Woolly/curly hair + palmoplantar keratoderma (often striate/focal) + cardiomyopathy**; additional features may include poor dentition, nail changes, skin fragility, or ichthyosis depending on DSP variant location (sun2021hairandskin pages 1-2, sun2021hairandskin pages 4-5, molho‐pessach2015twonovelhomozygous pages 3-5) |
+| Typical cardiac phenotype | Classically **left-ventricular–predominant dilated/arrhythmogenic cardiomyopathy**; many patients show **biventricular** disease, myocardial fibrosis, heart failure, ventricular arrhythmias, and sometimes **LV non-compaction** features (sun2021hairandskin pages 4-5, molho‐pessach2015twonovelhomozygous pages 3-5, ziołkowska2024carvajalsyndromerelated pages 1-2, williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2) |
+| Usual onset / course | Hair changes are often **congenital**; keratoderma develops in **infancy/toddler years**; cardiac manifestations commonly begin in **childhood** and are often **progressive**, with reported median first cardiac manifestation around **8 years** (range **3–35**) (polivka2016combinationofpalmoplantar pages 2-3, williams2011noveldesmoplakinmutation pages 1-2) |
+| Key statistics | In a systematic review of desmosomal disease, the combination of **PPK + hair shaft anomalies** carried **80.1%** risk of cardiac disease (**129/161** patients) (source review summary). In a 10-patient Saudi pediatric Carvajal cohort: **100% woolly hair**, **50% PPK**, **9/10 frequent PVCs**, **3/10 ICD**, **4/10 heart transplant**, **3/10 died while awaiting transplant** (binfadel2025genotypeandcardiac pages 1-2, polivka2016combinationofpalmoplantar pages 2-3) |
+| Pathophysiology | DSP dysfunction impairs **desmosome–intermediate filament anchoring**, weakening mechanical coupling in **myocardium** and **epidermis**; downstream effects include desmosomal protein mislocalization, conduction abnormalities, fibrosis/fibrofatty replacement, and cardiomyopathy (sun2021hairandskin pages 1-2, maruthappu2019loss‐of‐functiondesmoplakini pages 7-11, brandao2023desmoplakincardiomyopathycomprehensive pages 1-2) |
+| Diagnostic clues | Early **woolly hair** and **PPK** should trigger cardiac workup; diagnosis integrates **clinical triad**, **family history/consanguinity**, and **molecular confirmation of DSP variants** (karvonen2022anoveldesmoplakin pages 8-8, williams2011noveldesmoplakinmutation pages 2-5, williams2011noveldesmoplakinmutation pages 1-2) |
+| Cardiac diagnostics | Typical evaluations include **ECG**, **Holter**, **echocardiography**, **cardiac MRI** (for fibrosis, ventricular function, LV/RV involvement), and sometimes biopsy/histology; asymptomatic DSP carriers may still warrant surveillance (binfadel2025genotypeandcardiac pages 1-2, karvonen2022anoveldesmoplakin pages 8-8, ziołkowska2024carvajalsyndromerelated pages 1-2) |
+| Surveillance / prevention | Long-term **cardiac monitoring** is recommended for patients with **PPK + hair anomalies** and for at-risk relatives; **genetic counseling**, **cascade/family screening**, and early specialist follow-up are emphasized (binfadel2025genotypeandcardiac pages 1-2, pigors2015desmoplakinmutationswith pages 1-2, maruthappu2019loss‐of‐functiondesmoplakini pages 7-11, williams2011noveldesmoplakinmutation pages 2-5) |
+| Management options | Standard **heart-failure therapy**, antiarrhythmics, **ICD**, **catheter ablation**, and **heart transplantation** for advanced disease; management is multidisciplinary (cardiology, dermatology, genetics) (sun2021hairandskin pages 4-5, molho‐pessach2015twonovelhomozygous pages 3-5, ziołkowska2024carvajalsyndromerelated pages 1-2) |
+| Prognosis | Potentially severe, with **early heart failure**, malignant ventricular arrhythmias, **sudden cardiac death**, and transplant need in childhood/adolescence; prognosis is variable but can be poor without early recognition and intervention (binfadel2025genotypeandcardiac pages 1-2, sun2021hairandskin pages 4-5, williams2011noveldesmoplakinmutation pages 1-2) |
 
 
-*Table: This table summarizes the core nomenclature and identifier-related facts for Carvajal syndrome/Carvajal-Huerta syndrome, including the disease concept, inheritance, causal gene, and historical naming context. It is useful as a compact reference for disease knowledge base normalization and synonym mapping.*
+*Table: This table condenses the core identifiers, genotype, phenotype, diagnostics, prognosis, and management points for Carvajal syndrome from the gathered evidence. It is useful as a quick-reference summary for a disease knowledge base entry.*
 
+---
 
-## Direct abstract quotes supporting key statements (selected)
+## Key direct abstract quotes (for knowledge base evidence)
+- “**The first association between DSP genetic variants and the presence of a myocardial disease referred to patients with Carvajal syndrome.**” (Apr 2023; https://doi.org/10.3390/jcm12072660) (brandao2023desmoplakincardiomyopathycomprehensive pages 1-2)
+- Systematic review summary statement: “**Palmoplantar keratoderma (PPK), hair shaft anomalies and skin fragility are the major features in the 458 patients analysed… The combination of PPK and hair shaft anomalies… is at high risk of cardiac disease (129/161, 80.1%).**” (Sep 2016; https://doi.org/10.1136/jmedgenet-2015-103403) (polivka2016combinationofpalmoplantar pages 2-3)
 
-* Systematic review (desmosomal diseases; clinical red flags): “The combination of PPK and hair shaft anomalies was recorded in 161 patients, and this association is at high risk of cardiac disease (129/161, 80.1%). Skin features had led to cardiac monitoring in only 2.3% of those patients.” (polivka2016combinationofpalmoplantar pages 1-2)
-* 2024 mechanistic advance (genetically mediated myocarditis model): “Genetic reduction of DSP renders cardiomyocytes susceptible to innate immune activation and strain-dependent contractile deficits.” (selgrade2024susceptibilitytoinnate pages 1-2)
+---
 
-
-## Notes on evidence gaps
-* MONDO/Orphanet/MeSH/ICD codes and population prevalence/incidence could not be asserted from the retrieved evidence set.
-* Phenotype frequencies specific to Carvajal syndrome (as distinct from broader DSP cardiomyopathy or desmosomal disease) remain sparse in the case-report-dominated literature.
+## Limitations of this report (evidence-bound)
+- Formal ICD/Orphanet/MeSH identifiers, population prevalence/incidence, and validated QoL metrics were not present in the retrieved excerpts and should be supplemented by targeted queries to OMIM/Orphanet/MeSH and epidemiology registries.
+- Model organism evidence and disease-specific epigenetic profiling were not identified in the current evidence set.
 
 
 References
 
-1. (arıcı2024acaseof pages 1-2): Sule Arıcı, Figen Akalın, and Bilgen Bilge Geckinli. A case of carvajal syndrome presenting with dilated cardiomyopathy. Cardiology in the young, 34:1-3, Mar 2024. URL: https://doi.org/10.1017/s1047951124000222, doi:10.1017/s1047951124000222. This article has 0 citations and is from a peer-reviewed journal.
+1. (sun2021hairandskin pages 1-2): Qisi Sun, Lara Wine Lee, E Kevin Hall, Keith A. Choate, and Robert W. Elder. Hair and skin predict cardiomyopathies: carvajal and erythrokeratodermia cardiomyopathy syndromes. Pediatric Dermatology, 38:31-38, Dec 2021. URL: https://doi.org/10.1111/pde.14478, doi:10.1111/pde.14478. This article has 27 citations and is from a peer-reviewed journal.
 
-2. (prompona2007magneticresonanceimaging pages 1-2): Maria Prompona, Rainer Kozlik-Feldmann, Josef Mueller-Hoecker, Maximilian Reiser, and Armin Huber. Magnetic resonance imaging characteristics in carvajal syndrome (variant of naxos disease). Circulation, Nov 2007. URL: https://doi.org/10.1161/circulationaha.107.704742, doi:10.1161/circulationaha.107.704742. This article has 18 citations and is from a highest quality peer-reviewed journal.
+2. (sun2021hairandskin pages 4-5): Qisi Sun, Lara Wine Lee, E Kevin Hall, Keith A. Choate, and Robert W. Elder. Hair and skin predict cardiomyopathies: carvajal and erythrokeratodermia cardiomyopathy syndromes. Pediatric Dermatology, 38:31-38, Dec 2021. URL: https://doi.org/10.1111/pde.14478, doi:10.1111/pde.14478. This article has 27 citations and is from a peer-reviewed journal.
 
-3. (pantou2023atruncatingvariant pages 1-2): Malena P. Pantou, Polyxeni Gourzi, Vasiliki Vlagkouli, Efstathios Papatheodorou, Alexandros Tsoutsinos, Eva Nyktari, Dimitrios Degiannis, and Aris Anastasakis. A truncating variant altering the extreme c-terminal region of desmoplakin (dsp) suggests the crucial functional role of the region: a case report study. BMC Medical Genomics, May 2023. URL: https://doi.org/10.1186/s12920-023-01527-6, doi:10.1186/s12920-023-01527-6. This article has 4 citations and is from a peer-reviewed journal.
+3. (karvonen2022anoveldesmoplakin pages 8-8): V. Karvonen, L. Harjama, K. Heliö, K. Kettunen, O. Elomaa, J.W. Koskenvuo, J. Kere, S. Weckström, M. Holmström, J. Saarela, A. Ranki, T. Heliö, and K. Hannula‐Jouppi. A novel desmoplakin mutation causes dilated cardiomyopathy with palmoplantar keratoderma as an early clinical sign. Journal of the European Academy of Dermatology and Venereology, 36:1349-1358, May 2022. URL: https://doi.org/10.1111/jdv.18164, doi:10.1111/jdv.18164. This article has 11 citations and is from a domain leading peer-reviewed journal.
 
-4. (tosun2025noncompactionanddilated pages 1-2): Demet Tosun, Nihal Akçay, İlyas Bingöl, and Damla Gökçeer Akbulut. Noncompaction and dilated cardiomyopathy in carvajal syndrome. Cardiology in the Young, 35:1073-1075, Apr 2025. URL: https://doi.org/10.1017/s1047951125001532, doi:10.1017/s1047951125001532. This article has 0 citations and is from a peer-reviewed journal.
+4. (binfadel2025genotypeandcardiac pages 1-2): Maha Binfadel, Mohamed Umair Aleem, Mohammed Alhabdan, Nadiah Alruwaili, Zuhair AlHassnan, Olga Vriz, Sahar Tulbah, and Dimpna Calila Albert-Brotons. Genotype and cardiac outcome in patients with cardiocutaneous syndrome (naxos disease variant: carvajal syndrome). Orphanet Journal of Rare Diseases, Mar 2025. URL: https://doi.org/10.1186/s13023-025-03612-8, doi:10.1186/s13023-025-03612-8. This article has 1 citations and is from a peer-reviewed journal.
 
-5. (polivka2016combinationofpalmoplantar pages 1-2): Laura Polivka, Christine Bodemer, and Smail Hadj-Rabia. Combination of palmoplantar keratoderma and hair shaft anomalies, the warning signal of severe arrhythmogenic cardiomyopathy: a systematic review on genetic desmosomal diseases. Journal of Medical Genetics, 53:289-295, Sep 2016. URL: https://doi.org/10.1136/jmedgenet-2015-103403, doi:10.1136/jmedgenet-2015-103403. This article has 45 citations and is from a domain leading peer-reviewed journal.
+5. (molho‐pessach2015twonovelhomozygous pages 5-6): Vered Molho‐Pessach, Sivan Sheffer, Rula Siam, Spiro Tams, Ihab Siam, Rula Awwad, Sofia Babay, Julius Golender, Natalia Simanovsky, Yuval Ramot, and Abraham Zlotogorski. Two novel homozygous desmoplakin mutations in carvajal syndrome. Pediatric Dermatology, 32:641-646, Sep 2015. URL: https://doi.org/10.1111/pde.12541, doi:10.1111/pde.12541. This article has 27 citations and is from a peer-reviewed journal.
 
-6. (pratt2015dsprulaspontaneous pages 1-2): C. Herbert Pratt, Christopher S. Potter, Heather Fairfield, Laura G. Reinholdt, David E. Bergstrom, Belinda S. Harris, Ian Greenstein, Soheil S. Dadras, Bruce T. Liang, Paul N. Schofield, and John P. Sundberg. Dsprul: a spontaneous mouse mutation in desmoplakin as a model of carvajal-huerta syndrome. Experimental and Molecular Pathology, 98:164-172, Apr 2015. URL: https://doi.org/10.1016/j.yexmp.2015.01.015, doi:10.1016/j.yexmp.2015.01.015. This article has 17 citations and is from a peer-reviewed journal.
+6. (polivka2016combinationofpalmoplantar pages 2-3): Laura Polivka, Christine Bodemer, and Smail Hadj-Rabia. Combination of palmoplantar keratoderma and hair shaft anomalies, the warning signal of severe arrhythmogenic cardiomyopathy: a systematic review on genetic desmosomal diseases. Journal of Medical Genetics, 53:289-295, Sep 2016. URL: https://doi.org/10.1136/jmedgenet-2015-103403, doi:10.1136/jmedgenet-2015-103403. This article has 45 citations and is from a domain leading peer-reviewed journal.
 
-7. (selgrade2024susceptibilitytoinnate pages 1-2): Daniel F. Selgrade, Dominic E. Fullenkamp, Ivana A. Chychula, Binjie Li, Lisa Dellefave-Castillo, Adi D. Dubash, Joyce Ohiri, Tanner O. Monroe, Malorie Blancard, Garima Tomar, Cory Holgren, Paul W. Burridge, Alfred L. George, Alexis R. Demonbreun, Megan J. Puckelwartz, Sharon A. George, Igor R. Efimov, Kathleen J. Green, and Elizabeth M. McNally. Susceptibility to innate immune activation in genetically mediated myocarditis. The Journal of Clinical Investigation, May 2024. URL: https://doi.org/10.1172/jci180254, doi:10.1172/jci180254. This article has 27 citations.
+7. (brandao2023desmoplakincardiomyopathycomprehensive pages 1-2): Mariana Brandão, Riccardo Bariani, Ilaria Rigato, and Barbara Bauce. Desmoplakin cardiomyopathy: comprehensive review of an increasingly recognized entity. Journal of Clinical Medicine, 12:2660, Apr 2023. URL: https://doi.org/10.3390/jcm12072660, doi:10.3390/jcm12072660. This article has 54 citations.
 
-8. (krishnamurthy2011arrhythmogenicdilatedcardiomyopathy pages 1-3): Sriram Krishnamurthy, B. Adhisivam, Robert M. Hamilton, Berivan Baskin, Niranjan Biswal, and Manish Kumar. Arrhythmogenic dilated cardiomyopathy due to a novel mutation in the desmoplakin gene. The Indian Journal of Pediatrics, 78:866-869, Jul 2011. URL: https://doi.org/10.1007/s12098-010-0319-3, doi:10.1007/s12098-010-0319-3. This article has 20 citations.
+8. (molho‐pessach2015twonovelhomozygous pages 3-5): Vered Molho‐Pessach, Sivan Sheffer, Rula Siam, Spiro Tams, Ihab Siam, Rula Awwad, Sofia Babay, Julius Golender, Natalia Simanovsky, Yuval Ramot, and Abraham Zlotogorski. Two novel homozygous desmoplakin mutations in carvajal syndrome. Pediatric Dermatology, 32:641-646, Sep 2015. URL: https://doi.org/10.1111/pde.12541, doi:10.1111/pde.12541. This article has 27 citations and is from a peer-reviewed journal.
 
 9. (ziołkowska2024carvajalsyndromerelated pages 1-2): Lidia Ziółkowska, Dorota Piekutowska-Abramczuk, Karolina Borowiec, Elżbieta Ciara, Maciej Sterliński, and Elżbieta Katarzyna Biernacka. Carvajal syndrome related to two distinct molecular variants in desmoplakin gene. Polish Heart Journal, 82:914-915, Sep 2024. URL: https://doi.org/10.33963/v.phj.101664, doi:10.33963/v.phj.101664. This article has 1 citations.
 
-10. (arıcı2024acaseof pages 2-3): Sule Arıcı, Figen Akalın, and Bilgen Bilge Geckinli. A case of carvajal syndrome presenting with dilated cardiomyopathy. Cardiology in the young, 34:1-3, Mar 2024. URL: https://doi.org/10.1017/s1047951124000222, doi:10.1017/s1047951124000222. This article has 0 citations and is from a peer-reviewed journal.
+10. (williams2011noveldesmoplakinmutation pages 2-5): Tatjana Williams, Wolfram Machann, Leif Kühler, Henning Hamm, Josef Müller-Höcker, Michael Zimmer, Georg Ertl, Oliver Ritter, Meinrad Beer, and Jost Schönberger. Novel desmoplakin mutation: juvenile biventricular cardiomyopathy with left ventricular non-compaction and acantholytic palmoplantar keratoderma. Clinical Research in Cardiology, 100:1087-1093, Jul 2011. URL: https://doi.org/10.1007/s00392-011-0345-9, doi:10.1007/s00392-011-0345-9. This article has 57 citations and is from a peer-reviewed journal.
 
-11. (bona2025dsps311aknockinmice pages 13-16): Anna Di Bona, Anna Guazzo, Induja Perumal Vanaja, Riccardo Bariani, Maria C. Disalvo, Mattia Albiero, Nicolas Kuperwasser, Pierre David, Rudy Celeghin, Vittoria Di Mauro, Arianna Scalco, María López-Moreno, Monica De Gaspari, Mila Della Barbera, Stefania Rizzo, Domenico Corrado, Barbara Bauce, Giuseppe Zanotti, Gaetano Thiene, Kalliopi Pilichou, José Maria Perez Pomares, Mario Pende, Cristina Basso, Marco Mongillo, and Tania Zaglia. Dsps311a knock-in mice replicate the clinical-pathological features of dominant and recessive forms of desmoplakin-related cardiomyopathies. MedRxiv, Jan 2025. URL: https://doi.org/10.1101/2025.01.14.24319713, doi:10.1101/2025.01.14.24319713. This article has 0 citations.
+11. (williams2011noveldesmoplakinmutation pages 1-2): Tatjana Williams, Wolfram Machann, Leif Kühler, Henning Hamm, Josef Müller-Höcker, Michael Zimmer, Georg Ertl, Oliver Ritter, Meinrad Beer, and Jost Schönberger. Novel desmoplakin mutation: juvenile biventricular cardiomyopathy with left ventricular non-compaction and acantholytic palmoplantar keratoderma. Clinical Research in Cardiology, 100:1087-1093, Jul 2011. URL: https://doi.org/10.1007/s00392-011-0345-9, doi:10.1007/s00392-011-0345-9. This article has 57 citations and is from a peer-reviewed journal.
 
-12. (brandao2023desmoplakincardiomyopathycomprehensive pages 2-4): Mariana Brandão, Riccardo Bariani, Ilaria Rigato, and Barbara Bauce. Desmoplakin cardiomyopathy: comprehensive review of an increasingly recognized entity. Journal of Clinical Medicine, 12:2660, Apr 2023. URL: https://doi.org/10.3390/jcm12072660, doi:10.3390/jcm12072660. This article has 54 citations.
+12. (ziołkowska2024carvajalsyndromerelated media 9732cda8): Lidia Ziółkowska, Dorota Piekutowska-Abramczuk, Karolina Borowiec, Elżbieta Ciara, Maciej Sterliński, and Elżbieta Katarzyna Biernacka. Carvajal syndrome related to two distinct molecular variants in desmoplakin gene. Polish Heart Journal, 82:914-915, Sep 2024. URL: https://doi.org/10.33963/v.phj.101664, doi:10.33963/v.phj.101664. This article has 1 citations.
 
-13. (bona2025dsps311aknockinmice pages 16-19): Anna Di Bona, Anna Guazzo, Induja Perumal Vanaja, Riccardo Bariani, Maria C. Disalvo, Mattia Albiero, Nicolas Kuperwasser, Pierre David, Rudy Celeghin, Vittoria Di Mauro, Arianna Scalco, María López-Moreno, Monica De Gaspari, Mila Della Barbera, Stefania Rizzo, Domenico Corrado, Barbara Bauce, Giuseppe Zanotti, Gaetano Thiene, Kalliopi Pilichou, José Maria Perez Pomares, Mario Pende, Cristina Basso, Marco Mongillo, and Tania Zaglia. Dsps311a knock-in mice replicate the clinical-pathological features of dominant and recessive forms of desmoplakin-related cardiomyopathies. MedRxiv, Jan 2025. URL: https://doi.org/10.1101/2025.01.14.24319713, doi:10.1101/2025.01.14.24319713. This article has 0 citations.
+13. (maruthappu2019loss‐of‐functiondesmoplakini pages 7-11): T. Maruthappu, A. Pósafalvi, Silvia Castelletti, P. Delaney, P. Syrris, Edel.A. O’Toole, Kathleen J. Green, Perry M. Elliott, PD Lambiase, PD Lambiase, Andrew Tinker, William J. McKenna, and D. Kelsell. Loss‐of‐function desmoplakin i and ii mutations underlie dominant arrhythmogenic cardiomyopathy with a hair and skin phenotype. British Journal of Dermatology, 180:1114-1122, Jan 2019. URL: https://doi.org/10.1111/bjd.17388, doi:10.1111/bjd.17388. This article has 58 citations and is from a highest quality peer-reviewed journal.
 
-14. (risato2024invivoapproaches pages 6-7): Giovanni Risato, Raquel Brañas Casas, Marco Cason, Maria Bueno Marinas, Serena Pinci, Monica De Gaspari, Silvia Visentin, Stefania Rizzo, Gaetano Thiene, Cristina Basso, Kalliopi Pilichou, Natascia Tiso, and Rudy Celeghin. In vivo approaches to understand arrhythmogenic cardiomyopathy: perspectives on animal models. Cells, Jul 2024. URL: https://doi.org/10.3390/cells13151264, doi:10.3390/cells13151264. This article has 3 citations.
+14. (NCT03177018 chunk 1):  DNA Analysis From Isolated Cardiomyocytes in the Molecular Diagnosis of Arrhythmogenic Right Ventricular Cardiomyopathy/Dysplasia. University Hospital, Toulouse. 2016. ClinicalTrials.gov Identifier: NCT03177018
 
-15. (pratt2015dsprulaspontaneous pages 4-6): C. Herbert Pratt, Christopher S. Potter, Heather Fairfield, Laura G. Reinholdt, David E. Bergstrom, Belinda S. Harris, Ian Greenstein, Soheil S. Dadras, Bruce T. Liang, Paul N. Schofield, and John P. Sundberg. Dsprul: a spontaneous mouse mutation in desmoplakin as a model of carvajal-huerta syndrome. Experimental and Molecular Pathology, 98:164-172, Apr 2015. URL: https://doi.org/10.1016/j.yexmp.2015.01.015, doi:10.1016/j.yexmp.2015.01.015. This article has 17 citations and is from a peer-reviewed journal.
+15. (NCT06446271 chunk 1):  Biomarkers in SCOTland CardiomyopatHy Registry (Bio-SCOTCH). NHS Greater Glasgow and Clyde. 2024. ClinicalTrials.gov Identifier: NCT06446271
 
-16. (pratt2015dsprulaspontaneous pages 3-4): C. Herbert Pratt, Christopher S. Potter, Heather Fairfield, Laura G. Reinholdt, David E. Bergstrom, Belinda S. Harris, Ian Greenstein, Soheil S. Dadras, Bruce T. Liang, Paul N. Schofield, and John P. Sundberg. Dsprul: a spontaneous mouse mutation in desmoplakin as a model of carvajal-huerta syndrome. Experimental and Molecular Pathology, 98:164-172, Apr 2015. URL: https://doi.org/10.1016/j.yexmp.2015.01.015, doi:10.1016/j.yexmp.2015.01.015. This article has 17 citations and is from a peer-reviewed journal.
+16. (NCT05450783 chunk 1):  Tissue and Metabolic Characterization of Arrhythmogenic Cardiomyopathies by Hybrid PET-MRI Imaging, Impact of the Observed Profiles on the Phenotype and on the Evolution of Cardiomyopathy. Nantes University Hospital. 2022. ClinicalTrials.gov Identifier: NCT05450783
+
+17. (pigors2015desmoplakinmutationswith pages 1-2): M. Pigors, A. Schwieger-Briel, R. Cosgarea, A. Diaconeasa, L. Bruckner-Tuderman, T. Fleck, and C. Has. Desmoplakin mutations with palmoplantar keratoderma, woolly hair and cardiomyopathy. Acta dermato-venereologica, 95 3:337-40, Mar 2015. URL: https://doi.org/10.2340/00015555-1974, doi:10.2340/00015555-1974. This article has 47 citations and is from a domain leading peer-reviewed journal.
+
+18. (binfadel2025genotypeandcardiac pages 9-9): Maha Binfadel, Mohamed Umair Aleem, Mohammed Alhabdan, Nadiah Alruwaili, Zuhair AlHassnan, Olga Vriz, Sahar Tulbah, and Dimpna Calila Albert-Brotons. Genotype and cardiac outcome in patients with cardiocutaneous syndrome (naxos disease variant: carvajal syndrome). Orphanet Journal of Rare Diseases, Mar 2025. URL: https://doi.org/10.1186/s13023-025-03612-8, doi:10.1186/s13023-025-03612-8. This article has 1 citations and is from a peer-reviewed journal.

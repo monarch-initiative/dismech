@@ -743,6 +743,13 @@ must NEVER be hand-edited. Regenerate via `just structured-rebuild-orphanet`.
 
 ## Git/GitHub Best Practices
 
+### Open PRs from origin, not forks
+
+Do not open PRs from forks. GitHub does not expose repository secrets to
+fork-triggered workflows, so fork PRs will not receive automated AI review. Push
+branches directly to `origin`; new contributors should first open an issue
+requesting repository access.
+
 ### Use worktrees
 
 Allows for parallel work. Canonical location is ~/worktrees/
