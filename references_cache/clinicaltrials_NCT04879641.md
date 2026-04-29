@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04879641
+reference_id: "clinicaltrials:NCT04879641"
 title: "Optimizing Cognitive-behavioral Therapy for Social Anxiety Disorder Using the Factorial Design: What Works Best and How Does it Work (OPTIMIZE)"
 content_type: summary
 ---
