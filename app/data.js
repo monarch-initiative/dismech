@@ -6850,7 +6850,7 @@ window.searchData = [
       "Mental Health Disorder"
     ],
     "creation_date": "2026-04-24T20:56:38Z",
-    "updated_date": "2026-04-27T15:25:26Z",
+    "updated_date": "2026-04-29T12:30:00Z",
     "subtypes": [
       "Combined",
       "Inattentive",
@@ -6910,10 +6910,14 @@ window.searchData = [
       "HP:0100543"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "Polygenic ADHD Susceptibility",
+      "Catecholamine and Monoamine Candidate Genes"
+    ],
     "treatments": [
       "Stimulant Pharmacotherapy",
-      "Atomoxetine Pharmacotherapy"
+      "Atomoxetine Pharmacotherapy",
+      "Alpha-2A Adrenergic Agonist Pharmacotherapy"
     ],
     "environmental": [],
     "biochemical": [],
@@ -6921,9 +6925,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Attention_Deficit-Hyperactivity_Disorder.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 8,
-    "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "19",
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "7"
   },
   {
@@ -9948,7 +9952,7 @@ window.searchData = [
       "Mental Health Disorder"
     ],
     "creation_date": "2026-04-28T00:00:00Z",
-    "updated_date": "2026-04-28T15:27:23Z",
+    "updated_date": "2026-04-29T12:30:00Z",
     "subtypes": [],
     "description": "Binge eating disorder is an eating disorder characterized by recurrent binge eating episodes with loss of control and marked distress, without regular compensatory behaviors such as purging.",
     "pathophysiology": [
@@ -9966,6 +9970,8 @@ window.searchData = [
     ],
     "phenotypes": [
       "Binge Eating Episodes",
+      "Loss of Control Over Eating",
+      "Marked Distress About Binge Eating",
       "Increased Body Weight"
     ],
     "phenotype_categories": [],
@@ -9975,10 +9981,14 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0100738",
+      "HP:0100851",
       "HP:0004324"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "Familial and Heritable BED Liability",
+      "MCHR2-Linked BED Susceptibility Locus"
+    ],
     "treatments": [
       "Guided Self-Help CBT-E",
       "Cognitive Behavioral Therapy",
@@ -9989,9 +9999,9 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Binge_Eating_Disorder.yaml",
     "page_url": "../pages/disorders/Binge_Eating_Disorder.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 4,
     "num_pathophysiology": 2,
-    "num_genes": 0,
+    "num_genes": 2,
     "num_treatments": 4,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
@@ -75699,7 +75709,7 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 806,
-  "total_unique_evidence_sources": 13076,
+  "total_unique_evidence_sources": 13081,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 153,
   "total_pathographs": 798,
