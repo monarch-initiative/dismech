@@ -3383,7 +3383,7 @@ window.searchData = [
       "Neurodegenerative Disorders"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-04-28T06:32:31Z",
+    "updated_date": "2026-04-29T00:00:00Z",
     "subtypes": [
       "Type I",
       "Type II"
@@ -3394,7 +3394,7 @@ window.searchData = [
       "Astrocyte Dysfunction and Non-Cell-Autonomous Neurodegeneration",
       "Oxidative Stress and White Matter Pathology",
       "Glutamate Excitotoxicity",
-      "GFAP Post-Translational Modifications"
+      "GFAP Post-Translational Modifications and Aggregation"
     ],
     "cell_types": [
       "Astrocyte",
