@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00434759
+reference_id: "clinicaltrials:NCT00434759"
 title: "Evaluation of the Efficacy, Mechanisms of Change and Efficiency of a Stepped-care Program With a Computer-based Self-help Module and Minimal Therapist Contact in Comparison to a Standard Cognitive Therapy for Patients With Social Phobia"
 content_type: summary
 ---

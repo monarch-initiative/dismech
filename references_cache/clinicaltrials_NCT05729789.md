@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05729789
+reference_id: "clinicaltrials:NCT05729789"
 title: "Investigating Group Written Exposure Therapy for Posttraumatic Stress Disorder: A Pilot Study"
 content_type: summary
 ---
