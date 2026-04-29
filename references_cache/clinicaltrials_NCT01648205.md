@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01648205
+reference_id: "clinicaltrials:NCT01648205"
 title: Efficacy of Ranolazine in LQT3 Patients
 content_type: summary
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03981796
+reference_id: "clinicaltrials:NCT03981796"
 title: "A Phase 3, Randomized, Double-blind, Multicenter Study of Dostarlimab (TSR-042) Plus Carboplatin-paclitaxel Versus Placebo Plus Carboplatin-paclitaxel in Patients With Recurrent or Primary Advanced Endometrial Cancer (RUBY)"
 content_type: summary
 ---
