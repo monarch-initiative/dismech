@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05329090
+reference_id: "clinicaltrials:NCT05329090"
 title: "Evaluation of Glucocorticoids Plus Rituximab Compared to Glucocorticoids Plus Placebo for the Treatment of Patients with Newly-Diagnosed or Relapsing IgA Vasculitis: a Prospective, Randomized, Controlled, Double-blind Study"
 content_type: summary
 ---
