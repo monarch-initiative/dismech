@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06446271
+reference_id: "clinicaltrials:NCT06446271"
 title: Biomarkers in SCOTland CardiomyopatHy Registry
 content_type: summary
 ---

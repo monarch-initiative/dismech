@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03177018
+reference_id: "clinicaltrials:NCT03177018"
 title: Feasibility of DNA Analysis From Isolated Cardiomyocytes in the Molecular Diagnosis of Arrhythmogenic Right Ventricular Cardiomyopathy/Dysplasia
 content_type: summary
 ---
