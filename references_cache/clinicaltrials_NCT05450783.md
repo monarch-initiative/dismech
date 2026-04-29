@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05450783
+reference_id: "clinicaltrials:NCT05450783"
 title: "Tissue and Metabolic Characterization of Arrhythmogenic Cardiomyopathies by Hybrid PET-MRI Imaging, Impact of the Observed Profiles on the Phenotype and on the Evolution of Cardiomyopathy"
 content_type: summary
 ---
