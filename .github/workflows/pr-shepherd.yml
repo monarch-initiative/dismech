@@ -49,23 +49,16 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - name: Generate ai4c-agent token
-        id: ai4c-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
-          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ steps.ai4c-token.outputs.token }}
+          token: ${{ secrets.PAT_FOR_PR }}
 
       - name: Configure git identity
         run: |
-          git config --global user.name "ai4c-agent[bot]"
-          git config --global user.email "${{ secrets.AI4C_AGENT_APP_ID }}+ai4c-agent[bot]@users.noreply.github.com"
+          git config --global user.name "dragon-ai-agent"
+          git config --global user.email "dragon-ai-agent@users.noreply.github.com"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -82,11 +75,11 @@ jobs:
         id: pr-shepherd
         uses: anthropics/claude-code-action@v1
         env:
-          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
-          GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.PAT_FOR_PR }}
+          GITHUB_TOKEN: ${{ secrets.PAT_FOR_PR }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ steps.ai4c-token.outputs.token }}
+          github_token: ${{ secrets.PAT_FOR_PR }}
           show_full_output: true
           allowed_bots: "dragon-ai-agent,claude,github-actions"
           claude_args: |
@@ -103,7 +96,7 @@ jobs:
             You are the automated PR Shepherd for the dismech repository. Your job is to tend
             stuck bot-authored pull requests and move at most MAX_PRS of them forward in this run.
 
-            You are authenticated with the ai4c-agent GitHub App token through GH_TOKEN. Use that
+            You are authenticated as dragon-ai-agent through GH_TOKEN. Use that
             token for all GitHub operations, including branch updates, comments, workflow dispatches,
             and merges.
 
@@ -113,10 +106,13 @@ jobs:
 
             Candidate PRs:
             - If SPECIFIC_PR is set, inspect only that PR.
-            - Otherwise list open PRs in REPO and consider only PRs authored by:
-              `dragon-ai-agent`, `app/claude`, `app/github-actions`, `github-actions[bot]`, or
-              `cmungall`.
-            - Do not act on PRs from any other author.
+            - Otherwise list open PRs in REPO and consider PRs that match EITHER criterion:
+              (a) authored by: `dragon-ai-agent`, `app/claude`, `app/github-actions`,
+                  or `github-actions[bot]`, OR
+              (b) the head branch name starts with `claude/` (these are Claude Code–created
+                  branches that may be authored by any user who triggered the session).
+            - A PR matching either (a) or (b) is a candidate. Do not act on PRs that match
+              neither criterion.
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
@@ -179,5 +175,22 @@ jobs:
               clarification on the PR instead of guessing.
             - Spend this run on the selected PRs only.
 
+            Observability:
+            - For EVERY PR you act on (merge, update branch, push fixes, re-trigger review),
+              post a comment on the PR with this format:
+              🐑 **PR Shepherd** (action run) — [what you did]. [what happens next].
+              Example: "🐑 **PR Shepherd** (action run) — Squash-merged after checks passed. No further action needed."
+            - If you scan candidates but find nothing actionable, do NOT post comments.
+              Instead, print your summary to stdout so it can be captured in GITHUB_STEP_SUMMARY.
+
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.
+
+      - name: Write step summary
+        if: always()
+        run: |
+          echo "## 🐑 PR Shepherd Run" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.pr-shepherd.outputs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

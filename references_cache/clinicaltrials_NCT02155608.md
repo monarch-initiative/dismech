@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02155608
+reference_id: "clinicaltrials:NCT02155608"
 title: Developmental Pilot Study of External Trigeminal Nerve Stimulation for ADHD
 content_type: summary
 ---
