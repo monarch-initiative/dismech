@@ -116,12 +116,29 @@ tumors still acquire somatic alterations.
 A subtype with an NCIT or MONDO term is **ontology-grounded**, not a separate
 curation target.
 
+Use `subtype_term` when the subtype itself has a MONDO identifier (disease-level
+grounding), and use `mappings.ncit_mappings` for NCIT clinical/oncology grounding.
+The two slots are complementary and can both appear on the same subtype:
+
 ```yaml
+# NCIT-grounded subtype (no MONDO term for this facet)
 - name: Anaplastic
   classification: anaplasia_status
   mappings:
     ncit_mappings:
     - term: {id: NCIT:C6952, label: Anaplastic Kidney Wilms Tumor}
+      mapping_predicate: skos:closeMatch
+      mapping_source: NCIT
+
+# MONDO-grounded subtype with an additional NCIT mapping
+- name: Childhood
+  classification: age_group
+  subtype_term:
+    preferred_term: childhood kidney Wilms tumor
+    term: {id: MONDO:0024676, label: childhood kidney Wilms tumor}
+  mappings:
+    ncit_mappings:
+    - term: {id: NCIT:C27730, label: Childhood Kidney Wilms Tumor}
       mapping_predicate: skos:closeMatch
       mapping_source: NCIT
 ```
@@ -160,7 +177,7 @@ MAXO conventions documented in `CLAUDE.md`.
 
 - `disease_term`: `MONDO:0006058` Wilms tumor (MONDO-first)
 - `mappings`: `MONDO:0006058` (exactMatch) + `ICD10CM:C64.9` (closeMatch) + `NCIT:C3267` (exactMatch)
-- `has_subtypes`: 11 flat subtypes across 5 axes (`anaplasia_status`, `histological_pattern`, `laterality`, `predisposition_context`, `age_group`)
+- `has_subtypes`: 12 flat subtypes across 5 axes (`anaplasia_status`, `histological_pattern`, `laterality`, `predisposition_context`, `age_group`)
 - Most subtypes carry `mappings.ncit_mappings` with `skos:closeMatch` to the corresponding NCIT class — ontology-grounded, no separate page implied
 - Histopathology, treatments, and biomarkers follow the table above
 
@@ -170,6 +187,7 @@ When in doubt about a new cancer entry, mirror Wilms tumor's structure.
 
 - `CLAUDE.md` — repo-wide curation conventions (treatment terms, MAXO/NCIT/CHEBI patterns)
 - `.claude/skills/cancer-curator/SKILL.md` — mechanics of cancer pathophysiology, histopathology, and therapeutic agent curation
+- `.claude/skills/disease-classification/SKILL.md` — deeper guidance on classification axes and the `classifications` block
 - [#795](https://github.com/monarch-initiative/dismech/issues/795) — MONDO disposition/susceptibility anchors and `skos:closeMatch` fallback
 - [#1007](https://github.com/monarch-initiative/dismech/issues/1007) — Subtype gaps between dismech and MONDO
 - [#1198](https://github.com/monarch-initiative/dismech/issues/1198) — This document
