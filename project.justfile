@@ -47,6 +47,7 @@ validate-all:
             echo "  ✓ OK"
         fi
     done
+    just normalize-cache
     echo ""
     echo "================================"
     if [ ${#failed_files[@]} -eq 0 ]; then
@@ -71,6 +72,7 @@ validate file:
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -867,6 +869,17 @@ fetch-reference +identifiers:
         echo "Fetching reference: $identifier"
         uv run linkml-reference-validator cache reference "$identifier"
     done
+
+# Tag top-level PublicationReference entries with authoritative-source labels
+# (e.g. GeneReviews).  Detects GeneReviews PMIDs from local references_cache
+# and writes `tags: [GeneReviews]` onto the matching reference entry.
+# Run after adding new GeneReviews citations or to refresh all tags.
+#   just tag-references                   # tag all disorder files
+#   just tag-references --dry-run         # preview without writing
+#   just tag-references kb/disorders/Noonan_Syndrome.yaml
+[group('Curation')]
+tag-references *args="":
+    uv run python scripts/tag_references.py {{args}}
 
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
