@@ -47,6 +47,7 @@ validate-all:
             echo "  ✓ OK"
         fi
     done
+    just normalize-cache
     echo ""
     echo "================================"
     if [ ${#failed_files[@]} -eq 0 ]; then
@@ -71,6 +72,7 @@ validate file:
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
