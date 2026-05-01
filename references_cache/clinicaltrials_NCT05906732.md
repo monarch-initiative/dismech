@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05906732
+reference_id: "clinicaltrials:NCT05906732"
 title: "A Phase 1b/2a, 2-Part Study; Part 1: Randomized, Double-Blind, Crossover, Dose-Escalation, Placebo-Controlled Study to Evaluate the Safety, Tolerability, Pharmacokinetics, and Pharmacodynamics of SGK-1 Kinase Inhibition by LQT-1213 on Dofetilide-Induced QTc Prolongation in Healthy Adult Subjects. Part 2: Single-Blind, Multiple-Dose, Safety Study to Evaluate the Safety, Tolerability, and Pharmacokinetics of LQT-1213 in Patients Diagnosed With Type 2 or 3 Long QT Syndrome"
 content_type: summary
 ---

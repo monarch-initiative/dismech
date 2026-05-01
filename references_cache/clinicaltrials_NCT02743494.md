@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02743494
+reference_id: "clinicaltrials:NCT02743494"
 title: "A Randomized, Multicenter, Double Blind, Phase III Study of Adjuvant Nivolumab or Placebo in Subjects With Resected Esophageal, or Gastroesophageal Junction Cancer"
 content_type: summary
 ---

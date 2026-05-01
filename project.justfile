@@ -47,6 +47,7 @@ validate-all:
             echo "  ✓ OK"
         fi
     done
+    just normalize-cache
     echo ""
     echo "================================"
     if [ ${#failed_files[@]} -eq 0 ]; then
@@ -71,6 +72,7 @@ validate file:
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -868,6 +870,17 @@ fetch-reference +identifiers:
         uv run linkml-reference-validator cache reference "$identifier"
     done
 
+# Tag top-level PublicationReference entries with authoritative-source labels
+# (e.g. GeneReviews).  Detects GeneReviews PMIDs from local references_cache
+# and writes `tags: [GeneReviews]` onto the matching reference entry.
+# Run after adding new GeneReviews citations or to refresh all tags.
+#   just tag-references                   # tag all disorder files
+#   just tag-references --dry-run         # preview without writing
+#   just tag-references kb/disorders/Noonan_Syndrome.yaml
+[group('Curation')]
+tag-references *args="":
+    uv run python scripts/tag_references.py {{args}}
+
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
 #   just cohd-signal --concept-a 436672 --concept-b 80502
@@ -883,6 +896,29 @@ cohd-signal *args="":
 [group('Research')]
 cohd-add-signal file *args="":
     uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
+
+# ============== Structured-database reference sources ==============
+#
+# Structured sources (e.g. Orphanet) ingest a knowledge base and emit
+# deterministic, line-oriented markdown into references_cache/ so curators
+# can cite individual rows as evidence snippets. See
+# src/dismech/structured_sources/ for the framework and CLAUDE.md for usage.
+
+# Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
+[group('Research')]
+refresh-orphadata:
+    uv run python -m dismech.structured_sources.cli refresh orphanet
+
+# Rebuild every references_cache/ORPHA_*.md from current bulk XML
+# Use --id to limit to specific ORPHA codes.
+[group('Research')]
+structured-rebuild-orphanet *args="":
+    uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# List the first N identifiers from a structured source
+[group('Research')]
+structured-list source="orphanet" limit="20":
+    uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
 
 # ============== Classification Schemas ==============
 
