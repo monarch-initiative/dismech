@@ -1213,7 +1213,7 @@ normalize-cache:
     echo "Normalizing enum caches..."
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
-        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
+        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | sort -u > /tmp/_sorted_enum.csv
         echo "$header" > "$f"
         cat /tmp/_sorted_enum.csv >> "$f"
     done
