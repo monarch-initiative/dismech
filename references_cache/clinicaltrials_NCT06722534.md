@@ -1,0 +1,15 @@
+---
+reference_id: clinicaltrials:NCT06722534
+title: "Celecoxib for Prevention of Progression in Peutz-Jeghers Syndrome: A Double-blind, Randomized, Placebo-controlled Trial"
+content_type: summary
+---
+
+# Celecoxib for Prevention of Progression in Peutz-Jeghers Syndrome: A Double-blind, Randomized, Placebo-controlled Trial
+
+## Content
+
+The Peutz-Jeghers Syndrome (PJS) is a rare autosomal dominant syndrome characterized by mucocutaneous pigmentations, multiple gastrointestinal hamartomatous polyps, and an elevated risk of developing malignancies. Patients with PJS often experience recurrent gastrointestinal polyps that gradually increase in number and size, requiring repeated treatments. As the disease progresses, most patients are forced to undergo multiple surgical or endoscopic treatments. Small bowel polyps develop in 60-90% of patients with PJS, and intussusception occurs in 65% of these patients. Currently, on-demand surgery or scheduled endoscopic polypectomy is the standard of care for the management of small bowel polyps, and among patients who have undergone an initial surgery, reoperation is performed in up to 40% within 5 years. In addition, 8-40% of patients develop small bowel polyp-related complications even with multiple endoscopic treatments. However, surgery and endoscopic treatments are associated with complications, including short bowel syndrome, intestinal adhesions, bowel perforation and bleeding, and health-related quality of life. These problems often lead to decreased patient compliance and even treatment resistance, which increases the risk of disease progression. Because surgical and endoscopic treatment do not completely eliminate the potential for future polyps or extraintestinal neoplasms, there is an unmet medical need for the identification and use of pharmacologic agents to delay endoscopic or surgical interventions.
+
+Cyclooxygenase (COX) is overexpressed in hamartomatous polyp tissue from PJS individuals, which may provide an avenue for possible effective chemoprevention of polyp formation and growth in PJS. Celecoxib, a COX-2 inhibitor, has been shown to reduce polyp burden by 54% in PJS model mice. In addition, the study evaluated the treatment effect of celecoxib on six patients with PJS, two of whom experienced a reduction in gastric polyp burden after six months. These findings provide preliminary evidence that celecoxib may delay the progression of PJS as a potential pharmacological prophylaxis.
+
+Investigators plan to conduct a multicenter, double-blind, randomized, placebo-controlled trial to evaluate the efficacy and safety of celecoxib, and they will use a time-to-event analysis with a composite efficacy end point to determine whether celecoxib can delay disease progression or reduce the need for important endoscopic or surgical procedures in patients with PJS.
