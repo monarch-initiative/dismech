@@ -75223,28 +75223,38 @@ window.searchData = [
       "Sclerosing Bone Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-30T00:00:00Z",
     "subtypes": [],
-    "description": "Van Buchem disease (hyperostosis corticalis generalisata) is an autosomal recessive sclerosing bone dysplasia caused by a 52-kb homozygous deletion downstream of the SOST gene. Unlike sclerosteosis, where SOST coding mutations abolish sclerostin, Van Buchem disease results from deletion of a distant bone-specific enhancer element (ECR5) that is required for SOST transcription in osteocytes. The deletion leads to downregulation of sclerostin expression, producing a similar but generally milder phenotype than sclerosteosis. Van Buchem disease lacks the hand malformations and tall stature seen in sclerosteosis. This was one of the first examples of a human disease caused by deletion of a distant regulatory element rather than a coding mutation.\n",
+    "description": "Van Buchem disease (hyperostosis corticalis generalisata; OMIM 239100) is an autosomal recessive sclerosing bone dysplasia caused by a homozygous ~52-kb noncoding deletion located ~35 kb downstream of the SOST gene in the SOST-MEOX1 intergenic region on chromosome 17q12-q21. The deletion arose through Alu-mediated homologous recombination and removes a bone-specific long-range cis-regulatory enhancer (ECR5) that is required for high-level SOST transcription in osteocytes. ECR5 activity is driven by the osteocyte-expressed transcription factor MEF2C. Loss of this enhancer produces a hypomorphic sclerostin state \u2014 circulating sclerostin is reduced but typically still detectable, in contrast to sclerosteosis where coding loss-of-function mutations render sclerostin undetectable. Hypomorphic sclerostin fails to antagonize LRP5/6-mediated canonical Wnt/beta-catenin signaling in osteoblasts, resulting in increased osteoblast bone formation and progressive generalized hyperostosis with predominant skull/mandibular involvement and cranial-nerve entrapment. Van Buchem disease is generally milder than sclerosteosis and lacks the syndactyly and tall stature seen in that disorder; complications typically stabilize after the third decade and life expectancy appears normal. Van Buchem disease was one of the first human disorders shown to be caused by deletion of a distant regulatory element rather than a coding mutation.\n",
     "pathophysiology": [
       "ECR5 Enhancer Deletion Causing SOST Downregulation",
-      "Reduced Sclerostin and Excessive Wnt-Mediated Bone Formation"
+      "Hypomorphic Sclerostin and Loss of Wnt Antagonism",
+      "Unopposed Canonical Wnt Signaling and Excessive Bone Formation",
+      "Cranial Nerve Foraminal Narrowing"
     ],
     "cell_types": [
+      "Osteocyte",
       "Osteoblast"
     ],
     "cell_type_ids": [
+      "CL:0000137",
       "CL:0000062"
     ],
     "biological_processes": [
-      "Wnt Signaling Pathway",
-      "Bone Development"
+      "Negative regulation of canonical Wnt signaling pathway",
+      "Canonical Wnt Signaling Pathway",
+      "Osteoblast Differentiation",
+      "Ossification"
     ],
     "phenotypes": [
       "Cranial Hyperostosis",
+      "Mandibular Hyperostosis",
+      "Generalized Osteosclerosis",
+      "Increased Bone Mineral Density",
       "Facial Nerve Palsy",
       "Optic Atrophy",
-      "Hearing Impairment"
+      "Hearing Impairment",
+      "Increased Intracranial Pressure"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -75256,28 +75266,43 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0004437",
-      "HP:6000411",
+      "HP:0004472",
+      "HP:0005789",
+      "HP:0011001",
+      "HP:0007285",
       "HP:0000648",
-      "HP:0000407"
+      "HP:0000365",
+      "HP:0002516"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "SOST Regulatory Deletion"
+      "SOST Regulatory Deletion (52-kb downstream)"
     ],
     "treatments": [
-      "Surgical Decompression",
+      "Facial Nerve Decompression",
+      "Cranial Decompression / Craniectomy",
+      "Hearing Aid",
+      "Cochlear Implantation",
+      "Glucocorticoid Therapy (Experimental)",
       "Genetic Counseling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Reduced Serum Sclerostin",
+      "Increased Serum P1NP (Procollagen Type 1 N-Terminal Propeptide)"
+    ],
     "source_file": "Van_Buchem_Disease.yaml",
     "page_url": "../pages/disorders/Van_Buchem_Disease.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 6,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Visceral heterotaxy",
@@ -77820,10 +77845,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 810,
-  "total_unique_evidence_sources": 13392,
+  "total_unique_evidence_sources": 13398,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 157,
   "total_pathographs": 802,
-  "total_unique_pathological_events": 3785
+  "total_unique_pathological_events": 3787
 };
 window.dispatchEvent(new Event('searchDataReady'));
