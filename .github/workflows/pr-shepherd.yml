@@ -1,0 +1,196 @@
+name: PR Shepherd
+
+on:
+  schedule:
+    # Run every 4 hours, offset from the curation scanner's top-of-hour cadence.
+    - cron: "37 1/4 * * *"
+  workflow_dispatch:
+    inputs:
+      max_prs:
+        description: "Maximum stuck PRs to tend in this run"
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+      pr_number:
+        description: "Specific PR number to tend instead of scanning"
+        required: false
+        type: string
+      dry_run:
+        description: "Inspect and report without changing PRs"
+        required: false
+        default: false
+        type: boolean
+      model:
+        description: "Claude model to use"
+        default: claude-opus-4-7
+        type: choice
+        options:
+          - claude-sonnet-4-6
+          - claude-haiku-4-5-20251001
+          - claude-opus-4-7
+
+concurrency:
+  group: pr-shepherd
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  checks: read
+  id-token: write
+
+jobs:
+  shepherd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_FOR_PR }}
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "dragon-ai-agent"
+          git config --global user.email "dragon-ai-agent@users.noreply.github.com"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install python tools
+        run: |
+          uv sync
+
+      - name: Install just
+        run: |
+          uv tool install rust-just
+
+      - name: Run PR Shepherd
+        id: pr-shepherd
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.PAT_FOR_PR }}
+          GITHUB_TOKEN: ${{ secrets.PAT_FOR_PR }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.PAT_FOR_PR }}
+          show_full_output: true
+          allowed_bots: "dragon-ai-agent,claude,github-actions"
+          claude_args: |
+            --dangerously-skip-permissions
+            --mcp-config '{"mcpServers": {"ols": {"command": "uvx", "args": ["ols-mcp"]}}}'
+            --model ${{ inputs.model || 'claude-opus-4-7' }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            TRIGGER: ${{ github.event_name }}
+            MAX_PRS: ${{ inputs.max_prs || '1' }}
+            SPECIFIC_PR: ${{ inputs.pr_number || '' }}
+            DRY_RUN: ${{ inputs.dry_run || false }}
+
+            You are the automated PR Shepherd for the dismech repository. Your job is to tend
+            stuck bot-authored pull requests and move at most MAX_PRS of them forward in this run.
+
+            You are authenticated as dragon-ai-agent through GH_TOKEN. Use that
+            token for all GitHub operations, including branch updates, comments, workflow dispatches,
+            and merges.
+
+            Start by reading the full contents of CLAUDE.md. Follow all repository conventions,
+            especially the rule that references_cache/*.md must never be created or hand-edited.
+            If a reference cache entry is needed, regenerate it with `just fetch-reference <ID>`.
+
+            Candidate PRs:
+            - If SPECIFIC_PR is set, inspect only that PR.
+            - Otherwise list open PRs in REPO and consider PRs that match EITHER criterion:
+              (a) authored by: `dragon-ai-agent`, `app/claude`, `app/github-actions`,
+                  or `github-actions[bot]`, OR
+              (b) the head branch name starts with `claude/` (these are Claude Code–created
+                  branches that may be authored by any user who triggered the session).
+            - A PR matching either (a) or (b) is a candidate. Do not act on PRs that match
+              neither criterion.
+
+            Gather enough context for each candidate before choosing:
+            - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
+              reviewDecision, mergeStateStatus, statusCheckRollup, and labels.
+            - Reviews and review comments, especially the latest review state per reviewer.
+            - Recent workflow/check status, including cancelled Claude review runs.
+            - Existing discussion so you do not repeat an action already taken.
+
+            Classify each candidate into one of these states:
+            - APPROVED + CLEAN: latest reviewDecision is APPROVED and mergeStateStatus is clean or
+              otherwise mergeable once required checks pass.
+            - APPROVED + DIRTY: latest reviewDecision is APPROVED and the branch is behind, dirty,
+              conflicted, or otherwise blocked by branch freshness.
+            - CHANGES_REQUESTED: latest effective review state requests changes.
+            - REVIEW_REQUIRED + cancelled review: the PR still requires review and the current or
+              latest Claude review workflow run for the PR was cancelled or never completed after
+              the latest head SHA.
+
+            Prioritize the most stuck PRs in this order:
+            1. APPROVED + CLEAN or approved-but-merge-blocked quick wins.
+            2. APPROVED + DIRTY PRs that can be updated without a rebase or force-push.
+            3. Stale CHANGES_REQUESTED PRs, oldest updated first and with more review cycles first.
+            4. REVIEW_REQUIRED PRs whose review was cancelled or missing after the latest push.
+
+            Then process only the highest-ranked PRs up to MAX_PRS.
+
+            Allowed actions by state:
+            - APPROVED + CLEAN:
+              - If the PR is draft, mark it ready for review.
+              - Squash merge it directly when required checks are complete, or enable squash
+                auto-merge when checks are still pending.
+            - APPROVED + DIRTY:
+              - First try GitHub's update-branch API with the current head SHA.
+              - If update-branch reports conflicts, you may attempt a local merge from the base
+                branch into the PR branch, but never rebase and never force-push.
+              - If conflicts are not safely resolvable, post a concise comment explaining the
+                blocker and leave the PR otherwise untouched.
+            - CHANGES_REQUESTED:
+              - Read the review and inline comments.
+              - Checkout the PR branch and address clear, safe feedback.
+              - Only edit curation-scope files: kb/, cache/, references_cache/ via regeneration
+                only, and research/. If the review requires changes outside that scope, post a
+                clarifying comment instead of guessing.
+              - Validate changed files with the relevant `just` or `uv run` commands before
+                committing and pushing.
+              - Commit a small fix on top of the PR branch and push normally. Do not rebase,
+                reset, or force-push.
+            - REVIEW_REQUIRED + cancelled review:
+              - Re-trigger the review workflow with:
+                `gh workflow run claude-code-review.yml --repo "$REPO" --ref main -f pr_number=PR_NUMBER`
+              - Leave a short comment only if useful to explain the re-trigger.
+
+            Guardrails:
+            - Respect DRY_RUN. If DRY_RUN is true, inspect and report what you would do without
+              modifying branches, comments, reviews, workflows, or merge state.
+            - Never force-push, rebase, reset, or rewrite PR history.
+            - Never modify human-authored PRs.
+            - Never create duplicate scanner work or assign `dragon-ai-agent` just to trigger work.
+            - If you are unsure about a biological, clinical, ontology, or evidence fix, ask for
+              clarification on the PR instead of guessing.
+            - Spend this run on the selected PRs only.
+
+            Observability:
+            - For EVERY PR you act on (merge, update branch, push fixes, re-trigger review),
+              post a comment on the PR with this format:
+              🐑 **PR Shepherd** (action run) — [what you did]. [what happens next].
+              Example: "🐑 **PR Shepherd** (action run) — Squash-merged after checks passed. No further action needed."
+            - If you scan candidates but find nothing actionable, do NOT post comments.
+              Instead, print your summary to stdout so it can be captured in GITHUB_STEP_SUMMARY.
+
+            End by posting or logging a concise summary of candidates scanned, selected PRs, actions
+            taken, validation run, and any blockers that remain.
+
+      - name: Write step summary
+        if: always()
+        run: |
+          echo "## 🐑 PR Shepherd Run" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.pr-shepherd.outputs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
