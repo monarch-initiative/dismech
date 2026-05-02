@@ -59711,30 +59711,49 @@ window.searchData = [
       "Hereditary cancer syndrome"
     ],
     "creation_date": "2026-01-20T21:32:08Z",
-    "updated_date": "2026-01-26T14:20:39Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [],
-    "description": "Germline loss-of-function variants in STK11 (LKB1) disrupt tumor suppressor signaling and drive hamartomatous polyp formation throughout the GI tract.\n",
+    "description": "Germline heterozygous loss-of-function variants in STK11 (LKB1), a serine/threonine tumor-suppressor master kinase on chromosome 19p13.3, are the primary cause of Peutz-Jeghers syndrome and the hamartomatous polyps that define it. Inheritance is autosomal dominant; ~30% of cases are de novo. Downstream effects propagate through inactivation of the LKB1/AMPK axis, defective stromal TGF-beta signaling, and a permissive state for somatic two-hit loss in tumors.\n",
     "pathophysiology": [
-      "STK11 loss-of-function signaling disruption",
+      "STK11 germline loss-of-function",
+      "LKB1/AMPK pathway inactivation",
       "mTORC1 pathway hyperactivation",
-      "Arborizing smooth muscle core formation"
+      "Stromal mesenchymal LKB1 loss with defective TGF-beta signaling",
+      "COX-2 / prostaglandin biosynthetic upregulation",
+      "Arborizing smooth muscle core formation",
+      "Two-hit somatic STK11 inactivation and malignant transformation",
+      "Mucocutaneous melanocyte hyperpigmentation"
     ],
     "cell_types": [
       "intestinal smooth muscle cell",
       "enterocyte",
-      "smooth muscle cell"
+      "stromal cell of small intestinal lamina propria",
+      "fibroblast",
+      "myofibroblast",
+      "enteric smooth muscle cell",
+      "melanocyte"
     ],
     "cell_type_ids": [
       "CL:0002504",
       "CL:0000584",
-      "CL:0000192"
+      "CL:0009022",
+      "CL:0000057",
+      "CL:0000186",
+      "CL:0000148"
     ],
     "biological_processes": [
       "signal transduction",
-      "cell proliferation",
+      "regulation of cell proliferation",
+      "activation of protein kinase activity",
       "mTORC1 signaling",
+      "cell proliferation",
+      "TGF-beta receptor signaling",
+      "prostaglandin biosynthetic process",
+      "cyclooxygenase pathway",
       "smooth muscle cell differentiation",
-      "tissue morphogenesis"
+      "tissue morphogenesis",
+      "melanin biosynthetic process",
+      "pigmentation"
     ],
     "phenotypes": [
       "Small intestinal polyposis",
@@ -59742,11 +59761,14 @@ window.searchData = [
       "Abdominal pain",
       "Abnormal pigmentation of oral mucosa",
       "Abnormal lip pigmentation",
+      "Intussusception",
+      "Iron deficiency anemia",
       "Increased cancer risk"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
       "Dermatologic",
+      "Hematologic",
       "Systemic"
     ],
     "phenotype_hpo_categories": [
@@ -59763,6 +59785,8 @@ window.searchData = [
       "HP:0002027",
       "HP:0100669",
       "HP:0032453",
+      "HP:0002576",
+      "HP:0001891",
       "HP:0002664"
     ],
     "frequencies": [
@@ -59776,6 +59800,8 @@ window.searchData = [
     "treatments": [
       "Endoscopic polypectomy",
       "Surgical resection",
+      "COX-2 inhibitor chemoprevention (celecoxib)",
+      "Sirolimus (mTOR inhibition)",
       "Genetic counseling"
     ],
     "environmental": [
@@ -59786,12 +59812,12 @@ window.searchData = [
     ],
     "source_file": "Peutz_Jeghers_polyp.yaml",
     "page_url": "../pages/disorders/Peutz-Jeghers_polyp.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
     "num_genes": 2,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 5,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Pfeiffer Syndrome",
@@ -75223,28 +75249,38 @@ window.searchData = [
       "Sclerosing Bone Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-30T00:00:00Z",
     "subtypes": [],
-    "description": "Van Buchem disease (hyperostosis corticalis generalisata) is an autosomal recessive sclerosing bone dysplasia caused by a 52-kb homozygous deletion downstream of the SOST gene. Unlike sclerosteosis, where SOST coding mutations abolish sclerostin, Van Buchem disease results from deletion of a distant bone-specific enhancer element (ECR5) that is required for SOST transcription in osteocytes. The deletion leads to downregulation of sclerostin expression, producing a similar but generally milder phenotype than sclerosteosis. Van Buchem disease lacks the hand malformations and tall stature seen in sclerosteosis. This was one of the first examples of a human disease caused by deletion of a distant regulatory element rather than a coding mutation.\n",
+    "description": "Van Buchem disease (hyperostosis corticalis generalisata; OMIM 239100) is an autosomal recessive sclerosing bone dysplasia caused by a homozygous ~52-kb noncoding deletion located ~35 kb downstream of the SOST gene in the SOST-MEOX1 intergenic region on chromosome 17q12-q21. The deletion arose through Alu-mediated homologous recombination and removes a bone-specific long-range cis-regulatory enhancer (ECR5) that is required for high-level SOST transcription in osteocytes. ECR5 activity is driven by the osteocyte-expressed transcription factor MEF2C. Loss of this enhancer produces a hypomorphic sclerostin state \u2014 circulating sclerostin is reduced but typically still detectable, in contrast to sclerosteosis where coding loss-of-function mutations render sclerostin undetectable. Hypomorphic sclerostin fails to antagonize LRP5/6-mediated canonical Wnt/beta-catenin signaling in osteoblasts, resulting in increased osteoblast bone formation and progressive generalized hyperostosis with predominant skull/mandibular involvement and cranial-nerve entrapment. Van Buchem disease is generally milder than sclerosteosis and lacks the syndactyly and tall stature seen in that disorder; complications typically stabilize after the third decade and life expectancy appears normal. Van Buchem disease was one of the first human disorders shown to be caused by deletion of a distant regulatory element rather than a coding mutation.\n",
     "pathophysiology": [
       "ECR5 Enhancer Deletion Causing SOST Downregulation",
-      "Reduced Sclerostin and Excessive Wnt-Mediated Bone Formation"
+      "Hypomorphic Sclerostin and Loss of Wnt Antagonism",
+      "Unopposed Canonical Wnt Signaling and Excessive Bone Formation",
+      "Cranial Nerve Foraminal Narrowing"
     ],
     "cell_types": [
+      "Osteocyte",
       "Osteoblast"
     ],
     "cell_type_ids": [
+      "CL:0000137",
       "CL:0000062"
     ],
     "biological_processes": [
-      "Wnt Signaling Pathway",
-      "Bone Development"
+      "Negative regulation of canonical Wnt signaling pathway",
+      "Canonical Wnt Signaling Pathway",
+      "Osteoblast Differentiation",
+      "Ossification"
     ],
     "phenotypes": [
       "Cranial Hyperostosis",
+      "Mandibular Hyperostosis",
+      "Generalized Osteosclerosis",
+      "Increased Bone Mineral Density",
       "Facial Nerve Palsy",
       "Optic Atrophy",
-      "Hearing Impairment"
+      "Hearing Impairment",
+      "Increased Intracranial Pressure"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -75256,28 +75292,43 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0004437",
-      "HP:6000411",
+      "HP:0004472",
+      "HP:0005789",
+      "HP:0011001",
+      "HP:0007285",
       "HP:0000648",
-      "HP:0000407"
+      "HP:0000365",
+      "HP:0002516"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "SOST Regulatory Deletion"
+      "SOST Regulatory Deletion (52-kb downstream)"
     ],
     "treatments": [
-      "Surgical Decompression",
+      "Facial Nerve Decompression",
+      "Cranial Decompression / Craniectomy",
+      "Hearing Aid",
+      "Cochlear Implantation",
+      "Glucocorticoid Therapy (Experimental)",
       "Genetic Counseling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Reduced Serum Sclerostin",
+      "Increased Serum P1NP (Procollagen Type 1 N-Terminal Propeptide)"
+    ],
     "source_file": "Van_Buchem_Disease.yaml",
     "page_url": "../pages/disorders/Van_Buchem_Disease.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 6,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Visceral heterotaxy",
@@ -77820,10 +77871,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 810,
-  "total_unique_evidence_sources": 13392,
+  "total_unique_evidence_sources": 13408,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 157,
   "total_pathographs": 802,
-  "total_unique_pathological_events": 3785
+  "total_unique_pathological_events": 3792
 };
 window.dispatchEvent(new Event('searchDataReady'));
