@@ -4932,7 +4932,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-04-12T05:11:04Z",
-    "updated_date": "2026-05-01T00:00:00Z",
+    "updated_date": "2026-05-03T00:00:00Z",
     "subtypes": [
       "Cutaneous Head and Neck Angiosarcoma",
       "Radiation-Associated Angiosarcoma",
@@ -4985,7 +4985,9 @@ window.searchData = [
       "KDR",
       "PIK3CA",
       "TP53",
-      "FLT4"
+      "FLT4",
+      "ATM",
+      "ATRX"
     ],
     "treatments": [
       "Surgical Excision",
@@ -5005,7 +5007,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Angiosarcoma.html",
     "num_phenotypes": 2,
     "num_pathophysiology": 5,
-    "num_genes": 5,
+    "num_genes": 7,
     "num_treatments": 6,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
@@ -18901,7 +18903,7 @@ window.searchData = [
       "Mental Health Disorder"
     ],
     "creation_date": "2026-04-24T20:56:38Z",
-    "updated_date": "2026-04-26T02:55:00Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [
       "Childhood-onset conduct disorder",
       "Adolescent-onset conduct disorder",
@@ -18911,9 +18913,11 @@ window.searchData = [
     "pathophysiology": [
       "Intergenerational Polygenic Liability",
       "Childhood Aggression Genetic Architecture",
+      "Amygdala-Mediated Empathy Deficit",
+      "Threat-Circuit Hypersensitivity",
+      "Striato-vmPFC Decision-Making Deficit",
       "Persistent Antisocial and Aggressive Behavior",
       "Callous-Unemotional Trait Severity",
-      "Biomarkers Not Established for Diagnosis",
       "Psychosocial Intervention Response"
     ],
     "cell_types": [
@@ -18926,35 +18930,51 @@ window.searchData = [
     "phenotypes": [
       "Aggressive Behavior",
       "Atypical Rule-Violating Behavior",
-      "Irritability"
+      "Impulsivity",
+      "Deficient Empathy",
+      "Irritability",
+      "Neurocognitive Impairment",
+      "Reduced Cortisol Stress Reactivity"
     ],
     "phenotype_categories": [
-      "Behavioral"
+      "Behavioral",
+      "Neurological",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
+      "Endocrine",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000718",
-      "HP:0000737"
+      "HP:0000708",
+      "HP:0100710",
+      "HP:0031466",
+      "HP:0000737",
+      "HP:0100543",
+      "HP:0000864"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Parent management training",
       "Parent-child interaction therapy",
       "Specialized modules for callous-unemotional traits",
-      "Ziprasidone pharmacotherapy for severe aggression"
+      "Ziprasidone pharmacotherapy for severe aggression",
+      "Methylphenidate pharmacotherapy for aggression",
+      "Atypical antipsychotic pharmacotherapy for irritability and aggression"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Conduct_Disorder.yaml",
     "page_url": "../pages/disorders/Conduct_Disorder.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "10",
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "2"
   },
   {
@@ -23305,30 +23325,62 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-04-11T01:06:52Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [],
-    "description": "Dracunculiasis (guinea worm disease) is caused by Dracunculus medinensis and is transmitted through contaminated drinking water containing infected copepods.",
+    "description": "Dracunculiasis (guinea worm disease) is caused by Dracunculus medinensis and is transmitted through contaminated drinking water containing infected copepods. Approximately one year after ingestion, the female worm emerges painfully through the skin, typically on a lower extremity, producing blisters, ulcers, pain, and temporary disability. There is no vaccine or medicine available; eradication relies entirely on preventive measures. The disease is targeted for global eradication.",
     "pathophysiology": [
-      "Larval transmission by copepods"
+      "Larval transmission by copepods",
+      "Worm emergence and skin ulceration",
+      "Disability and socioeconomic impact"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [],
-    "phenotypes": [],
-    "phenotype_categories": [],
-    "phenotype_hpo_categories": [],
-    "phenotype_ids": [],
-    "frequencies": [],
+    "phenotypes": [
+      "Skin Ulceration at Worm Emergence Site",
+      "Cutaneous Blister Formation",
+      "Pain at Emergence Site",
+      "Impaired Mobility and Disability",
+      "Myalgia",
+      "Arthralgia",
+      "Secondary Tetanus Infection"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Musculoskeletal",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0200042",
+      "HP:0008066",
+      "HP:0012531",
+      "HP:0001288",
+      "HP:0003326",
+      "HP:0002829"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "No Specific Treatment Available",
+      "Water Filtration and Safe Water Provision"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Dracunculiasis.yaml",
     "page_url": "../pages/disorders/Dracunculiasis.html",
-    "num_phenotypes": 0,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 0,
+    "num_treatments": 2,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -24316,7 +24368,7 @@ window.searchData = [
       "non-small cell lung carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-02-27T21:52:56Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [
       "EGFR Exon 19 Deletion NSCLC",
       "EGFR L858R Mutant NSCLC",
@@ -24347,7 +24399,11 @@ window.searchData = [
       "Lung Adenocarcinoma",
       "Never/Light Smoker Association",
       "Female and Asian Predominance",
-      "Brain Metastases"
+      "Brain Metastases",
+      "Cough",
+      "Dyspnea",
+      "Pleural Effusion",
+      "Weight Loss"
     ],
     "phenotype_categories": [
       "Neoplastic",
@@ -24355,6 +24411,8 @@ window.searchData = [
       "Demographic"
     ],
     "phenotype_hpo_categories": [
+      "Growth",
+      "Metabolism",
       "Neoplasm",
       "Nervous System",
       "Respiratory"
@@ -24362,7 +24420,11 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0030078",
       "HP:0100526",
-      "HP:0004375"
+      "HP:0004375",
+      "HP:0012735",
+      "HP:0002094",
+      "HP:0002202",
+      "HP:0001824"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -24384,7 +24446,7 @@ window.searchData = [
     ],
     "source_file": "EGFR_Mutant_NSCLC.yaml",
     "page_url": "../pages/disorders/EGFR-Mutant_Non-Small_Cell_Lung_Cancer.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 8,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
@@ -44547,7 +44609,7 @@ window.searchData = [
       "Tick-Borne Disease"
     ],
     "creation_date": "2026-01-09T05:55:26Z",
-    "updated_date": "2026-02-27T21:53:00Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [
       "Early Localized Lyme Disease",
       "Early Disseminated Lyme Disease",
@@ -44557,6 +44619,8 @@ window.searchData = [
     "description": "Lyme disease is a tick-borne infectious disease caused by Borrelia burgdorferi and related Borrelia species. It is the most common vector-borne disease in North America and Europe. The disease progresses through stages: early localized (erythema migrans), early disseminated (multiple erythema migrans, neurological, cardiac involvement), and late disseminated (arthritis, chronic neurological). Early antibiotic treatment is highly effective, while delayed treatment may lead to persistent symptoms.\n",
     "pathophysiology": [
       "Spirochete Invasion and Dissemination",
+      "Complement Evasion via BBK32-Mediated C1r Inhibition",
+      "Antigenic Variation via vlsE Gene Conversion",
       "Autoimmune Activation after Persistent Infection",
       "Inflammatory Response and Tissue Damage"
     ],
@@ -44574,7 +44638,9 @@ window.searchData = [
     ],
     "biological_processes": [
       "cell adhesion",
-      "immune system process",
+      "negative regulation of complement activation",
+      "DNA recombination",
+      "adaptive immune response",
       "inflammatory response"
     ],
     "phenotypes": [
@@ -44622,7 +44688,7 @@ window.searchData = [
       "RARE"
     ],
     "genes": [
-      "HLA-DR4"
+      "HLA-DRB1 Susceptibility Alleles"
     ],
     "treatments": [
       "Oral Doxycycline",
@@ -44644,7 +44710,7 @@ window.searchData = [
     "source_file": "Lyme_Disease.yaml",
     "page_url": "../pages/disorders/Lyme_Disease.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "0",
@@ -52062,8 +52128,11 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-04-11T01:06:52Z",
-    "subtypes": [],
+    "updated_date": "2026-05-02T07:56:30Z",
+    "subtypes": [
+      "Eumycetoma",
+      "Actinomycetoma"
+    ],
     "description": "Mycetoma is a chronic infection of the skin and subcutaneous tissues caused by fungi or bacteria.",
     "pathophysiology": [
       "Cutaneous and subcutaneous infection by fungi or bacteria"
@@ -52072,30 +52141,56 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [],
     "phenotypes": [
-      "Subcutaneous nodule"
+      "Subcutaneous nodule",
+      "Foot mass",
+      "Draining sinus tracts",
+      "Grain-containing discharge",
+      "Painful mycetoma lesions",
+      "Lymphadenopathy",
+      "Local hyperhidrosis",
+      "Bone involvement"
     ],
     "phenotype_categories": [
-      "Dermatologic"
+      "Dermatologic",
+      "Immune",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
-      "Integument"
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
-      "HP:0001482"
+      "HP:0001482",
+      "HP:6001164",
+      "HP:0011355",
+      "HP:0011121",
+      "HP:0012531",
+      "HP:0002716",
+      "HP:0000975",
+      "HP:0002797"
     ],
     "frequencies": [
       "COMMON"
     ],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Itraconazole for eumycetoma",
+      "Fosravuconazole for eumycetoma",
+      "Trimethoprim-sulfamethoxazole plus amikacin for actinomycetoma",
+      "Surgical debulking and excision/debridement for eumycetoma"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Mycetoma.yaml",
     "page_url": "../pages/disorders/Mycetoma.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 8,
     "num_pathophysiology": 1,
     "num_genes": 0,
-    "num_treatments": 0,
+    "num_treatments": 4,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
   },
@@ -52578,7 +52673,7 @@ window.searchData = [
       "acute myeloid leukemia"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-11T21:17:25Z",
+    "updated_date": "2026-05-02T07:57:06Z",
     "subtypes": [],
     "description": "NPM1-mutated acute myeloid leukemia is characterized by mutations in the nucleophosmin 1 gene, occurring in approximately 30% of adult AML cases and representing the most common genetic abnormality in AML. NPM1 mutations cause aberrant cytoplasmic localization of the normally nucleolar protein, disrupting its tumor suppressor functions. In the absence of adverse cytogenetics or FLT3-ITD with high allelic ratio, NPM1-mutated AML is classified as favorable risk with good response to intensive chemotherapy and favorable overall survival. NPM1 mutation status also serves as a sensitive marker for minimal residual disease monitoring.",
     "pathophysiology": [
@@ -52606,7 +52701,9 @@ window.searchData = [
       "Anemia",
       "Thrombocytopenia",
       "Fatigue",
-      "Recurrent Infections"
+      "Recurrent Infections",
+      "Neutropenia",
+      "Abnormal Bleeding"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -52623,7 +52720,9 @@ window.searchData = [
       "HP:0001903",
       "HP:0001873",
       "HP:0012378",
-      "HP:0002719"
+      "HP:0002719",
+      "HP:0001875",
+      "HP:0001892"
     ],
     "frequencies": [
       "FREQUENT",
@@ -52645,7 +52744,7 @@ window.searchData = [
     ],
     "source_file": "NPM1_Mutant_AML.yaml",
     "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_NPM1-Mutated.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 7,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
@@ -54176,42 +54275,82 @@ window.searchData = [
       "Neglected tropical disease"
     ],
     "creation_date": "2026-01-26T15:56:41Z",
-    "updated_date": "2026-04-11T00:41:29Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [],
-    "description": "Noma (cancrum oris) is an aggressive orofacial gangrenous disease that damages hard and soft tissues of the mouth and face.",
+    "description": "Noma (cancrum oris) is a devastating gangrenous disease that leads to severe tissue destruction in the face and is associated with high morbidity and mortality. It affects predominantly malnourished children in sub-Saharan Africa and is preceded by acute necrotizing gingivitis. Without treatment, mortality is 70-90%. Survivors suffer orofacial disfigurement, trismus, and functional impairment.",
     "pathophysiology": [
-      "Polymicrobial infection with tissue necrosis"
+      "Polymicrobial infection with tissue necrosis",
+      "Immunodeficiency from malnutrition and infection"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "cell_types": [
+      "epithelial cell",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "response to bacterium",
+      "inflammatory response",
+      "cell death",
+      "immune response"
+    ],
     "phenotypes": [
-      "Gangrene"
+      "Orofacial gangrene",
+      "Oral ulcer",
+      "Facial edema",
+      "Fever",
+      "Facial disfigurement",
+      "Dysphagia",
+      "Speech impairment",
+      "Trismus",
+      "Dental abnormalities",
+      "Malnutrition"
     ],
     "phenotype_categories": [
-      "Craniofacial"
-    ],
-    "phenotype_hpo_categories": [
+      "Craniofacial",
       "Constitutional"
     ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
     "phenotype_ids": [
-      "HP:0100758"
+      "HP:0100758",
+      "HP:0000155",
+      "HP:0000282",
+      "HP:0001945",
+      "HP:0000271",
+      "HP:0002015",
+      "HP:0002167",
+      "HP:0000211",
+      "HP:0000164",
+      "HP:0004395"
     ],
-    "frequencies": [
-      "COMMON"
-    ],
+    "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Antibiotic Therapy",
+      "Surgical Rehabilitation",
+      "Nutritional Support"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Noma.yaml",
     "page_url": "../pages/disorders/Noma.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 3,
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Non-Small Cell Lung Cancer",
@@ -59711,30 +59850,49 @@ window.searchData = [
       "Hereditary cancer syndrome"
     ],
     "creation_date": "2026-01-20T21:32:08Z",
-    "updated_date": "2026-01-26T14:20:39Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [],
-    "description": "Germline loss-of-function variants in STK11 (LKB1) disrupt tumor suppressor signaling and drive hamartomatous polyp formation throughout the GI tract.\n",
+    "description": "Germline heterozygous loss-of-function variants in STK11 (LKB1), a serine/threonine tumor-suppressor master kinase on chromosome 19p13.3, are the primary cause of Peutz-Jeghers syndrome and the hamartomatous polyps that define it. Inheritance is autosomal dominant; ~30% of cases are de novo. Downstream effects propagate through inactivation of the LKB1/AMPK axis, defective stromal TGF-beta signaling, and a permissive state for somatic two-hit loss in tumors.\n",
     "pathophysiology": [
-      "STK11 loss-of-function signaling disruption",
+      "STK11 germline loss-of-function",
+      "LKB1/AMPK pathway inactivation",
       "mTORC1 pathway hyperactivation",
-      "Arborizing smooth muscle core formation"
+      "Stromal mesenchymal LKB1 loss with defective TGF-beta signaling",
+      "COX-2 / prostaglandin biosynthetic upregulation",
+      "Arborizing smooth muscle core formation",
+      "Two-hit somatic STK11 inactivation and malignant transformation",
+      "Mucocutaneous melanocyte hyperpigmentation"
     ],
     "cell_types": [
       "intestinal smooth muscle cell",
       "enterocyte",
-      "smooth muscle cell"
+      "stromal cell of small intestinal lamina propria",
+      "fibroblast",
+      "myofibroblast",
+      "enteric smooth muscle cell",
+      "melanocyte"
     ],
     "cell_type_ids": [
       "CL:0002504",
       "CL:0000584",
-      "CL:0000192"
+      "CL:0009022",
+      "CL:0000057",
+      "CL:0000186",
+      "CL:0000148"
     ],
     "biological_processes": [
       "signal transduction",
-      "cell proliferation",
+      "regulation of cell proliferation",
+      "activation of protein kinase activity",
       "mTORC1 signaling",
+      "cell proliferation",
+      "TGF-beta receptor signaling",
+      "prostaglandin biosynthetic process",
+      "cyclooxygenase pathway",
       "smooth muscle cell differentiation",
-      "tissue morphogenesis"
+      "tissue morphogenesis",
+      "melanin biosynthetic process",
+      "pigmentation"
     ],
     "phenotypes": [
       "Small intestinal polyposis",
@@ -59742,11 +59900,14 @@ window.searchData = [
       "Abdominal pain",
       "Abnormal pigmentation of oral mucosa",
       "Abnormal lip pigmentation",
+      "Intussusception",
+      "Iron deficiency anemia",
       "Increased cancer risk"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
       "Dermatologic",
+      "Hematologic",
       "Systemic"
     ],
     "phenotype_hpo_categories": [
@@ -59763,6 +59924,8 @@ window.searchData = [
       "HP:0002027",
       "HP:0100669",
       "HP:0032453",
+      "HP:0002576",
+      "HP:0001891",
       "HP:0002664"
     ],
     "frequencies": [
@@ -59776,6 +59939,8 @@ window.searchData = [
     "treatments": [
       "Endoscopic polypectomy",
       "Surgical resection",
+      "COX-2 inhibitor chemoprevention (celecoxib)",
+      "Sirolimus (mTOR inhibition)",
       "Genetic counseling"
     ],
     "environmental": [
@@ -59786,12 +59951,12 @@ window.searchData = [
     ],
     "source_file": "Peutz_Jeghers_polyp.yaml",
     "page_url": "../pages/disorders/Peutz-Jeghers_polyp.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
     "num_genes": 2,
-    "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 5,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Pfeiffer Syndrome",
@@ -68910,7 +69075,7 @@ window.searchData = [
       "Mental Health Disorder"
     ],
     "creation_date": "2026-04-24T20:56:38Z",
-    "updated_date": "2026-04-27T15:25:26Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [],
     "description": "Social anxiety disorder, also called social phobia, is an anxiety disorder characterized by marked fear of negative evaluation in social situations and avoidance or endurance of those situations with distress.",
     "pathophysiology": [
@@ -68937,19 +69102,31 @@ window.searchData = [
       "Performance Anxiety",
       "Anxiety",
       "Depression",
-      "Suicidal Ideation"
+      "Suicidal Ideation",
+      "Palpitations",
+      "Abnormal Fear-Induced Behavior",
+      "Dyspnea",
+      "Vertigo"
     ],
     "phenotype_categories": [
-      "Behavioral"
+      "Behavioral",
+      "Autonomic"
     ],
     "phenotype_hpo_categories": [
-      "Nervous System"
+      "Cardiovascular",
+      "Ear",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:6000029",
       "HP:0000739",
       "HP:0000716",
-      "HP:0031589"
+      "HP:0031589",
+      "HP:0001962",
+      "HP:0100852",
+      "HP:0002094",
+      "HP:0002321"
     ],
     "frequencies": [],
     "genes": [],
@@ -68963,7 +69140,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Social_Anxiety_Disorder.yaml",
     "page_url": "../pages/disorders/Social_Anxiety_Disorder.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 11,
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
@@ -70649,54 +70826,98 @@ window.searchData = [
       "Desmosomal Disease"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-04-04T18:00:00Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [],
-    "description": "Striate palmoplantar keratoderma type 2 (SPPK2) is an autosomal dominant skin disorder caused by heterozygous loss-of-function mutations in the desmoplakin (DSP) gene. It is the first inherited skin disorder in which haploinsufficiency of a structural component was identified as the mechanism. Affected individuals have a linear pattern of skin thickening on the fingers and palms and circumscribed areas of thickening on the soles. Affected skin shows loosening of intercellular connections, disruption of desmosome-keratin intermediate filament interactions, and rudimentary desmosomal structures. Unlike the biallelic DSP disorders (Carvajal syndrome, skin fragility-woolly hair), cardiac involvement is not a typical feature.",
+    "description": "Striate palmoplantar keratoderma type 2 (SPPK2; OMIM 612908; PPKS2) is an autosomal dominant skin disorder caused by heterozygous truncating mutations in the desmoplakin (DSP) gene. It is the first inherited skin disorder in which haploinsufficiency of a structural component was identified as the mechanism: premature termination codons in DSP transcripts trigger nonsense-mediated decay, halving the dosage of desmoplakin, which is the most abundant component of the desmosomal plaque and the principal anchor of the keratin intermediate filament cytoskeleton to desmosomes. Reduced desmoplakin (especially the dominant skin isoform DSPII) compromises desmosomal plaque assembly and keratin\u2013desmosome coupling in suprabasal keratinocytes; under the high mechanical load borne by palms and soles this produces loosening of intercellular connections, perinuclear collapse of the keratin filament network, K16 upregulation, and compensatory hyperkeratosis along lines of stress. Affected individuals show linear hyperkeratosis on fingers and palms and focal hyperkeratosis at trauma-prone plantar sites, often with painful fissures. Phenotypic expression is age- and trauma-dependent. Many DSP truncating variants in this region are also associated with arrhythmogenic or dilated cardiomyopathy; PPK can be the earliest clue and DSP carriers warrant cardiac surveillance, even when classic skin-limited SPPK2 has historically been considered to lack frank cardiac disease.",
     "pathophysiology": [
-      "Desmoplakin Haploinsufficiency in Epidermis"
+      "DSP Premature Termination Codons Triggering Nonsense-Mediated Decay",
+      "Desmoplakin Haploinsufficiency in Epidermis",
+      "Defective Desmosomal Plaque Assembly",
+      "Keratin Intermediate Filament Network Disruption",
+      "Suprabasal Keratinocyte Adhesion Failure in Mechanical Stress Sites",
+      "Compensatory Hyperkeratosis Along Stress Lines"
     ],
     "cell_types": [
-      "Keratinocyte"
+      "Keratinocyte",
+      "Suprabasal keratinocyte"
     ],
     "cell_type_ids": [
-      "CL:0000312"
+      "CL:0000312",
+      "CL:4033013"
     ],
     "biological_processes": [
-      "Desmosome organization"
+      "Nuclear-transcribed mRNA catabolic process, nonsense-mediated decay",
+      "Desmosome organization",
+      "Intermediate filament cytoskeleton organization",
+      "Keratinocyte differentiation",
+      "Cell-cell adhesion",
+      "Keratinization",
+      "Cornification"
     ],
     "phenotypes": [
-      "Striate Palmoplantar Keratoderma"
+      "Striate Palmoplantar Keratoderma",
+      "Streaks of Hyperkeratosis on Fingers and Palms",
+      "Focal Plantar Hyperkeratosis",
+      "Reduced Suprabasal Desmosome Number",
+      "Perinuclear Keratin Filament Aggregation",
+      "Hyperkeratosis",
+      "Hypergranulosis",
+      "Epidermal Acanthosis",
+      "Keratin 16 Upregulation in Suprabasal Keratinocytes",
+      "Skin Fissures",
+      "Dilated Cardiomyopathy",
+      "Cardiac Arrhythmia"
     ],
     "phenotype_categories": [
-      "Dermatologic"
+      "Dermatologic",
+      "Cellular",
+      "Histopathologic",
+      "Cardiac"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Integument",
       "Limbs"
     ],
     "phenotype_ids": [
-      "HP:0000982"
+      "HP:0000982",
+      "HP:0007501",
+      "HP:0007556",
+      "HP:0034702",
+      "HP:0000962",
+      "HP:0025114",
+      "HP:0025092",
+      "HP:0031057",
+      "HP:0001644",
+      "HP:0011675"
     ],
     "frequencies": [
-      "Very frequent"
+      "Very frequent",
+      "Frequent",
+      "Occasional"
     ],
     "genes": [
-      "DSP Heterozygous Null Mutations"
+      "DSP Heterozygous Truncating Variants Causing Haploinsufficiency"
     ],
     "treatments": [
+      "Topical Emollients",
       "Topical Keratolytics",
+      "Mechanical Debridement / Paring",
+      "Oral Retinoid Therapy",
+      "Footwear Modification and Pressure Off-loading",
+      "Cardiac Surveillance for DSP Truncating-Variant Carriers",
       "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Striate_Palmoplantar_Keratoderma_Type_2.yaml",
     "page_url": "../pages/disorders/Striate_Palmoplantar_Keratoderma_Type_2.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 7,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Synovial Sarcoma",
@@ -70706,7 +70927,7 @@ window.searchData = [
       "soft tissue sarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-11T21:17:25Z",
+    "updated_date": "2026-05-02T00:00:00Z",
     "subtypes": [
       "Biphasic Synovial Sarcoma",
       "Monophasic Synovial Sarcoma",
@@ -70729,24 +70950,28 @@ window.searchData = [
       "Soft Tissue Mass",
       "Localized Pain",
       "Weight Loss",
-      "Metastatic Disease"
+      "Metastatic Disease",
+      "Tumor Calcification/Ossification",
+      "Pulmonary Metastases"
     ],
     "phenotype_categories": [
       "Musculoskeletal",
       "Constitutional",
-      "Systemic"
+      "Systemic",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
       "Growth",
-      "Musculoskeletal",
-      "Neoplasm"
+      "Neoplasm",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0031459",
-      "HP:0002653",
+      "HP:0012531",
       "HP:0001824",
-      "HP:0002664"
+      "HP:0002664",
+      "HP:0100526"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -70754,26 +70979,30 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "SS18-SSX Fusion"
+      "SS18-SSX Fusion",
+      "Low Mutational Burden"
     ],
     "treatments": [
       "Surgical Resection",
       "Radiation Therapy",
-      "Chemotherapy"
+      "Chemotherapy",
+      "Afamitresgene Autoleucel TCR-T Therapy"
     ],
     "environmental": [],
     "biochemical": [
       "SS18-SSX Fusion Detection",
-      "TLE1 Immunohistochemistry"
+      "TLE1 Immunohistochemistry",
+      "Cytokeratin and EMA Expression",
+      "Cancer-Testis Antigen Expression"
     ],
     "source_file": "Synovial_Sarcoma.yaml",
     "page_url": "../pages/disorders/Synovial_Sarcoma.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 6,
     "num_pathophysiology": 3,
-    "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Systemic Lupus Erythematosus",
@@ -75223,28 +75452,38 @@ window.searchData = [
       "Sclerosing Bone Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-04-30T00:00:00Z",
     "subtypes": [],
-    "description": "Van Buchem disease (hyperostosis corticalis generalisata) is an autosomal recessive sclerosing bone dysplasia caused by a 52-kb homozygous deletion downstream of the SOST gene. Unlike sclerosteosis, where SOST coding mutations abolish sclerostin, Van Buchem disease results from deletion of a distant bone-specific enhancer element (ECR5) that is required for SOST transcription in osteocytes. The deletion leads to downregulation of sclerostin expression, producing a similar but generally milder phenotype than sclerosteosis. Van Buchem disease lacks the hand malformations and tall stature seen in sclerosteosis. This was one of the first examples of a human disease caused by deletion of a distant regulatory element rather than a coding mutation.\n",
+    "description": "Van Buchem disease (hyperostosis corticalis generalisata; OMIM 239100) is an autosomal recessive sclerosing bone dysplasia caused by a homozygous ~52-kb noncoding deletion located ~35 kb downstream of the SOST gene in the SOST-MEOX1 intergenic region on chromosome 17q12-q21. The deletion arose through Alu-mediated homologous recombination and removes a bone-specific long-range cis-regulatory enhancer (ECR5) that is required for high-level SOST transcription in osteocytes. ECR5 activity is driven by the osteocyte-expressed transcription factor MEF2C. Loss of this enhancer produces a hypomorphic sclerostin state \u2014 circulating sclerostin is reduced but typically still detectable, in contrast to sclerosteosis where coding loss-of-function mutations render sclerostin undetectable. Hypomorphic sclerostin fails to antagonize LRP5/6-mediated canonical Wnt/beta-catenin signaling in osteoblasts, resulting in increased osteoblast bone formation and progressive generalized hyperostosis with predominant skull/mandibular involvement and cranial-nerve entrapment. Van Buchem disease is generally milder than sclerosteosis and lacks the syndactyly and tall stature seen in that disorder; complications typically stabilize after the third decade and life expectancy appears normal. Van Buchem disease was one of the first human disorders shown to be caused by deletion of a distant regulatory element rather than a coding mutation.\n",
     "pathophysiology": [
       "ECR5 Enhancer Deletion Causing SOST Downregulation",
-      "Reduced Sclerostin and Excessive Wnt-Mediated Bone Formation"
+      "Hypomorphic Sclerostin and Loss of Wnt Antagonism",
+      "Unopposed Canonical Wnt Signaling and Excessive Bone Formation",
+      "Cranial Nerve Foraminal Narrowing"
     ],
     "cell_types": [
+      "Osteocyte",
       "Osteoblast"
     ],
     "cell_type_ids": [
+      "CL:0000137",
       "CL:0000062"
     ],
     "biological_processes": [
-      "Wnt Signaling Pathway",
-      "Bone Development"
+      "Negative regulation of canonical Wnt signaling pathway",
+      "Canonical Wnt Signaling Pathway",
+      "Osteoblast Differentiation",
+      "Ossification"
     ],
     "phenotypes": [
       "Cranial Hyperostosis",
+      "Mandibular Hyperostosis",
+      "Generalized Osteosclerosis",
+      "Increased Bone Mineral Density",
       "Facial Nerve Palsy",
       "Optic Atrophy",
-      "Hearing Impairment"
+      "Hearing Impairment",
+      "Increased Intracranial Pressure"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
@@ -75256,28 +75495,43 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0004437",
-      "HP:6000411",
+      "HP:0004472",
+      "HP:0005789",
+      "HP:0011001",
+      "HP:0007285",
       "HP:0000648",
-      "HP:0000407"
+      "HP:0000365",
+      "HP:0002516"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "SOST Regulatory Deletion"
+      "SOST Regulatory Deletion (52-kb downstream)"
     ],
     "treatments": [
-      "Surgical Decompression",
+      "Facial Nerve Decompression",
+      "Cranial Decompression / Craniectomy",
+      "Hearing Aid",
+      "Cochlear Implantation",
+      "Glucocorticoid Therapy (Experimental)",
       "Genetic Counseling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Reduced Serum Sclerostin",
+      "Increased Serum P1NP (Procollagen Type 1 N-Terminal Propeptide)"
+    ],
     "source_file": "Van_Buchem_Disease.yaml",
     "page_url": "../pages/disorders/Van_Buchem_Disease.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 6,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Visceral heterotaxy",
@@ -77820,10 +78074,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 810,
-  "total_unique_evidence_sources": 13392,
+  "total_unique_evidence_sources": 13470,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 157,
   "total_pathographs": 802,
-  "total_unique_pathological_events": 3785
+  "total_unique_pathological_events": 3804
 };
 window.dispatchEvent(new Event('searchDataReady'));
