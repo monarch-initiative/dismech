@@ -5,10 +5,8 @@ deterministic line-oriented markdown files into ``references_cache/`` so they
 can be cited from disorder YAMLs and snippet-validated by
 ``linkml-reference-validator``.
 
-The flagship source is :class:`OrphanetSource`; the framework
-(:mod:`dismech.structured_sources.base`) is designed so additional
-structured sources (OMIM, MONDO, HGNC, ...) can be added with a single
-subclass + manifest entry.
+The flagship source is :class:`OrphanetSource`; ClinGen Gene-Disease Validity
+assertions are also available via :class:`ClinGenSource`.
 """
 
 from dismech.structured_sources.base import (
@@ -16,11 +14,13 @@ from dismech.structured_sources.base import (
     ReferenceCacheEntry,
     StructuredSource,
 )
+from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 __all__ = [
     "BulkFile",
     "ReferenceCacheEntry",
     "StructuredSource",
+    "ClinGenSource",
     "OrphanetSource",
 ]

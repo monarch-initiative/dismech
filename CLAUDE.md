@@ -89,11 +89,14 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
 ### Structured-Database Sources (`src/dismech/structured_sources/`)
-- Framework for ingesting structured knowledge bases (Orphanet today; OMIM /
+- Framework for ingesting structured knowledge bases (Orphanet, ClinGen; OMIM /
   MONDO / HGNC pluggable) into `references_cache/` as line-oriented markdown
 - Flagship: `OrphanetSource` — pre-caches all 8,823 leaf disorders from
   Orphadata XML so curators can cite `ORPHA:<code>` and quote individual rows
   (definition, prevalence, HPO phenotypes, gene-disease, xrefs)
+- `ClinGenSource` — pre-caches ClinGen Gene-Disease Validity assertions from
+  the public CSV so curators can cite `CGGV:<assertion_id>` and quote the
+  gene-disease validity row
 - See "Structured-Database Reference Sources" below
 
 ### Validation Stack
@@ -675,6 +678,7 @@ as evidence `snippet:` values.
 | Prefix | Source | Coverage | License |
 |--------|--------|----------|---------|
 | `ORPHA:` | Orphadata bulk XML | 8,823 leaf disorders + subtypes | CC-BY 4.0 |
+| `CGGV:` | ClinGen Gene-Disease Validity CSV | One record per gene-disease validity assertion | ClinGen terms |
 
 **Citing an Orphanet entry:**
 
@@ -706,6 +710,23 @@ unbracketed form for cleaner YAML:
 snippet: "HP:0002616 | Aortic root aneurysm | Very frequent (99-80%)"
 ```
 
+**Citing a ClinGen gene-disease validity assertion:**
+
+```yaml
+evidence:
+  - reference: CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
+    supports: SUPPORT
+    snippet: "HEXB | HGNC:4879 | Sandhoff disease | MONDO:0010006 | AR | Definitive"
+    explanation: ClinGen classifies the HEXB-Sandhoff disease relationship as definitive.
+```
+
+ClinGen cache bodies contain a `## Gene-disease validity` markdown table:
+
+```
+| Gene | HGNC | Disease | MONDO | MOI | Classification | SOP | GCEP | Classification date |
+| HEXB | HGNC:4879 | Sandhoff disease | MONDO:0010006 | AR | Definitive | SOP9 | Lysosomal Diseases Gene Curation Expert Panel | 2022-09-15T16:00:00.000Z |
+```
+
 **How the cache is built:**
 
 ```bash
@@ -717,6 +738,11 @@ just structured-rebuild-orphanet
 
 # Or rebuild a single ID
 just structured-rebuild-orphanet --id 558
+
+# ClinGen Gene-Disease Validity CSV
+just refresh-clingen
+just structured-rebuild-clingen
+just structured-rebuild-clingen --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is

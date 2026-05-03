@@ -941,11 +941,22 @@ cohd-add-signal file *args="":
 refresh-orphadata:
     uv run python -m dismech.structured_sources.cli refresh orphanet
 
+# Refresh ClinGen Gene-Disease Validity CSV (pinned by data/clingen/MANIFEST.yaml)
+[group('Research')]
+refresh-clingen:
+    uv run python -m dismech.structured_sources.cli refresh clingen
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
 structured-rebuild-orphanet *args="":
     uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# Rebuild every references_cache/CGGV_*.md from current ClinGen CSV
+# Use --id to limit to specific CGGV assertion IDs.
+[group('Research')]
+structured-rebuild-clingen *args="":
+    uv run python -m dismech.structured_sources.cli rebuild clingen {{args}}
 
 # List the first N identifiers from a structured source
 [group('Research')]

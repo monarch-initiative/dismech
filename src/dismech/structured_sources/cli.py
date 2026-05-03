@@ -5,6 +5,7 @@ Exposes operations to refresh bulk data and (re)build cache files.
     uv run python -m dismech.structured_sources.cli refresh orphanet
     uv run python -m dismech.structured_sources.cli rebuild orphanet
     uv run python -m dismech.structured_sources.cli rebuild orphanet --id 558
+    uv run python -m dismech.structured_sources.cli rebuild clingen --id CGGV:assertion_...
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from pathlib import Path
 import typer
 
 from dismech.structured_sources.base import StructuredSource
+from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -31,6 +33,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             OrphanetSource.load_manifest(manifest)
         return OrphanetSource(_DEFAULT_DATA_DIR / "orphadata")
+    if name in {"clingen", "cggv"}:
+        manifest = _DEFAULT_DATA_DIR / "clingen" / "MANIFEST.yaml"
+        if manifest.exists():
+            ClinGenSource.load_manifest(manifest)
+        return ClinGenSource(_DEFAULT_DATA_DIR / "clingen")
     raise typer.BadParameter(f"unknown source: {name}")
 
 
