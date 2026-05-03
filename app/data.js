@@ -21285,6 +21285,223 @@ window.searchData = [
     "causal_graph_longest_path": "11"
   },
   {
+    "name": "Cystinosis",
+    "disease_id": "MONDO:0016239",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn disorder of lysosomal amino acid transport",
+      "Lysosomal storage disease"
+    ],
+    "creation_date": "2026-05-03T00:00:00Z",
+    "updated_date": "2026-05-03T00:00:00Z",
+    "subtypes": [
+      "Nephropathic infantile cystinosis",
+      "Nephropathic juvenile cystinosis",
+      "Non-nephropathic ocular cystinosis"
+    ],
+    "description": "Cystinosis is an autosomal recessive lysosomal amino-acid transport disorder caused by biallelic pathogenic variants in CTNS, which encodes cystinosin. Cystinosin dysfunction impairs lysosomal cystine export, producing intralysosomal cystine accumulation and multisystem tissue injury, especially renal Fanconi syndrome and kidney failure in nephropathic forms and corneal cystine crystal disease in ocular involvement.\n",
+    "pathophysiology": [
+      "CTNS lysosomal cystine transporter deficiency",
+      "Intralysosomal cystine accumulation and lysosomal dysfunction",
+      "Proximal tubule cell dysfunction and renal Fanconi syndrome",
+      "Electrolyte wasting, rickets, and growth failure",
+      "Progressive kidney failure",
+      "Corneal cystine crystal deposition",
+      "Extrarenal tissue cystine accumulation"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "lysosomal transport",
+      "intracellular cysteine homeostasis",
+      "autophagy",
+      "monoatomic ion transport",
+      "phosphate ion transport",
+      "bicarbonate transport",
+      "neutral amino acid transport"
+    ],
+    "phenotypes": [
+      "Azoospermia",
+      "Renal insufficiency",
+      "Proteinuria",
+      "Nephropathy",
+      "Nephrocalcinosis",
+      "Renal tubular dysfunction",
+      "Hypogonadism",
+      "Retinopathy",
+      "Visual impairment",
+      "Band keratopathy",
+      "Photophobia",
+      "Nephrolithiasis",
+      "Hypothyroidism",
+      "Delayed puberty",
+      "Hypotonia",
+      "Mild intellectual disability",
+      "Gait disturbance",
+      "Muscle weakness",
+      "Portal hypertension",
+      "Failure to thrive",
+      "Growth delay",
+      "Exocrine pancreatic insufficiency",
+      "Splenomegaly",
+      "Metabolic acidosis",
+      "Dehydration",
+      "Fever",
+      "Glucose intolerance",
+      "Polydipsia",
+      "Renal Fanconi syndrome",
+      "Vomiting",
+      "Dysphagia",
+      "Constipation",
+      "Malabsorption",
+      "Hypophosphatemia",
+      "Hepatomegaly",
+      "Aphasia",
+      "Rickets",
+      "Osteomalacia",
+      "Hypokalemia",
+      "Hypocalcemia",
+      "Hyponatremia",
+      "Glycosuria",
+      "Hyperphosphaturia",
+      "Elevated circulating alkaline phosphatase concentration",
+      "Myopathy",
+      "Decreased circulating carnitine concentration",
+      "Aminoaciduria",
+      "EMG myopathic abnormalities",
+      "Short stature",
+      "Cranial nerve paralysis",
+      "Corneal opacity",
+      "Nephrogenic diabetes insipidus",
+      "Feeding difficulties",
+      "Aciduria",
+      "Abnormality of endocrine pancreas physiology",
+      "Fatigue",
+      "Type I diabetes mellitus"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Renal",
+      "Ocular",
+      "Endocrine",
+      "Neuromuscular",
+      "Neurologic",
+      "Hepatobiliary",
+      "Growth",
+      "Gastrointestinal",
+      "Metabolic",
+      "Systemic",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000027",
+      "HP:0000083",
+      "HP:0000093",
+      "HP:0000112",
+      "HP:0000121",
+      "HP:0000124",
+      "HP:0000135",
+      "HP:0000488",
+      "HP:0000505",
+      "HP:0000585",
+      "HP:0000613",
+      "HP:0000787",
+      "HP:0000821",
+      "HP:0000823",
+      "HP:0001252",
+      "HP:0001256",
+      "HP:0001288",
+      "HP:0001324",
+      "HP:0001409",
+      "HP:0001508",
+      "HP:0001510",
+      "HP:0001738",
+      "HP:0001744",
+      "HP:0001942",
+      "HP:0001944",
+      "HP:0001945",
+      "HP:0001952",
+      "HP:0001959",
+      "HP:0001994",
+      "HP:0002013",
+      "HP:0002015",
+      "HP:0002019",
+      "HP:0002024",
+      "HP:0002148",
+      "HP:0002240",
+      "HP:0002381",
+      "HP:0002748",
+      "HP:0002749",
+      "HP:0002900",
+      "HP:0002901",
+      "HP:0002902",
+      "HP:0003076",
+      "HP:0003109",
+      "HP:0003155",
+      "HP:0003198",
+      "HP:0003234",
+      "HP:0003355",
+      "HP:0003458",
+      "HP:0004322",
+      "HP:0006824",
+      "HP:0007957",
+      "HP:0009806",
+      "HP:0011968",
+      "HP:0012072",
+      "HP:0012093",
+      "HP:0012378",
+      "HP:0100651"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CTNS variants"
+    ],
+    "treatments": [
+      "Oral cysteamine bitartrate therapy",
+      "Cysteamine ophthalmic drops",
+      "Fanconi syndrome replacement therapy",
+      "Growth hormone therapy",
+      "L-thyroxine therapy",
+      "Renal dialysis",
+      "Kidney transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated leukocyte cystine",
+      "Renal tubular solute wasting"
+    ],
+    "source_file": "Cystinosis.yaml",
+    "page_url": "../pages/disorders/Cystinosis.html",
+    "num_phenotypes": 57,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "D-2-Hydroxyglutaric Aciduria",
     "disease_id": "MONDO:0010924",
     "category": "Mendelian",
@@ -38808,6 +39025,111 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Infantile Hypercalcemia",
+    "disease_id": "MONDO:0000212",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Phosphocalcic Metabolism Disorder",
+      "Renal Tubulopathy"
+    ],
+    "creation_date": "2026-05-03T00:00:00Z",
+    "updated_date": "2026-05-03T00:00:00Z",
+    "subtypes": [
+      "CYP24A1-associated infantile hypercalcemia",
+      "SLC34A1-associated infantile hypercalcemia"
+    ],
+    "description": "Infantile hypercalcemia is a rare phosphocalcic metabolism disorder caused by pathogenic variants in CYP24A1 or SLC34A1. CYP24A1 loss of function impairs degradation of active vitamin D metabolites, while SLC34A1 loss of function causes renal phosphate wasting that drives inappropriate 1,25-dihydroxyvitamin D3 generation. Both mechanisms converge on PTH-independent hypercalcemia, hypercalciuria, nephrocalcinosis, failure to thrive, vomiting, dehydration, polyuria, constipation, hypotonia, and a risk of chronic kidney disease in survivors.\n",
+    "pathophysiology": [
+      "CYP24A1 vitamin D catabolism defect",
+      "SLC34A1 renal phosphate transport defect",
+      "Active vitamin D excess and PTH-independent hypercalcemia",
+      "Nephrocalcinosis and chronic kidney injury"
+    ],
+    "cell_types": [
+      "epithelial cell of proximal tubule"
+    ],
+    "cell_type_ids": [
+      "CL:0002306"
+    ],
+    "biological_processes": [
+      "vitamin D metabolic process",
+      "phosphate ion transport",
+      "phosphate ion homeostasis",
+      "calcium ion homeostasis"
+    ],
+    "phenotypes": [
+      "Hypercalcemia",
+      "Hypercalciuria",
+      "Hypophosphatemia",
+      "Nephrocalcinosis",
+      "Failure to thrive",
+      "Vomiting",
+      "Dehydration",
+      "Hypotonia",
+      "Constipation",
+      "Polyuria",
+      "Chronic kidney disease",
+      "Nephrolithiasis",
+      "Hypertension"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003072",
+      "HP:0002150",
+      "HP:0002148",
+      "HP:0000121",
+      "HP:0001508",
+      "HP:0002013",
+      "HP:0001944",
+      "HP:0001252",
+      "HP:0002019",
+      "HP:0000103",
+      "HP:0012622",
+      "HP:0000787",
+      "HP:0000822"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CYP24A1 variants",
+      "SLC34A1 variants"
+    ],
+    "treatments": [
+      "Vitamin D and calcium exposure reduction",
+      "Phosphate supplementation for SLC34A1-associated disease",
+      "Acute hypercalcemia management",
+      "Renal monitoring and supportive care",
+      "Active Vitamin D Metabolite Suppression"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated serum calcium",
+      "Increased urinary calcium",
+      "Decreased serum phosphate",
+      "Suppressed intact parathyroid hormone",
+      "Increased active vitamin D exposure",
+      "Increased 25(OH)D3 to 24,25(OH)2D3 ratio"
+    ],
+    "source_file": "Infantile_Hypercalcemia.yaml",
+    "page_url": "../pages/disorders/Infantile_Hypercalcemia.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Infantile_Myofibromatosis",
@@ -78829,11 +79151,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 816,
-  "total_unique_evidence_sources": 13588,
+  "total_disorder_pages": 818,
+  "total_unique_evidence_sources": 13623,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 159,
-  "total_pathographs": 808,
-  "total_unique_pathological_events": 3833
+  "total_pathographs": 810,
+  "total_unique_pathological_events": 3844
 };
 window.dispatchEvent(new Event('searchDataReady'));
