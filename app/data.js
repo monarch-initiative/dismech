@@ -3507,6 +3507,158 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Aicardi-Goutieres Syndrome",
+    "disease_id": "MONDO:0018866",
+    "category": "Mendelian",
+    "parents": [
+      "Type I interferonopathies",
+      "Inborn errors of immunity",
+      "Leukodystrophy",
+      "Genetic encephalopathy"
+    ],
+    "creation_date": "2026-05-04T08:35:00Z",
+    "updated_date": "2026-05-04T08:35:00Z",
+    "subtypes": [
+      "Aicardi-Goutieres syndrome 1",
+      "Aicardi-Goutieres syndrome 2",
+      "Aicardi-Goutieres syndrome 3",
+      "Aicardi-Goutieres syndrome 4",
+      "Aicardi-Goutieres syndrome 5",
+      "Aicardi-Goutieres syndrome 6",
+      "Aicardi-Goutieres syndrome 7",
+      "Aicardi-Goutieres syndrome 8",
+      "Aicardi-Goutieres syndrome 9"
+    ],
+    "description": "Aicardi-Goutieres syndrome is a genetically heterogeneous type I interferonopathy with antenatal, neonatal, or infantile onset. Pathogenic variants disrupt nucleic-acid clearance, nucleic-acid sensing, or histone pre-mRNA processing, leading to inappropriate innate immune activation, sustained type I interferon signaling, and inflammatory injury of the brain, skin, and other organs. The classical presentation resembles congenital infection and combines intracranial calcification, white matter disease, chronic CSF lymphocytosis, increased CSF interferon-alpha, severe early encephalopathy, spasticity, dystonia, developmental regression or delay, seizures, chilblains, hepatosplenomegaly, fevers, and autoimmunity. Supportive multidisciplinary care remains standard management, while JAK inhibition and reverse-transcriptase inhibition are mechanism-targeted investigational or emerging approaches with limited clinical evidence.\n",
+    "pathophysiology": [
+      "AGS-related pathogenic variants",
+      "Defective nucleic acid metabolism and sensing",
+      "Histone pre-mRNA processing defect",
+      "Endogenous nucleic acid-driven innate immune activation",
+      "Constitutive type I interferon signaling",
+      "Neuroinflammatory encephalopathy and leukodystrophy",
+      "Systemic interferon-mediated inflammation and vasculopathy"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "RNA processing",
+      "innate immune response",
+      "DNA replication",
+      "cGAS/STING signaling pathway",
+      "type I interferon-mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Spasticity",
+      "Global developmental delay",
+      "Hypertonia",
+      "Porencephaly",
+      "Arrhinencephaly",
+      "Intellectual disability, profound",
+      "Multifocal cerebral white matter abnormalities",
+      "Microcephaly",
+      "Irritability",
+      "Seizure",
+      "Dystonia",
+      "Hepatosplenomegaly",
+      "Unexplained fevers",
+      "Hypoplasia of the corpus callosum",
+      "Ventriculomegaly",
+      "Developmental regression",
+      "Loss of speech",
+      "Leukodystrophy",
+      "Cerebral calcification",
+      "Elevated circulating hepatic transaminase concentration",
+      "Autoimmunity",
+      "Short stature",
+      "Hemiplegia/hemiparesis",
+      "Axial hypotonia",
+      "Chronic CSF lymphocytosis",
+      "Increased CSF interferon alpha",
+      "Chilblains",
+      "Brain atrophy",
+      "Panniculitis",
+      "Increased serum interferon-gamma level"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental",
+      "Neuroimaging",
+      "Systemic",
+      "Biochemical",
+      "Immunologic",
+      "Growth",
+      "Laboratory",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001257",
+      "HP:0001263",
+      "HP:0001276",
+      "HP:0002132",
+      "HP:0002139",
+      "HP:0002187",
+      "HP:0007052",
+      "HP:0000252",
+      "HP:0000737",
+      "HP:0001250",
+      "HP:0001332",
+      "HP:0001433",
+      "HP:0001955",
+      "HP:0002079",
+      "HP:0002119",
+      "HP:0002376",
+      "HP:0002371",
+      "HP:0002415",
+      "HP:0002514",
+      "HP:0002910",
+      "HP:0002960",
+      "HP:0004322",
+      "HP:0004374",
+      "HP:0008936",
+      "HP:0009704",
+      "HP:0009709",
+      "HP:0009710",
+      "HP:0012444",
+      "HP:0012490",
+      "HP:0030356"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AGS-related germline variant spectrum"
+    ],
+    "treatments": [
+      "Supportive multidisciplinary management",
+      "Janus kinase inhibitor therapy",
+      "Investigational reverse-transcriptase inhibitor therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aicardi_Goutieres_Syndrome.yaml",
+    "page_url": "../pages/disorders/Aicardi-Goutieres_Syndrome.html",
+    "num_phenotypes": 30,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Aicardi Syndrome",
     "disease_id": "MONDO:0010568",
     "category": "Mendelian",
@@ -80716,11 +80868,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 829,
-  "total_unique_evidence_sources": 13787,
+  "total_disorder_pages": 830,
+  "total_unique_evidence_sources": 13804,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 161,
-  "total_pathographs": 821,
-  "total_unique_pathological_events": 3905
+  "total_pathographs": 822,
+  "total_unique_pathological_events": 3911
 };
 window.dispatchEvent(new Event('searchDataReady'));
