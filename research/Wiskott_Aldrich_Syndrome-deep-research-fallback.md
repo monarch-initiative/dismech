@@ -16,6 +16,7 @@ cited_references:
 - PMID:28805251
 - PMID:26159751
 - PMID:21659547
+- PMID:8957959
 ---
 
 # Wiskott-Aldrich Syndrome Research Fallback
@@ -25,11 +26,15 @@ Orphanet/MONDO target `ORPHA:906` / `MONDO:0010518`:
 
 - `timeout 180 just research-disorder falcon Wiskott_Aldrich_Syndrome`
 - `timeout 180 just research-disorder openai Wiskott_Aldrich_Syndrome`
+- `timeout 90 just research-disorder openai Wiskott_Aldrich_Syndrome`
+  was retried after PR review requested a fresh deep-research attempt.
 
-Both commands printed the initial provider line, then stalled without
-producing a research output file and were terminated by the timeout. The
-curation therefore used the structured Orphanet cache plus fetched PubMed
-cache records as the auditable evidence base.
+All provider commands printed the initial provider line, then stalled without
+producing a completed research output file and were terminated by their
+timeouts. The curation therefore intentionally used the structured Orphanet
+cache plus fetched PubMed cache records as the auditable evidence base, with
+all added phenotype and treatment statements backed by exact snippets from
+those caches.
 
 ## Literature Scope Checked
 
@@ -58,6 +63,9 @@ cache records as the auditable evidence base.
 - `references_cache/PMID_21659547.md`: retrospective collaborative human HCT
   cohort of 194 patients supporting survival outcomes, chimerism, and
   persistent thrombocytopenia risk when myeloid donor chimerism is low.
+- `references_cache/PMID_8957959.md`: retrospective human supportive-care
+  series directly supporting IVIG with antibiotic prophylaxis in
+  Wiskott-Aldrich syndrome.
 
 ## Curation Conclusions
 
@@ -78,8 +86,14 @@ cache records as the auditable evidence base.
   prolonged bleeding time, bruising susceptibility, spontaneous hematomas,
   internal hemorrhage, decreased total lymphocyte count, fever, chronic
   diarrhea, and chronic pulmonary obstruction.
-- Additional evidence-backed features include eczematoid dermatitis,
-  autoimmunity, hemolytic anemia, large-intestine inflammation, and lymphoma.
+- Orphanet also directly supports all curated frequent phenotypes in the
+  cached ORPHA:906 table: petechiae, purpura, specific learning disability,
+  hemolytic anemia, abnormality of eosinophils, anemia, microcytic anemia,
+  inflammation of the large intestine, dyspnea, hematemesis, hematochezia,
+  autoimmunity, arrhythmia, and fatigue.
+- Additional evidence-backed features include eczematoid dermatitis and
+  lymphoma.
 - Evidence-backed treatments are hematopoietic stem cell transplantation,
-  emerging gene therapy, and supportive management of infections, bleeding,
-  eczema, autoimmunity, and transplant-related complications.
+  emerging gene therapy, supportive management of infections, bleeding,
+  eczema, autoimmunity, and transplant-related complications, and IVIG
+  prophylaxis.
