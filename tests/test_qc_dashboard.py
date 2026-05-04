@@ -366,6 +366,11 @@ disease_term:
     assert result_1["summary"]["total_entries"] == 1
     assert (dashboard_dir / "capability_metrics.html").exists()
     assert (dashboard_dir / "capability_metrics.json").exists()
+    report_content = (dashboard_dir / "capability_metrics.html").read_text(
+        encoding="utf-8"
+    )
+    assert "Curation Velocity" in report_content
+    assert "Average GO terms per entry, all sections" in report_content
 
     index_content = dashboard_index.read_text(encoding="utf-8")
     assert "capability_metrics.html" in index_content

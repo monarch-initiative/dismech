@@ -211,6 +211,12 @@ def _average(values: Iterable[float]) -> float | None:
     return round(sum(numeric_values) / len(numeric_values), 1)
 
 
+def _average_per_entry(total: int, entries: int) -> float:
+    if entries == 0:
+        return 0.0
+    return round(total / entries, 1)
+
+
 def _load_compliance_summary(reports_path: Path | None) -> dict[str, Any] | None:
     if reports_path is None or not reports_path.exists():
         return None
@@ -324,8 +330,8 @@ def collect_capability_metrics(
         if phenotype_terms:
             entries_with_phenotype_terms += 1
 
-        total_go_terms += term_prefix_counts_in_section(disorder.get("pathophysiology"), "GO")
-        total_cl_terms += term_prefix_counts_in_section(disorder.get("pathophysiology"), "CL")
+        total_go_terms += _count_term_prefix(term_ids, "GO")
+        total_cl_terms += _count_term_prefix(term_ids, "CL")
 
         treatments = disorder.get("treatments") or []
         if isinstance(treatments, list):
@@ -399,9 +405,9 @@ def collect_capability_metrics(
         "evidence_quality": {
             "total_evidence_items": total_evidence_items,
             "unique_evidence_references": len(evidence_references),
-            "average_evidence_items_per_entry": _average([total_evidence_items / total_entries])
-            if total_entries
-            else 0.0,
+            "average_evidence_items_per_entry": _average_per_entry(
+                total_evidence_items, total_entries
+            ),
             "evidence_source_counts": dict(sorted(evidence_source_counts.items())),
         },
         "ontology_richness": {
@@ -411,27 +417,21 @@ def collect_capability_metrics(
             "entries_with_phenotype_terms_percent": _percentage(
                 entries_with_phenotype_terms, total_entries
             ),
-            "average_hpo_terms_per_entry": _average([total_phenotype_terms / total_entries])
-            if total_entries
-            else 0.0,
-            "average_go_terms_per_entry": _average([total_go_terms / total_entries])
-            if total_entries
-            else 0.0,
-            "average_cl_terms_per_entry": _average([total_cl_terms / total_entries])
-            if total_entries
-            else 0.0,
+            "average_hpo_terms_per_entry": _average_per_entry(
+                total_phenotype_terms, total_entries
+            ),
+            "average_go_terms_per_entry": _average_per_entry(total_go_terms, total_entries),
+            "average_cl_terms_per_entry": _average_per_entry(total_cl_terms, total_entries),
         },
         "mechanistic_depth": {
             "total_pathophysiology_nodes": total_pathophysiology_nodes,
             "total_causal_edges": total_causal_edges,
-            "average_pathophysiology_nodes_per_entry": _average(
-                [total_pathophysiology_nodes / total_entries]
-            )
-            if total_entries
-            else 0.0,
-            "average_causal_edges_per_entry": _average([total_causal_edges / total_entries])
-            if total_entries
-            else 0.0,
+            "average_pathophysiology_nodes_per_entry": _average_per_entry(
+                total_pathophysiology_nodes, total_entries
+            ),
+            "average_causal_edges_per_entry": _average_per_entry(
+                total_causal_edges, total_entries
+            ),
             "entries_with_module_conformance": entries_with_module_conformance,
             "entries_with_module_conformance_percent": _percentage(
                 entries_with_module_conformance, total_entries
@@ -456,13 +456,9 @@ def collect_capability_metrics(
     }
 
 
-def term_prefix_counts_in_section(node: Any, prefix: str) -> int:
+def _count_term_prefix(term_ids: Iterable[str], prefix: str) -> int:
     prefix = prefix.upper()
-    return sum(
-        1
-        for term_id in _iter_term_ids(node)
-        if term_id.split(":", 1)[0].upper() == prefix
-    )
+    return sum(1 for term_id in term_ids if term_id.split(":", 1)[0].upper() == prefix)
 
 
 def _date_month(value: Any) -> str | None:
@@ -634,6 +630,27 @@ def _render_count_rows(counts: dict[str, int]) -> str:
     return "\n".join(rows)
 
 
+def _render_velocity_rows(
+    created_by_month: dict[str, int],
+    updated_by_month: dict[str, int],
+    limit: int = 12,
+) -> str:
+    months = sorted(set(created_by_month) | set(updated_by_month), reverse=True)[:limit]
+    if not months:
+        return '<tr><td colspan="3">No timestamped curation activity found.</td></tr>'
+
+    rows = []
+    for month in months:
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(month)}</td>"
+            f"<td>{_format_metric_value(created_by_month.get(month, 0))}</td>"
+            f"<td>{_format_metric_value(updated_by_month.get(month, 0))}</td>"
+            "</tr>"
+        )
+    return "\n".join(rows)
+
+
 def _render_capability_metrics_page(
     metrics: dict[str, Any],
     generated_at: str,
@@ -644,6 +661,7 @@ def _render_capability_metrics_page(
     mechanisms = metrics["mechanistic_depth"]
     treatments = metrics["treatment_coverage"]
     completeness = metrics.get("completeness") or {}
+    velocity = metrics["curation_velocity"]
 
     card_values = [
         ("Curated Entries", summary.get("total_entries"), "Disorder YAML files analyzed"),
@@ -766,8 +784,8 @@ def _render_capability_metrics_page(
                 <dl class="metric-list">
                     <div><dt>Entries with HPO phenotype terms</dt><dd>{_format_metric_value(ontology["entries_with_phenotype_terms_percent"])}%</dd></div>
                     <div><dt>Average HPO terms per entry</dt><dd>{_format_metric_value(ontology["average_hpo_terms_per_entry"])}</dd></div>
-                    <div><dt>Average GO terms per entry</dt><dd>{_format_metric_value(ontology["average_go_terms_per_entry"])}</dd></div>
-                    <div><dt>Average CL terms per entry</dt><dd>{_format_metric_value(ontology["average_cl_terms_per_entry"])}</dd></div>
+                    <div><dt>Average GO terms per entry, all sections</dt><dd>{_format_metric_value(ontology["average_go_terms_per_entry"])}</dd></div>
+                    <div><dt>Average CL terms per entry, all sections</dt><dd>{_format_metric_value(ontology["average_cl_terms_per_entry"])}</dd></div>
                 </dl>
                 <table>
                     <thead><tr><th>Ontology Prefix</th><th>Terms</th></tr></thead>
@@ -793,6 +811,14 @@ def _render_capability_metrics_page(
                     <div><dt>Total clinical trials</dt><dd>{_format_metric_value(treatments["total_clinical_trials"])}</dd></div>
                     <div><dt>Entries with clinical trials</dt><dd>{_format_metric_value(treatments["entries_with_clinical_trials_percent"])}%</dd></div>
                 </dl>
+            </div>
+
+            <div class="panel">
+                <h2>Curation Velocity</h2>
+                <table>
+                    <thead><tr><th>Month</th><th>Created</th><th>Updated</th></tr></thead>
+                    <tbody>{_render_velocity_rows(velocity["created_by_month"], velocity["updated_by_month"])}</tbody>
+                </table>
             </div>
         </section>
     </div>
@@ -845,13 +871,28 @@ def inject_uncurated_link(
     summary: dict[str, Any],
 ) -> bool:
     """Insert or update the uncurated-links section in the dashboard index page."""
+    return _inject_block(
+        dashboard_index_path,
+        start_sentinel=UNCURATED_BLOCK_START,
+        end_sentinel=UNCURATED_BLOCK_END,
+        block=_build_index_block(summary),
+    )
+
+
+def _inject_block(
+    dashboard_index_path: Path,
+    *,
+    start_sentinel: str,
+    end_sentinel: str,
+    block: str,
+) -> bool:
+    """Insert or update a sentinel-delimited section in the dashboard index page."""
     if not dashboard_index_path.exists():
         return False
 
     content = dashboard_index_path.read_text(encoding="utf-8")
-    block = _build_index_block(summary)
     pattern = re.compile(
-        rf"{re.escape(UNCURATED_BLOCK_START)}.*?{re.escape(UNCURATED_BLOCK_END)}",
+        rf"{re.escape(start_sentinel)}.*?{re.escape(end_sentinel)}",
         flags=re.DOTALL,
     )
 
@@ -876,30 +917,12 @@ def inject_capability_metrics_link(
     summary: dict[str, Any],
 ) -> bool:
     """Insert or update the capability-metrics section in the dashboard index page."""
-    if not dashboard_index_path.exists():
-        return False
-
-    content = dashboard_index_path.read_text(encoding="utf-8")
-    block = _build_capability_index_block(summary)
-    pattern = re.compile(
-        rf"{re.escape(CAPABILITY_BLOCK_START)}.*?{re.escape(CAPABILITY_BLOCK_END)}",
-        flags=re.DOTALL,
+    return _inject_block(
+        dashboard_index_path,
+        start_sentinel=CAPABILITY_BLOCK_START,
+        end_sentinel=CAPABILITY_BLOCK_END,
+        block=_build_capability_index_block(summary),
     )
-
-    if pattern.search(content):
-        updated = pattern.sub(block.strip("\n"), content, count=1)
-    elif "<footer" in content:
-        updated = content.replace("<footer", f"{block}\n        <footer", 1)
-    elif "</body>" in content:
-        updated = content.replace("</body>", f"{block}\n</body>", 1)
-    else:
-        updated = f"{content.rstrip()}\n{block}\n"
-
-    if updated == content:
-        return False
-
-    dashboard_index_path.write_text(updated, encoding="utf-8")
-    return True
 
 
 def generate_uncurated_dashboard_report(
