@@ -71406,6 +71406,131 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Sialidosis type 1",
+    "disease_id": "MONDO:0019346",
+    "category": "Mendelian",
+    "parents": [
+      "Lysosomal Storage Disorder",
+      "Oligosaccharidosis",
+      "Mucolipidosis"
+    ],
+    "creation_date": "2026-05-04T18:28:00Z",
+    "updated_date": "2026-05-04T20:14:13Z",
+    "subtypes": [],
+    "description": "Sialidosis type 1 is an ultra-rare autosomal recessive lysosomal storage disorder caused by biallelic pathogenic variants in NEU1, encoding lysosomal neuraminidase 1. Residual but insufficient lysosomal sialidase activity impairs degradation of sialylated glycoproteins and oligosaccharides, causing sialylated metabolite accumulation with adolescent or young-adult onset of progressive myoclonus, ataxia, seizures, visual impairment, and macular cherry-red spots.\n",
+    "pathophysiology": [
+      "NEU1 lysosomal neuraminidase deficiency",
+      "Residual mild NEU1 variant activity",
+      "Sialylated metabolite lysosomal storage",
+      "Neuronal lysosomal storage and gliosis",
+      "Retinal ganglion cell layer storage"
+    ],
+    "cell_types": [
+      "Neuron",
+      "Fibroblast",
+      "Astrocyte",
+      "Microglial cell",
+      "Retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000057",
+      "CL:0000127",
+      "CL:0000129",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "glycoprotein catabolic process",
+      "amino sugar metabolic process",
+      "nervous system process",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Retinopathy",
+      "Visual impairment",
+      "Cataract",
+      "Progressive visual loss",
+      "Nystagmus",
+      "Decreased nerve conduction velocity",
+      "Seizure",
+      "Generalized myoclonic seizure",
+      "Ataxia",
+      "Gait disturbance",
+      "Myoclonus",
+      "Tremor",
+      "Dysarthria",
+      "Hyperreflexia",
+      "EEG abnormality",
+      "Cerebellar atrophy",
+      "Increased urinary O-linked sialopeptides",
+      "Corneal opacity",
+      "Cherry red spot of the macula",
+      "Urinary excretion of sialylated oligosaccharides"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000488",
+      "HP:0000505",
+      "HP:0000518",
+      "HP:0000529",
+      "HP:0000639",
+      "HP:0000762",
+      "HP:0001250",
+      "HP:0002123",
+      "HP:0001251",
+      "HP:0001288",
+      "HP:0001336",
+      "HP:0001337",
+      "HP:0001260",
+      "HP:0001347",
+      "HP:0002353",
+      "HP:0001272",
+      "HP:0003461",
+      "HP:0007957",
+      "HP:0010729",
+      "HP:0012061"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "Biallelic NEU1 pathogenic variants"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy for myoclonic and bilateral tonic-clonic seizures",
+      "Sodium oxybate for refractory myoclonic seizures",
+      "Deep-brain stimulation for refractory myoclonic seizures",
+      "Supportive multidisciplinary care",
+      "Investigational betaine and PPCA-based therapeutic strategies",
+      "Investigational AAV9 NEU1 and CTSA gene therapy",
+      "Hematopoietic cell transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Reduced neuraminidase activity",
+      "Urinary sialylated oligosaccharides",
+      "Urinary O-linked sialopeptides"
+    ],
+    "source_file": "Sialidosis_Type_1.yaml",
+    "page_url": "../pages/disorders/Sialidosis_type_1.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Sickle Cell Disease",
     "disease_id": "MONDO:0011382",
     "category": "Mendelian",
@@ -81677,11 +81802,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 836,
-  "total_unique_evidence_sources": 13856,
+  "total_disorder_pages": 837,
+  "total_unique_evidence_sources": 13868,
   "total_unique_disease_categories": 37,
   "total_unique_phenotype_categories": 161,
-  "total_pathographs": 828,
-  "total_unique_pathological_events": 3943
+  "total_pathographs": 829,
+  "total_unique_pathological_events": 3948
 };
 window.dispatchEvent(new Event('searchDataReady'));
