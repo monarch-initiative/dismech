@@ -116,6 +116,7 @@ just gen-dashboard
 
 This creates `dashboard/index.html` with:
 - Summary metrics (files analyzed, average compliance, violations)
+- A dedicated `capability_metrics.html` report with aggregate coverage, evidence, ontology, mechanism, treatment, and compliance metrics
 - Slot compliance comparison chart
 - Detailed views of the 10 lowest-compliance files (priority curation targets)
 - Full table of all files sorted by compliance
