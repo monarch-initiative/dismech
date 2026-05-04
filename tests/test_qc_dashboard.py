@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 from dismech.qc_dashboard import (
@@ -10,6 +11,40 @@ from dismech.qc_dashboard import (
     generate_capability_metrics_report,
     generate_uncurated_dashboard_report,
 )
+
+
+def _create_mondo_schema(db_path: Path) -> None:
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        """
+        CREATE TABLE statements (
+            subject TEXT,
+            predicate TEXT,
+            object TEXT,
+            value TEXT
+        );
+        CREATE TABLE entailed_edge (
+            subject TEXT,
+            predicate TEXT,
+            object TEXT
+        );
+        CREATE TABLE deprecated_node (
+            id TEXT
+        );
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
+def _insert_rows(db_path: Path, table: str, rows: list[tuple]) -> None:
+    if not rows:
+        return
+    conn = sqlite3.connect(db_path)
+    placeholders = ",".join("?" for _ in rows[0])
+    conn.executemany(f"INSERT INTO {table} VALUES ({placeholders})", rows)
+    conn.commit()
+    conn.close()
 
 
 def _write(path: Path, content: str) -> None:
@@ -214,6 +249,10 @@ phenotypes:
       term:
         id: HP:0001324
         label: Muscle weakness
+diagnosis:
+  - name: Creatine kinase testing
+differential_diagnoses:
+  - name: Disease B
 pathophysiology:
   - name: Driver event
     conforms_to: "example_module#Driver event"
@@ -316,10 +355,101 @@ pathophysiology:
     }
     assert metrics["mechanistic_depth"]["entries_with_module_conformance_percent"] == 50.0
     assert metrics["treatment_coverage"]["entries_with_clinical_trials_percent"] == 50.0
+    section_coverage = {
+        row["section_key"]: row for row in metrics["section_coverage"]
+    }
+    assert section_coverage["diagnosis"]["entries_with_section_percent"] == 50.0
+    assert (
+        section_coverage["differential_diagnoses"]["entries_with_section_percent"]
+        == 50.0
+    )
     assert metrics["curation_velocity"]["created_by_month"] == {
         "2026-01": 1,
         "2026-02": 1,
     }
+
+
+def test_collect_capability_metrics_summarizes_mondo_coverage(tmp_path: Path) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    db_path = tmp_path / "mondo.db"
+    _create_mondo_schema(db_path)
+    _insert_rows(
+        db_path,
+        "statements",
+        [
+            ("MONDO:0700096", "rdfs:label", None, "human disease"),
+            ("MONDO:1000000", "rdfs:label", None, "digestive system disorder"),
+            ("MONDO:1000000", "rdfs:subClassOf", "MONDO:0700096", None),
+            ("MONDO:1000001", "rdfs:label", None, "disorder of orbital region"),
+            ("MONDO:1000001", "rdfs:subClassOf", "MONDO:0700096", None),
+            ("MONDO:2000000", "rdfs:label", None, "Parent digestive disease"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:1000000", None),
+            ("MONDO:2000001", "rdfs:label", None, "Child digestive disease"),
+            ("MONDO:2000001", "rdfs:subClassOf", "MONDO:2000000", None),
+            ("MONDO:2000002", "rdfs:label", None, "Orbital disease"),
+            ("MONDO:2000002", "rdfs:subClassOf", "MONDO:1000001", None),
+        ],
+    )
+    _insert_rows(
+        db_path,
+        "entailed_edge",
+        [
+            ("MONDO:1000000", "rdfs:subClassOf", "MONDO:0700096"),
+            ("MONDO:1000001", "rdfs:subClassOf", "MONDO:0700096"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:1000000"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:0700096"),
+            ("MONDO:2000001", "rdfs:subClassOf", "MONDO:2000000"),
+            ("MONDO:2000001", "rdfs:subClassOf", "MONDO:1000000"),
+            ("MONDO:2000001", "rdfs:subClassOf", "MONDO:0700096"),
+            ("MONDO:2000002", "rdfs:subClassOf", "MONDO:1000001"),
+            ("MONDO:2000002", "rdfs:subClassOf", "MONDO:0700096"),
+        ],
+    )
+    _write(
+        kb_dir / "Parent_Digestive_Disease.yaml",
+        """
+name: Parent Digestive Disease
+disease_term:
+  term:
+    id: MONDO:2000000
+    label: Parent digestive disease
+diagnosis:
+  - name: Diagnostic workup
+""",
+    )
+    _write(
+        kb_dir / "Orbital_Disease.yaml",
+        """
+name: Orbital Disease
+disease_term:
+  term:
+    id: MONDO:2000002
+    label: Orbital disease
+""",
+    )
+
+    metrics = collect_capability_metrics(kb_dir=kb_dir, mondo_db_path=db_path)
+
+    mondo = metrics["mondo_coverage"]
+    assert mondo["available"] is True
+    assert mondo["total_terms"] == 5
+    assert mondo["exact_page_terms"] == 2
+    assert mondo["represented_by_parent_page_terms"] == 1
+    assert mondo["represented_by_child_page_only_terms"] == 2
+    assert mondo["exact_or_parent_page_terms"] == 3
+    assert mondo["exact_or_parent_page_percent"] == 60.0
+    assert mondo["any_page_relation_percent"] == 100.0
+    assert metrics["summary"]["mondo_exact_or_parent_page_terms"] == 3
+
+    rows_by_label = {
+        row["label"]: row for row in mondo["body_system_category_rows"]
+    }
+    assert rows_by_label["digestive system disorder"]["total_terms"] == 3
+    assert (
+        rows_by_label["digestive system disorder"]["represented_by_parent_page_terms"]
+        == 1
+    )
+    assert rows_by_label["disorder of orbital region"]["exact_page_terms"] == 1
 
 
 def test_generate_capability_metrics_report_injects_index_link(tmp_path: Path) -> None:
@@ -371,6 +501,7 @@ disease_term:
     )
     assert "Curation Velocity" in report_content
     assert "Average GO terms per entry, all sections" in report_content
+    assert "Disorder Page Section Coverage" in report_content
 
     index_content = dashboard_index.read_text(encoding="utf-8")
     assert "capability_metrics.html" in index_content
@@ -379,3 +510,82 @@ disease_term:
 
     assert result_2["summary"]["total_entries"] == 1
     assert dashboard_index.read_text(encoding="utf-8").count(CAPABILITY_BLOCK_START) == 1
+
+    generate_uncurated_dashboard_report(
+        kb_dir=kb_dir,
+        dashboard_dir=dashboard_dir,
+        dashboard_index_path=dashboard_index,
+    )
+    index_content = dashboard_index.read_text(encoding="utf-8")
+    assert "capability_metrics.html" in index_content
+    assert "not_yet_curated.html" in index_content
+    assert index_content.count(CAPABILITY_BLOCK_START) == 1
+    assert index_content.count(UNCURATED_BLOCK_START) == 1
+
+
+def test_generate_capability_metrics_report_renders_mondo_panel(
+    tmp_path: Path,
+) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    dashboard_dir = tmp_path / "dashboard"
+    dashboard_index = dashboard_dir / "index.html"
+    db_path = tmp_path / "mondo.db"
+    _create_mondo_schema(db_path)
+    _insert_rows(
+        db_path,
+        "statements",
+        [
+            ("MONDO:0700096", "rdfs:label", None, "human disease"),
+            ("MONDO:1000000", "rdfs:label", None, "digestive system disorder"),
+            ("MONDO:1000000", "rdfs:subClassOf", "MONDO:0700096", None),
+            ("MONDO:2000000", "rdfs:label", None, "Digestive disease"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:1000000", None),
+        ],
+    )
+    _insert_rows(
+        db_path,
+        "entailed_edge",
+        [
+            ("MONDO:1000000", "rdfs:subClassOf", "MONDO:0700096"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:1000000"),
+            ("MONDO:2000000", "rdfs:subClassOf", "MONDO:0700096"),
+        ],
+    )
+    _write(
+        kb_dir / "Digestive_Disease.yaml",
+        """
+name: Digestive Disease
+disease_term:
+  term:
+    id: MONDO:2000000
+    label: Digestive disease
+""",
+    )
+    _write(
+        dashboard_index,
+        """
+<!DOCTYPE html>
+<html>
+<body>
+  <section class="chart-card">
+    <h2>Existing Section</h2>
+  </section>
+  <footer>Generated by linkml-data-qc</footer>
+</body>
+</html>
+""",
+    )
+
+    result = generate_capability_metrics_report(
+        kb_dir=kb_dir,
+        dashboard_dir=dashboard_dir,
+        dashboard_index_path=dashboard_index,
+        mondo_db_path=db_path,
+    )
+
+    report_content = result["html_path"].read_text(encoding="utf-8")
+    index_content = dashboard_index.read_text(encoding="utf-8")
+    assert "MONDO Coverage" in report_content
+    assert "Human Disease Class Coverage" in report_content
+    assert "digestive system disorder" in report_content
+    assert "MONDO human-disease coverage includes" in index_content
