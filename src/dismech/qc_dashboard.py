@@ -13,12 +13,45 @@ from typing import Any, Iterable, Iterator
 
 import yaml
 
+from dismech.compare.mondo_export import (
+    DEFAULT_MONDO_DB_PATH,
+    _connect_mondo_db,
+    _query_descendant_ids,
+    _query_direct_parent_map,
+    _query_single_value_map,
+)
 from dismech.render import curie_to_url, slugify
 
 UNCURATED_BLOCK_START = "<!-- DISMECH-UNCURATED-START -->"
 UNCURATED_BLOCK_END = "<!-- DISMECH-UNCURATED-END -->"
 CAPABILITY_BLOCK_START = "<!-- DISMECH-CAPABILITY-METRICS-START -->"
 CAPABILITY_BLOCK_END = "<!-- DISMECH-CAPABILITY-METRICS-END -->"
+MONDO_HUMAN_DISEASE_ROOT_ID = "MONDO:0700096"
+
+SECTION_COVERAGE_FIELDS = [
+    ("definitions", "Definitions"),
+    ("diagnosis", "Diagnostics"),
+    ("differential_diagnoses", "Differential Diagnoses"),
+    ("classifications", "Classifications"),
+    ("inheritance", "Inheritance"),
+    ("genetic", "Genetics"),
+    ("phenotypes", "Phenotypes"),
+    ("pathophysiology", "Pathophysiology"),
+    ("treatments", "Treatments"),
+    ("clinical_trials", "Clinical Trials"),
+    ("epidemiology", "Epidemiology"),
+    ("prevalence", "Prevalence"),
+    ("progression", "Progression"),
+    ("biochemical", "Biochemical Markers"),
+    ("histopathology", "Histopathology"),
+    ("environmental", "Environmental Factors"),
+    ("animal_models", "Animal Models"),
+    ("experimental_models", "Experimental Models"),
+    ("computational_models", "Computational Models"),
+    ("datasets", "Datasets"),
+    ("stages", "Stages"),
+    ("transmission", "Transmission"),
+]
 
 
 def _normalize_mondo_id(term_id: str | None) -> str | None:
@@ -217,6 +250,24 @@ def _average_per_entry(total: int, entries: int) -> float:
     return round(total / entries, 1)
 
 
+def _is_populated(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list | tuple | set | dict):
+        return bool(value)
+    return True
+
+
+def _section_item_count(value: Any) -> int:
+    if isinstance(value, list):
+        return sum(1 for item in value if _is_populated(item))
+    if isinstance(value, dict):
+        return sum(1 for item in value.values() if _is_populated(item))
+    return 1 if _is_populated(value) else 0
+
+
 def _load_compliance_summary(reports_path: Path | None) -> dict[str, Any] | None:
     if reports_path is None or not reports_path.exists():
         return None
@@ -264,9 +315,153 @@ def _parse_date(value: Any) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
+def _query_ancestor_map(
+    conn: Any,
+    scoped_term_ids: set[str],
+) -> dict[str, set[str]]:
+    query = """
+    SELECT subject, object
+    FROM entailed_edge
+    WHERE predicate = 'rdfs:subClassOf'
+      AND subject LIKE 'MONDO:%'
+      AND object LIKE 'MONDO:%'
+    ORDER BY subject, object
+    """
+    ancestors_by_term: dict[str, set[str]] = defaultdict(set)
+    for subject, object_id in conn.execute(query):
+        if subject in scoped_term_ids:
+            ancestors_by_term[subject].add(object_id)
+    return ancestors_by_term
+
+
+def _invert_ancestor_map(
+    ancestors_by_term: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    descendants_by_term: dict[str, set[str]] = defaultdict(set)
+    for subject, ancestors in ancestors_by_term.items():
+        for ancestor in ancestors:
+            descendants_by_term[ancestor].add(subject)
+    return descendants_by_term
+
+
+def _mondo_status_counts(
+    term_ids: Iterable[str],
+    curated_ids: set[str],
+    ancestors_by_term: dict[str, set[str]],
+    descendants_by_term: dict[str, set[str]],
+) -> dict[str, int]:
+    counts = {
+        "exact_page_terms": 0,
+        "represented_by_parent_page_terms": 0,
+        "represented_by_child_page_only_terms": 0,
+        "not_represented_terms": 0,
+    }
+    for term_id in term_ids:
+        if term_id in curated_ids:
+            counts["exact_page_terms"] += 1
+        elif ancestors_by_term.get(term_id, set()) & curated_ids:
+            counts["represented_by_parent_page_terms"] += 1
+        elif descendants_by_term.get(term_id, set()) & curated_ids:
+            counts["represented_by_child_page_only_terms"] += 1
+        else:
+            counts["not_represented_terms"] += 1
+    return counts
+
+
+def collect_mondo_coverage_metrics(
+    disorders: list[tuple[Path, dict[str, Any]]],
+    mondo_db_path: Path,
+    root_id: str = MONDO_HUMAN_DISEASE_ROOT_ID,
+) -> dict[str, Any]:
+    """Summarize DISMECH page coverage across MONDO human disease descendants."""
+    curated_ids = {
+        mondo_id
+        for _path, disorder in disorders
+        if (mondo_id := _extract_root_disease_mondo_id(disorder))
+    }
+
+    with _connect_mondo_db(mondo_db_path) as conn:
+        labels = _query_single_value_map(conn, "rdfs:label")
+        direct_parent_ids = _query_direct_parent_map(conn)
+        scoped_terms = set(_query_descendant_ids(conn, root_id))
+        ancestors_by_term = _query_ancestor_map(conn, scoped_terms)
+
+    descendants_by_term = _invert_ancestor_map(ancestors_by_term)
+    curated_ids_in_scope = curated_ids & scoped_terms
+    total_terms = len(scoped_terms)
+    status_counts = _mondo_status_counts(
+        scoped_terms, curated_ids_in_scope, ancestors_by_term, descendants_by_term
+    )
+    exact_or_parent = (
+        status_counts["exact_page_terms"]
+        + status_counts["represented_by_parent_page_terms"]
+    )
+    any_relation = (
+        exact_or_parent + status_counts["represented_by_child_page_only_terms"]
+    )
+
+    category_ids = sorted(
+        term_id
+        for term_id, parents in direct_parent_ids.items()
+        if root_id in parents and term_id in scoped_terms
+    )
+    category_rows: list[dict[str, Any]] = []
+    for category_id in category_ids:
+        category_terms = {
+            term_id
+            for term_id in scoped_terms
+            if term_id == category_id or category_id in ancestors_by_term.get(term_id, set())
+        }
+        category_counts = _mondo_status_counts(
+            category_terms,
+            curated_ids_in_scope,
+            ancestors_by_term,
+            descendants_by_term,
+        )
+        category_exact_or_parent = (
+            category_counts["exact_page_terms"]
+            + category_counts["represented_by_parent_page_terms"]
+        )
+        category_rows.append(
+            {
+                "mondo_id": category_id,
+                "label": labels.get(category_id, category_id),
+                "total_terms": len(category_terms),
+                **category_counts,
+                "exact_or_parent_page_terms": category_exact_or_parent,
+                "exact_or_parent_page_percent": _percentage(
+                    category_exact_or_parent, len(category_terms)
+                ),
+            }
+        )
+
+    category_rows.sort(
+        key=lambda row: (
+            -row["exact_or_parent_page_percent"],
+            -row["exact_or_parent_page_terms"],
+            row["label"].casefold(),
+        )
+    )
+
+    return {
+        "available": True,
+        "root_id": root_id,
+        "root_label": labels.get(root_id, root_id),
+        "total_terms": total_terms,
+        "curated_root_terms_in_scope": len(curated_ids_in_scope),
+        **status_counts,
+        "exact_or_parent_page_terms": exact_or_parent,
+        "exact_or_parent_page_percent": _percentage(exact_or_parent, total_terms),
+        "any_page_relation_terms": any_relation,
+        "any_page_relation_percent": _percentage(any_relation, total_terms),
+        "body_system_category_rows": category_rows,
+    }
+
+
 def collect_capability_metrics(
     kb_dir: Path,
     reports_path: Path | None = None,
+    mondo_db_path: Path | None = None,
 ) -> dict[str, Any]:
     """Aggregate public capability metrics from curated disorder YAML files."""
     disorders = _load_disorders(kb_dir)
@@ -277,6 +472,8 @@ def collect_capability_metrics(
     month_created_counts: Counter[str] = Counter()
     month_updated_counts: Counter[str] = Counter()
     evidence_references: set[str] = set()
+    section_total_items: Counter[str] = Counter()
+    section_entry_counts: Counter[str] = Counter()
 
     entries_with_mondo = 0
     entries_with_phenotype_terms = 0
@@ -294,6 +491,12 @@ def collect_capability_metrics(
     total_module_conformance_nodes = 0
 
     for _path, disorder in disorders:
+        for section_key, _section_label in SECTION_COVERAGE_FIELDS:
+            section_count = _section_item_count(disorder.get(section_key))
+            section_total_items[section_key] += section_count
+            if section_count > 0:
+                section_entry_counts[section_key] += 1
+
         category = disorder.get("category")
         if isinstance(category, str) and category.strip():
             category_counts[category.strip()] += 1
@@ -373,6 +576,28 @@ def collect_capability_metrics(
             month_updated_counts[updated_month] += 1
 
     compliance_summary = _load_compliance_summary(reports_path)
+    section_rows = [
+        {
+            "section_key": section_key,
+            "section_label": section_label,
+            "total_items": section_total_items[section_key],
+            "entries_with_section": section_entry_counts[section_key],
+            "entries_with_section_percent": _percentage(
+                section_entry_counts[section_key], total_entries
+            ),
+            "average_items_per_entry": _average_per_entry(
+                section_total_items[section_key], total_entries
+            ),
+        }
+        for section_key, section_label in SECTION_COVERAGE_FIELDS
+    ]
+    section_rows.sort(
+        key=lambda row: (
+            -row["entries_with_section_percent"],
+            -row["total_items"],
+            row["section_label"],
+        )
+    )
 
     summary = {
         "total_entries": total_entries,
@@ -394,7 +619,7 @@ def collect_capability_metrics(
             }
         )
 
-    return {
+    result = {
         "summary": summary,
         "coverage": {
             "total_entries": total_entries,
@@ -454,6 +679,33 @@ def collect_capability_metrics(
             "updated_by_month": dict(sorted(month_updated_counts.items())),
         },
     }
+    result["section_coverage"] = section_rows
+    if mondo_db_path is not None:
+        try:
+            mondo_coverage = collect_mondo_coverage_metrics(
+                disorders=disorders,
+                mondo_db_path=mondo_db_path,
+            )
+            result["mondo_coverage"] = mondo_coverage
+            summary.update(
+                {
+                    "mondo_total_terms": mondo_coverage["total_terms"],
+                    "mondo_exact_page_terms": mondo_coverage["exact_page_terms"],
+                    "mondo_exact_or_parent_page_terms": mondo_coverage[
+                        "exact_or_parent_page_terms"
+                    ],
+                    "mondo_exact_or_parent_page_percent": mondo_coverage[
+                        "exact_or_parent_page_percent"
+                    ],
+                }
+            )
+        except Exception as error:
+            result["mondo_coverage"] = {
+                "available": False,
+                "error": str(error),
+            }
+
+    return result
 
 
 def _count_term_prefix(term_ids: Iterable[str], prefix: str) -> int:
@@ -630,6 +882,96 @@ def _render_count_rows(counts: dict[str, int]) -> str:
     return "\n".join(rows)
 
 
+def _render_section_coverage_rows(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return '<tr><td colspan="5">No section coverage data found.</td></tr>'
+
+    rendered_rows = []
+    for row in rows:
+        rendered_rows.append(
+            "<tr>"
+            f"<td>{html.escape(row['section_label'])}</td>"
+            f"<td>{_format_metric_value(row['entries_with_section'])}</td>"
+            f"<td>{_format_metric_value(row['entries_with_section_percent'])}%</td>"
+            f"<td>{_format_metric_value(row['total_items'])}</td>"
+            f"<td>{_format_metric_value(row['average_items_per_entry'])}</td>"
+            "</tr>"
+        )
+    return "\n".join(rendered_rows)
+
+
+def _render_mondo_category_rows(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return '<tr><td colspan="7">No MONDO class coverage data found.</td></tr>'
+
+    rendered_rows = []
+    for row in rows:
+        mondo_id = row["mondo_id"]
+        rendered_rows.append(
+            "<tr>"
+            f"<td>{html.escape(row['label'])}</td>"
+            f'<td><a href="{html.escape(curie_to_url(mondo_id), quote=True)}" '
+            f'target="_blank" rel="noopener">{html.escape(mondo_id)}</a></td>'
+            f"<td>{_format_metric_value(row['total_terms'])}</td>"
+            f"<td>{_format_metric_value(row['exact_page_terms'])}</td>"
+            f"<td>{_format_metric_value(row['represented_by_parent_page_terms'])}</td>"
+            f"<td>{_format_metric_value(row['represented_by_child_page_only_terms'])}</td>"
+            f"<td>{_format_metric_value(row['exact_or_parent_page_percent'])}%</td>"
+            "</tr>"
+        )
+    return "\n".join(rendered_rows)
+
+
+def _render_mondo_coverage_panel(mondo: dict[str, Any] | None) -> str:
+    if not mondo:
+        return ""
+
+    if not mondo.get("available"):
+        return """
+            <div class="panel wide">
+                <h2>MONDO Coverage</h2>
+                <p class="warning">MONDO coverage could not be calculated: {error}</p>
+            </div>
+        """.format(error=html.escape(str(mondo.get("error", "unknown error"))))
+
+    root_id = str(mondo["root_id"])
+    category_rows = _render_mondo_category_rows(mondo["body_system_category_rows"])
+    return f"""
+            <div class="panel wide">
+                <h2>MONDO Coverage</h2>
+                <dl class="metric-list metric-list-compact">
+                    <div><dt>MONDO scope</dt><dd>{html.escape(mondo["root_label"])} ({html.escape(root_id)}) descendants</dd></div>
+                    <div><dt>Total MONDO terms in scope</dt><dd>{_format_metric_value(mondo["total_terms"])}</dd></div>
+                    <div><dt>Exact DISMECH pages</dt><dd>{_format_metric_value(mondo["exact_page_terms"])}</dd></div>
+                    <div><dt>Represented by parent disorder page</dt><dd>{_format_metric_value(mondo["represented_by_parent_page_terms"])}</dd></div>
+                    <div><dt>Represented only by child disorder page</dt><dd>{_format_metric_value(mondo["represented_by_child_page_only_terms"])}</dd></div>
+                    <div><dt>Exact or parent-page representation</dt><dd>{_format_metric_value(mondo["exact_or_parent_page_percent"])}%</dd></div>
+                    <div><dt>Any page relation</dt><dd>{_format_metric_value(mondo["any_page_relation_percent"])}%</dd></div>
+                </dl>
+                <p class="note">
+                    Parent-page representation counts a MONDO disease term when DISMECH has a page for
+                    one of its ancestor disorders. Direct MONDO human-disease classes can overlap because
+                    MONDO terms may descend from more than one class.
+                </p>
+                <h3>Human Disease Class Coverage</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>MONDO Class</th>
+                            <th>ID</th>
+                            <th>Terms</th>
+                            <th>Exact Pages</th>
+                            <th>Parent Pages</th>
+                            <th>Child Only</th>
+                            <th>Exact + Parent</th>
+                        </tr>
+                    </thead>
+                    <tbody>{category_rows}</tbody>
+                </table>
+            </div>
+    """
+
+
 def _render_velocity_rows(
     created_by_month: dict[str, int],
     updated_by_month: dict[str, int],
@@ -661,6 +1003,8 @@ def _render_capability_metrics_page(
     mechanisms = metrics["mechanistic_depth"]
     treatments = metrics["treatment_coverage"]
     completeness = metrics.get("completeness") or {}
+    sections = metrics.get("section_coverage", [])
+    mondo = metrics.get("mondo_coverage")
     velocity = metrics["curation_velocity"]
 
     card_values = [
@@ -675,6 +1019,22 @@ def _render_capability_metrics_page(
             "From linkml-data-qc reports",
         ),
     ]
+    if isinstance(mondo, dict) and mondo.get("available"):
+        card_values.extend(
+            [
+                (
+                    "MONDO Exact Pages",
+                    mondo.get("exact_page_terms"),
+                    "Human-disease descendants with exact DISMECH pages",
+                ),
+                (
+                    "MONDO Exact + Parent",
+                    mondo.get("exact_or_parent_page_terms"),
+                    "Terms represented by exact or ancestor pages",
+                ),
+            ]
+        )
+
     cards = "\n".join(
         """
             <div class="card">
@@ -689,6 +1049,8 @@ def _render_capability_metrics_page(
         )
         for title, value, detail in card_values
     )
+    mondo_panel = _render_mondo_coverage_panel(mondo if isinstance(mondo, dict) else None)
+    section_rows = _render_section_coverage_rows(sections)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -717,7 +1079,8 @@ def _render_capability_metrics_page(
         header {{ margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border); }}
         h1 {{ font-size: 2rem; margin-bottom: 0.5rem; }}
         h2 {{ font-size: 1.2rem; margin-bottom: 0.8rem; }}
-        .subtitle, .meta, .card p {{ color: var(--text-light); }}
+        h3 {{ font-size: 1rem; margin: 1rem 0 0.6rem; }}
+        .subtitle, .meta, .card p, .note {{ color: var(--text-light); }}
         .meta {{ margin-top: 0.4rem; font-size: 0.9rem; }}
         .summary-cards {{
             display: grid;
@@ -740,8 +1103,13 @@ def _render_capability_metrics_page(
         }}
         .metric-list {{ display: grid; gap: 0.45rem; margin-bottom: 1rem; }}
         .metric-list div {{ display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.35rem; }}
+        .metric-list-compact div {{ justify-content: flex-start; }}
+        .metric-list-compact dt {{ min-width: 280px; }}
         .metric-list dt {{ color: var(--text-light); }}
         .metric-list dd {{ font-weight: 700; }}
+        .wide {{ grid-column: 1 / -1; }}
+        .note {{ margin-bottom: 1rem; }}
+        .warning {{ color: #b45309; }}
         table {{ width: 100%; border-collapse: collapse; font-size: 0.92rem; }}
         th, td {{ padding: 0.65rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }}
         th {{ background: var(--bg); font-weight: 600; }}
@@ -820,6 +1188,24 @@ def _render_capability_metrics_page(
                     <tbody>{_render_velocity_rows(velocity["created_by_month"], velocity["updated_by_month"])}</tbody>
                 </table>
             </div>
+
+            <div class="panel wide">
+                <h2>Disorder Page Section Coverage</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Section</th>
+                            <th>Entries</th>
+                            <th>Entry Coverage</th>
+                            <th>Total Items</th>
+                            <th>Average Items / Entry</th>
+                        </tr>
+                    </thead>
+                    <tbody>{section_rows}</tbody>
+                </table>
+            </div>
+
+            {mondo_panel}
         </section>
     </div>
 </body>
@@ -849,6 +1235,15 @@ def _build_capability_index_block(summary: dict[str, Any]) -> str:
         if weighted is not None
         else ""
     )
+    mondo_total = summary.get("mondo_total_terms")
+    mondo_text = (
+        " MONDO human-disease coverage includes "
+        f"<strong>{_format_metric_value(summary.get('mondo_exact_page_terms'))}</strong> exact-page terms"
+        f" and <strong>{_format_metric_value(summary.get('mondo_exact_or_parent_page_terms'))}</strong>"
+        " exact-or-parent represented terms."
+        if mondo_total is not None
+        else ""
+    )
     return f"""
         {CAPABILITY_BLOCK_START}
         <section class="chart-card">
@@ -859,6 +1254,7 @@ def _build_capability_index_block(summary: dict[str, Any]) -> str:
                 <strong>{_format_metric_value(summary["total_ontology_terms"])}</strong> ontology-grounded terms,
                 and <strong>{_format_metric_value(summary["total_pathophysiology_nodes"])}</strong> pathophysiology nodes.
                 {weighted_text}
+                {mondo_text}
             </p>
             <p><a href="capability_metrics.html">View the capability metrics report</a></p>
         </section>
@@ -966,9 +1362,14 @@ def generate_capability_metrics_report(
     dashboard_dir: Path,
     reports_path: Path | None = None,
     dashboard_index_path: Path | None = None,
+    mondo_db_path: Path | None = None,
 ) -> dict[str, Any]:
     """Build aggregate DISMECH capability metrics for the QC dashboard."""
-    metrics = collect_capability_metrics(kb_dir=kb_dir, reports_path=reports_path)
+    metrics = collect_capability_metrics(
+        kb_dir=kb_dir,
+        reports_path=reports_path,
+        mondo_db_path=mondo_db_path,
+    )
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     dashboard_dir.mkdir(parents=True, exist_ok=True)
@@ -1022,6 +1423,20 @@ def main() -> int:
         type=Path,
         help="Dashboard index file to patch with a link to the report.",
     )
+    parser.add_argument(
+        "--mondo-db",
+        default=DEFAULT_MONDO_DB_PATH,
+        type=Path,
+        help=(
+            "Semantic-SQL MONDO database for coverage metrics. Defaults to the "
+            "local OAK MONDO cache."
+        ),
+    )
+    parser.add_argument(
+        "--skip-mondo-coverage",
+        action="store_true",
+        help="Generate capability metrics without calculating MONDO coverage.",
+    )
     args = parser.parse_args()
 
     reports_path = args.reports_json
@@ -1034,6 +1449,7 @@ def main() -> int:
         dashboard_dir=args.dashboard_dir,
         reports_path=reports_path,
         dashboard_index_path=args.dashboard_index,
+        mondo_db_path=None if args.skip_mondo_coverage else args.mondo_db,
     )
     uncurated_result = generate_uncurated_dashboard_report(
         kb_dir=args.kb_dir,
