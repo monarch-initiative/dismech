@@ -1,6 +1,6 @@
 ---
 disease: BEST1_Bestrophinopathies
-generated: 2026-05-05T21:57:56Z
+generated: 2026-05-05T23:03:08Z
 providers:
   - falcon
   - openscientist
@@ -30,6 +30,7 @@ shared_citation_count: 0
 ## Convergent findings
 
 - The two providers mostly cite complementary literature rather than the same PMID/DOI identifiers.
+- Existing subtype anchors for curator review: BVMD; ARB; ADVIRC; MRCS; BEST1-RP
 - Existing pathophysiology anchors for curator review: BEST1 Channel Dysfunction; RPE-Photoreceptor Interface Disruption; Subretinal Fluid Accumulation and Vitelliform Lesions; Progressive Macular and Retinal Degeneration
 - Existing phenotype anchors for curator review: Vitelliform Macular Lesion; Reduced Visual Acuity; Abnormal Electrooculogram; Macular Dystrophy; Macular Atrophy; Hypermetropia; Retinal Detachment; Microcornea
 

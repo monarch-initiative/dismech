@@ -1,6 +1,6 @@
 ---
 disease: Bejel
-generated: 2026-05-05T21:57:56Z
+generated: 2026-05-05T23:03:08Z
 providers:
   - falcon
   - openscientist
@@ -30,8 +30,8 @@ shared_citation_count: 0
 ## Convergent findings
 
 - The two providers mostly cite complementary literature rather than the same PMID/DOI identifiers.
-- Existing pathophysiology anchors for curator review: None currently listed.
-- Existing phenotype anchors for curator review: Uveitis; Optic atrophy
+- Existing pathophysiology anchors for curator review: Treponemal Mucosal Inoculation; Disseminated Mucocutaneous and Osteoperiosteal Inflammation; Macrophage-Mediated Treponemal Response; Tertiary Destructive Gummatous Disease
+- Existing phenotype anchors for curator review: Primary Mucosal Lesions; Secondary Mucocutaneous Eruption; Secondary Lymphadenopathy; Osteoperiosteal Bone Disease; Tertiary Nasopalatal Destruction; Uveitis; Optic atrophy
 
 ## Provider contrast
 

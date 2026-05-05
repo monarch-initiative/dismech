@@ -1,6 +1,6 @@
 ---
 disease: BRAF_Mutant_Thyroid_Cancer
-generated: 2026-05-05T21:57:56Z
+generated: 2026-05-05T23:03:08Z
 providers:
   - falcon
   - openscientist
@@ -30,7 +30,7 @@ shared_citation_count: 0
 ## Convergent findings
 
 - The two providers mostly cite complementary literature rather than the same PMID/DOI identifiers.
-- Existing pathophysiology anchors for curator review: BRAF V600E Constitutive Activation; MEK-ERK Pathway Hyperactivation; Thyroid Dedifferentiation
+- Existing pathophysiology anchors for curator review: BRAF V600E Constitutive Activation; MEK-ERK Pathway Hyperactivation; Thyroid Dedifferentiation; PD-L1/PD-1 Immune Evasion
 - Existing phenotype anchors for curator review: Thyroid Nodule; Cervical Lymphadenopathy; Fatigue
 
 ## Provider contrast
