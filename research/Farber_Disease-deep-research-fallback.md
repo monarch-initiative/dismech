@@ -1,3 +1,20 @@
+---
+disorder: Farber_Disease
+provider: fallback
+status: provider_timeout_fallback
+created: "2026-05-05T11:45:00Z"
+attempts:
+- provider: falcon
+  command: just research-disorder falcon Farber_Disease
+  attempted_at: "2026-05-05T11:20:00Z"
+  result: interrupted_after_extended_silent_wait_no_artifact
+- provider: openai
+  command: just research-disorder openai Farber_Disease
+  attempted_at: "2026-05-05T11:31:00Z"
+  result: interrupted_after_bounded_silent_wait_no_artifact
+evidence_scope: generated Orphanet and fetched PubMed/ClinicalTrials.gov caches
+---
+
 # Farber Disease Deep Research Fallback
 
 ## Provider Attempts
