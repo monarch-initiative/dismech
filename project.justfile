@@ -18,6 +18,7 @@ term_validator := "scripts/run_term_validator.sh"
 validate-all:
     #!/usr/bin/env bash
     just fix-references-cache
+    just check-enum-cache
     failed_files=()
     echo "Validating all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
@@ -47,6 +48,7 @@ validate-all:
             echo "  ✓ OK"
         fi
     done
+    just normalize-cache
     echo ""
     echo "================================"
     if [ ${#failed_files[@]} -eq 0 ]; then
@@ -67,10 +69,12 @@ validate file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
     echo "Term validation..."
-    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels --no-dynamic-enums -c {{oak_config}}
+    just check-enum-cache
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
 # Schema-only validation (fast, structure check)
@@ -112,7 +116,8 @@ validate-comorbidity file:
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation {{file}}
     echo "Term validation..."
-    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels --no-dynamic-enums -c {{oak_config}}
+    just check-enum-cache
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
@@ -129,6 +134,7 @@ validate-comorbidities-all:
         exit 0
     fi
     just fix-references-cache
+    just check-enum-cache
     failed_files=()
     echo "Validating all comorbidity files..."
     for f in "${files[@]}"; do
@@ -169,7 +175,7 @@ validate-comorbidities-all:
         exit 1
     fi
 
-# Validate all mechanism module YAML files (schema + references)
+# Validate all mechanism module YAML files (schema + terms + references)
 [group('QC')]
 validate-modules:
     #!/usr/bin/env bash
@@ -180,6 +186,7 @@ validate-modules:
         exit 0
     fi
     just fix-references-cache
+    just check-enum-cache
     failed_files=()
     echo "Validating all mechanism module files..."
     for f in "${files[@]}"; do
@@ -188,6 +195,11 @@ validate-modules:
         # Schema validation (modules use the Disease class)
         if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
             errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
+        fi
+        # Term validation
+        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
+        if ! echo "$term_output" | grep -q "Validation passed"; then
+            errors+="  [TERMS] $term_output\n"
         fi
         # Reference validation
         ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
@@ -220,6 +232,9 @@ validate-module file:
     set -e
     echo "Schema validation..."
     uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Term validation..."
+    just check-enum-cache
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
@@ -241,8 +256,12 @@ oak_config := "conf/oak_config.yaml"
 validate-terms-all:
     #!/usr/bin/env bash
     set -e
+    just check-enum-cache
     echo "Validating terms in all disorder files..."
     for f in {{kb_dir}}/*.yaml; do
+        if [[ "$f" == *.history.yaml ]]; then
+            continue
+        fi
         echo "Validating: $(basename $f)"
         {{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     done
@@ -251,6 +270,7 @@ validate-terms-all:
 # Validate terms in a single file
 [group('QC')]
 validate-terms file:
+    just check-enum-cache
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
 # Run legacy custom term validation (faster, but less thorough)
@@ -263,7 +283,12 @@ validate-terms-legacy:
 validate-graphs:
     uv run python -m dismech.graph --validate {{kb_dir}}
 
-# Run all QC checks (cache contract + validation + modules + deep-research report checks)
+# Validate dynamic enum membership caches against current schema definitions.
+[group('QC')]
+check-enum-cache:
+    uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}}
+
+# Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
 qc: check-reference-cache-frontmatter validate-all validate-modules qc-deep-research
     @echo "All QC checks passed!"
@@ -868,6 +893,17 @@ fetch-reference +identifiers:
         uv run linkml-reference-validator cache reference "$identifier"
     done
 
+# Tag top-level PublicationReference entries with authoritative-source labels
+# (e.g. GeneReviews).  Detects GeneReviews PMIDs from local references_cache
+# and writes `tags: [GeneReviews]` onto the matching reference entry.
+# Run after adding new GeneReviews citations or to refresh all tags.
+#   just tag-references                   # tag all disorder files
+#   just tag-references --dry-run         # preview without writing
+#   just tag-references kb/disorders/Noonan_Syndrome.yaml
+[group('Curation')]
+tag-references *args="":
+    uv run python scripts/tag_references.py {{args}}
+
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
 #   just cohd-signal --concept-a 436672 --concept-b 80502
@@ -883,6 +919,29 @@ cohd-signal *args="":
 [group('Research')]
 cohd-add-signal file *args="":
     uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
+
+# ============== Structured-database reference sources ==============
+#
+# Structured sources (e.g. Orphanet) ingest a knowledge base and emit
+# deterministic, line-oriented markdown into references_cache/ so curators
+# can cite individual rows as evidence snippets. See
+# src/dismech/structured_sources/ for the framework and CLAUDE.md for usage.
+
+# Refresh bulk Orphadata XML files (pinned by data/orphadata/MANIFEST.yaml)
+[group('Research')]
+refresh-orphadata:
+    uv run python -m dismech.structured_sources.cli refresh orphanet
+
+# Rebuild every references_cache/ORPHA_*.md from current bulk XML
+# Use --id to limit to specific ORPHA codes.
+[group('Research')]
+structured-rebuild-orphanet *args="":
+    uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# List the first N identifiers from a structured source
+[group('Research')]
+structured-list source="orphanet" limit="20":
+    uv run python -m dismech.structured_sources.cli list {{source}} --limit {{limit}}
 
 # ============== Classification Schemas ==============
 
@@ -1175,13 +1234,16 @@ normalize-cache:
     echo "Normalizing term caches..."
     uv run linkml-term-validator migrate-cache --cache-dir cache --sort-only
     echo "Normalizing enum caches..."
+    mkdir -p tmp
+    tmp_dir=$(mktemp -d tmp/dismech_enum_cache.XXXXXX)
+    trap 'rm -rf "$tmp_dir"' EXIT
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
-        tail -n+2 "$f" | sort -u > /tmp/_sorted_enum.csv
+        tmp="$tmp_dir/$(basename "$f")"
+        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | sort -u > "$tmp"
         echo "$header" > "$f"
-        cat /tmp/_sorted_enum.csv >> "$f"
+        cat "$tmp" >> "$f"
     done
-    rm -f /tmp/_sorted_enum.csv
     echo "✓ All caches normalized"
 # Compare dismech phenotypes against OMIM/Orphanet for a single disease
 [group('Analysis')]

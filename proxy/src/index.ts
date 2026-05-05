@@ -345,16 +345,26 @@ async function handleSubmitJob(
     "   to the user's question.",
   ].join("\n");
 
-  // Build title
-  const titleQuestion =
-    trimmedQuestion.length > 200
-      ? trimmedQuestion.slice(0, 197) + "..."
-      : trimmedQuestion;
-  const title = `${disease_name}: ${titleQuestion}`;
+  // Build short_title (display label shown in OpenScientist UI surfaces — jobs list,
+  // ntfy, download filenames). Max 100 chars per the OpenScientist API contract;
+  // give the disease name precedence and truncate the question excerpt as needed.
+  const SHORT_TITLE_MAX = 100;
+  const ELLIPSIS = "...";
+  const prefix = `${disease_name}: `;
+  const remaining = SHORT_TITLE_MAX - prefix.length;
+  let questionPart = trimmedQuestion;
+  if (remaining < ELLIPSIS.length) {
+    // Disease name alone exceeds (or nearly exceeds) the budget; just use the
+    // disease name, truncated.
+    questionPart = "";
+  } else if (questionPart.length > remaining) {
+    questionPart = questionPart.slice(0, remaining - ELLIPSIS.length) + ELLIPSIS;
+  }
+  const shortTitle = (prefix + questionPart).slice(0, SHORT_TITLE_MAX);
 
   // Build multipart form
   const formData = new FormData();
-  formData.append("title", title.slice(0, 255));
+  formData.append("short_title", shortTitle);
   formData.append("research_question", researchQuestion);
   formData.append("max_iterations", "5");
   formData.append("use_hypotheses", "false");

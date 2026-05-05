@@ -61,6 +61,13 @@ class ReferenceCacheFrontmatter(BaseModel):
     keywords: list[Any] | str | None = None
     extra_fields_captured: list[Any] | str | None = None
     supplementary_files: list[SupplementaryFileFrontmatter] | None = None
+    # Local extension (dismech): identifies the source database for cache
+    # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
+    # …) rather than from a literature reference. The upstream
+    # ``linkml-reference-validator`` loader silently ignores this field at
+    # read time; an upstream FR is tracked to mirror it on
+    # ``ReferenceContent``.
+    database: str | None = None
 
 
 @dataclass(frozen=True)

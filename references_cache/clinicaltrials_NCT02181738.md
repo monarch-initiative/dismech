@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02181738
+reference_id: "clinicaltrials:NCT02181738"
 title: "Non-Comparative, Multi-Cohort, Single Arm, Open-Label, Phase 2 Study of Nivolumab (BMS-936558) in Classical Hodgkin Lymphoma (cHL) Subjects"
 content_type: summary
 ---
