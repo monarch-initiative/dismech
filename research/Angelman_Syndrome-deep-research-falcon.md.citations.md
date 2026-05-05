@@ -479,7 +479,7 @@ This report will be used to populate a disease knowledge base entry with:
 28. https://doi.org/10.3389/fcell.2024.1413248,
 29. https://doi.org/10.3390/genes12070987,
 30. https://doi.org/10.1101/2022.06.18.496687,
-31. https://doi.org/10.2147/tacg.s372708,
+31. PMID:37051256
 32. https://doi.org/10.1016/j.pediatrneurol.2021.08.007,
 33. https://doi.org/10.1016/j.biopsych.2019.01.008,
 34. https://doi.org/10.1523/eneuro.0345-20.2020,
