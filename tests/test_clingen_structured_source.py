@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 
 from dismech.reference_cache_frontmatter import check_cache_file
-from dismech.structured_sources.clingen import ClinGenSource
+from dismech.structured_sources.clingen import (
+    ClinGenSource,
+    _ClinGenReportDetails,
+    _parse_report_details,
+)
 
 
 CSV_TEXT = """"CLINGEN GENE DISEASE VALIDITY CURATIONS","","","","","","","","",""
@@ -29,7 +33,7 @@ HEXB_ASSERTION = (
 @pytest.fixture()
 def clingen_source(tmp_path: Path) -> ClinGenSource:
     (tmp_path / "gene_validity.csv").write_text(CSV_TEXT, encoding="utf-8")
-    src = ClinGenSource(tmp_path)
+    src = ClinGenSource(tmp_path, include_report_text=False)
     src.index()
     return src
 
@@ -61,8 +65,50 @@ def test_serialize_clingen_assertion_has_expected_blocks(
         "2022-09-15T16:00:00.000Z |"
     ) in text
     assert "## Online report" in text
+    assert "- Report URL: https://search.clinicalgenome.org/kb/gene-validity/" in text
     assert "## Source" in text
     assert "ClinGen Gene-Disease Validity Curations CSV snapshot **2026-01-24**" in text
+
+
+def test_serialize_can_include_clingen_evidence_summary(tmp_path: Path):
+    (tmp_path / "gene_validity.csv").write_text(CSV_TEXT, encoding="utf-8")
+    src = ClinGenSource(tmp_path)
+    src._report_cache[HEXB_ASSERTION] = _ClinGenReportDetails(
+        curation_id="CCID:005054",
+        evidence_summary=(
+            "HEXB was first reported in relation to Sandhoff disease.",
+            "In summary, HEXB is definitively associated with Sandhoff disease.",
+        ),
+    )
+
+    text = src.serialize(HEXB_ASSERTION).render()
+    assert "## Evidence summary" in text
+    assert "HEXB was first reported in relation to Sandhoff disease." in text
+    assert "In summary, HEXB is definitively associated with Sandhoff disease." in text
+    assert "- Curation ID: CCID:005054" in text
+
+
+def test_parse_report_details_extracts_evidence_summary():
+    html = """
+    <html><body>
+      <span>CCID:005054</span>
+      <table>
+        <tr>
+          <td>Evidence Summary:</td>
+          <td>
+            <p>First evidence summary paragraph.</p>
+            <p>Second evidence summary paragraph.</p>
+          </td>
+        </tr>
+      </table>
+    </body></html>
+    """
+    details = _parse_report_details(html)
+    assert details.curation_id == "CCID:005054"
+    assert details.evidence_summary == (
+        "First evidence summary paragraph.",
+        "Second evidence summary paragraph.",
+    )
 
 
 def test_serialize_is_byte_deterministic(clingen_source: ClinGenSource):

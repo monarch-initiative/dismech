@@ -59,6 +59,11 @@ def rebuild_cmd(
     id_: list[str] = typer.Option(
         None, "--id", help="Restrict to specific identifier(s); default: all"
     ),
+    include_report_text: bool = typer.Option(
+        True,
+        "--include-report-text/--csv-only",
+        help="For ClinGen, include narrative text scraped from assertion reports",
+    ),
     cache_dir: Path = typer.Option(
         _DEFAULT_CACHE_DIR, "--cache-dir", help="Output directory"
     ),
@@ -68,7 +73,10 @@ def rebuild_cmd(
 ) -> None:
     """Regenerate cache files for a source from current bulk data."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     src = _get_source(source)
+    if isinstance(src, ClinGenSource):
+        src.include_report_text = include_report_text
     cache_dir.mkdir(parents=True, exist_ok=True)
     if id_:
         targets = list(id_)

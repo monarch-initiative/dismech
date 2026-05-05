@@ -668,7 +668,7 @@ with `just fetch-reference <ID>` instead of patching the frontmatter manually.
 ## Structured-Database Reference Sources
 
 In addition to fetched literature references (PMID, DOI, NCT), dismech ingests
-structured knowledge bases — currently **Orphanet** — into
+structured knowledge bases — currently **Orphanet** and **ClinGen** — into
 `references_cache/` as deterministic line-oriented markdown files. Each file
 holds one entity (one ORPHA disorder) and curators can quote individual rows
 as evidence `snippet:` values.
@@ -720,9 +720,17 @@ evidence:
     explanation: ClinGen classifies the HEXB-Sandhoff disease relationship as definitive.
 ```
 
-ClinGen cache bodies contain a `## Gene-disease validity` markdown table:
+ClinGen cache bodies contain a `## Evidence summary` section when the
+assertion report page has ClinGen narrative text, plus a `## Gene-disease
+validity` markdown table:
 
 ```
+## Evidence summary
+
+In summary, HEXB is definitively associated with Sandhoff disease.
+
+## Gene-disease validity
+
 | Gene | HGNC | Disease | MONDO | MOI | Classification | SOP | GCEP | Classification date |
 | HEXB | HGNC:4879 | Sandhoff disease | MONDO:0010006 | AR | Definitive | SOP9 | Lysosomal Diseases Gene Curation Expert Panel | 2022-09-15T16:00:00.000Z |
 ```
@@ -743,6 +751,9 @@ just structured-rebuild-orphanet --id 558
 just refresh-clingen
 just structured-rebuild-clingen
 just structured-rebuild-clingen --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
+
+# Use --csv-only to skip fetching report-page narrative during a fast rebuild
+just structured-rebuild-clingen --csv-only --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
