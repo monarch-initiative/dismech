@@ -11,7 +11,9 @@ on:  # yamllint disable-line rule:truthy
 env:
   FORCE_COLOR: "1" # Make tools pretty.
 
-permissions: {}
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   test:
@@ -54,6 +56,41 @@ jobs:
               - 'justfile'
               - 'project.justfile'
 
+      - name: Check curation PR scope
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA"
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          if echo "$CHANGED" | grep -q '^kb/'; then
+            INFRA=$(echo "$CHANGED" \
+              | grep -vE '^(kb/|cache/|references_cache/|research/|pages/|dashboard/)' \
+              || true)
+
+            if [ -n "$INFRA" ]; then
+              LABELS=$(gh pr view "${{ github.event.pull_request.number }}" \
+                --repo "${{ github.repository }}" \
+                --json labels \
+                --jq '.labels[].name')
+
+              if echo "$LABELS" | grep -Fxq 'scope-override'; then
+                echo "scope-override label found; allowing curation scope exception."
+              else
+                echo "::error::Curation PR modifies files outside curation scope:"
+                echo "$INFRA"
+                echo "If intentional, add the 'scope-override' label to this PR."
+                exit 1
+              fi
+            fi
+          fi
+
       # https://github.com/astral-sh/setup-uv
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -76,29 +113,7 @@ jobs:
         run: uv sync --dev --group export
 
       - name: Validate schema term references
-        run: |
-          uv run python - <<'PY'
-          from pathlib import Path
-          from linkml_term_validator.models import ValidationConfig
-          from linkml_term_validator.validator import EnumValidator
-
-          schema = Path("src/dismech/schema/dismech.yaml")
-          validator = EnumValidator(
-              ValidationConfig(oak_config_path=Path("conf/oak_config.yaml"))
-          )
-          result = validator.validate_schema(schema)
-          unresolved = [issue for issue in result.issues if issue.actual_label is None]
-
-          print(f"Checked {result.total_meanings_checked} schema meaning fields")
-
-          if unresolved:
-              print("Unresolved ontology terms found:")
-              for issue in unresolved:
-                  print(f"- {issue.enum_name}.{issue.value_name}: {issue.meaning}")
-              raise SystemExit(1)
-
-          print("All schema meaning fields resolved to ontology terms")
-          PY
+        run: just validate-terms-schema
 
       - name: Lint with ruff
         run: uvx ruff check .

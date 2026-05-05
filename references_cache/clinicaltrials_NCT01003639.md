@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01003639
+reference_id: "clinicaltrials:NCT01003639"
 title: "A Multicenter, Double-blind, Randomized, Placebo-controlled Study of Weight-Reduction and/or Low Sodium Diet Plus Acetazolamide vs Diet Plus Placebo in Subjects With Idiopathic Intracranial Hypertension With Mild Visual Loss"
 content_type: summary
 ---

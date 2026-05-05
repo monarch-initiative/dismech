@@ -2,14 +2,14 @@
 provider: asta
 model: Asta Scientific Corpus Retrieval
 cached: false
-start_time: '2026-04-11T21:00:14.704519'
-end_time: '2026-04-11T21:00:18.355347'
-duration_seconds: 3.65
+start_time: '2026-04-21T08:23:33.827479'
+end_time: '2026-04-21T08:23:40.898797'
+duration_seconds: 7.07
 template_file: templates/disease_pathophysiology_research_asta.md
 template_variables:
   disease_name: Classic Hodgkin Lymphoma
   mondo_id: ''
-  category: Complex
+  category: Cancer
 provider_config:
   timeout: null
   max_retries: 3
@@ -50,7 +50,7 @@ This report is retrieval-only and is generated directly from Asta results.
 - DOI: 10.3390/ijms26104701
 - PMID: 40429842
 - PMCID: 12112708
-- Citations: 5
+- Citations: 6
 - Summary: Recent advances in combating P-gp-mediated resistance are examined, including the development of novel P-gp inhibitors, innovative drug delivery systems, and strategies to modulate P-gp expression or activity, including targeting relevant signaling pathways and exploring drug repurposing.
 - Evidence snippets:
   - Snippet 1 (score: 0.478)

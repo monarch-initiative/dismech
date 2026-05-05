@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02160782
+reference_id: "clinicaltrials:NCT02160782"
 title: "Long-Term, Open-Label Study With a Double-Blind, Placebo-Controlled, Randomized Drug Withdrawal Period of LUM001 (Maralixibat), an Apical Sodium-Dependent Bile Acid Transporter Inhibitor (ASBTi), in Patients With Alagille Syndrome"
 content_type: summary
 ---

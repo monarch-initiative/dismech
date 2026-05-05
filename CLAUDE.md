@@ -88,6 +88,14 @@ HGNC gene CURIEs use **lowercase** `hgnc:` prefix in this repo (e.g., `hgnc:746`
 ### Scripts (`scripts/`)
 - `add_maxo_terms.py`: Batch-add MAXO treatment terms to disorder files
 
+### Structured-Database Sources (`src/dismech/structured_sources/`)
+- Framework for ingesting structured knowledge bases (Orphanet today; OMIM /
+  MONDO / HGNC pluggable) into `references_cache/` as line-oriented markdown
+- Flagship: `OrphanetSource` — pre-caches all 8,823 leaf disorders from
+  Orphadata XML so curators can cite `ORPHA:<code>` and quote individual rows
+  (definition, prevalence, HPO phenotypes, gene-disease, xrefs)
+- See "Structured-Database Reference Sources" below
+
 ### Validation Stack
 - **linkml-validate**: Schema conformance checking
 - **linkml-term-validator**: Validates ontology term references against authoritative sources (critical for catching AI hallucinations)
@@ -191,6 +199,39 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 ```
 
 This prevents AI hallucination of fake or mismatched ontology terms.
+
+### Descriptor Qualifier Slots
+
+Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
+the descriptor object rather than the deprecated generic `qualifiers` list:
+
+- `temporality`: `ACUTE`, `TRANSIENT`, `SUBACUTE`, `CHRONIC`, `RECURRENT`,
+  `DIURNAL`, `NOCTURNAL`, `PROLONGED`
+- `clinical_course`: `PROGRESSIVE`, `STABLE`
+- `severity`: prefer enum-backed values (`MILD`, `MODERATE`, `SEVERE`) when the qualifier
+  is part of the ontology post-composition; free text is still tolerated for legacy
+  phenotype/context summaries
+- `onset`: structured `OnsetDescriptor` with `onset_category` and optional age fields
+
+Pattern:
+```yaml
+phenotype_term:
+  preferred_term: Diarrhea
+  term:
+    id: HP:0002014
+    label: Diarrhea
+  temporality: CHRONIC
+
+phenotype_term:
+  preferred_term: Muscle weakness
+  term:
+    id: HP:0001324
+    label: Muscle weakness
+  clinical_course: PROGRESSIVE
+```
+
+Use these first-class slots for common post-composition. Reserve `qualifiers` for
+more complex predicate-value patterns that are not covered by dedicated slots.
 
 ### `preferred_term` vs Ontology Term Labels
 
@@ -609,7 +650,109 @@ just validate kb/disorders/MyDisease.yaml
 3. Run `just validate-references kb/disorders/YourFile.yaml`
 4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
 
-## Git Best Practices
+**Deterministic cache contract check (dismech#871):**
+`just check-reference-cache-frontmatter` validates that every
+`references_cache/*.md` file has parseable YAML frontmatter matching the local
+`linkml-reference-validator` cache contract and filename/reference_id mapping.
+It runs as part of `just qc` before the heavier validators. This is still only
+a structural check — `validate-references` remains the last defence against a
+snippet matching the wrong cached paper.
+
+**Agent guardrail:** Claude Code and Codex must never create or hand-edit
+`references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
+with `just fetch-reference <ID>` instead of patching the frontmatter manually.
+
+## Structured-Database Reference Sources
+
+In addition to fetched literature references (PMID, DOI, NCT), dismech ingests
+structured knowledge bases — currently **Orphanet** — into
+`references_cache/` as deterministic line-oriented markdown files. Each file
+holds one entity (one ORPHA disorder) and curators can quote individual rows
+as evidence `snippet:` values.
+
+**Available structured prefixes:**
+
+| Prefix | Source | Coverage | License |
+|--------|--------|----------|---------|
+| `ORPHA:` | Orphadata bulk XML | 8,823 leaf disorders + subtypes | CC-BY 4.0 |
+
+**Citing an Orphanet entry:**
+
+```yaml
+evidence:
+  - reference: ORPHA:558
+    supports: SUPPORT
+    snippet: "Marfan syndrome is a systemic disease of connective tissue"
+    explanation: Orphadata definition supports this characterization.
+```
+
+Snippets must be exact substrings of the cache file's body. The body uses
+markdown section headings (`## Definition`, `## Inheritance`, `## Phenotypes`,
+`## Genes`, `## Epidemiology`, `## Cross-references`, `## Source`) with
+markdown tables for tabular data. Each table row is a stable quotable
+substring across refreshes:
+
+```
+| HP:0002616 | Aortic root aneurysm | Very frequent (99-80%) |
+| FBN1 | fibrillin-1 | hgnc:3603 | Disease-causing germline mutation(s) in |
+| MONDO:0007947 | Exact |
+```
+
+A curator-quoted snippet may include or omit the leading and trailing
+pipes — both substring-match against the cached body. Prefer the
+unbracketed form for cleaner YAML:
+
+```yaml
+snippet: "HP:0002616 | Aortic root aneurysm | Very frequent (99-80%)"
+```
+
+**How the cache is built:**
+
+```bash
+# 1. Refresh the bulk XML pinned in data/orphadata/MANIFEST.yaml
+just refresh-orphadata
+
+# 2. Rebuild every references_cache/ORPHA_*.md
+just structured-rebuild-orphanet
+
+# Or rebuild a single ID
+just structured-rebuild-orphanet --id 558
+```
+
+`data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
+committed and pins the snapshot date + sha256 of each bulk file. To verify
+no drift has occurred, run `just structured-rebuild-orphanet` locally and
+check `git diff references_cache/ORPHA_*.md`. (A CI workflow that does this
+automatically is a worthwhile follow-up but does not yet exist.)
+
+**Adding a new structured source:**
+
+The framework is in `src/dismech/structured_sources/`. To add a new source
+(OMIM, MONDO, HGNC, …):
+
+1. Subclass `StructuredSource` (`base.py`) and implement `build_index`,
+   `identifiers`, `serialize`.
+2. Pin bulk-data files in `data/<source>/MANIFEST.yaml`.
+3. Register a CLI entry in `src/dismech/structured_sources/cli.py`.
+4. Use the same UniProt-flat-file-style line layout — fixed column widths,
+   sorted within each tag block — so curator-quoted snippets remain valid
+   across refreshes.
+
+**Agent guardrail:** Like literature cache files, `references_cache/ORPHA_*.md`
+must NEVER be hand-edited. Regenerate via `just structured-rebuild-orphanet`.
+
+## Git/GitHub Best Practices
+
+### Open PRs from origin, not forks
+
+Do not open PRs from forks. GitHub does not expose repository secrets to
+fork-triggered workflows, so fork PRs will not receive automated AI review. Push
+branches directly to `origin`; new contributors should first open an issue
+requesting repository access.
+
+### Use worktrees
+
+Allows for parallel work. Canonical location is ~/worktrees/
 
 ### What to commit
 
@@ -635,6 +778,20 @@ If a PR was authored by another contributor, **do not** force-push, rebase, or r
 2. Or create a separate fix commit on top of their work (no force-push)
 3. Only force-push branches that you (or your orchestrator) created
 
+### Refresh your own branch safely
+Refreshing a PR branch with `main` is a content-changing operation, not bookkeeping.
+For branches you own:
+1. Prefer `git fetch origin && git rebase origin/main`
+2. If the branch is stale or conflict-heavy, create a fresh branch from `origin/main` and cherry-pick only the intended commits
+3. Avoid routine `git merge origin/main` into PR branches
+4. After any refresh, review:
+```bash
+git diff --name-status origin/main...HEAD
+git diff --stat origin/main...HEAD
+```
+5. If you see unrelated deletions, stale reversions, or protected-path churn, stop and fix that before commit/push
+6. If merge/rebase/cherry-pick reports conflicts or index errors, do not commit or push until the operation is clean and the post-refresh diff has been reviewed
+
 ### Always use targeted git add
 Never use `git add -A` or `git add .` in worktrees. Only stage files relevant to the task:
 ```bash
@@ -650,3 +807,16 @@ After pushing fixes, comment on the PR summarizing:
 - What you changed and why
 - What you intentionally did NOT change, with reasoning
 - Validation results
+
+### Reviews
+
+Your PR will always be removed by an automated Claude reviewer. This usually happens within a few minutes.
+The reviewer will mark your PR as being ready to merge or requiring changes. Be sure to address all changes.
+Try and address even "optional" changes if they improve overall quality and completion.
+
+If you disagree you can say so, but provide clearly articulated arguments in the PR comments. Never get
+into back and forth. If something cannot be resolved, stop, and assign a human like @cmungall to the PR, and ask
+them to facilitate.
+
+Note that sometimes it will appear that a review has stalled, but in fact this is usually because
+the PR is in conflict. Actively try and manage this, resolve conflicts carefully.

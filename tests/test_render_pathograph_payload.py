@@ -532,15 +532,11 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "FLNB Pathogenic Variants",
-                    "Cartilage Matrix and Growth Plate Dysfunction",
+                    "Impaired Skeletogenesis",
                 )
             },
             {"FLNB Pathogenic Variants": "genetic"},
-            {
-                "Cartilage Matrix and Growth Plate Dysfunction": [
-                    "actin filament binding"
-                ]
-            },
+            {"Impaired Skeletogenesis": ["actin filament binding"]},
         ),
         (
             "Atelosteogenesis_Type_III.yaml",
