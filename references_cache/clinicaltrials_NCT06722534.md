@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06722534
+reference_id: "clinicaltrials:NCT06722534"
 title: "Celecoxib for Prevention of Progression in Peutz-Jeghers Syndrome: A Double-blind, Randomized, Placebo-controlled Trial"
 content_type: summary
 ---
