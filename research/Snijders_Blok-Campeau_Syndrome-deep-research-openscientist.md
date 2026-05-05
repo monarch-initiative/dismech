@@ -507,7 +507,7 @@ Snijders Blok-Campeau Syndrome is an autosomal dominant neurodevelopmental disor
 
 - **2012**: First CHD3 mutation identified in autism WES study (O'Roak et al.)
 - **2016**: NuRD subunit switching shown essential for cortical development; CHD3 role in layer specification established (Nitarska et al., [PMID: 27806305](https://pubmed.ncbi.nlm.nih.gov/27806305/))
-- **2018**: **Landmark paper** — Snijders Blok, Fisher, Campeau et al. systematically described the syndrome in 35 individuals with de novo CHD3 mutations ([PMID: 30397230](https://pubmed.ncbi.nlm.nih.gov/30397230/))
+- **2018**: **Landmark paper** — the first cohort report systematically described the syndrome in 35 individuals with de novo CHD3 mutations ([PMID: 30397230](https://pubmed.ncbi.nlm.nih.gov/30397230/))
 - **2019–2020**: NuRDopathy concept established; GAND (GATAD2B) and CHD4 disorders compared ([PMID: 31737996](https://pubmed.ncbi.nlm.nih.gov/31737996/); [PMID: 31949314](https://pubmed.ncbi.nlm.nih.gov/31949314/))
 - **2023**: Cohort expanded to ~80 individuals ([PMID: 37761804](https://pubmed.ncbi.nlm.nih.gov/37761804/))
 - **2024**: Biallelic CHD3 variants shown to cause more severe phenotype ([PMID: 38116750](https://pubmed.ncbi.nlm.nih.gov/38116750/))
@@ -749,7 +749,7 @@ Notably also high in pituitary (100.41 TPM), which may relate to the reported ce
 
 ### 5.1 Core Phenotype
 
-Based on synthesis of published cohorts (Snijders Blok 2018, n = 35; Pascual 2023, n = 20; Ionescu 2025, n = 38; total ~100+ diagnosed):
+Based on synthesis of published cohorts (2018 landmark cohort, n = 35; Pascual 2023, n = 20; Ionescu 2025, n = 38; total ~100+ diagnosed):
 
 **Neurological/Cognitive:**
 
@@ -942,7 +942,7 @@ The preclinical study demonstrated that "neurodevelopmental disorders that arise
 
 | Paper | PMID | Key Contribution |
 |-------|------|-----------------|
-| Snijders Blok et al. 2018 | [30397230](https://pubmed.ncbi.nlm.nih.gov/30397230/) | Landmark: 35 individuals, CHD3 as causal gene, functional assays |
+| 2018 landmark cohort | [30397230](https://pubmed.ncbi.nlm.nih.gov/30397230/) | Landmark: 35 individuals, CHD3 as causal gene, functional assays |
 | Pascual et al. 2023 | [37761804](https://pubmed.ncbi.nlm.nih.gov/37761804/) | 20 additional individuals, expanded variant spectrum |
 | Ionescu et al. 2025 | [40830229](https://pubmed.ncbi.nlm.nih.gov/40830229/) | Comprehensive neurobehavioral profiling, FXS comparison |
 | Yaman Bajin et al. 2024 | [39542866](https://pubmed.ncbi.nlm.nih.gov/39542866/) | Splicing variant and arginine enrichment |
