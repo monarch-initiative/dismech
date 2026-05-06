@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06816498
+reference_id: "clinicaltrials:NCT06816498"
 title: "An Open-label, Single-center, Single-participant Study of an Experimental Antisense Oligonucleotide Treatment for a Patient With LMNB1 Mutation Associated Autosomal Dominant Leukodystrophy (ADLD)"
 content_type: summary
 ---
