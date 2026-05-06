@@ -931,7 +931,7 @@ This report will be used to populate a disease knowledge base entry with:
 
 ## Comprehensive Disease Characteristics Report: Eastern Equine Encephalitis (EEE)
 
-**Scope & evidence note.** This report synthesizes information retrieved in this run (peer‑reviewed primary literature and recent reviews, plus ClinicalTrials.gov records). Several requested ontology identifiers (MONDO, MeSH, ICD-10/ICD-11, Orphanet) were **not present in the retrieved sources**, so they are explicitly listed as “not found in retrieved sources” rather than asserted without evidence. 
+**Scope & evidence note.** This report synthesizes information retrieved in this run (peer‑reviewed primary literature and recent reviews, plus ClinicalTrials.gov records). Several requested ontology identifiers (MONDO, MeSH, ICD-10/ICD-11, Orphanet) were **not present in the retrieved sources**, so they are explicitly listed as “not found in retrieved sources” rather than asserted without evidence.
 
 ### Key recent sources used (prioritized 2023–2024)
 - Hill et al., *Current Biology* (Jun 2023) “Dynamics of EEEV during the 2019 outbreak…” (URL: https://doi.org/10.1016/j.cub.2023.05.047) (hill2023dynamicsofeastern pages 3-4)
@@ -1264,7 +1264,7 @@ Virus-like particles (VLPs), LA-repeat–Fc constructs, and cryo-EM structures h
 
 - **Human outcomes & sequelae framing (Nat Comms 2024, Yang et al.)**: “Eastern equine encephalitis virus (EEEV) is the most virulent alphavirus that infects humans, and many survivors develop neurological sequelae, including paralysis and intellectual disability.” (yang2024structuralbasisfor pages 4-5)
 
-- **Vaccine status and need (ACS Omega 2023 computational vaccine design)**: “Despite this, no approved antiviral treatments or EEEV human vaccines currently exist.” (kordowitzki2024easternequineencephalitis pages 2-4) 
+- **Vaccine status and need (ACS Omega 2023 computational vaccine design)**: “Despite this, no approved antiviral treatments or EEEV human vaccines currently exist.” (kordowitzki2024easternequineencephalitis pages 2-4)
 
 - **Macaque vaccine efficacy (npj Vaccines 2024)**: “Robust protection was observed, with 7/8 animals receiving MVA-BN-EEEV and 100% (8/8) animals receiving MVA-BN-WEV surviving while only 2/8 mock vaccinated controls survived lethal challenge.” (beddingfield2024mvabasedvaccinesare pages 1-2)
 
