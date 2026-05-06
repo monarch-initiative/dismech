@@ -1,0 +1,11 @@
+---
+reference_id: "clinicaltrials:NCT04850417"
+title: Randomized Clinical Trial Assessing the Value of Beta-Blockers and Antiplatelet Agents in Patients With Spontaneous Coronary Artery Dissection. (The BA-SCAD Randomized Clinical Trial)
+content_type: summary
+---
+
+# Randomized Clinical Trial Assessing the Value of Beta-Blockers and Antiplatelet Agents in Patients With Spontaneous Coronary Artery Dissection. (The BA-SCAD Randomized Clinical Trial)
+
+## Content
+
+Spontaneous coronary artery dissection (SCAD) is a cause of acute coronary syndrome (ACS). Most patients are treated with beta-blockers (BB) and antiplatelet drugs (AP) on empiric basis. The Beta-Blockers and Antiplatelet Agents in Patients with Spontaneous Coronary Artery Dissection (BA-SCAD) randomized clinical trial is an academic, pragmatic, nation-wide, prospective study developed under the auspices of the Spanish Society of Cardiology (SEC) that aims to assess the efficacy of medical therapy in SCAD patients. Using a factorial 2x2 design, patients will be randomized (1:1/1:1) to: 1) BB (yes/no) and 2) short AP regimen (1 month) vs prolonged dual AP therapy (DAPT) (12 months).Only patients with preserved left ventricular ejection fraction (LVEF) will be randomized to BB (yes/no) because patients with LVEF \<40% will receive BB according to current guidelines. Likewise, only medically managed patients will be randomized to short AP therapy vs 1-year DAPT. The study will have a pragmatic, open label, blind outcomes design (PROBE). A total of 600 SCAD patients will be randomized within 2 years (300 per arm in a factorial 2x2 design). The primary efficacy endpoint will include the composite of death, acute myocardial infarction (MI), stroke, coronary revascularization, recurrent SCAD, and unplanned hospitalization for ACS or heart failure at 1 year. The primary safety endpoint will be bleeding. All patients will be clinically followed yearly. The main study will be pragmatic but a comprehensive set of additional studies (clinical, imaging, biomarkers, inflammatory, immunologic, pharmacogenetic and genetic) will be organized to ensure an holistic view on this challenging condition.
