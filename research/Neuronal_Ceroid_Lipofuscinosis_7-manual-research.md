@@ -21,6 +21,6 @@
 
 - `MONDO:0012588` label: neuronal ceroid lipofuscinosis 7.
 - `hgnc:28486` label: MFSD8.
-- HPO terms used: `HP:0000007`, `HP:0001250`, `HP:0002376`, `HP:0001268`, `HP:0001336`, `HP:0000546`, `HP:0000505`.
+- HPO terms used: `HP:0000007`, `HP:0001250`, `HP:0002376`, `HP:0001268`, `HP:0004302`, `HP:0000708`, `HP:0001336`, `HP:0000546`, `HP:0000505`.
 - GO terms used: `GO:0007041`, `GO:0006914`, `GO:0007005`, `GO:0000302`.
-- MAXO term used: `MAXO:0001001`.
+- MAXO terms used: `MAXO:0001001`, `MAXO:0000058`.
