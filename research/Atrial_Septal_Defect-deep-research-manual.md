@@ -29,8 +29,8 @@ used for curation.
   for suitable secundum ASDs; surgical repair remains valid when device closure
   is unsuitable or anatomy is non-secundum.
 - Rare familial ASD can involve cardiac transcription-factor genes including
-  NKX2-5 and GATA4, but these findings should not be overgeneralized to most
-  sporadic isolated ASD.
+  NKX2-5, GATA4, and TBX5-associated Holt-Oram syndrome, but these findings
+  should not be overgeneralized to most sporadic isolated ASD.
 
 ## Sources Used
 
@@ -48,6 +48,8 @@ used for curation.
 - PMID:20932824, a family and functional study supporting rare NKX2-5-associated
   ASD with conduction disease and noncompaction.
 - PMID:20659440, a family study supporting rare GATA4-associated ASD.
+- PMID:30552424, a molecular Holt-Oram syndrome series supporting TBX5 as a
+  rare syndromic ASD-associated gene.
 
 ## Curation Notes
 

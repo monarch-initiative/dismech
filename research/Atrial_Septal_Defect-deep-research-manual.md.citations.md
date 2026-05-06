@@ -126,3 +126,15 @@ Key snippets:
 
 - "T280M mutation of GATA4 is suggested to be associated with ASD in this
   Chinese family."
+
+## PMID:30552424
+
+**Title:** Holt-Oram syndrome: clinical and molecular description of 78
+patients with TBX5 variants.
+
+Used for rare syndromic TBX5-associated ASD.
+
+Key snippets:
+
+- "A CHD was present in 91% of the patients with a TBX5 variant, atrial septal
+  defects being the most common (61.5%)."
