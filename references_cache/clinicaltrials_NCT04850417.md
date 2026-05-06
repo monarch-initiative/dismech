@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04850417
+reference_id: "clinicaltrials:NCT04850417"
 title: Randomized Clinical Trial Assessing the Value of Beta-Blockers and Antiplatelet Agents in Patients With Spontaneous Coronary Artery Dissection. (The BA-SCAD Randomized Clinical Trial)
 content_type: summary
 ---
