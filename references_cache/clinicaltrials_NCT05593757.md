@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05593757
+reference_id: "clinicaltrials:NCT05593757"
 title: "Quinidine Versus Verapamil in Short-coupled Idiopathic Ventricular Fibrillation: an Open-label, Randomized Crossover Pilot Trial"
 content_type: summary
 ---
