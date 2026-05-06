@@ -3,17 +3,18 @@
 ## Provider attempts
 
 - Falcon attempt 1: `just research-disorder falcon Sagittal_Sinus_Thrombosis` was started from the worktree with `EDISON_API_KEY` exported from `/home/harry/dismech/edison_tok`; it remained silent and produced no report file after an extended wait, so it was terminated.
-- Falcon attempt 2: retried with the same command under a 900 second timeout; it timed out and produced no report file.
+- Falcon attempt 2: retried with the same command under a 900 second timeout; the wrapper returned as a timeout, but complete Falcon report artifacts later appeared at `research/Sagittal_Sinus_Thrombosis-deep-research-falcon.md` and `research/Sagittal_Sinus_Thrombosis-deep-research-falcon.md.citations.md`. The Falcon metadata records a duration of 884.48 seconds.
 - Cyberian fallback: `just research-disorder cyberian Sagittal_Sinus_Thrombosis` was run under a 900 second timeout; it also timed out and produced no report file.
 
-Because neither provider produced a generated report or citations file, curation
-was grounded manually in fetched PubMed references and validated against the
-repository schema and reference workflow.
+The YAML curation was grounded in fetched PubMed references and exact cache
+snippets. The Falcon report is retained as the generated deep-research artifact,
+and this manual file records the subset of sources actually converted into the
+YAML.
 
 ## Source-backed findings used for curation
 
 - PMID:25073867 supports the clinical presentation spectrum, diagnostic
-  confirmation by MR/MR venography or venous CT, risk-factor context, acute
+  confirmation by MR/MR venography or venous CT, common risk factors, acute
   heparin anticoagulation, selected thrombolysis/thrombectomy, decompressive
   surgery, and post-acute anticoagulation.
 - PMID:17183977 supports the two linked pathophysiology patterns: local venous
@@ -41,7 +42,10 @@ repository schema and reference workflow.
 - Phenotype terms used after OAK verification include HP:0002315 Headache,
   HP:0002516 Increased intracranial pressure, HP:0001085 Papilledema,
   HP:0001250 Seizure, HP:0001269 Hemiparesis, HP:0001342 Cerebral hemorrhage,
-  and HP:0001259 Coma.
+  and HP:0007185 Loss of consciousness.
+- Mappings added after OAK verification include ICD10CM:I67.6
+  Nonpyogenic thrombosis of intracranial venous system and MONDO:0002695
+  sagittal sinus thrombosis.
 - Treatment terms use broad but verified actions: MAXO:0000058
   pharmacotherapy with CHEBI:28304 heparin, NCIT:C52003 Thrombectomy, and
   MAXO:0000004 surgical procedure.
