@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04490915
+reference_id: "clinicaltrials:NCT04490915"
 title: "A Randomized, Double-Blind, Placebo-Controlled Study to Evaluate the Safety and Efficacy of Crinecerfont (NBI-74788) in Adult Subjects With Classic Congenital Adrenal Hyperplasia, Followed by Open-Label Treatment"
 content_type: summary
 ---
