@@ -38,14 +38,16 @@ mild-to-moderate dystonia and lightning-like myoclonic jerks. The structured
 record supplies the European point-prevalence band, autosomal dominant
 inheritance, disease-causing SGCE and KCTD17 gene rows, MONDO:0000903 exact
 mapping, and HPO phenotype frequencies for myoclonus, limb myoclonus, dystonia,
-torticollis, writer's cramp, compulsive behaviors, anxiety, depression, and
-panic attack.
+torticollis, spinal myoclonus, writer's cramp, compulsive behaviors, anxiety,
+depression, and panic attack.
 
 PMID:20301587 provides the clinical GeneReviews frame for SGCE
 myoclonus-dystonia: rapid myoclonus and dystonia, typical neck/trunk/upper-limb
 distribution, additional focal dystonia including cervical dystonia and writer's
 cramp, alcohol responsiveness, diagnosis by heterozygous SGCE pathogenic
-variant, treatment options, and autosomal dominant inheritance with
+variant, treatment options including zonisamide, clonazepam-containing
+benzodiazepine pharmacotherapy, botulinum toxin injection, anticholinergic
+medication, deep brain stimulation, and autosomal dominant inheritance with
 parental-origin-dependent penetrance.
 
 PMID:11528394 is the key SGCE discovery paper. It describes autosomal dominant,
