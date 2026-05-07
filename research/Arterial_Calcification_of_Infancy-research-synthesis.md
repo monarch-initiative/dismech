@@ -5,7 +5,7 @@ providers:
   - falcon
   - openscientist
 falcon_citation_count: 14
-openscientist_citation_count: 47
+openscientist_citation_count: 46
 shared_citation_count: 0
 ---
 
@@ -16,7 +16,7 @@ shared_citation_count: 0
 - Falcon report: `Arterial_Calcification_of_Infancy-deep-research-falcon.md`
 - OpenScientist report: `Arterial_Calcification_of_Infancy-deep-research-openscientist.md`
 - Falcon citation identifiers: 14
-- OpenScientist citation identifiers: 47
+- OpenScientist citation identifiers: 46
 - Shared citation identifiers: 0
 
 ## Agreement
@@ -50,5 +50,6 @@ Integrated into `kb/disorders/Arterial_Calcification_of_Infancy.yaml`:
 ## Not integrated
 
 Detailed prenatal ultrasound findings, speculative TNAP inhibition, nanoparticle
-chelation strategies, and expanded genotype-specific variant lists were retained
-as research leads rather than promoted to curated disease mechanisms.
+chelation strategies, the off-topic osteoarthritic-cartilage calcification
+citation, and expanded genotype-specific variant lists were retained as research
+leads rather than promoted to curated disease mechanisms.
