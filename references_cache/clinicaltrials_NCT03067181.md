@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03067181
+reference_id: "clinicaltrials:NCT03067181"
 title: A Phase 3 Study of Active Surveillance for Low Risk and a Randomized Trial of Carboplatin vs. Cisplatin for Standard Risk Pediatric and Adult Patients With Germ Cell Tumors
 content_type: summary
 ---
