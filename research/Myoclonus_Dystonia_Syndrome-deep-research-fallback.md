@@ -39,7 +39,7 @@ record supplies the European point-prevalence band, autosomal dominant
 inheritance, disease-causing SGCE and KCTD17 gene rows, MONDO:0000903 exact
 mapping, and HPO phenotype frequencies for myoclonus, limb myoclonus, dystonia,
 torticollis, spinal myoclonus, writer's cramp, compulsive behaviors, anxiety,
-depression, and panic attack.
+depression, panic attack, and personality disorder.
 
 PMID:20301587 provides the clinical GeneReviews frame for SGCE
 myoclonus-dystonia: rapid myoclonus and dystonia, typical neck/trunk/upper-limb
@@ -72,7 +72,8 @@ PMID:25209853 supports diagnostic phenotype predictors for SGCE-positive cases:
 age at onset no later than 10 years and predominant upper-body involvement of
 pure myoclonus-dystonia. PMID:23365103 supports the psychiatric component in
 SGCE mutation-positive individuals, especially compulsivity, anxiety, and
-alcoholism.
+alcoholism; PMID:31449710 independently lists alcohol dependence as part of the
+clinical picture.
 
 PMID:27053715 provides class I randomized crossover trial evidence that
 zonisamide improves myoclonus and related disability. PMID:33452690 supports
