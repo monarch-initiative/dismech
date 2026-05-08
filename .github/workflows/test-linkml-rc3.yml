@@ -1,0 +1,67 @@
+---
+# Tests compatibility with linkml v1.11.0-rc3 (see issue #2261).
+# Runs separately from main.yaml because biolink-model (in the export group)
+# pins to linkml<=1.10.0, so we install --dev only and override linkml to rc3.
+name: Test linkml v1.11.0-rc3
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches: [test-linkml-v1.11.0-rc3]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-linkml-rc3.yml'
+
+env:
+  FORCE_COLOR: "1"
+  LINKML_RC_VERSION: "1.11.0rc3"
+
+permissions:
+  contents: read
+
+jobs:
+  test-linkml-rc3:
+    runs-on: ubuntu-latest
+    name: "linkml==${{ env.LINKML_RC_VERSION }}"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.13"
+
+      - name: Install just
+        run: uv tool install rust-just
+
+      # Install --dev only; the export group pins biolink-model which
+      # constrains linkml to <=1.10.0 and is incompatible with rc3.
+      - name: Install project (dev group only)
+        run: uv sync --dev
+
+      # Override to the RC under test.  uv pip install writes into the
+      # .venv created by uv sync, so downstream `uv run` commands pick it up.
+      - name: Override linkml to rc3
+        run: |
+          uv pip install "linkml==${{ env.LINKML_RC_VERSION }}" --prerelease=allow
+          uv run python -c "import linkml; print('linkml version:', linkml.__version__)"
+
+      - name: Validate schema term references
+        run: just validate-terms-schema
+
+      - name: Schema-validate all disorder files
+        run: just validate-schema-all
+
+      - name: Run pytest
+        run: uv run python -m pytest -v
