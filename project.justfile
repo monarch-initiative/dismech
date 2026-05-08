@@ -87,7 +87,16 @@ validate-schema file:
 validate-schema-all:
     #!/usr/bin/env bash
     set -e
-    for f in {{kb_dir}}/*.yaml; do
+    if command -v rg >/dev/null 2>&1; then
+        mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}})
+    else
+        mapfile -t files < <(find {{kb_dir}} -maxdepth 1 -type f -name '*.yaml' ! -name '*.history.yaml' | sort)
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
+        exit 1
+    fi
+    for f in "${files[@]}"; do
         echo "Validating: $f"
         uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f"
     done
