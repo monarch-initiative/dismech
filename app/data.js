@@ -1417,7 +1417,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-04-05T15:39:56Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "SPG9A",
       "SPG9B"
@@ -4618,7 +4618,7 @@ window.searchData = [
       "T-cell lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "Acute ATLL",
       "Lymphoma Type ATLL",
@@ -5591,7 +5591,7 @@ window.searchData = [
       "Neurodegenerative Disorders"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-04-29T00:00:00Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "Type I",
       "Type II"
@@ -5715,7 +5715,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-05-03T00:00:00Z",
-    "updated_date": "2026-05-03T00:00:00Z",
+    "updated_date": "2026-05-08T00:00:00Z",
     "subtypes": [],
     "description": "Alkaptonuria is a rare autosomal recessive disorder of tyrosine degradation caused by biallelic loss-of-function variants in HGD, which encodes homogentisate 1,2-dioxygenase. Reduced HGD activity blocks conversion of homogentisic acid to maleylacetoacetic acid, causing systemic accumulation of homogentisic acid in urine and connective tissues. Oxidation of homogentisic acid produces benzoquinone-derived, melanin-like pigment that deposits in collagen-rich tissues, producing ochronosis, darkening of urine on standing, progressive spine and large-joint osteoarthropathy, cartilage calcification, and later cardiovascular, renal, and prostatic complications. Nitisinone lowers homogentisic acid production upstream and slows clinical progression, but it does not correct HGD deficiency.\n",
     "pathophysiology": [
@@ -5809,8 +5809,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Allergic Cutaneous Vasculitis",
@@ -6804,7 +6804,7 @@ window.searchData = [
       "Neurodegenerative Disease"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "Early-Onset Alzheimer's Disease",
       "Late-Onset Alzheimer's Disease"
@@ -8898,7 +8898,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-02-11T21:06:43Z",
-    "updated_date": "2026-02-12T02:07:17Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "Acute",
       "Chronic"
@@ -10850,7 +10850,7 @@ window.searchData = [
       "rhabdoid tumor"
     ],
     "creation_date": "2026-04-12T20:00:00Z",
-    "updated_date": "2026-04-12T20:00:00Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "TYR",
       "SHH",
@@ -10912,6 +10912,90 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Auditory Neuropathy",
+    "disease_id": "MONDO:0021944",
+    "category": "Genetic",
+    "parents": [
+      "hearing loss disorder",
+      "inherited auditory system disease"
+    ],
+    "creation_date": "2026-05-08T16:19:19Z",
+    "updated_date": "2026-05-08T17:39:11Z",
+    "subtypes": [
+      "AUNA1",
+      "AUNA2",
+      "AUNA3"
+    ],
+    "description": "Auditory neuropathy spectrum disorder (ANSD) is a heterogeneous hearing disorder in which cochlear outer hair cell activity is often preserved while neural transmission from inner hair cells, ribbon synapses, spiral ganglion neurons, or the auditory nerve is impaired. This produces abnormal or absent auditory brainstem responses, variable hearing thresholds, and speech perception that is often worse than expected from the pure-tone audiogram.",
+    "pathophysiology": [
+      "Lesion-Site Spectrum",
+      "Presynaptic Inner Hair Cell Synaptopathy",
+      "Auditory Nerve Dyssynchrony",
+      "AIFM1-Associated Mitochondrial Neuronal Injury",
+      "TMEM43-Associated Gap Junction Dysfunction"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "spiral ganglion neuron",
+      "Schwann cell",
+      "cochlear glia-like support cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0011113",
+      "CL:0002573",
+      "CL:0000630"
+    ],
+    "biological_processes": [
+      "chemical synaptic transmission",
+      "axon ensheathment"
+    ],
+    "phenotypes": [
+      "Hearing Impairment",
+      "Poor Speech Perception",
+      "Abnormal Auditory Brainstem Response",
+      "Preserved Otoacoustic Emissions or Cochlear Microphonics"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Diagnostic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000365",
+      "HP:0001963",
+      "HP:0006958"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DIAPH3",
+      "ATP11A",
+      "OTOF",
+      "AIFM1",
+      "OPA1",
+      "ATP1A3",
+      "TMEM43"
+    ],
+    "treatments": [
+      "Hearing Aid Use",
+      "Cochlear Implantation",
+      "OTOF-Targeted Gene Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Auditory_Neuropathy.yaml",
+    "page_url": "../pages/disorders/Auditory_Neuropathy.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 7,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Autism Spectrum Disorder",
@@ -11116,7 +11200,7 @@ window.searchData = [
       "Autoimmune Disease"
     ],
     "creation_date": "2026-03-06T00:00:00Z",
-    "updated_date": "2026-03-07T00:00:00Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "Anti-NMDA Receptor Encephalitis",
       "Anti-LGI1 Encephalitis",
@@ -11817,7 +11901,7 @@ window.searchData = [
       "Sclerosing Bone Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-04-19T15:07:22Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [],
     "description": "Autosomal dominant osteopetrosis type II (ADO2), also known as Albers-Schonberg disease, is the most common form of osteopetrosis. It is caused by heterozygous mutations in the CLCN7 chloride channel gene, which acts through a dominant negative mechanism since chloride channels function as dimers. The disease has incomplete penetrance (66%) and variable expressivity. Clinical features include increased skeletal density, recurrent fractures, osteomyelitis (particularly mandibular), and cranial nerve complications including visual impairment, hearing loss, and facial palsy. CLCN7 mutations also cause autosomal recessive osteopetrosis when homozygous, establishing ADO2 as allelic with a subset of infantile malignant osteopetrosis.\n",
     "pathophysiology": [
@@ -11892,8 +11976,152 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Autosomal Dominant Polycystic Kidney Disease",
+    "disease_id": "MONDO:0004691",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathy",
+      "Kidney Cystic Disease",
+      "Renal Tubular Disease"
+    ],
+    "creation_date": "2026-05-08T16:23:43Z",
+    "updated_date": "2026-05-08T16:23:43Z",
+    "subtypes": [],
+    "description": "Autosomal dominant polycystic kidney disease (ADPKD) is a multisystem inherited renal tubular disease caused most often by pathogenic variants in PKD1 or PKD2 and less commonly by genes that perturb polycystin biogenesis or ciliary signaling. Loss or reduced dosage of the polycystin-1/polycystin-2 ciliary signaling complex in kidney epithelial cells disinhibits cilium-dependent cyst-promoting signals, reduces calcium signaling, increases cAMP-dependent proliferation and chloride-driven fluid secretion, and drives progressive renal cyst enlargement. Expanding cysts remodel and destroy renal parenchyma, leading to kidney enlargement, hypertension, chronic kidney disease, and frequently kidney failure; extrarenal cysts, especially hepatic cysts, and vascular complications such as intracranial aneurysm can also occur.",
+    "pathophysiology": [
+      "Polycystin complex dosage loss at the renal primary cilium",
+      "Cilium-dependent cyst-promoting signal disinhibition",
+      "Reduced calcium and increased cAMP signaling",
+      "Renal epithelial proliferation and fluid secretion",
+      "Renal cyst expansion and kidney enlargement",
+      "Parenchymal destruction and progressive renal insufficiency"
+    ],
+    "cell_types": [
+      "kidney epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002518"
+    ],
+    "biological_processes": [
+      "intracellular calcium ion homeostasis",
+      "epithelial cell proliferation",
+      "chloride transmembrane transport"
+    ],
+    "phenotypes": [
+      "Renal cysts",
+      "Renal insufficiency",
+      "Decreased glomerular filtration rate",
+      "Elevated circulating creatinine concentration",
+      "Hepatic cysts",
+      "Hypertension",
+      "Hematuria",
+      "Chronic kidney disease",
+      "Stage 5 chronic kidney disease",
+      "Flank pain",
+      "Albuminuria",
+      "Abnormal urinary electrolyte concentration",
+      "Recurrent urinary tract infections",
+      "Enlarged kidney",
+      "Uric acid nephrolithiasis",
+      "Calcium oxalate nephrolithiasis",
+      "Pyelonephritis",
+      "Polycystic liver disease",
+      "Pancreatic cysts",
+      "Mitral valve prolapse",
+      "Aortic root aneurysm",
+      "Cerebral arterial dilatation",
+      "Abnormal systemic arterial morphology",
+      "Arachnoid cyst",
+      "Pituitary growth hormone cell adenoma",
+      "Reduced sperm motility"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Laboratory",
+      "Hepatic",
+      "Cardiovascular",
+      "Infectious",
+      "Gastrointestinal",
+      "Neurologic",
+      "Endocrine",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000107",
+      "HP:0000083",
+      "HP:0012213",
+      "HP:0003259",
+      "HP:0001407",
+      "HP:0000822",
+      "HP:0000790",
+      "HP:0012622",
+      "HP:0003774",
+      "HP:0030157",
+      "HP:0012592",
+      "HP:0012591",
+      "HP:0000010",
+      "HP:0000105",
+      "HP:0000791",
+      "HP:0008672",
+      "HP:0012330",
+      "HP:0006557",
+      "HP:0001737",
+      "HP:0001634",
+      "HP:0002616",
+      "HP:0004944",
+      "HP:0011004",
+      "HP:0100702",
+      "HP:0011760",
+      "HP:0012207"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "PKD1 pathogenic variants",
+      "PKD2 pathogenic variants",
+      "GANAB pathogenic variants",
+      "DNAJB11 pathogenic loss-of-function variants",
+      "IFT140 pathogenic loss-of-function variants",
+      "ALG5 pathogenic variants",
+      "ALG9 pathogenic loss-of-function variants",
+      "NEK8 pathogenic variants"
+    ],
+    "treatments": [
+      "Tolvaptan vasopressin V2 receptor antagonist therapy",
+      "Dietary sodium restriction and blood pressure targets"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Creatinine",
+      "Glomerular filtration rate"
+    ],
+    "source_file": "Autosomal_Dominant_Polycystic_Kidney_Disease.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Polycystic_Kidney_Disease.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Recessive Ataxia Due to Ubiquinone Deficiency",
@@ -12225,7 +12453,7 @@ window.searchData = [
       "Sclerosing Bone Dysplasias"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-04-19T21:33:27Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [],
     "description": "Autosomal recessive osteopetrosis type 2 (ARO2) is a severe sclerosing bone disease caused by biallelic loss-of-function mutations in TCIRG1, encoding the osteoclast-specific a3 subunit of the vacuolar H+-ATPase. TCIRG1 mutations are the most frequent cause of infantile malignant osteopetrosis, accounting for over 50% of ARO cases. Osteoclasts are present in normal or elevated numbers but are non-functional due to inability to acidify the resorption lacuna. The disease is characterized by dense but brittle bones, bone marrow failure, cranial nerve compression, and hepatosplenomegaly. Without hematopoietic stem cell transplantation, the disease is fatal within the first decade of life.\n",
     "pathophysiology": [
@@ -12305,8 +12533,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Axenfeld-Rieger_syndrome",
@@ -15040,7 +15268,7 @@ window.searchData = [
       "Inflammatory Lung Disease"
     ],
     "creation_date": "2026-01-30T23:42:47Z",
-    "updated_date": "2026-04-22T20:53:03Z",
+    "updated_date": "2026-05-08T16:21:17Z",
     "subtypes": [
       "Recurrent chronic bird fancier's lung",
       "Insidious chronic bird fancier's lung"
@@ -15977,7 +16205,7 @@ window.searchData = [
       "Limb Development Disorders"
     ],
     "creation_date": "2026-02-13T00:31:42Z",
-    "updated_date": "2026-04-19T21:46:07Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [],
     "description": "Brachydactyly type A1 (BDA1) is the first recorded Mendelian autosomal dominant disorder in humans, originally identified by Farabee in 1903. It is characterized by shortening or absence of the middle phalanges. Heterozygous missense mutations in the Indian Hedgehog (IHH) gene, which encodes a key signaling molecule in endochondral bone development, cause BDA1. The mutations affect multiple levels of Hedgehog signaling including protein stability, receptor binding, and interaction with extracellular components.\n",
     "pathophysiology": [
@@ -16650,7 +16878,7 @@ window.searchData = [
       "non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-21T05:00:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [
       "Endemic Burkitt Lymphoma",
       "Sporadic Burkitt Lymphoma",
@@ -16899,7 +17127,7 @@ window.searchData = [
       "Small Vessel Disease"
     ],
     "creation_date": "2026-02-14T02:39:04Z",
-    "updated_date": "2026-04-25T20:30:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [],
     "description": "Cerebral Autosomal Dominant Arteriopathy with Subcortical Infarcts and Leukoencephalopathy (CADASIL) is a hereditary small vessel disease caused by mutations in the NOTCH3 gene. It is the most common monogenic cause of stroke and vascular dementia in adults. The disease is characterized by recurrent ischemic strokes, progressive cognitive decline, migraine with aura, and psychiatric disturbances. Pathologically, it involves progressive degeneration of vascular smooth muscle cells in small arteries, abnormal accumulation of the NOTCH3 extracellular domain (ECD) as granular osmiophilic material (GOM), and co-deposition of extracellular matrix proteins, leading to thickening of vessel walls and luminal narrowing.",
     "pathophysiology": [
@@ -17397,7 +17625,7 @@ window.searchData = [
       "Metabolic Bone Disease"
     ],
     "creation_date": "2026-03-05T15:32:43Z",
-    "updated_date": "2026-04-07T03:28:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [],
     "description": "CKD-mineral and bone disorder (CKD-MBD) is the systemic complication syndrome of chronic kidney disease characterized by abnormalities of mineral metabolism, skeletal turnover/mineralization/volume or strength, and vascular or other soft-tissue calcification. Renal osteodystrophy refers specifically to the bone histomorphometric abnormalities of CKD-MBD seen on bone biopsy, not to the full CKD-MBD syndrome.\n",
     "pathophysiology": [
@@ -17667,7 +17895,7 @@ window.searchData = [
       "Genetic Developmental and Epileptic Encephalopathy"
     ],
     "creation_date": "2026-03-08T00:00:00Z",
-    "updated_date": "2026-03-08T12:00:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [],
     "description": "Calcineurin (CN)-related developmental and epileptic encephalopathy (DEE) is a severe neurological disorder caused by de novo heterozygous mutations in PPP3CA, encoding the alpha catalytic subunit of the calcium/calmodulin-dependent serine-threonine phosphatase calcineurin. Calcineurin plays critical roles in synaptic vesicle recycling, NFAT signaling, and neuronal development. Loss-of-function mutations in the catalytic domain or truncating mutations in the regulatory domain lead to early-onset refractory seizures, severe intellectual disability, and global developmental delay. The condition is designated DEE 91 (OMIM 617711). Genotype-phenotype correlations indicate that truncating variants clustered in the regulatory domain cause more severe early-onset epilepsy, while catalytic domain missense variants may present with epileptic spasms and autism spectrum features. Distinct gain-of-function mutations in the auto-inhibitory domain cause a separate disorder (ACCIID) with skeletal abnormalities rather than epilepsy.\n",
     "pathophysiology": [
@@ -17825,7 +18053,7 @@ window.searchData = [
       "Spondyloepiphyseal dysplasia"
     ],
     "creation_date": "2026-04-04T12:00:00Z",
-    "updated_date": "2026-04-04T18:00:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [
       "Stickler III",
       "OSMED"
@@ -18344,7 +18572,7 @@ window.searchData = [
       "heavy metal poisoning"
     ],
     "creation_date": "2026-02-10T22:52:02Z",
-    "updated_date": "2026-04-14T20:47:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [
       "Acute",
       "Chronic"
@@ -18942,7 +19170,7 @@ window.searchData = [
       "Substance-Related Disorder"
     ],
     "creation_date": "2026-03-03T22:51:00Z",
-    "updated_date": "2026-04-03T00:00:00Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [],
     "description": "Cannabis Hyperemesis Syndrome (CHS) is a clinical disorder characterized by cyclic episodes of severe nausea and intractable vomiting in the setting of chronic, heavy cannabis use. Despite the well-established antiemetic properties of cannabinoids, CHS represents a paradoxical proemetic effect of prolonged high-dose cannabis exposure. Patients classically exhibit compulsive hot water bathing behavior that temporarily relieves symptoms. The clinical course comprises three phases: prodromal (morning nausea, abdominal discomfort), hyperemetic (severe cyclic vomiting, dehydration), and recovery (symptom resolution upon cannabis cessation). The pathophysiology involves disruption of the endocannabinoid system, TRPV1 signaling dysregulation, HPA axis abnormalities, and gastrointestinal dysmotility.\n",
     "pathophysiology": [
@@ -20898,7 +21126,7 @@ window.searchData = [
       "uterine cancer"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [
       "Squamous Cell Carcinoma",
       "Adenocarcinoma",
@@ -20907,8 +21135,12 @@ window.searchData = [
     "description": "Cervical cancer is a malignancy arising from the epithelium of the uterine cervix, with the vast majority (greater than 95%) caused by persistent infection with high-risk human papillomavirus (HPV), primarily types 16 and 18. The viral oncoproteins E6 and E7 drive carcinogenesis by inactivating the tumor suppressors p53 and pRB, respectively. Cervical cancer is preventable through HPV vaccination and detectable at preinvasive stages through screening, making it a model for infection-driven cancer prevention.",
     "pathophysiology": [
       "E6 Oncoprotein-Mediated p53 Degradation",
+      "Loss of DNA Damage Response",
+      "Genomic Instability",
       "E7 Oncoprotein-Mediated pRB Inactivation",
+      "Uncontrolled Cell Proliferation",
       "HPV Genome Integration",
+      "Constitutive E6/E7 Expression",
       "Cervical Intraepithelial Neoplasia Progression"
     ],
     "cell_types": [
@@ -20920,10 +21152,11 @@ window.searchData = [
     "biological_processes": [
       "proteasome-mediated ubiquitin-dependent protein catabolic process",
       "apoptotic process",
-      "G1/S transition of mitotic cell cycle",
+      "DNA damage response",
       "cell cycle checkpoint signaling",
-      "viral genome integration into host DNA",
-      "cell population proliferation"
+      "G1/S transition of mitotic cell cycle",
+      "cell population proliferation",
+      "viral genome integration into host DNA"
     ],
     "phenotypes": [
       "Abnormal Vaginal Bleeding",
@@ -20969,11 +21202,11 @@ window.searchData = [
     "source_file": "Cervical_Cancer.yaml",
     "page_url": "../pages/disorders/Cervical_Cancer.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 8,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chagas disease",
@@ -21202,7 +21435,7 @@ window.searchData = [
       "Iatrogenic condition"
     ],
     "creation_date": "2026-04-02T01:07:38Z",
-    "updated_date": "2026-04-22T20:53:03Z",
+    "updated_date": "2026-05-08T18:54:20Z",
     "subtypes": [],
     "description": "Chemotherapy-induced diarrhea is a treatment-related gastrointestinal toxicity caused by antineoplastic agents, especially fluoropyrimidines and irinotecan, that injure the rapidly renewing intestinal mucosa. The syndrome reflects epithelial and crypt injury, barrier dysfunction, mucosal inflammation, dysbiosis, and impaired absorptive function, and can lead to treatment delay, dose reduction, hospitalization, and infectious complications when severe.",
     "pathophysiology": [
@@ -37744,6 +37977,95 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Frontonasal Dysplasia",
+    "disease_id": "MONDO:0016643",
+    "category": "Mendelian",
+    "parents": [
+      "Dysostosis"
+    ],
+    "creation_date": "2026-05-08T16:17:07Z",
+    "updated_date": "2026-05-08T16:56:52Z",
+    "subtypes": [
+      "Frontorhiny",
+      "Frontonasal dysplasia with alopecia and genital anomaly",
+      "Frontonasal dysplasia - severe microphthalmia - severe facial clefting syndrome"
+    ],
+    "description": "Frontonasal dysplasia is a heterogeneous group of congenital craniofacial midline disorders. Core features include hypertelorism, broad or bifid nasal structures, median facial clefting, and variable ocular, brain, skeletal, hair, and genital findings. Falcon deep research supported an ALX-centered root page with subtypes corresponding to ALX3-related frontorhiny/FND1, ALX4-related FND2, and ALX1-related FND3, plus additional related MONDO descendants that can be curated separately when prioritized.\n",
+    "pathophysiology": [
+      "ALX transcription factor disruption",
+      "Cranial neural crest migration and survival defects",
+      "BMP signaling dysregulation in neural crest cells"
+    ],
+    "cell_types": [
+      "migratory cranial neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000333"
+    ],
+    "biological_processes": [
+      "face development",
+      "neural crest cell migration",
+      "response to oxidative stress",
+      "BMP signaling pathway"
+    ],
+    "phenotypes": [
+      "Hypertelorism",
+      "Wide nasal bridge",
+      "Bifid nasal tip",
+      "Facial cleft",
+      "Microphthalmia",
+      "Agenesis of corpus callosum",
+      "Alopecia",
+      "Hypogonadism",
+      "Coronal craniosynostosis",
+      "Parietal foramina"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000316",
+      "HP:0000431",
+      "HP:0000456",
+      "HP:0002006",
+      "HP:0000568",
+      "HP:0001274",
+      "HP:0001596",
+      "HP:0000135",
+      "HP:0004440",
+      "HP:0002697"
+    ],
+    "frequencies": [
+      "frequent",
+      "variable"
+    ],
+    "genes": [
+      "ALX1",
+      "ALX3",
+      "ALX4"
+    ],
+    "treatments": [
+      "Craniofacial reconstructive surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Frontonasal_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Frontonasal_Dysplasia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 3,
+    "num_genes": 3,
+    "num_treatments": 1,
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Frontotemporal Dementia",
     "disease_id": "MONDO:0017276",
     "category": "Complex",
@@ -46645,6 +46967,120 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Hypotonia-cystinuria syndrome",
+    "disease_id": "MONDO:0011669",
+    "category": "Mendelian",
+    "parents": [
+      "contiguous gene deletion syndrome",
+      "inborn disorder of amino acid transport",
+      "neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-05-08T16:18:38Z",
+    "updated_date": "2026-05-08T17:04:17Z",
+    "subtypes": [],
+    "description": "Hypotonia-cystinuria syndrome is a rare autosomal recessive contiguous-gene deletion disorder of chromosome 2p21. Classic disease involves biallelic loss of SLC3A1 and PREPL, combining type A cystinuria with congenital hypotonia, feeding and growth problems, variable developmental or neurobehavioral features, and risk of cystine nephrolithiasis.\n",
+    "pathophysiology": [
+      "SLC3A1-PREPL contiguous gene deletion",
+      "Proximal tubular cystine transport defect",
+      "Urinary cystine supersaturation",
+      "PREPL-related neuromuscular transmission defect",
+      "Cystine nephrolithiasis"
+    ],
+    "cell_types": [
+      "renal proximal tubular epithelial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0002306",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "cystine and dibasic amino acid transmembrane transport",
+      "synaptic vesicle exocytosis"
+    ],
+    "phenotypes": [
+      "Generalized hypotonia",
+      "Cystinuria",
+      "Nephrolithiasis",
+      "Failure to thrive",
+      "Growth hormone deficiency",
+      "Muscle weakness",
+      "Ptosis",
+      "Hyperphagia",
+      "Childhood obesity",
+      "Short stature",
+      "Feeding difficulties",
+      "Global developmental delay",
+      "Minor facial dysmorphism",
+      "Xerostomia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Biochemical",
+      "Renal",
+      "Growth",
+      "Endocrine",
+      "Ophthalmologic",
+      "Behavioral",
+      "Gastrointestinal",
+      "Developmental",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001290",
+      "HP:0003131",
+      "HP:0000787",
+      "HP:0001508",
+      "HP:0034323",
+      "HP:0001324",
+      "HP:0000508",
+      "HP:0002591",
+      "HP:0001513",
+      "HP:0004322",
+      "HP:0011968",
+      "HP:0001263",
+      "HP:0001999",
+      "HP:0000217"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SLC3A1",
+      "PREPL"
+    ],
+    "treatments": [
+      "Cystine stone prevention with hydration and diet",
+      "Urinary alkalinization with potassium citrate",
+      "Tiopronin therapy",
+      "Pyridostigmine trial for PREPL-related myasthenic symptoms"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated urinary cystine"
+    ],
+    "source_file": "Hypotonia-Cystinuria_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hypotonia-cystinuria_syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Hypotrichosis with Juvenile Macular Dystrophy",
     "disease_id": "MONDO:0011107",
     "category": "Mendelian",
@@ -48561,12 +48997,13 @@ window.searchData = [
       "Amino Acid Metabolism Disorder"
     ],
     "creation_date": "2026-03-11T00:00:00Z",
-    "updated_date": "2026-05-05T21:41:25Z",
+    "updated_date": "2026-05-08T00:00:00Z",
     "subtypes": [],
-    "description": "Inherited threoninemia is an extremely rare inborn error of amino acid metabolism characterized by markedly elevated concentrations of threonine in plasma, urine, and cerebrospinal fluid. First described in 1978, the condition is proposed to result from deficient hepatic threonine dehydratase (EC 4.2.1.16) activity, blocking conversion of threonine to 2-ketobutyrate. Excess threonine may secondarily perturb glycine-serine-threonine interconversion at serine hydroxymethyltransferase, potentially causing secondary hyperglycinemia and a non-ketotic hyperglycinemia-like neurological phenotype. Clinical features reported in affected individuals include seizures, intellectual disability, failure to thrive, lethargy, and feeding difficulties. A separate phenotypic association with Leber congenital amaurosis and hepatomegaly has been reported in siblings with hyperthreoninemia, though the causal relationship remains uncertain. No causative gene has been identified at the molecular level; the disorder is defined by enzyme activity and metabolite measurements. Consanguinity has been noted in reported families, consistent with autosomal recessive inheritance.\n",
+    "description": "Inherited threoninemia is an extremely rare inborn error of amino acid metabolism characterized by markedly elevated concentrations of threonine in plasma, urine, and cerebrospinal fluid. First described in 1978, the condition is proposed to result from deficient hepatic threonine dehydratase (EC 4.2.1.16) activity, blocking conversion of threonine to 2-ketobutyrate. Excess threonine may secondarily be associated with secondary hyperglycinemia and a non-ketotic hyperglycinemia-like neurological phenotype, although the exact biochemical bridge is not established from cached abstract evidence. Clinical features reported in affected individuals include seizures, intellectual disability, failure to thrive, lethargy, and feeding difficulties. A separate phenotypic association with Leber congenital amaurosis and hepatomegaly has been reported in siblings with hyperthreoninemia, though the causal relationship remains uncertain. No causative gene has been identified at the molecular level; the disorder is defined by enzyme activity and metabolite measurements. Consanguinity has been noted in reported families, consistent with autosomal recessive inheritance.\n",
     "pathophysiology": [
       "Hepatic threonine dehydratase deficiency",
-      "Secondary hyperglycinemia via glycine-serine-threonine interconversion"
+      "Systemic threonine accumulation",
+      "NKH-like secondary hyperglycinemia"
     ],
     "cell_types": [
       "hepatocyte"
@@ -48586,7 +49023,7 @@ window.searchData = [
       "Intellectual disability",
       "Hepatomegaly",
       "Lethargy",
-      "Poor suck",
+      "Feeding difficulties",
       "Failure to thrive",
       "Retinal dystrophy (Leber congenital amaurosis phenotype)"
     ],
@@ -48610,7 +49047,7 @@ window.searchData = [
       "HP:0001249",
       "HP:0002240",
       "HP:0001254",
-      "HP:0002033",
+      "HP:0011968",
       "HP:0001508",
       "HP:0000556"
     ],
@@ -48635,11 +49072,11 @@ window.searchData = [
     "source_file": "Inherited_Threoninemia.yaml",
     "page_url": "../pages/disorders/Inherited_Threoninemia.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 2,
+    "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Intracranial berry aneurysm",
@@ -49020,12 +49457,14 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-06-12T20:16:27Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T18:18:25Z",
     "subtypes": [],
     "description": "Isovaleric acidemia (IVA; OMIM 243500) is an autosomal recessive inborn error of leucine catabolism caused by deficiency of the mitochondrial enzyme isovaleryl-CoA dehydrogenase (IVD). IVD catalyzes the conversion of isovaleryl-CoA to 3-methylcrotonyl-CoA; its deficiency leads to accumulation of isovaleric acid, 3-hydroxyisovaleric acid, isovalerylcarnitine (C5), and isovalerylglycine in body fluids. The clinical spectrum ranges from severe neonatal-onset metabolic crises with ketoacidosis, hyperammonemia, and encephalopathy to attenuated biochemical-only phenotypes detected by newborn screening. Treatment consists of leucine-restricted diet, carnitine and glycine supplementation, and emergency management during catabolic episodes. Secondary hyperammonemia results from inhibition of N-acetylglutamate synthase (NAGS) by isovaleryl-CoA.\n",
     "pathophysiology": [
       "IVD molecular function deficiency",
       "Deficient leucine catabolic flux",
+      "Toxic isovaleryl-CoA and organic acid accumulation",
+      "Catabolic acute metabolic decompensation",
       "Secondary urea cycle impairment and hyperammonemia",
       "Mitochondrial energy depletion and oxidative stress",
       "Neuronal membrane dysfunction via Na+,K+-ATPase inhibition"
@@ -49041,6 +49480,8 @@ window.searchData = [
     "biological_processes": [
       "branched-chain amino acid catabolic process",
       "leucine catabolic process",
+      "cellular response to toxic substance",
+      "response to starvation",
       "urea cycle",
       "tricarboxylic acid cycle",
       "response to oxidative stress",
@@ -49052,6 +49493,7 @@ window.searchData = [
       "Vomiting",
       "Encephalopathy",
       "Lethargy",
+      "Hypotonia",
       "Hypoglycemia",
       "Seizures",
       "Global developmental delay",
@@ -49067,6 +49509,7 @@ window.searchData = [
       "Digestive",
       "Growth",
       "Metabolism",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -49075,6 +49518,7 @@ window.searchData = [
       "HP:0002013",
       "HP:0006846",
       "HP:0001254",
+      "HP:0001252",
       "HP:0001943",
       "HP:0001250",
       "HP:0001263",
@@ -49111,12 +49555,12 @@ window.searchData = [
     ],
     "source_file": "Isovaleric_Acidemia.yaml",
     "page_url": "../pages/disorders/Isovaleric_Acidemia.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Jackson-Weiss Syndrome",
@@ -53005,6 +53449,7 @@ window.searchData = [
     "pathophysiology": [
       "Smooth Muscle Lineage Malignant Transformation",
       "Tumor Suppressor Loss and Genomic Complexity",
+      "Alternative Lengthening of Telomeres",
       "Uncontrolled Proliferation",
       "Loss of Myogenic Differentiation"
     ],
@@ -53017,6 +53462,7 @@ window.searchData = [
     "biological_processes": [
       "cell cycle checkpoint signaling",
       "DNA repair",
+      "telomere maintenance via recombination",
       "cell population proliferation",
       "cell differentiation"
     ],
@@ -53055,11 +53501,11 @@ window.searchData = [
     "source_file": "Leiomyosarcoma.yaml",
     "page_url": "../pages/disorders/Leiomyosarcoma.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Leishmaniasis",
@@ -54489,15 +54935,17 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-06-12T20:16:27Z",
-    "updated_date": "2026-04-22T20:53:03Z",
+    "updated_date": "2026-05-08T15:47:23Z",
     "subtypes": [],
     "description": "Long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency (LCHADD) is an autosomal recessive disorder of mitochondrial long-chain fatty acid beta-oxidation caused by biallelic pathogenic variants in HADHA, most commonly the c.1528G>C (p.Glu510Gln) founder mutation. LCHADD selectively impairs the LCHAD catalytic activity within the mitochondrial trifunctional protein (MTP/TFP), leading to energy failure during fasting or physiologic stress and accumulation of toxic long-chain 3-hydroxyacyl intermediates. Clinical manifestations include hypoketotic hypoglycemia, cardiomyopathy, rhabdomyolysis, hepatopathy, peripheral neuropathy, and a distinctive progressive chorioretinopathy not seen in other fatty acid oxidation disorders. Despite improved neonatal survival through newborn screening, long-term morbidity remains substantial, with myopathy in 82%, metabolic decompensations in 80%, and cardiomyopathy in 28% of screened individuals.\n",
     "pathophysiology": [
       "HADHA molecular function deficiency within mitochondrial trifunctional protein",
       "Impaired mitochondrial long-chain fatty acid beta-oxidation",
+      "Catabolic stress-triggered energy failure",
       "Toxic intermediate accumulation and oxidative stress",
-      "Cardiolipin remodeling defect and mitochondrial bioenergetic impairment",
-      "RPE-specific lipid peroxidation and chorioretinopathy"
+      "Cardiolipin remodeling defect",
+      "Mitochondrial bioenergetic abnormalities",
+      "RPE-specific lipid peroxidation"
     ],
     "cell_types": [
       "hepatocyte",
@@ -54552,7 +55000,6 @@ window.searchData = [
       "HP:0001397",
       "HP:0001135",
       "HP:0009830",
-      "HP:0004911",
       "HP:0001254",
       "HP:0003234",
       "HP:0003546",
@@ -54576,9 +55023,7 @@ window.searchData = [
       "Genetic counseling",
       "Cardiac monitoring and management"
     ],
-    "environmental": [
-      "Fasting and catabolic stress"
-    ],
+    "environmental": [],
     "biochemical": [
       "Long-chain 3-hydroxyacylcarnitines (C16OH, C18OH, C18:1OH)",
       "HADHA ratio (C16OH + C18OH + C18:1OH)/C0",
@@ -54589,11 +55034,11 @@ window.searchData = [
     "source_file": "Long-Chain_3-Hydroxyacyl-CoA_Dehydrogenase_Deficiency.yaml",
     "page_url": "../pages/disorders/Long-chain_3-hydroxyacyl-CoA_Dehydrogenase_Deficiency.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Long COVID",
@@ -75332,7 +75777,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2025-06-12T20:16:27Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T16:56:00Z",
     "subtypes": [
       "Infantile acute metabolic primary carnitine deficiency",
       "Cardiac primary carnitine deficiency"
@@ -75343,7 +75788,7 @@ window.searchData = [
       "Systemic carnitine depletion",
       "Impaired mitochondrial fatty acid beta-oxidation",
       "Cardiac remodeling and fibrosis in OCTN2 deficiency",
-      "Hepatic metabolic decompensation and encephalopathy"
+      "Hepatic metabolic decompensation"
     ],
     "cell_types": [
       "epithelial cell of proximal tubule",
@@ -75375,18 +75820,14 @@ window.searchData = [
       "Hyperammonemia",
       "Skeletal myopathy",
       "Muscular hypotonia",
-      "Hepatomegaly",
       "Lethargy",
       "Cardiac arrest",
-      "Encephalopathy",
-      "Failure to thrive",
-      "Hepatic steatosis"
+      "Ventricular arrhythmia",
+      "Encephalopathy"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
-      "Digestive",
-      "Growth",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
@@ -75398,12 +75839,10 @@ window.searchData = [
       "HP:0001987",
       "HP:0003198",
       "HP:0001252",
-      "HP:0002240",
       "HP:0001254",
       "HP:0001695",
-      "HP:0001298",
-      "HP:0001508",
-      "HP:0001397"
+      "HP:0004308",
+      "HP:0001298"
     ],
     "frequencies": [
       "FREQUENT",
@@ -75426,19 +75865,18 @@ window.searchData = [
     "biochemical": [
       "Free carnitine (C0)",
       "Urinary carnitine",
-      "Acylcarnitines",
       "Ammonia",
       "Blood glucose",
       "Creatine kinase"
     ],
     "source_file": "Primary_Carnitine_Deficiency.yaml",
     "page_url": "../pages/disorders/Primary_Carnitine_Deficiency.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 10,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Primary_Ciliary_Dyskinesia",
@@ -84753,6 +85191,94 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Spondyloepimetaphyseal Dysplasia Bieganski Type",
+    "disease_id": "MONDO:0010275",
+    "category": "Mendelian",
+    "parents": [
+      "Spondyloepimetaphyseal Dysplasia",
+      "mitochondrial disease"
+    ],
+    "creation_date": "2026-05-08T16:20:35Z",
+    "updated_date": "2026-05-08T16:20:35Z",
+    "subtypes": [],
+    "description": "Spondyloepimetaphyseal dysplasia, Bieganski type is a rare X-linked AIFM1-associated mitochondrial disorder combining spondyloepimetaphyseal skeletal dysplasia with progressive neurodegeneration, hypomyelinating leukodystrophy, growth failure, visual and auditory involvement, and developmental impairment. The reported molecular mechanism implicates the AIFM1 p.Asp237Gly variant and additional exon 7-region variants, linking mitochondrial apoptosis-inducing factor dysfunction to both neurologic and skeletal phenotypes. Falcon deep research noted that MBTPS1-related spondyloepiphyseal dysplasia, Kondo-Fu type is sometimes discussed with overlapping SEMD terminology, but it is a distinct autosomal recessive condition and is not modeled as the causal entity for this MONDO:0010275 page.",
+    "pathophysiology": [
+      "AIFM1 Variant-Associated Mitochondrial Dysfunction",
+      "Hypomyelination and Neurodegeneration",
+      "Spondyloepimetaphyseal Skeletal Dysplasia"
+    ],
+    "cell_types": [
+      "Oligodendrocyte",
+      "Chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Mitochondrion Organization",
+      "Apoptotic Process",
+      "RNA Splicing",
+      "Myelination",
+      "Bone Development"
+    ],
+    "phenotypes": [
+      "Skeletal Dysplasia",
+      "Spondylometaphyseal Dysplasia",
+      "Short Stature",
+      "Joint Hypermobility",
+      "Delayed CNS Myelination",
+      "Progressive Neurologic Deterioration",
+      "Developmental Delay",
+      "Microcephaly",
+      "Intellectual Disability",
+      "Gait Ataxia",
+      "Nystagmus",
+      "Sensorineural Hearing Impairment",
+      "Retinal Degeneration"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002652",
+      "HP:0002657",
+      "HP:0004322",
+      "HP:0001382",
+      "HP:0002188",
+      "HP:0002344",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0001249",
+      "HP:0002066",
+      "HP:0000639",
+      "HP:0000407",
+      "HP:0000546"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AIFM1 p.Asp237Gly",
+      "AIFM1 exon 7-region variants"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondyloepimetaphyseal_Dysplasia_Bieganski_Type.yaml",
+    "page_url": "../pages/disorders/Spondyloepimetaphyseal_Dysplasia_Bieganski_Type.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Spondyloepimetaphyseal Dysplasia Strudwick Type",
     "disease_id": "MONDO:0008476",
     "category": "Mendelian",
@@ -93423,6 +93949,81 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "X-linked Nonsyndromic Hearing Loss",
+    "disease_id": "MONDO:0019586",
+    "category": "Genetic",
+    "parents": [
+      "Nonsyndromic Hearing Loss",
+      "X-linked Deafness"
+    ],
+    "creation_date": "2026-05-08T00:00:00Z",
+    "updated_date": "2026-05-08T17:44:01Z",
+    "subtypes": [
+      "DFNX1",
+      "DFNX2",
+      "DFNX4",
+      "DFNX5",
+      "DFNX6"
+    ],
+    "description": "X-linked nonsyndromic hearing loss, also called DFNX, is a genetically heterogeneous form of hereditary hearing loss caused by germline variants in X-chromosome genes required for cochlear development, hair-cell function, or auditory pathway integrity. Current evidence highlights PRPS1, POU3F4, SMPX, AIFM1, and COL4A6 as principal DFNX genes. POU3F4 is the most common X-linked nonsyndromic hearing-loss gene and is strongly associated with incomplete partition type III inner-ear malformation. X-linked cases usually begin congenitally or in childhood; males are typically more severely affected, while females can show variable expressivity.",
+    "pathophysiology": [
+      "X-linked genetic heterogeneity in cochlear disease",
+      "POU3F4-related inner ear developmental malformation",
+      "SMPX-related hair-cell mechanotransduction defect"
+    ],
+    "cell_types": [
+      "Auditory hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000202"
+    ],
+    "biological_processes": [
+      "inner ear morphogenesis",
+      "regulation of DNA-templated transcription",
+      "detection of mechanical stimulus involved in sensory perception",
+      "cell projection organization"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Progressive sensorineural hearing impairment",
+      "Incomplete partition type III",
+      "Perilymphatic gusher during stapedectomy"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0000408",
+      "HP:0008554"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRPS1 pathogenic variants",
+      "POU3F4 pathogenic variants",
+      "SMPX pathogenic variants",
+      "AIFM1 pathogenic variants",
+      "COL4A6 pathogenic variants"
+    ],
+    "treatments": [
+      "Cochlear implantation for POU3F4/IP-III anatomy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "X-linked_Nonsyndromic_Hearing_Loss.yaml",
+    "page_url": "../pages/disorders/X-linked_Nonsyndromic_Hearing_Loss.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 5,
+    "num_treatments": 2,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "2"
+  },
+  {
     "name": "YWHAG Syndrome",
     "disease_id": "MONDO:0033365",
     "category": "Mendelian",
@@ -94357,11 +94958,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 965,
-  "total_unique_evidence_sources": 17045,
+  "total_disorder_pages": 971,
+  "total_unique_evidence_sources": 17226,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 179,
-  "total_pathographs": 958,
-  "total_unique_pathological_events": 4567
+  "total_pathographs": 964,
+  "total_unique_pathological_events": 4599
 };
 window.dispatchEvent(new Event('searchDataReady'));
