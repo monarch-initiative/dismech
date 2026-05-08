@@ -748,12 +748,13 @@ just structured-rebuild-orphanet
 just structured-rebuild-orphanet --id 558
 
 # ClinGen Gene-Disease Validity CSV
-just refresh-clingen
-just structured-rebuild-clingen
-just structured-rebuild-clingen --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
+just clingen-refresh
+just clingen-list
+just clingen-rebuild
+just clingen-rebuild --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
 
 # Use --csv-only to skip fetching report-page narrative during a fast rebuild
-just structured-rebuild-clingen --csv-only --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
+just clingen-rebuild --csv-only --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is

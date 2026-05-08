@@ -187,7 +187,7 @@ class ClinGenSource(StructuredSource):
         if fallback.exists():
             return fallback
 
-        raise FileNotFoundError(f"{path} not found; run `just refresh-clingen` first")
+        raise FileNotFoundError(f"{path} not found; run `just clingen-refresh` first")
 
     def identifiers(self) -> Iterable[str]:
         idx = self.index()
