@@ -21500,7 +21500,7 @@ window.searchData = [
       "Drug Adverse Reaction"
     ],
     "creation_date": "2026-04-03T00:00:00Z",
-    "updated_date": "2026-04-03T00:00:00Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [
       "Acute CINV",
       "Delayed CINV",
@@ -22614,7 +22614,7 @@ window.searchData = [
       "B-cell neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-21T05:00:00Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [
       "IGHV Mutated CLL",
       "IGHV Unmutated CLL"
@@ -23386,7 +23386,7 @@ window.searchData = [
       "familial adenomatous polyposis"
     ],
     "creation_date": "2026-03-01T18:54:36Z",
-    "updated_date": "2026-04-28T16:00:00Z",
+    "updated_date": "2026-05-08T21:41:13Z",
     "subtypes": [],
     "description": "Classic familial adenomatous polyposis (classic FAP) is an autosomal dominant APC-associated polyposis syndrome characterized by extensive colorectal adenoma burden beginning early in life and very high colorectal cancer risk without definitive preventive management. Disease progression follows an APC-initiated adenoma-to-carcinoma trajectory with cooperative WNT, PI3K/mTOR, and genomic instability mechanisms, while upper gastrointestinal and extracolonic disease manifestations remain clinically important across adulthood.",
     "pathophysiology": [
@@ -24633,7 +24633,7 @@ window.searchData = [
       "Inner Ear Diseases"
     ],
     "creation_date": "2026-02-04T15:55:07Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [
       "Typical Cogan syndrome",
       "Atypical Cogan syndrome"
@@ -29128,7 +29128,7 @@ window.searchData = [
       "Trinucleotide Repeat Disorders"
     ],
     "creation_date": "2026-04-08T15:03:27Z",
-    "updated_date": "2026-04-21T03:24:39Z",
+    "updated_date": "2026-05-08T21:41:13Z",
     "subtypes": [
       "Juvenile-onset DRPLA",
       "Adult-onset DRPLA"
@@ -29180,7 +29180,11 @@ window.searchData = [
     "genes": [
       "ATN1"
     ],
-    "treatments": [],
+    "treatments": [
+      "Antiseizure Medication Management",
+      "Multidisciplinary Rehabilitation and Supportive Care",
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Dentatorubral-Pallidoluysian_Atrophy.yaml",
@@ -29188,7 +29192,7 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 0,
+    "num_treatments": 3,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
@@ -29268,7 +29272,7 @@ window.searchData = [
       "skin neoplasm"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-24T00:00:00Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [
       "Classic DFSP",
       "Fibrosarcomatous DFSP",
@@ -29617,7 +29621,7 @@ window.searchData = [
       "glucose metabolism disease"
     ],
     "creation_date": "2026-02-21T15:39:12Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [
       "type 1 diabetes mellitus",
       "latent autoimmune diabetes in adults",
@@ -30171,7 +30175,7 @@ window.searchData = [
       "Gastrointestinal Disease"
     ],
     "creation_date": "2026-01-14T23:44:30Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [],
     "description": "Dieulafoy lesion is a rare vascular anomaly characterized by a caliber-persistent submucosal artery that erodes the overlying mucosa without forming a true ulcer, leading to sudden, potentially life-threatening gastrointestinal bleeding anywhere along the GI tract.\n",
     "pathophysiology": [
@@ -30233,7 +30237,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-21T05:00:00Z",
+    "updated_date": "2026-05-08T21:41:13Z",
     "subtypes": [
       "Germinal Center B-cell (GCB) Type",
       "Activated B-cell (ABC) Type",
@@ -30308,6 +30312,7 @@ window.searchData = [
       "Polatuzumab Vedotin plus R-CHP",
       "Intensive Chemotherapy for Double-Hit Lymphoma",
       "CAR-T Cell Therapy",
+      "Epcoritamab Bispecific Antibody",
       "Autologous Stem Cell Transplantation",
       "Radiation Therapy"
     ],
@@ -30321,7 +30326,7 @@ window.searchData = [
     "num_phenotypes": 6,
     "num_pathophysiology": 5,
     "num_genes": 4,
-    "num_treatments": 6,
+    "num_treatments": 7,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
   },
@@ -31460,7 +31465,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": "2026-03-10T12:00:00Z",
-    "updated_date": "2026-04-26T05:52:16Z",
+    "updated_date": "2026-05-08T20:47:43Z",
     "subtypes": [
       "DDEB",
       "RDEB-sev gen",
@@ -44126,7 +44131,7 @@ window.searchData = [
       "Inborn Error of Carbohydrate Metabolism"
     ],
     "creation_date": "2026-04-21T04:43:27Z",
-    "updated_date": "2026-04-22T21:54:51Z",
+    "updated_date": "2026-05-08T00:00:00Z",
     "subtypes": [],
     "description": "Hereditary fructose intolerance (HFI) is an autosomal recessive inborn error of fructose metabolism caused by biallelic pathogenic variants in ALDOB, leading to aldolase B deficiency in the liver, kidneys, and intestine. Fructose exposure causes fructose-1-phosphate accumulation with ATP depletion, producing vomiting, hypoglycemia, hepatomegaly, and renal tubular dysfunction. Lifelong avoidance of fructose, sucrose, and sorbitol is the cornerstone of care and is associated with good long-term prognosis, although diet-treated patients can still show hepatic steatosis and other metabolic complications.\n",
     "pathophysiology": [
@@ -44188,7 +44193,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "3"
   },
   {
@@ -66744,7 +66749,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-02-23T00:00:00Z",
-    "updated_date": "2026-04-22T20:53:03Z",
+    "updated_date": "2026-05-08T00:00:00Z",
     "subtypes": [
       "Classical neonatal nonketotic hyperglycinemia",
       "Attenuated nonketotic hyperglycinemia"
@@ -66755,27 +66760,26 @@ window.searchData = [
       "Systemic and CNS glycine accumulation",
       "Serine-glycine-one-carbon metabolic disruption",
       "NMDA receptor dysregulation and neurotransmission imbalance",
-      "Altered glial differentiation and variant NKH via lipoylation defects"
+      "Altered glial lineage differentiation in GLDC-deficient neural progenitors",
+      "GCSH variant-driven lipoylation defects and bioenergetic failure"
     ],
     "cell_types": [
-      "hepatocyte",
       "astrocyte",
       "neuron",
       "radial glial cell"
     ],
     "cell_type_ids": [
-      "CL:0000182",
       "CL:0000127",
       "CL:0000540",
       "CL:0000681"
     ],
     "biological_processes": [
+      "glycine decarboxylation via glycine cleavage system",
       "glycine catabolic process",
       "amino acid metabolic process",
       "one-carbon metabolic process",
       "folic acid metabolic process",
       "glutamate receptor signaling pathway",
-      "synaptic transmission, glycinergic",
       "astrocyte differentiation",
       "protein lipoylation"
     ],
@@ -66835,18 +66839,16 @@ window.searchData = [
       "Plasma glycine",
       "CSF glycine",
       "CSF-to-plasma glycine ratio",
-      "D-serine (CSF)",
-      "Glutathione",
-      "Nucleotide metabolites"
+      "D-serine"
     ],
     "source_file": "Nonketotic_Hyperglycinemia.yaml",
     "page_url": "../pages/disorders/Nonketotic_Hyperglycinemia.html",
     "num_phenotypes": 12,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Noonan Syndrome",
@@ -94959,10 +94961,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 971,
-  "total_unique_evidence_sources": 17226,
+  "total_unique_evidence_sources": 17292,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 179,
   "total_pathographs": 964,
-  "total_unique_pathological_events": 4599
+  "total_unique_pathological_events": 4600
 };
 window.dispatchEvent(new Event('searchDataReady'));
