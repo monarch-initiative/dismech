@@ -69,4 +69,4 @@ Treatment is represented by disease-modifying tolvaptan pharmacotherapy
 targeting the vasopressin/cAMP cyst-growth pathway, plus sodium restriction and
 blood-pressure targets as conservative management. Diagnosis is represented by
 MRI total-kidney-volume risk stratification through the Mayo Imaging
-Classification and molecular genetic testing.
+Classification.
