@@ -1,0 +1,21 @@
+---
+reference_id: "DOI:10.3389/fneur.2023.1227505"
+title: "Acute motor-sensory axonal polyneuropathy variant of Guillain-Barré syndrome with a thalamic lesion and COVID-19: a case report and discussion on mechanism"
+authors:
+- Na Geng
+- Pengfei Wang
+- Yong Zhang
+journal: Frontiers in Neurology
+year: '2023'
+doi: 10.3389/fneur.2023.1227505
+content_type: abstract_only
+---
+
+# Acute motor-sensory axonal polyneuropathy variant of Guillain-Barré syndrome with a thalamic lesion and COVID-19: a case report and discussion on mechanism
+**Authors:** Na Geng, Pengfei Wang, Yong Zhang
+**Journal:** Frontiers in Neurology (2023)
+**DOI:** [10.3389/fneur.2023.1227505](https://doi.org/10.3389/fneur.2023.1227505)
+
+## Content
+
+BackgroundSevere acute respiratory syndrome coronavirus 2 (SARS-CoV-2) primarily affects the respiratory system. During the global coronavirus disease (COVID-19) pandemic, COVID-19-associated neurological diseases have been increasingly reported, including peripheral nervous system diseases, such as Guillain–Barré syndrome (GBS). Acute motor-sensory axonal polyneuropathy (AMSAN), is a GBS variant associated with COVID-19. To date, there are no reports of GBS cases with thalamic injury and dynamic evolution with fluctuating GBS symptoms. In this report, we describe the first case of COVID-19-associated AMSAN accompanied by a thalamic lesion and discuss the magnetic resonance imaging (MRI) findings.Case presentationA 76-year-old woman, with known co-morbid type 2 diabetes mellitus, presented to the emergency room with complaints of weakness and paraesthesia in both her legs and arms for 4 days, and fever and dry cough for the past 5 days. A nasopharyngeal swab for SARS-CoV-2 returned positive. The patient had not received specific treatment for COVID-19 infection. Neurological examination disclosed symmetric weakness (Medical Research Council grade upper limbs 4/5, lowers limbs 2/5) and areflexia in both the legs and feet. No cranial nerves were involved. Following a neuro-electro-physiology study to evaluate neurological symptoms, AMSAN was suggested. Cerebrospinal fluid (CSF) analysis showed elevated protein levels that confirmed the diagnosis of GBS. The patient was subsequently treated with intravenous immune globulin (IVIG), which improved her neurological symptoms (upper limbs 4/5, lowers limbs 4/5). However, urinary retention, dysarthria, dysphagia, bilateral facial paralysis, facial diplegia, bucking, and motor alalia gradually appeared, followed by aggravated paralysis (upper limbs 3/5, lowers limbs 1/5). After being hospitalized for 16 days, the patient underwent continuous plasma exchange (PE) treatment for a duration of 3 days. Following treatment, the patient’s neurological symptoms and paralysis gradually improved (upper limbs 4/5, lowers limbs 4/5) over 2 weeks. Meanwhile, we observed that the patient’s cerebral magnetic resonance imaging (MRI) findings dynamically evolved along with the fluctuation of her GBS symptoms, mainly in terms of the changes in T2 hyperintensity in the right thalamus accompanied by microhaemorrhages. The inflammation index was normal. We considered a wide range of possible causes including hypoxia, drugs, toxins, and metabolic derangements but these were excluded.ConclusionThe AMSAN variant of GBS secondary to COVID-19 infection is severe and can cause extensive damage to the peripheral nerves system. The deterioration of symptoms in the patient after early immunotherapy may indicate treatment-related fluctuation (TRF) and could be attributed to immune rebound. Moreover, an excessive immune response post-COVID-19 infection may trigger concurrent damage to the central nervous system, indicating secondary harm to brain small blood vessels and nerve units. For suspected cases of GBS complicated by COVID-19, it is essential to conduct early brain MRI examinations in addition to routine peripheral nervous system evaluations to promptly detect any intracranial lesions. This facilitates appropriate immunotherapy and improves patient prognosis.
