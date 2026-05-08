@@ -40,7 +40,8 @@ synonyms, exact MeSH and OMIM cross-references, and phenotype-frequency rows for
 tracheoesophageal fistula, dysphagia, excessive salivation, feeding difficulty,
 failure to thrive, recurrent respiratory infections, restrictive ventilatory
 defect, gastrointestinal dysmotility, gastroesophageal reflux, respiratory
-distress, aspiration, esophagitis, and absent fetal stomach bubble.
+distress, aspiration, esophagitis, abnormal cardiovascular system morphology,
+and absent fetal stomach bubble.
 
 PMID:22247246 provides independent population-based EUROCAT support for
 prevalence, prenatal detection, associated anomalies, live-born frequency, and
@@ -60,6 +61,14 @@ foregut compartmentalization in EA/TEF, and model-organism evidence implicating
 multiple signaling pathways and transcription factors, including sonic
 hedgehog/smoothened pathway effectors, in foregut embryogenesis.
 
+PMID:20425471 also supports the Gross anatomical subtype framework, defined by
+the location of atresia and the tracheoesophageal connection, and provides the
+core syndromic/genetic context for VACTERL association, CHARGE/CHD7,
+Feingold/MYCN, SOX2-associated AEG syndrome, chromosomal trisomies, FOXF1, and
+SHH-pathway developmental susceptibility. PMID:27993359 quantifies the dominant
+anatomical subtypes in a contemporary surgical cohort: proximal EA with distal
+TEF at 85% and pure EA at 7%.
+
 PMID:27190912 and PMID:31571760 support newborn diagnosis by failed or
 misleading nasogastric-tube passage and chest/abdominal radiography with the
 tube arrested in the upper esophageal pouch. PMID:31571760 also supports using
@@ -67,8 +76,9 @@ the radiograph to estimate esophageal gap length before repair.
 
 PMID:27993359 supports contemporary surgical cohort context: most infants have
 proximal EA with distal TEF, surgical repair is esophageal reconstruction with
-or without TEF ligation, postoperative morbidity is common, and perioperative
-practice varies substantially across centers.
+or without TEF ligation, clinically significant congenital heart disease is
+present in 35%, postoperative morbidity is common, and perioperative practice
+varies substantially across centers.
 
 PMID:27579697 provides guideline support for long-term care of reflux,
 dysphagia, feeding difficulty, anastomotic strictures, congenital esophageal
