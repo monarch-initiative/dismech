@@ -979,6 +979,11 @@ clingen-list limit="20":
 clingen-dosage-list limit="20":
     uv run python -m dismech.structured_sources.cli list clingen-dosage --limit {{limit}}
 
+# Audit ClinGen Gene-Disease Validity coverage in disorder YAML
+[group('Research')]
+clingen-audit-yaml *args="":
+    uv run python -m dismech.structured_sources.cli clingen-audit-yaml {{args}}
+
 # List the first N identifiers from a structured source
 [group('Research')]
 structured-list source="orphanet" limit="20":

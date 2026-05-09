@@ -19,6 +19,10 @@ import typer
 from dismech.structured_sources.base import StructuredSource
 from dismech.structured_sources.clingen import ClinGenSource
 from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
+from dismech.structured_sources.clingen_yaml_audit import (
+    audit_clingen_yaml,
+    format_summary,
+)
 from dismech.structured_sources.orphanet import OrphanetSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -114,6 +118,42 @@ def list_cmd(
     typer.echo(f"{len(ids)} identifiers in {source}")
     for ident in ids[:limit]:
         typer.echo(f"  {ident}")
+
+
+@app.command("clingen-audit-yaml")
+def clingen_audit_yaml_cmd(
+    kb_dir: Path = typer.Option(
+        _REPO_ROOT / "kb" / "disorders",
+        "--kb-dir",
+        help="Directory containing disorder YAML files",
+    ),
+    data_dir: Path = typer.Option(
+        _DEFAULT_DATA_DIR / "clingen",
+        "--data-dir",
+        help="Directory containing ClinGen Gene-Disease Validity bulk data",
+    ),
+    cache_dir: Path = typer.Option(
+        _DEFAULT_CACHE_DIR,
+        "--cache-dir",
+        help="Reference cache directory used to check CGGV snippets",
+    ),
+    limit: int = typer.Option(
+        20,
+        "--limit",
+        help="Number of remaining disorder-file examples to print; 0 hides examples",
+    ),
+) -> None:
+    """Audit ClinGen Gene-Disease Validity coverage in disorder YAML."""
+
+    manifest = data_dir / "MANIFEST.yaml"
+    if manifest.exists():
+        ClinGenSource.load_manifest(manifest)
+    summary = audit_clingen_yaml(
+        kb_dir=kb_dir,
+        data_dir=data_dir,
+        cache_dir=cache_dir,
+    )
+    typer.echo(format_summary(summary, limit=limit))
 
 
 def main() -> None:
