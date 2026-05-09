@@ -6,6 +6,7 @@ from pathlib import Path
 from dismech.structured_sources.clingen_yaml_audit import (
     audit_clingen_yaml,
     format_summary,
+    format_tsv,
 )
 
 
@@ -110,3 +111,9 @@ disease_term:
     assert "primary-MONDO assertion/file matches: 4" in rendered
     assert "missing_genetic_entry: 1" in rendered
     assert "remaining examples:" in rendered
+
+    tsv = format_tsv(summary, statuses=["blocked_label_mismatch"])
+    assert tsv.splitlines()[0].startswith("status\tdisorder_path\tgene_symbol")
+    assert "\nblocked_label_mismatch\t" in tsv
+    assert "CGGV:assertion_label_mismatch" in tsv
+    assert "CGGV:assertion_done" not in tsv

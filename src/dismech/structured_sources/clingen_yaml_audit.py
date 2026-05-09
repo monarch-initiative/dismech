@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import csv
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from io import StringIO
 from pathlib import Path
 from typing import Iterable, Iterator
 
@@ -265,6 +267,46 @@ def format_summary(summary: ClinGenYamlAuditSummary, *, limit: int = 20) -> str:
             )
 
     return "\n".join(lines)
+
+
+def format_tsv(
+    summary: ClinGenYamlAuditSummary, *, statuses: Iterable[str] | None = None
+) -> str:
+    """Render assertion/file matches as tab-separated rows."""
+
+    allowed_statuses = set(statuses or [])
+    output = StringIO()
+    writer = csv.writer(output, delimiter="\t", lineterminator="\n")
+    writer.writerow(
+        [
+            "status",
+            "disorder_path",
+            "gene_symbol",
+            "gene_hgnc_id",
+            "disease_label",
+            "disease_mondo_id",
+            "classification",
+            "assertion_id",
+            "reason",
+        ]
+    )
+    for record in summary.records:
+        if allowed_statuses and record.status not in allowed_statuses:
+            continue
+        writer.writerow(
+            [
+                record.status,
+                record.disorder_path,
+                record.gene_symbol,
+                record.gene_hgnc_id,
+                record.disease_label,
+                record.disease_mondo_id,
+                record.classification,
+                record.assertion_id,
+                record.reason,
+            ]
+        )
+    return output.getvalue().rstrip("\n")
 
 
 def _iter_disorder_yaml(kb_dir: Path) -> Iterator[tuple[Path, dict]]:

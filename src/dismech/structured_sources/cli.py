@@ -22,6 +22,7 @@ from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
 from dismech.structured_sources.clingen_yaml_audit import (
     audit_clingen_yaml,
     format_summary,
+    format_tsv,
 )
 from dismech.structured_sources.orphanet import OrphanetSource
 
@@ -142,6 +143,16 @@ def clingen_audit_yaml_cmd(
         "--limit",
         help="Number of remaining disorder-file examples to print; 0 hides examples",
     ),
+    output_format: str = typer.Option(
+        "summary",
+        "--format",
+        help="Output format: summary or tsv",
+    ),
+    status: list[str] = typer.Option(
+        None,
+        "--status",
+        help="Restrict TSV rows to a status; may be repeated",
+    ),
 ) -> None:
     """Audit ClinGen Gene-Disease Validity coverage in disorder YAML."""
 
@@ -153,7 +164,12 @@ def clingen_audit_yaml_cmd(
         data_dir=data_dir,
         cache_dir=cache_dir,
     )
-    typer.echo(format_summary(summary, limit=limit))
+    if output_format == "summary":
+        typer.echo(format_summary(summary, limit=limit))
+    elif output_format == "tsv":
+        typer.echo(format_tsv(summary, statuses=status))
+    else:
+        raise typer.BadParameter("--format must be 'summary' or 'tsv'")
 
 
 def main() -> None:
