@@ -679,6 +679,7 @@ as evidence `snippet:` values.
 |--------|--------|----------|---------|
 | `ORPHA:` | Orphadata bulk XML | 8,823 leaf disorders + subtypes | CC-BY 4.0 |
 | `CGGV:` | ClinGen Gene-Disease Validity CSV | One record per gene-disease validity assertion | ClinGen terms |
+| `CGDS:` | ClinGen Dosage Sensitivity downloads | One record per dosage-sensitive gene | ClinGen terms |
 
 **Citing an Orphanet entry:**
 
@@ -735,6 +736,20 @@ In summary, HEXB is definitively associated with Sandhoff disease.
 | HEXB | HGNC:4879 | Sandhoff disease | MONDO:0010006 | AR | Definitive | SOP9 | Lysosomal Diseases Gene Curation Expert Panel | 2022-09-15T16:00:00.000Z |
 ```
 
+**Citing a ClinGen dosage sensitivity assertion:**
+
+```yaml
+evidence:
+  - reference: CGDS:HGNC_9585
+    supports: SUPPORT
+    snippet: "PTCH1 | HGNC:9585 | 5727 | 9q22.32 | chr9:95442980-95516971 | 3 - Sufficient Evidence for Haploinsufficiency | 0 - No Evidence for Triplosensitivity | 2020-07-01"
+    explanation: ClinGen dosage sensitivity supports PTCH1 haploinsufficiency as a disease mechanism.
+```
+
+ClinGen dosage cache bodies contain a `## Gene dosage sensitivity` table and,
+when available, report-page narrative for haploinsufficiency and
+triplosensitivity evidence.
+
 **How the cache is built:**
 
 ```bash
@@ -755,6 +770,12 @@ just clingen-rebuild --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-20
 
 # Use --csv-only to skip fetching report-page narrative during a fast rebuild
 just clingen-rebuild --csv-only --id CGGV:assertion_7f53d03d-f936-4628-ab75-351ae4da012a-2022-09-15T160000.000Z
+
+# ClinGen Dosage Sensitivity CSV/TSV
+just clingen-dosage-refresh
+just clingen-dosage-list
+just clingen-dosage-rebuild
+just clingen-dosage-rebuild --id CGDS:HGNC_9585
 ```
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
