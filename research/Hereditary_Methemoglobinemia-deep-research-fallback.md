@@ -63,5 +63,4 @@ adds generalized neurologic involvement, with developmental delay, severe
 intellectual disability, movement disorder, progressive microcephaly, small
 basal ganglia, and frontotemporal brain volume loss. Treatment evidence is
 symptomatic: methylene blue can lower methemoglobin, while ascorbic acid is
-reported for cyanosis; neither provides established correction of progressive
-type II neurologic disease.
+reported for cyanosis.
