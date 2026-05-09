@@ -6,7 +6,7 @@ can be cited from disorder YAMLs and snippet-validated by
 ``linkml-reference-validator``.
 
 The flagship source is :class:`OrphanetSource`; ClinGen Gene-Disease Validity
-assertions are also available via :class:`ClinGenSource`.
+and Dosage Sensitivity assertions are also available.
 """
 
 from dismech.structured_sources.base import (
@@ -15,6 +15,7 @@ from dismech.structured_sources.base import (
     StructuredSource,
 )
 from dismech.structured_sources.clingen import ClinGenSource
+from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 __all__ = [
@@ -22,5 +23,6 @@ __all__ = [
     "ReferenceCacheEntry",
     "StructuredSource",
     "ClinGenSource",
+    "ClinGenDosageSource",
     "OrphanetSource",
 ]

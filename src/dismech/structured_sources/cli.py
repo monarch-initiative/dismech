@@ -6,6 +6,7 @@ Exposes operations to refresh bulk data and (re)build cache files.
     uv run python -m dismech.structured_sources.cli rebuild orphanet
     uv run python -m dismech.structured_sources.cli rebuild orphanet --id 558
     uv run python -m dismech.structured_sources.cli rebuild clingen --id CGGV:assertion_...
+    uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id HGNC:25662
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import typer
 
 from dismech.structured_sources.base import StructuredSource
 from dismech.structured_sources.clingen import ClinGenSource
+from dismech.structured_sources.clingen_dosage import ClinGenDosageSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -38,6 +40,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             ClinGenSource.load_manifest(manifest)
         return ClinGenSource(_DEFAULT_DATA_DIR / "clingen")
+    if name in {"clingen-dosage", "clingen_dosage", "cgds"}:
+        manifest = _DEFAULT_DATA_DIR / "clingen-dosage" / "MANIFEST.yaml"
+        if manifest.exists():
+            ClinGenDosageSource.load_manifest(manifest)
+        return ClinGenDosageSource(_DEFAULT_DATA_DIR / "clingen-dosage")
     raise typer.BadParameter(f"unknown source: {name}")
 
 
@@ -62,7 +69,7 @@ def rebuild_cmd(
     include_report_text: bool = typer.Option(
         True,
         "--include-report-text/--csv-only",
-        help="For ClinGen, include narrative text scraped from assertion reports",
+        help="For ClinGen sources, include narrative text scraped from reports",
     ),
     cache_dir: Path = typer.Option(
         _DEFAULT_CACHE_DIR, "--cache-dir", help="Output directory"
@@ -75,7 +82,7 @@ def rebuild_cmd(
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     src = _get_source(source)
-    if isinstance(src, ClinGenSource):
+    if isinstance(src, (ClinGenSource, ClinGenDosageSource)):
         src.include_report_text = include_report_text
     cache_dir.mkdir(parents=True, exist_ok=True)
     if id_:
