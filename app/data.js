@@ -1893,7 +1893,7 @@ window.searchData = [
       "Hereditary Peripheral Neuropathy"
     ],
     "creation_date": "2026-05-04T05:21:52Z",
-    "updated_date": "2026-05-04T06:03:00Z",
+    "updated_date": "2026-05-09T00:11:53Z",
     "subtypes": [],
     "description": "Abetalipoproteinemia is a severe autosomal recessive disorder of apoB-containing lipoprotein assembly and secretion caused by biallelic MTTP pathogenic variants. Loss of microsomal triglyceride transfer protein function prevents normal chylomicron export from enterocytes and VLDL export from hepatocytes, producing absent or extremely low apoB-containing lipoproteins, hypocholesterolemia, hypotriglyceridemia, fat malabsorption, and secondary fat-soluble vitamin deficiency. Infants typically present with failure to thrive, diarrhea, vomiting, steatorrhea, acanthocytosis, and abnormal lipid studies; untreated individuals can later develop retinal, neurologic, hematologic, hepatic, and coagulation complications. Management centers on a low-fat diet, essential fatty acid intake, and high-dose fat-soluble vitamin supplementation.\n",
     "pathophysiology": [
@@ -2026,8 +2026,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "39",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Achondrogenesis Type II",
@@ -32703,7 +32703,7 @@ window.searchData = [
       "rhabdomyosarcoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-24T00:00:00Z",
+    "updated_date": "2026-05-08T23:53:01Z",
     "subtypes": [
       "Botryoid Embryonal Rhabdomyosarcoma",
       "Spindle Cell Embryonal Rhabdomyosarcoma",
@@ -32884,7 +32884,7 @@ window.searchData = [
       "Neurocutaneous disorder"
     ],
     "creation_date": "2026-04-04T12:00:00Z",
-    "updated_date": "2026-04-04T18:00:00Z",
+    "updated_date": "2026-05-08T23:53:01Z",
     "subtypes": [],
     "description": "Encephalocraniocutaneous lipomatosis (ECCL, Haberland syndrome) is a rare congenital neurocutaneous disorder caused by postzygotic (somatic) gain-of-function mutations in FGFR1 or KRAS. It is characterized by unilateral ocular, cutaneous, and central nervous system anomalies. Key clinical features include hairless fatty tissue nevus of the scalp (nevus psiloliparus), choristoma of the eye, and intraspinal and intracerebral lipomas. As a mosaic disorder, it is not typically inherited in a Mendelian pattern. Patients with FGFR1-associated ECCL carry a risk of developing malignant brain tumors.",
     "pathophysiology": [
@@ -33350,7 +33350,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": "2026-03-10T12:00:00Z",
-    "updated_date": "2026-03-16T01:13:18Z",
+    "updated_date": "2026-05-08T23:53:01Z",
     "subtypes": [
       "Epidermolysis Bullosa Simplex",
       "Junctional Epidermolysis Bullosa",
@@ -33466,7 +33466,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": "2026-03-10T00:00:00Z",
-    "updated_date": "2026-03-16T01:13:18Z",
+    "updated_date": "2026-05-08T23:53:01Z",
     "subtypes": [
       "EBS Localized (formerly Weber-Cockayne)",
       "EBS Intermediate (formerly Koebner)",
@@ -34979,7 +34979,7 @@ window.searchData = [
       "Enteric Neuropathy"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-04-07T02:14:34Z",
+    "updated_date": "2026-05-09T00:41:13Z",
     "subtypes": [],
     "description": "X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX) caused by loss-of-function mutations in FLNA is a severe gastrointestinal motility disorder primarily affecting males. The condition results from impaired enteric neuron development due to disruption of the filamin A N-terminal region, which is crucial for proper enteric nervous system formation. Affected males present with intestinal pseudo-obstruction, often with bladder dysfunction and central nervous system involvement including periventricular nodular heterotopia. The disorder can also result from Xq28 duplications encompassing FLNA. FLNA duplication may contribute to bowel and bladder dysfunction through a distinct dosage-sensitive mechanism.",
     "pathophysiology": [
@@ -35020,9 +35020,9 @@ window.searchData = [
       "HP:0032388"
     ],
     "frequencies": [
-      "Very frequent",
-      "Frequent",
-      "Occasional"
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "FLNA Loss-of-Function Variants"
@@ -35402,7 +35402,7 @@ window.searchData = [
       "hereditary cancer-predisposing syndrome"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-28T16:00:00Z",
+    "updated_date": "2026-05-08T23:53:01Z",
     "subtypes": [
       "Classic FAP",
       "Attenuated FAP (AFAP)",
@@ -36390,7 +36390,7 @@ window.searchData = [
       "Sphingolipidosis"
     ],
     "creation_date": "2026-05-05T11:17:39Z",
-    "updated_date": "2026-05-05T11:17:39Z",
+    "updated_date": "2026-05-09T01:26:56Z",
     "subtypes": [],
     "description": "Farber disease is an ultra-rare autosomal recessive lysosomal sphingolipid storage disorder caused by biallelic ASAH1 pathogenic variants and deficient acid ceramidase activity. Impaired lysosomal ceramide catabolism causes ceramide storage with lipid-laden macrophage granulomas, inflammatory cytokine activation, and a multisystem phenotype classically including periarticular subcutaneous nodules, painful swollen or contractured joints, and progressive hoarse voice from laryngeal involvement, with variable neurologic, respiratory, visceral, skeletal, and ocular involvement.\n",
     "pathophysiology": [
@@ -36493,7 +36493,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -36662,7 +36662,7 @@ window.searchData = [
       "Type XI Collagenopathy"
     ],
     "creation_date": "2026-04-02T12:00:00Z",
-    "updated_date": "2026-04-19T06:45:17Z",
+    "updated_date": "2026-05-09T00:41:13Z",
     "subtypes": [
       "Type 1",
       "Type 2"
@@ -37222,7 +37222,7 @@ window.searchData = [
       "Nephrotic Syndrome"
     ],
     "creation_date": "2026-04-13T17:56:50Z",
-    "updated_date": "2026-04-15T04:43:25Z",
+    "updated_date": "2026-05-08T23:53:01Z",
     "subtypes": [
       "Primary FSGS",
       "Secondary FSGS",
@@ -37328,7 +37328,7 @@ window.searchData = [
       "B-cell non-Hodgkin lymphoma"
     ],
     "creation_date": "2026-04-12T05:13:04Z",
-    "updated_date": "2026-04-21T05:00:00Z",
+    "updated_date": "2026-05-09T00:41:13Z",
     "subtypes": [
       "Classic Follicular Lymphoma",
       "t(14;18)-Negative Follicular Lymphoma",
@@ -37362,6 +37362,7 @@ window.searchData = [
     "phenotypes": [
       "Generalized Lymphadenopathy",
       "Splenomegaly",
+      "Bone Marrow Involvement",
       "Fatigue",
       "Night Sweats",
       "Weight Loss",
@@ -37370,8 +37371,8 @@ window.searchData = [
     "phenotype_categories": [
       "Lymphatic",
       "Abdominal",
-      "Constitutional",
-      "Hematologic"
+      "Hematologic",
+      "Constitutional"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -37384,6 +37385,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0008940",
       "HP:0001744",
+      "HP:0005561",
       "HP:0012378",
       "HP:0030166",
       "HP:0001824",
@@ -37403,7 +37405,10 @@ window.searchData = [
     "treatments": [
       "Anti-CD20-Based Immunochemotherapy",
       "Lenalidomide Plus Anti-CD20 Therapy",
-      "Tazemetostat"
+      "Tazemetostat",
+      "Mosunetuzumab",
+      "Axicabtagene Ciloleucel",
+      "Tisagenlecleucel"
     ],
     "environmental": [],
     "biochemical": [
@@ -37412,10 +37417,10 @@ window.searchData = [
     ],
     "source_file": "Follicular_Lymphoma.yaml",
     "page_url": "../pages/disorders/Follicular_Lymphoma.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 3,
+    "num_treatments": 6,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
@@ -38483,7 +38488,7 @@ window.searchData = [
       "Newborn screening disorder"
     ],
     "creation_date": "2026-02-06T03:39:54Z",
-    "updated_date": "2026-03-31T18:30:00Z",
+    "updated_date": "2026-05-08T23:55:19Z",
     "subtypes": [
       "Classic Galactosemia (GALT deficiency)",
       "Galactokinase Deficiency",
@@ -38564,7 +38569,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -38663,7 +38668,7 @@ window.searchData = [
       "gastric carcinoma"
     ],
     "creation_date": "2026-01-26T02:55:13Z",
-    "updated_date": "2026-04-22T20:13:21Z",
+    "updated_date": "2026-05-09T00:41:13Z",
     "subtypes": [
       "Intestinal-Type Adenocarcinoma",
       "Diffuse-Type Adenocarcinoma"
@@ -38671,10 +38676,15 @@ window.searchData = [
     "description": "Helicobacter pylori-associated gastric cancer represents the majority of gastric adenocarcinomas worldwide. H. pylori is classified as a Class I carcinogen by the IARC, with chronic infection driving a cascade from gastritis to atrophic gastritis, intestinal metaplasia, dysplasia, and ultimately carcinoma (the Correa cascade). Both intestinal and diffuse histologic types can arise in the setting of H. pylori infection, though intestinal-type adenocarcinoma follows the classic progression pathway. H. pylori eradication can reduce gastric cancer risk, particularly when performed before development of premalignant lesions.",
     "pathophysiology": [
       "CagA-Mediated Oncogenic Signaling",
+      "SHP-2 Activation",
+      "CagA-Induced Epithelial Morphological Transformation",
       "VacA-Induced Cellular Damage",
       "VacA-Mediated T Cell Suppression",
       "Chronic Inflammation (Correa Cascade)",
-      "CDH1/E-cadherin Inactivation"
+      "Atrophic Gastritis",
+      "Intestinal Metaplasia",
+      "CDH1/E-cadherin Inactivation",
+      "Loss of Cell Cohesion"
     ],
     "cell_types": [
       "epithelial cell of stomach",
@@ -38748,11 +38758,11 @@ window.searchData = [
     "source_file": "Gastric_Cancer_H_pylori_Associated.yaml",
     "page_url": "../pages/disorders/Gastric_Cancer_H._pylori_Associated.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 10,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Gastric Ulcer",
@@ -40158,7 +40168,7 @@ window.searchData = [
       "Inborn Error of Carbohydrate Metabolism"
     ],
     "creation_date": "2026-03-08T12:00:00Z",
-    "updated_date": "2026-05-05T10:48:54Z",
+    "updated_date": "2026-05-09T00:36:17Z",
     "subtypes": [
       "GSD Ia (glucose-6-phosphatase deficiency)",
       "GSD Ib (glucose-6-phosphate transporter deficiency)"
@@ -40314,7 +40324,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 11,
-    "causal_graph_edges": "44",
+    "causal_graph_edges": "46",
     "causal_graph_longest_path": "4"
   },
   {
@@ -49361,7 +49371,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-02-23T00:00:00Z",
-    "updated_date": "2026-05-07T23:41:43Z",
+    "updated_date": "2026-05-09T02:08:31Z",
     "subtypes": [
       "Asymptomatic biochemical isobutyryl-CoA dehydrogenase deficiency",
       "Symptomatic clinical isobutyryl-CoA dehydrogenase deficiency"
@@ -49455,7 +49465,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -52131,7 +52141,7 @@ window.searchData = [
       "Sphingolipidosis"
     ],
     "creation_date": "2026-03-14T00:00:00Z",
-    "updated_date": "2026-03-30T23:35:00Z",
+    "updated_date": "2026-05-09T00:57:28Z",
     "subtypes": [],
     "description": "Krabbe disease (globoid cell leukodystrophy) is a severe autosomal recessive lysosomal storage disorder caused by deficiency of galactosylceramidase (GALC), the enzyme responsible for degrading galactosylceramide and psychosine (galactosylsphingosine). Accumulation of psychosine is toxic to oligodendrocytes and Schwann cells, leading to progressive demyelination of the central and peripheral nervous systems. The infantile form presents in the first months of life with irritability, spasticity, and rapid neurological deterioration, while later-onset forms have a more variable and protracted course.\n",
     "pathophysiology": [
@@ -52216,7 +52226,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -59810,7 +59820,7 @@ window.searchData = [
       "Lysosomal Storage Disease"
     ],
     "creation_date": "2026-03-30T18:20:00Z",
-    "updated_date": "2026-03-30T22:20:00Z",
+    "updated_date": "2026-05-09T01:47:46Z",
     "subtypes": [
       "Late-Infantile MLD",
       "Early-Juvenile MLD",
@@ -59877,7 +59887,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
   {
@@ -87725,7 +87735,7 @@ window.searchData = [
       "Neurometabolic Disorder"
     ],
     "creation_date": "2026-05-04T06:39:03Z",
-    "updated_date": "2026-05-04T06:39:03Z",
+    "updated_date": "2026-05-09T02:37:24Z",
     "subtypes": [],
     "description": "Tangier disease is an autosomal recessive ABCA1 deficiency disorder of HDL biogenesis and cellular cholesterol efflux. Biallelic ABCA1 pathogenic variants impair apolipoprotein-mediated cholesterol and phospholipid export, producing extremely low or absent HDL cholesterol and apoA-I, reduced cholesterol removal from peripheral cells, and cholesteryl ester accumulation in tissues. The clinical phenotype includes orange tonsils, hepatosplenomegaly, lymphadenopathy, peripheral neuropathy, ocular and skin/nail findings, and variable premature atherosclerotic cardiovascular disease.\n",
     "pathophysiology": [
@@ -87848,7 +87858,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -92929,10 +92939,11 @@ window.searchData = [
       "Liver Disease"
     ],
     "creation_date": "2025-12-19T14:27:56Z",
-    "updated_date": "2026-05-07T06:25:47Z",
+    "updated_date": "2026-05-09T02:54:43Z",
     "subtypes": [],
     "description": "Wilson disease is a rare autosomal recessive disorder of copper metabolism caused by mutations in the ATP7B gene encoding a copper-transporting P-type ATPase. ATP7B dysfunction impairs biliary copper excretion and ceruloplasmin biosynthesis, leading to toxic copper accumulation primarily in the liver and brain, with secondary involvement of the kidneys, eyes, heart, muscles, and bones. Clinical presentations range from asymptomatic liver disease to fulminant hepatic failure, chronic hepatitis, cirrhosis, and diverse neuropsychiatric manifestations including dystonia, tremor, dysarthria, depression, and psychosis. Kayser-Fleischer corneal rings are characteristic, and hemolytic anemia can accompany acute hepatic presentations. Diagnosis relies on the modified Leipzig Scoring System integrating serum ceruloplasmin, urinary copper, hepatic copper content, and genetic testing. Treatment with copper chelators (D-penicillamine, trientine) and zinc salts can prevent disease progression when initiated early; liver transplantation is curative for end-stage hepatic disease.\n",
     "pathophysiology": [
+      "ATP7B Copper-Trafficking Defect",
       "Impaired Biliary Copper Excretion",
       "Impaired Ceruloplasmin Loading",
       "Hepatic Copper Accumulation",
@@ -93143,11 +93154,11 @@ window.searchData = [
     "source_file": "Wilsons_Disease.yaml",
     "page_url": "../pages/disorders/Wilson_Disease.html",
     "num_phenotypes": 55,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "75",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "78",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Wiskott-Aldrich syndrome",
@@ -94966,10 +94977,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 971,
-  "total_unique_evidence_sources": 17292,
+  "total_unique_evidence_sources": 17396,
   "total_unique_disease_categories": 42,
   "total_unique_phenotype_categories": 179,
   "total_pathographs": 964,
-  "total_unique_pathological_events": 4604
+  "total_unique_pathological_events": 4610
 };
 window.dispatchEvent(new Event('searchDataReady'));
