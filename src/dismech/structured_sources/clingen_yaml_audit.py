@@ -99,6 +99,9 @@ def audit_clingen_yaml(
         for row in source.index().values()
         if row.classification in allowed_classifications
     ]
+    known_gene_symbols = frozenset(
+        row.gene_symbol for row in rows if _looks_like_gene_symbol(row.gene_symbol)
+    )
 
     files_by_mondo: dict[str, list[str]] = defaultdict(list)
     disorder_info: dict[str, _DisorderInfo] = {}
@@ -120,7 +123,7 @@ def audit_clingen_yaml(
             entry.gene_symbol
             for entry in entries
             if entry.gene_symbol and _gene_in_text(entry.gene_symbol, title)
-        )
+        ) | _gene_symbols_in_text(known_gene_symbols, title)
 
         files_by_mondo[mondo_id].append(display_path)
         disorder_info[display_path] = _DisorderInfo(
@@ -163,17 +166,18 @@ def audit_clingen_yaml(
                 title_gene_mismatch = bool(
                     info.title_genes and row.gene_symbol not in info.title_genes
                 )
-                if not label_ok:
+                if title_gene_mismatch:
+                    status = "blocked_gene_specific_title"
+                    reason = (
+                        "YAML title/preferred term names "
+                        f"{', '.join(sorted(info.title_genes))}, which differs "
+                        "from the ClinGen assertion gene"
+                    )
+                elif not label_ok:
                     status = "blocked_label_mismatch"
                     reason = (
                         "ClinGen disease label does not exactly match the YAML "
                         "display/preferred disease label"
-                    )
-                elif title_gene_mismatch:
-                    status = "blocked_gene_specific_title"
-                    reason = (
-                        "YAML title names an existing gene that differs from the "
-                        "ClinGen assertion gene"
                     )
                 else:
                     status = "missing_genetic_entry"
@@ -368,6 +372,17 @@ def _gene_in_text(gene: str, text: str) -> bool:
         )
         is not None
     )
+
+
+def _gene_symbols_in_text(gene_symbols: frozenset[str], text: str) -> frozenset[str]:
+    tokens = frozenset(re.findall(r"[A-Za-z0-9]+", text.upper()))
+    return frozenset(
+        gene_symbol for gene_symbol in gene_symbols if gene_symbol in tokens
+    )
+
+
+def _looks_like_gene_symbol(symbol: str) -> bool:
+    return len(symbol) >= 3 or any(char.isdigit() for char in symbol)
 
 
 def _display_path(path: Path) -> str:

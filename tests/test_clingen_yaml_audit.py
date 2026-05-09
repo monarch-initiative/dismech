@@ -29,6 +29,8 @@ def test_audit_clingen_yaml_classifies_done_missing_and_blocked(tmp_path: Path):
                 '"GENE3","HGNC:3","Broad disease","MONDO:0000002","AD","SOP10","Moderate","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_gene_specific","2026-01-01T00:00:00.000Z","Panel"',
                 '"GENE4","HGNC:4","Disease B","MONDO:0000003","AR","SOP10","Limited","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_label_mismatch","2026-01-01T00:00:00.000Z","Panel"',
                 '"GENE5","HGNC:5","Disease A","MONDO:0000001","AR","SOP10","Refuted","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_refuted","2026-01-01T00:00:00.000Z","Panel"',
+                '"GENE6","HGNC:6","Broad disease C","MONDO:0000004","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_title_gene","2026-01-01T00:00:00.000Z","Panel"',
+                '"GENE7","HGNC:7","Unmodeled disease","MONDO:9999999","AD","SOP10","Strong","https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_known_title_gene","2026-01-01T00:00:00.000Z","Panel"',
                 "",
             ]
         )
@@ -85,6 +87,16 @@ disease_term:
     label: Disease B
 """.lstrip()
     )
+    (kb_dir / "GENE7_Broad_Disease_C.yaml").write_text(
+        """
+name: GENE7 Broad disease C
+disease_term:
+  preferred_term: GENE7-related broad disease C
+  term:
+    id: MONDO:0000004
+    label: Broad disease C
+""".lstrip()
+    )
 
     summary = audit_clingen_yaml(
         kb_dir=kb_dir,
@@ -92,8 +104,8 @@ disease_term:
         cache_dir=cache_dir,
     )
 
-    assert summary.positive_assertions == 4
-    assert len(summary.records) == 4
+    assert summary.positive_assertions == 6
+    assert len(summary.records) == 5
     assert summary.cggv_evidence_items == 1
     assert summary.cggv_disease_files == 1
     assert summary.missing_cache_files == ()
@@ -102,13 +114,13 @@ disease_term:
         {
             "done": 1,
             "missing_genetic_entry": 1,
-            "blocked_gene_specific_title": 1,
+            "blocked_gene_specific_title": 2,
             "blocked_label_mismatch": 1,
         }
     )
 
     rendered = format_summary(summary, limit=2)
-    assert "primary-MONDO assertion/file matches: 4" in rendered
+    assert "primary-MONDO assertion/file matches: 5" in rendered
     assert "missing_genetic_entry: 1" in rendered
     assert "remaining examples:" in rendered
 
