@@ -495,4 +495,4 @@ This report will be used to populate a disease knowledge base entry with:
 44. https://doi.org/10.4103/tjo.tjo-d-24-00080,
 45. https://doi.org/10.1016/j.visres.2022.108157,
 46. https://doi.org/10.1097/iae.0b013e31819d4fda,
-47. https://doi.org/10.1167/iovs.62.6.22,
+47. PMID:34015078

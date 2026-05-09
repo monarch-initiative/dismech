@@ -577,15 +577,24 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "PRPS1_Deficiency_Spectrum.yaml",
-            {("PRPS1 Loss-of-Function Variants", "PRS-I Enzyme Deficiency")},
+            {("PRPS1 Loss-of-Function Variants", "PRS-I loss of function")},
             {"PRPS1 Loss-of-Function Variants": "genetic"},
-            {"PRS-I Enzyme Deficiency": ["ribose phosphate diphosphokinase activity"]},
+            {"PRS-I loss of function": ["ribose phosphate diphosphokinase activity"]},
         ),
         (
             "PRPS1_Superactivity.yaml",
-            {("PRPS1 Gain-of-Function Variants", "PRS-I Gain of Function")},
-            {"PRPS1 Gain-of-Function Variants": "genetic"},
-            {"PRS-I Gain of Function": ["ribose phosphate diphosphokinase activity"]},
+            {
+                (
+                    "PRPS1 gain-of-function and overexpression mechanisms",
+                    "PRS-I allosteric gain of function",
+                )
+            },
+            {"PRPS1 gain-of-function and overexpression mechanisms": "genetic"},
+            {
+                "PRS-I allosteric gain of function": [
+                    "ribose phosphate diphosphokinase activity"
+                ]
+            },
         ),
         (
             "Periventricular_Nodular_Heterotopia.yaml",

@@ -1,0 +1,20 @@
+---
+reference_id: "DOI:10.1182/hematology.2024000543"
+title: "Atypical hemolytic uremic syndrome: diagnosis, management, and discontinuation of therapy"
+authors:
+- Anuja Java
+journal: Hematology
+year: '2024'
+doi: 10.1182/hematology.2024000543
+content_type: abstract_only
+---
+
+# Atypical hemolytic uremic syndrome: diagnosis, management, and discontinuation of therapy
+**Authors:** Anuja Java
+**Journal:** Hematology (2024)
+**DOI:** [10.1182/hematology.2024000543](https://doi.org/10.1182/hematology.2024000543)
+
+## Content
+
+Abstract
+Atypical hemolytic uremic syndrome (aHUS) is a thrombotic microangiopathy typically characterized by anemia, thrombocytopenia, and end-organ injury. aHUS occurs due to endothelial injury resulting from overactivation of the alternative pathway of the complement system. The etiology of the dysregulated complement system is either a genetic mutation in 1 or more complement proteins or an acquired deficiency due to autoantibodies. Over the past decade, advancements in our understanding of the role of complement in the pathophysiology of aHUS as well as the availability of anticomplement drugs has been a game-changer for our patients. These drugs have revolutionized the clinical course, outcome, and prognosis of this disease. Therefore, all patients in whom aHUS is suspected should undergo testing for complement genetic variants and autoantibodies. In approximately 30% to 40% of patients, a genetic variant of uncertain significance (VUS) may be identified. Such patients should undergo further testing to define the significance of the VUS. A combination of antigenic, functional, and biomarker analyses can assist in establishing the significance of the variants and thereby define the etiology in most patients. These analyses will also help to determine the duration of treatment based on the individual's genetic alteration. This review aims to shed light on the diagnosis and management of aHUS and discusses how to stratify patients to determine who can safely discontinue anticomplement therapy.
