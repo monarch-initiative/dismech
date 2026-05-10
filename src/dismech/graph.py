@@ -134,6 +134,42 @@ def _gene_lookup_keys(
     return keys
 
 
+_NON_CONTRIBUTING_RELATIONSHIP_TYPES = {
+    "BIOMARKER",
+    "DISPUTED",
+    "MODIFIER",
+    "PROTECTIVE",
+    "UNKNOWN",
+}
+_NON_CONTRIBUTING_ASSOCIATION_WORDS = {
+    "biomarker",
+    "disputed",
+    "modifier",
+    "protective",
+    "refuted",
+    "unknown",
+}
+
+
+def _genetic_item_infers_mechanism_edges(item: dict[str, Any]) -> bool:
+    """Return whether a genetic item should auto-link to matching mechanisms."""
+    relationship_type = item.get("relationship_type")
+    if isinstance(relationship_type, str):
+        if relationship_type.upper() in _NON_CONTRIBUTING_RELATIONSHIP_TYPES:
+            return False
+        return True
+
+    association = item.get("association")
+    if not isinstance(association, str):
+        return True
+
+    words = {
+        word.strip().lower()
+        for word in association.replace("-", " ").replace("_", " ").split()
+    }
+    return not bool(words & _NON_CONTRIBUTING_ASSOCIATION_WORDS)
+
+
 def _build_section_lookup(
     items: list[Any], descriptor_key: str | None = None
 ) -> dict[str, str]:
@@ -384,6 +420,8 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             continue
         source = item.get("name")
         if not source:
+            continue
+        if not _genetic_item_infers_mechanism_edges(item):
             continue
 
         targets: set[str] = set()
