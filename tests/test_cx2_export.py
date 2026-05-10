@@ -108,6 +108,49 @@ def test_disorder_to_cx2_exports_stargardt_with_layout_and_metadata() -> None:
     assert genetic_edge["v"]["inference_basis"] == "shared_gene_identifier"
 
 
+def test_disorder_to_cx2_skips_modifier_gene_mechanism_edges() -> None:
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "CFTR dysfunction",
+                "genes": [
+                    {
+                        "preferred_term": "CFTR",
+                        "term": {"id": "hgnc:1884", "label": "CFTR"},
+                    }
+                ],
+                "downstream": [{"target": "Bronchiectasis"}],
+            }
+        ],
+        "phenotypes": [{"name": "Bronchiectasis"}],
+        "genetic": [
+            {
+                "name": "CFTR",
+                "association": "Causative",
+                "gene_term": {
+                    "preferred_term": "CFTR",
+                    "term": {"id": "hgnc:1884", "label": "CFTR"},
+                },
+            },
+            {
+                "name": "CFTR modifier locus",
+                "relationship_type": "MODIFIER",
+                "gene_term": {
+                    "preferred_term": "CFTR",
+                    "term": {"id": "hgnc:1884", "label": "CFTR"},
+                },
+            },
+        ],
+    }
+
+    cx2 = disorder_to_cx2(disorder)
+    edges = _edges_by_endpoints(_aspect_map(cx2))
+
+    assert ("CFTR", "CFTR dysfunction") in edges
+    assert ("CFTR modifier locus", "CFTR dysfunction") not in edges
+
+
 def test_disorder_to_cx2_exports_crohn_model_edges() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     disorder_path = repo_root / "kb" / "disorders" / "Crohn_Disease.yaml"

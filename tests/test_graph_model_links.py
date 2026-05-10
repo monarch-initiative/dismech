@@ -2,7 +2,20 @@
 
 import json
 
-from dismech.graph import build_causal_graph, graph_to_json
+from dismech.graph import (
+    _genetic_item_infers_mechanism_edges,
+    build_causal_graph,
+    graph_to_json,
+)
+
+
+def test_genetic_item_infers_mechanism_edges_respects_relationship_type() -> None:
+    assert _genetic_item_infers_mechanism_edges({"relationship_type": "CAUSATIVE"})
+    assert _genetic_item_infers_mechanism_edges({"association": "Risk factor"})
+
+    assert not _genetic_item_infers_mechanism_edges({"relationship_type": "MODIFIER"})
+    assert not _genetic_item_infers_mechanism_edges({"association": "Disease modifier"})
+    assert not _genetic_item_infers_mechanism_edges({"relationship_type": "PROTECTIVE"})
 
 
 def test_graph_to_json_includes_experimental_and_computational_model_links() -> None:
@@ -96,7 +109,15 @@ def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> 
                 "name": "CFTR",
                 "association": "Causative",
                 "variants": [{"name": "F508del"}],
-            }
+            },
+            {
+                "name": "CFTR modifier locus",
+                "association": "Disease modifier",
+                "gene_term": {
+                    "preferred_term": "CFTR",
+                    "term": {"id": "hgnc:1884", "label": "CFTR"},
+                },
+            },
         ],
         "treatments": [
             {
@@ -134,6 +155,7 @@ def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> 
     assert ("Ivacaftor", "CFTR Dysfunction", "targets") in edges
     assert ("Ivacaftor", "Bronchiectasis", "treats") in edges
     assert ("CFTR", "CFTR Dysfunction", "contributes_to") in edges
+    assert ("CFTR modifier locus", "CFTR Dysfunction", "contributes_to") not in edges
     assert ("F508del", "CFTR", "variant_of") in edges
 
     data = json.loads(graph_to_json(graph, disorder))
