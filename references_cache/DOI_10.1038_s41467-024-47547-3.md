@@ -1,0 +1,299 @@
+---
+reference_id: "DOI:10.1038/s41467-024-47547-3"
+title: Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models
+authors:
+- Robert E. Hynds
+- Ariana Huebner
+- David R. Pearce
+- Mark S. Hill
+- Ayse U. Akarca
+- David A. Moore
+- Sophia Ward
+- Kate H. C. Gowers
+- Takahiro Karasaki
+- Maise Al Bakir
+- Gareth A. Wilson
+- Oriol Pich
+- Carlos Martínez-Ruiz
+- A. S. Md Mukarram Hossain
+- Simon P. Pearce
+- Monica Sivakumar
+- Assma Ben Aissa
+- Eva Grönroos
+- Deepak Chandrasekharan
+- Krishna K. Kolluri
+- Rebecca Towns
+- Kaiwen Wang
+- Daniel E. Cook
+- Leticia Bosshard-Carter
+- Cristina Naceur-Lombardelli
+- Andrew J. Rowan
+- Selvaraju Veeriah
+- Kevin Litchfield
+- Philip A. J. Crosbie
+- Caroline Dive
+- Sergio A. Quezada
+- Sam M. Janes
+- Mariam Jamal-Hanjani
+- Teresa Marafioti
+- Maise Al Bakir
+- Jason F. Lester
+- Amrita Bajaj
+- Apostolos Nakas
+- Azmina Sodha-Ramdeen
+- Mohamad Tufail
+- Molly Scotland
+- Rebecca Boyles
+- Sridhar Rathinam
+- Claire Wilson
+- Domenic Marrone
+- Sean Dulloo
+- Dean A. Fennell
+- Gurdeep Matharu
+- Jacqui A. Shaw
+- Ekaterini Boleti
+- Heather Cheyne
+- Mohammed Khalil
+- Shirley Richardson
+- Tracey Cruickshank
+- Gillian Price
+- Keith M. Kerr
+- Sarah Benafif
+- Jack French
+- Kayleigh Gilbert
+- Babu Naidu
+- Akshay J. Patel
+- Aya Osman
+- Carol Enstone
+- Gerald Langman
+- Helen Shackleford
+- Madava Djearaman
+- Salma Kadiri
+- Gary Middleton
+- Angela Leek
+- Jack Davies Hodgkinson
+- Nicola Totton
+- Angeles Montero
+- Elaine Smith
+- Eustace Fontaine
+- Felice Granato
+- Antonio Paiva-Correia
+- Juliette Novasio
+- Kendadai Rammohan
+- Leena Joseph
+- Paul Bishop
+- Rajesh Shah
+- Stuart Moss
+- Vijay Joshi
+- Katherine D. Brown
+- Mathew Carter
+- Anshuman Chaturvedi
+- Pedro Oliveira
+- Colin R. Lindsay
+- Fiona H. Blackhall
+- Matthew G. Krebs
+- Yvonne Summers
+- Alexandra Clipson
+- Jonathan Tugwood
+- Alastair Kerr
+- Dominic G. Rothwell
+- Hugo J. W. L. Aerts
+- Roland F. Schwarz
+- Tom L. Kaufmann
+- Rachel Rosenthal
+- Peter Van Loo
+- Nicolai J. Birkbak
+- Zoltan Szallasi
+- Judit Kisistok
+- Mateo Sokac
+- Roberto Salgado
+- Miklos Diossy
+- Jonas Demeulemeester
+- Abigail Bunkum
+- Angela Dwornik
+- Alastair Magness
+- Alexander M. Frankell
+- Angeliki Karamani
+- Antonia Toncheva
+- Benny Chain
+- Carla Castignani
+- Chris Bailey
+- Christopher Abbosh
+- Clare Puttick
+- Clare E. Weeden
+- Claudia Lee
+- Corentin Richard
+- Crispin T. Hiley
+- Despoina Karagianni
+- Dhruva Biswas
+- Dina Levi
+- Elizabeth Larose Cadieux
+- Emilia L. Lim
+- Emma Colliver
+- Emma Nye
+- Felipe Gálvez-Cancino
+- Francisco Gimeno-Valiente
+- George Kassiotis
+- Georgia Stavrou
+- Gerasimos-Theodoros Mastrokalos
+- Helen L. Lowe
+- Ignacio Garcia Matos
+- Imran Noorani
+- Jacki Goldman
+- James L. Reading
+- James R. M. Black
+- Jayant K. Rane
+- Jerome Nicod
+- John A. Hartley
+- Karl S. Peggs
+- Katey S. S. Enfield
+- Kayalvizhi Selvaraju
+- Kerstin Thol
+- Kevin W. Ng
+- Kezhong Chen
+- Krijn Dijkstra
+- Kristiana Grigoriadis
+- Krupa Thakkar
+- Leah Ensell
+- Mansi Shah
+- Maria Litovchenko
+- Mariana Werner Sunderland
+- Matthew R. Huska
+- Michelle Dietzen
+- Michelle M. Leung
+- Mickael Escudero
+- Mihaela Angelova
+- Miljana Tanić
+- Nnennaya Kanu
+- Olga Chervova
+- Olivia Lucas
+- Othman Al-Sawaf
+- Paulina Prymas
+- Philip Hobson
+- Piotr Pawlik
+- Richard Kevin Stone
+- Robert Bentham
+- Roberto Vendramin
+- Sadegh Saghafinia
+- Samuel Gamble
+- Seng Kuong Anakin Ung
+- Sharon Vanloo
+- Simone Zaccaria
+- Sonya Hessey
+- Sian Harries
+- Stefan Boeing
+- Stephan Beck
+- Supreet Kaur Bola
+- Tamara Denner
+- Thomas B. K. Watkins
+- Thomas Patrick Jones
+- Victoria Spanswick
+- Vittorio Barbè
+- Wei-Ting Lu
+- William Hill
+- Wing Kin Liu
+- Yin Wu
+- Yutaka Naito
+- Zoe Ramsden
+- Catarina Veiga
+- Gary Royle
+- Charles-Antoine Collins-Fekete
+- Francesco Fraioli
+- Paul Ashford
+- Martin D. Forster
+- Siow Ming Lee
+- Elaine Borg
+- Mary Falzon
+- Dionysis Papadatos-Pastos
+- James Wilson
+- Tanya Ahmad
+- Alexander James Procter
+- Asia Ahmed
+- Magali N. Taylor
+- Arjun Nair
+- David Lawrence
+- Davide Patrini
+- Neal Navani
+- Ricky M. Thakrar
+- Emilie Martinoni Hoogenboom
+- Fleur Monk
+- James W. Holding
+- Junaid Choudhary
+- Kunal Bhakhri
+- Marco Scarci
+- Pat Gorman
+- Reena Khiroya
+- Robert C. M. Stephens
+- Yien Ning Sophia Wong
+- Zoltan Kaplar
+- Steve Bandula
+- Allan Hackshaw
+- Anne-Marie Hacker
+- Abigail Sharp
+- Sean Smith
+- Harjot Kaur Dhanda
+- Camilla Pilotti
+- Rachel Leslie
+- Anca Grapa
+- Hanyun Zhang
+- Khalid AbdulJabbar
+- Xiaoxi Pan
+- Yinyin Yuan
+- David Chuter
+- Mairead MacKenzie
+- Serena Chee
+- Aiman Alzetani
+- Judith Cave
+- Jennifer Richards
+- Eric Lim
+- Paulo De Sousa
+- Simon Jordan
+- Alexandra Rice
+- Hilgardt Raubenheimer
+- Harshil Bhayani
+- Lyn Ambrose
+- Anand Devaraj
+- Hema Chavan
+- Sofina Begum
+- Silviu I. Buderi
+- Daniel Kaniu
+- Mpho Malima
+- Sarah Booth
+- Andrew G. Nicholson
+- Nadia Fernandes
+- Pratibha Shah
+- Chiara Proli
+- Madeleine Hewish
+- Sarah Danson
+- Michael J. Shackcloth
+- Lily Robinson
+- Peter Russell
+- Kevin G. Blyth
+- Andrew Kidd
+- Craig Dick
+- John Le Quesne
+- Alan Kirk
+- Mo Asif
+- Rocco Bilancia
+- Nikos Kostoulas
+- Mathew Thomas
+- Nicholas McGranahan
+- Charles Swanton
+journal: Nature Communications
+year: '2024'
+doi: 10.1038/s41467-024-47547-3
+content_type: abstract_only
+---
+
+# Representation of genomic intratumor heterogeneity in multi-region non-small cell lung cancer patient-derived xenograft models
+**Authors:** Robert E. Hynds, Ariana Huebner, David R. Pearce, Mark S. Hill, Ayse U. Akarca, David A. Moore, Sophia Ward, Kate H. C. Gowers, Takahiro Karasaki, Maise Al Bakir, Gareth A. Wilson, Oriol Pich, Carlos Martínez-Ruiz, A. S. Md Mukarram Hossain, Simon P. Pearce, Monica Sivakumar, Assma Ben Aissa, Eva Grönroos, Deepak Chandrasekharan, Krishna K. Kolluri, Rebecca Towns, Kaiwen Wang, Daniel E. Cook, Leticia Bosshard-Carter, Cristina Naceur-Lombardelli, Andrew J. Rowan, Selvaraju Veeriah, Kevin Litchfield, Philip A. J. Crosbie, Caroline Dive, Sergio A. Quezada, Sam M. Janes, Mariam Jamal-Hanjani, Teresa Marafioti, Maise Al Bakir, Jason F. Lester, Amrita Bajaj, Apostolos Nakas, Azmina Sodha-Ramdeen, Mohamad Tufail, Molly Scotland, Rebecca Boyles, Sridhar Rathinam, Claire Wilson, Domenic Marrone, Sean Dulloo, Dean A. Fennell, Gurdeep Matharu, Jacqui A. Shaw, Ekaterini Boleti, Heather Cheyne, Mohammed Khalil, Shirley Richardson, Tracey Cruickshank, Gillian Price, Keith M. Kerr, Sarah Benafif, Jack French, Kayleigh Gilbert, Babu Naidu, Akshay J. Patel, Aya Osman, Carol Enstone, Gerald Langman, Helen Shackleford, Madava Djearaman, Salma Kadiri, Gary Middleton, Angela Leek, Jack Davies Hodgkinson, Nicola Totton, Angeles Montero, Elaine Smith, Eustace Fontaine, Felice Granato, Antonio Paiva-Correia, Juliette Novasio, Kendadai Rammohan, Leena Joseph, Paul Bishop, Rajesh Shah, Stuart Moss, Vijay Joshi, Katherine D. Brown, Mathew Carter, Anshuman Chaturvedi, Pedro Oliveira, Colin R. Lindsay, Fiona H. Blackhall, Matthew G. Krebs, Yvonne Summers, Alexandra Clipson, Jonathan Tugwood, Alastair Kerr, Dominic G. Rothwell, Hugo J. W. L. Aerts, Roland F. Schwarz, Tom L. Kaufmann, Rachel Rosenthal, Peter Van Loo, Nicolai J. Birkbak, Zoltan Szallasi, Judit Kisistok, Mateo Sokac, Roberto Salgado, Miklos Diossy, Jonas Demeulemeester, Abigail Bunkum, Angela Dwornik, Alastair Magness, Alexander M. Frankell, Angeliki Karamani, Antonia Toncheva, Benny Chain, Carla Castignani, Chris Bailey, Christopher Abbosh, Clare Puttick, Clare E. Weeden, Claudia Lee, Corentin Richard, Crispin T. Hiley, Despoina Karagianni, Dhruva Biswas, Dina Levi, Elizabeth Larose Cadieux, Emilia L. Lim, Emma Colliver, Emma Nye, Felipe Gálvez-Cancino, Francisco Gimeno-Valiente, George Kassiotis, Georgia Stavrou, Gerasimos-Theodoros Mastrokalos, Helen L. Lowe, Ignacio Garcia Matos, Imran Noorani, Jacki Goldman, James L. Reading, James R. M. Black, Jayant K. Rane, Jerome Nicod, John A. Hartley, Karl S. Peggs, Katey S. S. Enfield, Kayalvizhi Selvaraju, Kerstin Thol, Kevin W. Ng, Kezhong Chen, Krijn Dijkstra, Kristiana Grigoriadis, Krupa Thakkar, Leah Ensell, Mansi Shah, Maria Litovchenko, Mariana Werner Sunderland, Matthew R. Huska, Michelle Dietzen, Michelle M. Leung, Mickael Escudero, Mihaela Angelova, Miljana Tanić, Nnennaya Kanu, Olga Chervova, Olivia Lucas, Othman Al-Sawaf, Paulina Prymas, Philip Hobson, Piotr Pawlik, Richard Kevin Stone, Robert Bentham, Roberto Vendramin, Sadegh Saghafinia, Samuel Gamble, Seng Kuong Anakin Ung, Sharon Vanloo, Simone Zaccaria, Sonya Hessey, Sian Harries, Stefan Boeing, Stephan Beck, Supreet Kaur Bola, Tamara Denner, Thomas B. K. Watkins, Thomas Patrick Jones, Victoria Spanswick, Vittorio Barbè, Wei-Ting Lu, William Hill, Wing Kin Liu, Yin Wu, Yutaka Naito, Zoe Ramsden, Catarina Veiga, Gary Royle, Charles-Antoine Collins-Fekete, Francesco Fraioli, Paul Ashford, Martin D. Forster, Siow Ming Lee, Elaine Borg, Mary Falzon, Dionysis Papadatos-Pastos, James Wilson, Tanya Ahmad, Alexander James Procter, Asia Ahmed, Magali N. Taylor, Arjun Nair, David Lawrence, Davide Patrini, Neal Navani, Ricky M. Thakrar, Emilie Martinoni Hoogenboom, Fleur Monk, James W. Holding, Junaid Choudhary, Kunal Bhakhri, Marco Scarci, Pat Gorman, Reena Khiroya, Robert C. M. Stephens, Yien Ning Sophia Wong, Zoltan Kaplar, Steve Bandula, Allan Hackshaw, Anne-Marie Hacker, Abigail Sharp, Sean Smith, Harjot Kaur Dhanda, Camilla Pilotti, Rachel Leslie, Anca Grapa, Hanyun Zhang, Khalid AbdulJabbar, Xiaoxi Pan, Yinyin Yuan, David Chuter, Mairead MacKenzie, Serena Chee, Aiman Alzetani, Judith Cave, Jennifer Richards, Eric Lim, Paulo De Sousa, Simon Jordan, Alexandra Rice, Hilgardt Raubenheimer, Harshil Bhayani, Lyn Ambrose, Anand Devaraj, Hema Chavan, Sofina Begum, Silviu I. Buderi, Daniel Kaniu, Mpho Malima, Sarah Booth, Andrew G. Nicholson, Nadia Fernandes, Pratibha Shah, Chiara Proli, Madeleine Hewish, Sarah Danson, Michael J. Shackcloth, Lily Robinson, Peter Russell, Kevin G. Blyth, Andrew Kidd, Craig Dick, John Le Quesne, Alan Kirk, Mo Asif, Rocco Bilancia, Nikos Kostoulas, Mathew Thomas, Nicholas McGranahan, Charles Swanton
+**Journal:** Nature Communications (2024)
+**DOI:** [10.1038/s41467-024-47547-3](https://doi.org/10.1038/s41467-024-47547-3)
+
+## Content
+
+Abstract
+
+                    Patient-derived xenograft (PDX) models are widely used in cancer research. To investigate the genomic fidelity of non-small cell lung cancer PDX models, we established 48 PDX models from 22 patients enrolled in the TRACERx study. Multi-region tumor sampling increased successful PDX engraftment and most models were histologically similar to their parent tumor. Whole-exome sequencing enabled comparison of tumors and PDX models and we provide an adapted mouse reference genome for improved removal of NOD
+                    scid
+                    gamma (NSG) mouse-derived reads from sequencing data. PDX model establishment caused a genomic bottleneck, with models often representing a single tumor subclone. While distinct tumor subclones were represented in independent models from the same tumor, individual PDX models did not fully recapitulate intratumor heterogeneity. On-going genomic evolution in mice contributed modestly to the genomic distance between tumors and PDX models. Our study highlights the importance of considering primary tumor heterogeneity when using PDX models and emphasizes the benefit of comprehensive tumor sampling.
