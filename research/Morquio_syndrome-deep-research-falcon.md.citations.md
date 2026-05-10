@@ -477,7 +477,7 @@ This report will be used to populate a disease knowledge base entry with:
 26. https://doi.org/10.1016/j.omtn.2024.102211
 27. https://doi.org/10.1016/j.omtm.2024.101313
 28. https://doi.org/10.3390/ijms25021113
-29. https://doi.org/10.2147/dddt.s219433,
+29. PMID:35046639,
 30. https://doi.org/10.3390/ijms21041517,
 31. https://doi.org/10.1016/j.omtm.2024.101313,
 32. https://doi.org/10.3389/fped.2024.1285414,
