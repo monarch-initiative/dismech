@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-04-13T02:53:07
+# Generation date: 2026-05-10T15:56:11
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -327,7 +327,8 @@ class Term(YAMLRoot):
 class Descriptor(YAMLRoot):
     """
     Base class for structured descriptors that allow a preferred term, optional description, optional ontology term
-    binding, and post-composition via modifier, located_in, and laterality slots.
+    binding, and post-composition via modifier, located_in, laterality, spatial_extent, onset, temporality,
+    clinical_course, and severity slots.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -343,6 +344,10 @@ class Descriptor(YAMLRoot):
     located_in: Optional[Union[dict, "AnatomicalEntityDescriptor"]] = None
     laterality: Optional[Union[str, "LateralityEnum"]] = None
     spatial_extent: Optional[Union[str, "SpatialExtentEnum"]] = None
+    onset: Optional[Union[dict, "OnsetDescriptor"]] = None
+    temporality: Optional[Union[str, "TemporalityEnum"]] = None
+    clinical_course: Optional[Union[str, "ClinicalCourseEnum"]] = None
+    severity: Optional[Union[dict, Any]] = None
     qualifiers: Optional[Union[Union[dict, "Qualifier"], list[Union[dict, "Qualifier"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -368,6 +373,15 @@ class Descriptor(YAMLRoot):
 
         if self.spatial_extent is not None and not isinstance(self.spatial_extent, SpatialExtentEnum):
             self.spatial_extent = SpatialExtentEnum(self.spatial_extent)
+
+        if self.onset is not None and not isinstance(self.onset, OnsetDescriptor):
+            self.onset = OnsetDescriptor(**as_dict(self.onset))
+
+        if self.temporality is not None and not isinstance(self.temporality, TemporalityEnum):
+            self.temporality = TemporalityEnum(self.temporality)
+
+        if self.clinical_course is not None and not isinstance(self.clinical_course, ClinicalCourseEnum):
+            self.clinical_course = ClinicalCourseEnum(self.clinical_course)
 
         if not isinstance(self.qualifiers, list):
             self.qualifiers = [self.qualifiers] if self.qualifiers is not None else []
@@ -1127,7 +1141,7 @@ class PhenotypeContext(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.PhenotypeContext
 
     frequency: Optional[Union[dict, Any]] = None
-    severity: Optional[str] = None
+    severity: Optional[Union[dict, Any]] = None
     onset: Optional[Union[dict, OnsetDescriptor]] = None
     notes: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
@@ -1138,9 +1152,6 @@ class PhenotypeContext(YAMLRoot):
     subtype: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        if self.severity is not None and not isinstance(self.severity, str):
-            self.severity = str(self.severity)
-
         if self.onset is not None and not isinstance(self.onset, OnsetDescriptor):
             self.onset = OnsetDescriptor(**as_dict(self.onset))
 
@@ -1860,6 +1871,58 @@ class ModelMechanismLink(YAMLRoot):
 
 
 @dataclass(repr=False)
+class BiomarkerReadout(YAMLRoot):
+    """
+    Links a biochemical biomarker to a pathograph node that it measures, reflects, predicts, or pharmacodynamically
+    reports on. This is an observational readout link, not a causal claim that the biomarker causes the target
+    mechanism or phenotype.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["BiomarkerReadout"]
+    class_class_curie: ClassVar[str] = "dismech:BiomarkerReadout"
+    class_name: ClassVar[str] = "BiomarkerReadout"
+    class_model_uri: ClassVar[URIRef] = DISMECH.BiomarkerReadout
+
+    target: str = None
+    relationship: Union[str, "BiomarkerReadoutRelationshipEnum"] = None
+    direction: Optional[Union[str, "BiomarkerReadoutDirectionEnum"]] = None
+    endpoint_context: Optional[Union[str, "BiomarkerEndpointContextEnum"]] = None
+    interpretation: Optional[str] = None
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self._is_empty(self.relationship):
+            self.MissingRequiredField("relationship")
+        if not isinstance(self.relationship, BiomarkerReadoutRelationshipEnum):
+            self.relationship = BiomarkerReadoutRelationshipEnum(self.relationship)
+
+        if self.direction is not None and not isinstance(self.direction, BiomarkerReadoutDirectionEnum):
+            self.direction = BiomarkerReadoutDirectionEnum(self.direction)
+
+        if self.endpoint_context is not None and not isinstance(self.endpoint_context, BiomarkerEndpointContextEnum):
+            self.endpoint_context = BiomarkerEndpointContextEnum(self.endpoint_context)
+
+        if self.interpretation is not None and not isinstance(self.interpretation, str):
+            self.interpretation = str(self.interpretation)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class ProteinStructure(YAMLRoot):
     """
     A 3D protein structure from PDB or AlphaFold relevant to understanding a treatment's mechanism of action. Enables
@@ -1922,6 +1985,7 @@ class PublicationReference(YAMLRoot):
     reference: Union[str, PublicationReferenceReference] = None
     title: Optional[str] = None
     found_in: Optional[Union[str, list[str]]] = empty_list()
+    tags: Optional[Union[Union[str, "ReferenceTagEnum"], list[Union[str, "ReferenceTagEnum"]]]] = empty_list()
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -1936,6 +2000,10 @@ class PublicationReference(YAMLRoot):
         if not isinstance(self.found_in, list):
             self.found_in = [self.found_in] if self.found_in is not None else []
         self.found_in = [v if isinstance(v, str) else str(v) for v in self.found_in]
+
+        if not isinstance(self.tags, list):
+            self.tags = [self.tags] if self.tags is not None else []
+        self.tags = [v if isinstance(v, ReferenceTagEnum) else ReferenceTagEnum(v) for v in self.tags]
 
         if not isinstance(self.findings, list):
             self.findings = [self.findings] if self.findings is not None else []
@@ -2385,7 +2453,7 @@ class Phenotype(YAMLRoot):
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     context: Optional[str] = None
     review_notes: Optional[str] = None
-    severity: Optional[str] = None
+    severity: Optional[Union[dict, Any]] = None
     notes: Optional[str] = None
     subtype: Optional[str] = None
     subtypes: Optional[Union[str, list[str]]] = empty_list()
@@ -2423,9 +2491,6 @@ class Phenotype(YAMLRoot):
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
 
-        if self.severity is not None and not isinstance(self.severity, str):
-            self.severity = str(self.severity)
-
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
 
@@ -2455,6 +2520,7 @@ class Biochemical(YAMLRoot):
     name: Union[str, BiochemicalName] = None
     biomarker_term: Optional[Union[dict, BiomarkerDescriptor]] = None
     presence: Optional[str] = None
+    readouts: Optional[Union[Union[dict, BiomarkerReadout], list[Union[dict, BiomarkerReadout]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     specificity: Optional[str] = None
     frequency: Optional[Union[dict, Any]] = None
@@ -2478,6 +2544,10 @@ class Biochemical(YAMLRoot):
 
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
+
+        if not isinstance(self.readouts, list):
+            self.readouts = [self.readouts] if self.readouts is not None else []
+        self.readouts = [v if isinstance(v, BiomarkerReadout) else BiomarkerReadout(**as_dict(v)) for v in self.readouts]
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -5126,6 +5196,101 @@ class SpatialExtentEnum(EnumDefinitionImpl):
         description="Qualifiers for the spatial extent or distribution of a phenotype or process",
     )
 
+class TemporalityEnum(EnumDefinitionImpl):
+    """
+    Temporal qualifiers for descriptor post-composition
+    """
+    ACUTE = PermissibleValue(
+        text="ACUTE",
+        title="Acute",
+        description="Acute manifestation or episode",
+        meaning=HP["0011009"])
+    TRANSIENT = PermissibleValue(
+        text="TRANSIENT",
+        title="Transient",
+        description="Transient manifestation",
+        meaning=HP["0025153"])
+    SUBACUTE = PermissibleValue(
+        text="SUBACUTE",
+        title="Subacute",
+        description="Subacute manifestation or episode",
+        meaning=HP["0011011"])
+    CHRONIC = PermissibleValue(
+        text="CHRONIC",
+        title="Chronic",
+        description="Chronic or persistent over time",
+        meaning=HP["0011010"])
+    RECURRENT = PermissibleValue(
+        text="RECURRENT",
+        title="Recurrent",
+        description="Repeated episodes separated by symptom-free intervals",
+        meaning=HP["0031796"])
+    DIURNAL = PermissibleValue(
+        text="DIURNAL",
+        title="Diurnal",
+        description="Manifestation occurring during the day",
+        meaning=HP["0025302"])
+    NOCTURNAL = PermissibleValue(
+        text="NOCTURNAL",
+        title="Nocturnal",
+        description="Manifestation occurring at night",
+        meaning=HP["0025301"])
+    PROLONGED = PermissibleValue(
+        text="PROLONGED",
+        title="Prolonged",
+        description="Manifestation lasting longer than typical",
+        meaning=HP["0025297"])
+
+    _defn = EnumDefinition(
+        name="TemporalityEnum",
+        description="Temporal qualifiers for descriptor post-composition",
+    )
+
+class ClinicalCourseEnum(EnumDefinitionImpl):
+    """
+    Clinical course qualifiers for descriptor post-composition
+    """
+    PROGRESSIVE = PermissibleValue(
+        text="PROGRESSIVE",
+        title="Progressive",
+        description="Worsening over time",
+        meaning=HP["0003676"])
+    STABLE = PermissibleValue(
+        text="STABLE",
+        title="Stable",
+        description="Not varying in severity or amount over time",
+        meaning=HP["0031915"])
+
+    _defn = EnumDefinition(
+        name="ClinicalCourseEnum",
+        description="Clinical course qualifiers for descriptor post-composition",
+    )
+
+class SeverityQualifierEnum(EnumDefinitionImpl):
+    """
+    Severity qualifiers for descriptor post-composition
+    """
+    MILD = PermissibleValue(
+        text="MILD",
+        title="Mild",
+        description="Mild severity",
+        meaning=HP["0012825"])
+    MODERATE = PermissibleValue(
+        text="MODERATE",
+        title="Moderate",
+        description="Moderate severity",
+        meaning=HP["0012826"])
+    SEVERE = PermissibleValue(
+        text="SEVERE",
+        title="Severe",
+        description="Severe severity",
+        meaning=HP["0012828"])
+
+    _defn = EnumDefinition(
+        name="SeverityQualifierEnum",
+        description="Severity qualifiers for descriptor post-composition",
+    )
+
 class AssayTerm(EnumDefinitionImpl):
     """
     A term representing an assay
@@ -5287,6 +5452,88 @@ class BiomarkerTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="BiomarkerTerm",
         description="""A biomarker term from NCIT. Includes proteins, gene products, fusion products, and other molecular markers. No hierarchy constraint - validates term exists and label matches.""",
+    )
+
+class BiomarkerReadoutRelationshipEnum(EnumDefinitionImpl):
+    """
+    Relationship between a biomarker and the pathograph node it reports on
+    """
+    READOUT_OF = PermissibleValue(
+        text="READOUT_OF",
+        title="Readout of",
+        description="The biomarker directly or indirectly measures the linked event or mechanism")
+    CORRELATES_WITH = PermissibleValue(
+        text="CORRELATES_WITH",
+        title="Correlates with",
+        description="The biomarker is statistically or clinically associated with the linked event or endpoint")
+    PREDICTS = PermissibleValue(
+        text="PREDICTS",
+        title="Predicts",
+        description="The biomarker predicts a later event, endpoint, or clinical outcome")
+    PHARMACODYNAMIC_MARKER_OF = PermissibleValue(
+        text="PHARMACODYNAMIC_MARKER_OF",
+        title="Pharmacodynamic marker of",
+        description="The biomarker reports biological response to a treatment or intervention at the linked node")
+
+    _defn = EnumDefinition(
+        name="BiomarkerReadoutRelationshipEnum",
+        description="Relationship between a biomarker and the pathograph node it reports on",
+    )
+
+class BiomarkerReadoutDirectionEnum(EnumDefinitionImpl):
+    """
+    Direction of association between biomarker value/presence and the linked event or endpoint
+    """
+    POSITIVE = PermissibleValue(
+        text="POSITIVE",
+        title="Positive",
+        description="Higher biomarker value or stronger presence tracks with more of the linked event")
+    NEGATIVE = PermissibleValue(
+        text="NEGATIVE",
+        title="Negative",
+        description="Higher biomarker value or stronger presence tracks with less of the linked event")
+    PRESENT_ABSENT = PermissibleValue(
+        text="PRESENT_ABSENT",
+        title="Present/absent",
+        description="Biomarker presence or absence, rather than monotonic level, is the interpretable signal")
+    THRESHOLD_DEPENDENT = PermissibleValue(
+        text="THRESHOLD_DEPENDENT",
+        title="Threshold dependent",
+        description="Interpretation depends on threshold, range, genotype, assay, or clinical context")
+
+    _defn = EnumDefinition(
+        name="BiomarkerReadoutDirectionEnum",
+        description="Direction of association between biomarker value/presence and the linked event or endpoint",
+    )
+
+class BiomarkerEndpointContextEnum(EnumDefinitionImpl):
+    """
+    Endpoint or use context for a biomarker readout link
+    """
+    DIAGNOSTIC = PermissibleValue(
+        text="DIAGNOSTIC",
+        title="Diagnostic",
+        description="Used to support diagnosis or disease classification")
+    PROGNOSTIC = PermissibleValue(
+        text="PROGNOSTIC",
+        title="Prognostic",
+        description="Associated with future risk, disease severity, or clinical outcome")
+    MONITORING = PermissibleValue(
+        text="MONITORING",
+        title="Monitoring",
+        description="Used to track disease state or progression over time")
+    PHARMACODYNAMIC = PermissibleValue(
+        text="PHARMACODYNAMIC",
+        title="Pharmacodynamic",
+        description="Used to track biological response to treatment or perturbation")
+    CANDIDATE_SURROGATE = PermissibleValue(
+        text="CANDIDATE_SURROGATE",
+        title="Candidate surrogate",
+        description="Potential surrogate endpoint candidate requiring explicit outcome-link evidence")
+
+    _defn = EnumDefinition(
+        name="BiomarkerEndpointContextEnum",
+        description="Endpoint or use context for a biomarker readout link",
     )
 
 class GeneProductTerm(EnumDefinitionImpl):
@@ -5985,6 +6232,21 @@ class MechanismConfidenceEnum(EnumDefinitionImpl):
         description="Level of confidence in a pathophysiology mechanism",
     )
 
+class ReferenceTagEnum(EnumDefinitionImpl):
+    """
+    Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like "which
+    disorders lack a GeneReviews citation?"
+    """
+    GeneReviews = PermissibleValue(
+        text="GeneReviews",
+        title="GeneReviews",
+        description="""Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management.""")
+
+    _defn = EnumDefinition(
+        name="ReferenceTagEnum",
+        description="""Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like \"which disorders lack a GeneReviews citation?\"""",
+    )
+
 class ICDOMorphologyEnum(EnumDefinitionImpl):
     """
     ICD-O morphology axis classification for cancer subtypes. Values link to NCI Thesaurus for formal definitions.
@@ -6377,6 +6639,11 @@ class LysosomalStorageEnum(EnumDefinitionImpl):
 
     @classmethod
     def _addvals(cls):
+        setattr(cls, "disorder of glycogen metabolism",
+            PermissibleValue(
+                text="disorder of glycogen metabolism",
+                description="""Accumulation of glycogen in tissues (Pompe disease and related glycogen storage diseases)""",
+                meaning=MONDO["0002412"]))
         setattr(cls, "neuronal ceroid lipofuscinosis",
             PermissibleValue(
                 text="neuronal ceroid lipofuscinosis",
@@ -6688,6 +6955,12 @@ slots.laterality = Slot(uri=DISMECH.laterality, name="laterality", curie=DISMECH
 slots.spatial_extent = Slot(uri=DISMECH.spatial_extent, name="spatial_extent", curie=DISMECH.curie('spatial_extent'),
                    model_uri=DISMECH.spatial_extent, domain=None, range=Optional[Union[str, "SpatialExtentEnum"]])
 
+slots.temporality = Slot(uri=DISMECH.temporality, name="temporality", curie=DISMECH.curie('temporality'),
+                   model_uri=DISMECH.temporality, domain=None, range=Optional[Union[str, "TemporalityEnum"]])
+
+slots.clinical_course = Slot(uri=DISMECH.clinical_course, name="clinical_course", curie=DISMECH.curie('clinical_course'),
+                   model_uri=DISMECH.clinical_course, domain=None, range=Optional[Union[str, "ClinicalCourseEnum"]])
+
 slots.therapeutic_agent = Slot(uri=DISMECH.therapeutic_agent, name="therapeutic_agent", curie=DISMECH.curie('therapeutic_agent'),
                    model_uri=DISMECH.therapeutic_agent, domain=None, range=Optional[Union[Union[dict, ChemicalEntityDescriptor], list[Union[dict, ChemicalEntityDescriptor]]]])
 
@@ -6765,6 +7038,9 @@ slots.title = Slot(uri=DISMECH.title, name="title", curie=DISMECH.curie('title')
 
 slots.found_in = Slot(uri=DISMECH.found_in, name="found_in", curie=DISMECH.curie('found_in'),
                    model_uri=DISMECH.found_in, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.tags = Slot(uri=DISMECH.tags, name="tags", curie=DISMECH.curie('tags'),
+                   model_uri=DISMECH.tags, domain=None, range=Optional[Union[Union[str, "ReferenceTagEnum"], list[Union[str, "ReferenceTagEnum"]]]])
 
 slots.subtype = Slot(uri=DISMECH.subtype, name="subtype", curie=DISMECH.curie('subtype'),
                    model_uri=DISMECH.subtype, domain=None, range=Optional[str])
@@ -6892,6 +7168,21 @@ slots.regimen_term = Slot(uri=DISMECH.regimen_term, name="regimen_term", curie=D
 slots.biomarker_term = Slot(uri=DISMECH.biomarker_term, name="biomarker_term", curie=DISMECH.curie('biomarker_term'),
                    model_uri=DISMECH.biomarker_term, domain=None, range=Optional[Union[dict, BiomarkerDescriptor]])
 
+slots.readouts = Slot(uri=DISMECH.readouts, name="readouts", curie=DISMECH.curie('readouts'),
+                   model_uri=DISMECH.readouts, domain=None, range=Optional[Union[Union[dict, BiomarkerReadout], list[Union[dict, BiomarkerReadout]]]])
+
+slots.relationship = Slot(uri=DISMECH.relationship, name="relationship", curie=DISMECH.curie('relationship'),
+                   model_uri=DISMECH.relationship, domain=None, range=Optional[Union[str, "BiomarkerReadoutRelationshipEnum"]])
+
+slots.direction = Slot(uri=DISMECH.direction, name="direction", curie=DISMECH.curie('direction'),
+                   model_uri=DISMECH.direction, domain=None, range=Optional[Union[str, "BiomarkerReadoutDirectionEnum"]])
+
+slots.endpoint_context = Slot(uri=DISMECH.endpoint_context, name="endpoint_context", curie=DISMECH.curie('endpoint_context'),
+                   model_uri=DISMECH.endpoint_context, domain=None, range=Optional[Union[str, "BiomarkerEndpointContextEnum"]])
+
+slots.interpretation = Slot(uri=DISMECH.interpretation, name="interpretation", curie=DISMECH.curie('interpretation'),
+                   model_uri=DISMECH.interpretation, domain=None, range=Optional[str])
+
 slots.finding_term = Slot(uri=DISMECH.finding_term, name="finding_term", curie=DISMECH.curie('finding_term'),
                    model_uri=DISMECH.finding_term, domain=None, range=Optional[Union[dict, HistopathologyFindingDescriptor]])
 
@@ -6935,7 +7226,7 @@ slots.context = Slot(uri=DISMECH.context, name="context", curie=DISMECH.curie('c
                    model_uri=DISMECH.context, domain=None, range=Optional[str])
 
 slots.severity = Slot(uri=DISMECH.severity, name="severity", curie=DISMECH.curie('severity'),
-                   model_uri=DISMECH.severity, domain=None, range=Optional[str])
+                   model_uri=DISMECH.severity, domain=None, range=Optional[Union[dict, Any]])
 
 slots.presence = Slot(uri=DISMECH.presence, name="presence", curie=DISMECH.curie('presence'),
                    model_uri=DISMECH.presence, domain=None, range=Optional[str])
@@ -7733,6 +8024,24 @@ slots.ModelMechanismLink_description = Slot(uri=DISMECH.description, name="Model
 
 slots.ModelMechanismLink_evidence = Slot(uri=DISMECH.evidence, name="ModelMechanismLink_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.ModelMechanismLink_evidence, domain=ModelMechanismLink, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.BiomarkerReadout_target = Slot(uri=DISMECH.target, name="BiomarkerReadout_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.BiomarkerReadout_target, domain=BiomarkerReadout, range=str)
+
+slots.BiomarkerReadout_relationship = Slot(uri=DISMECH.relationship, name="BiomarkerReadout_relationship", curie=DISMECH.curie('relationship'),
+                   model_uri=DISMECH.BiomarkerReadout_relationship, domain=BiomarkerReadout, range=Union[str, "BiomarkerReadoutRelationshipEnum"])
+
+slots.BiomarkerReadout_direction = Slot(uri=DISMECH.direction, name="BiomarkerReadout_direction", curie=DISMECH.curie('direction'),
+                   model_uri=DISMECH.BiomarkerReadout_direction, domain=BiomarkerReadout, range=Optional[Union[str, "BiomarkerReadoutDirectionEnum"]])
+
+slots.BiomarkerReadout_endpoint_context = Slot(uri=DISMECH.endpoint_context, name="BiomarkerReadout_endpoint_context", curie=DISMECH.curie('endpoint_context'),
+                   model_uri=DISMECH.BiomarkerReadout_endpoint_context, domain=BiomarkerReadout, range=Optional[Union[str, "BiomarkerEndpointContextEnum"]])
+
+slots.BiomarkerReadout_interpretation = Slot(uri=DISMECH.interpretation, name="BiomarkerReadout_interpretation", curie=DISMECH.curie('interpretation'),
+                   model_uri=DISMECH.BiomarkerReadout_interpretation, domain=BiomarkerReadout, range=Optional[str])
+
+slots.BiomarkerReadout_evidence = Slot(uri=DISMECH.evidence, name="BiomarkerReadout_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.BiomarkerReadout_evidence, domain=BiomarkerReadout, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
 
 slots.PublicationReference_reference = Slot(uri=DISMECH.reference, name="PublicationReference_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.PublicationReference_reference, domain=PublicationReference, range=Union[str, PublicationReferenceReference])

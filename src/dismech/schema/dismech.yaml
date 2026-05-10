@@ -666,6 +666,54 @@ enums:
     comments:
       - NCIT biomarkers span multiple hierarchies (proteins, genes, fusions, hormones)
       - Validation checks term exists in NCIT with correct label
+  BiomarkerReadoutRelationshipEnum:
+    description: Relationship between a biomarker and the pathograph node it reports on
+    permissible_values:
+      READOUT_OF:
+        title: Readout of
+        description: The biomarker directly or indirectly measures the linked event or mechanism
+      CORRELATES_WITH:
+        title: Correlates with
+        description: The biomarker is statistically or clinically associated with the linked event or endpoint
+      PREDICTS:
+        title: Predicts
+        description: The biomarker predicts a later event, endpoint, or clinical outcome
+      PHARMACODYNAMIC_MARKER_OF:
+        title: Pharmacodynamic marker of
+        description: The biomarker reports biological response to a treatment or intervention at the linked node
+  BiomarkerReadoutDirectionEnum:
+    description: Direction of association between biomarker value/presence and the linked event or endpoint
+    permissible_values:
+      POSITIVE:
+        title: Positive
+        description: Higher biomarker value or stronger presence tracks with more of the linked event
+      NEGATIVE:
+        title: Negative
+        description: Higher biomarker value or stronger presence tracks with less of the linked event
+      PRESENT_ABSENT:
+        title: Present/absent
+        description: Biomarker presence or absence, rather than monotonic level, is the interpretable signal
+      THRESHOLD_DEPENDENT:
+        title: Threshold dependent
+        description: Interpretation depends on threshold, range, genotype, assay, or clinical context
+  BiomarkerEndpointContextEnum:
+    description: Endpoint or use context for a biomarker readout link
+    permissible_values:
+      DIAGNOSTIC:
+        title: Diagnostic
+        description: Used to support diagnosis or disease classification
+      PROGNOSTIC:
+        title: Prognostic
+        description: Associated with future risk, disease severity, or clinical outcome
+      MONITORING:
+        title: Monitoring
+        description: Used to track disease state or progression over time
+      PHARMACODYNAMIC:
+        title: Pharmacodynamic
+        description: Used to track biological response to treatment or perturbation
+      CANDIDATE_SURROGATE:
+        title: Candidate surrogate
+        description: Potential surrogate endpoint candidate requiring explicit outcome-link evidence
   GeneProductTerm:
     description: >-
       A gene product term from NCIT. Includes proteins, fusion proteins, oncoproteins,
@@ -1615,6 +1663,30 @@ slots:
     comments:
       - Use NCIT terms for biomarkers (proteins, genes, fusion products)
       - NCIT:C16342 (Biomarker) is the root class for validation
+  readouts:
+    description: >-
+      Links this biomarker to disease pathograph nodes that it measures,
+      reflects, predicts, or pharmacodynamically reports on. The target should
+      be a named pathograph node, typically a pathophysiology mechanism.
+    multivalued: true
+    range: BiomarkerReadout
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology or phenotype entry names in the same disease file
+      - Readout links are observational/associative, not causal disease-progression edges
+      - Use evidence on the readout link when the biomarker-to-mechanism mapping is distinct from the biomarker's own evidence
+  relationship:
+    description: Controlled relationship between a biomarker and the pathograph node it reports on
+    range: BiomarkerReadoutRelationshipEnum
+  direction:
+    description: Direction of association between the biomarker value/presence and the linked pathograph node
+    range: BiomarkerReadoutDirectionEnum
+  endpoint_context:
+    description: Endpoint or use context for a biomarker readout link
+    range: BiomarkerEndpointContextEnum
+  interpretation:
+    description: Curator-facing explanation of how to interpret the biomarker relative to the linked pathograph node
+    range: string
   finding_term:
     description: Ontology term for a histopathologic finding (from NCIT or HP)
     range: HistopathologyFindingDescriptor
@@ -3310,6 +3382,40 @@ classes:
           mechanism the model captures or assays.
       evidence:
         description: Evidence that this model is informative for the linked mechanism
+  BiomarkerReadout:
+    description: >-
+      Links a biochemical biomarker to a pathograph node that it measures,
+      reflects, predicts, or pharmacodynamically reports on. This is an
+      observational readout link, not a causal claim that the biomarker causes
+      the target mechanism or phenotype.
+    slots:
+      - target
+      - relationship
+      - direction
+      - endpoint_context
+      - interpretation
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this biomarker reports on. Prefer a
+          pathophysiology entry; phenotype targets are also allowed when the
+          biomarker is explicitly tied to a clinical manifestation.
+        required: true
+      relationship:
+        description: How the biomarker relates to the linked pathograph node.
+        required: true
+      direction:
+        description: >-
+          Direction of association between biomarker level/presence and the
+          linked event or endpoint.
+      endpoint_context:
+        description: Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.
+      interpretation:
+        description: Human-readable interpretation of the link for display and curation review.
+      evidence:
+        description: Evidence supporting this biomarker-to-pathograph-node readout link
   ProteinStructure:
     description: >-
       A 3D protein structure from PDB or AlphaFold relevant to understanding
@@ -3482,6 +3588,7 @@ classes:
       - name
       - biomarker_term
       - presence
+      - readouts
       - evidence
       - specificity
       - frequency
