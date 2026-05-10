@@ -2,9 +2,9 @@
 Build causal graphs from disorder data and generate Mermaid diagrams and
 interactive D3.js pathograph JSON.
 
-This module extracts nodes (named elements) and edges (downstream/sequelae relationships)
-from disorder YAML data, performs referential integrity checks, and generates
-Mermaid flowchart code and pathograph JSON for visualization.
+This module extracts nodes (named elements) and edges (downstream/sequelae/readout
+relationships) from disorder YAML data, performs referential integrity checks, and
+generates Mermaid flowchart code and pathograph JSON for visualization.
 """
 
 import json
@@ -33,6 +33,10 @@ class Edge:
     target: str
     predicate: str  # causes, leads_to
     source_type: str
+    description: str | None = None
+    relationship: str | None = None
+    direction: str | None = None
+    endpoint_context: str | None = None
 
 
 @dataclass
@@ -378,6 +382,31 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     )
                 )
 
+    # Collect observational biomarker readout links
+    for item in disorder.get("biochemical", []) or []:
+        if not isinstance(item, dict):
+            continue
+        biomarker_name = item.get("name")
+        if not biomarker_name:
+            continue
+
+        for readout in item.get("readouts", []) or []:
+            if not isinstance(readout, dict) or "target" not in readout:
+                continue
+            graph.edges.append(
+                Edge(
+                    source=str(readout["target"]),
+                    target=biomarker_name,
+                    predicate="readout",
+                    source_type="biochemical",
+                    description=readout.get("description")
+                    or readout.get("interpretation"),
+                    relationship=readout.get("relationship"),
+                    direction=readout.get("direction"),
+                    endpoint_context=readout.get("endpoint_context"),
+                )
+            )
+
     # Collect edges from genetic factors to linked mechanisms
     for item in disorder.get("genetic", []) or []:
         if not isinstance(item, dict):
@@ -440,6 +469,10 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
 
     # Check referential integrity
     for edge in graph.edges:
+        if edge.source not in graph.nodes:
+            graph.integrity_issues.append(
+                f"Source '{edge.source}' (for edge to '{edge.target}') not found in named elements"
+            )
         if edge.target not in graph.nodes:
             graph.orphan_targets.add(edge.target)
             graph.integrity_issues.append(
@@ -486,6 +519,8 @@ def generate_mermaid(graph: CausalGraph) -> str:
         target_id = node_ids[edge.target]
         # Use dashed line for edges to orphan targets
         if edge.target in graph.orphan_targets:
+            lines.append(f"    {source_id} -.-> {target_id}")
+        elif edge.predicate == "readout":
             lines.append(f"    {source_id} -.-> {target_id}")
         else:
             lines.append(f"    {source_id} --> {target_id}")
@@ -607,6 +642,37 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
     # Frequency
     if item.get("frequency"):
         meta["frequency"] = item["frequency"]
+
+    # Biochemical marker details
+    if item.get("presence"):
+        meta["presence"] = item["presence"]
+    if item.get("specificity"):
+        meta["specificity"] = item["specificity"]
+    biomarker_term = item.get("biomarker_term")
+    if isinstance(biomarker_term, dict):
+        term = biomarker_term.get("term")
+        if isinstance(term, dict) and term.get("id"):
+            meta["term_id"] = term["id"]
+            if term.get("label"):
+                meta["term_label"] = term["label"]
+    readouts = item.get("readouts", []) or []
+    if readouts:
+        meta["readouts"] = [
+            {
+                k: readout[k]
+                for k in (
+                    "target",
+                    "relationship",
+                    "direction",
+                    "endpoint_context",
+                    "interpretation",
+                    "description",
+                )
+                if k in readout and readout[k] is not None
+            }
+            for readout in readouts
+            if isinstance(readout, dict) and readout.get("target")
+        ]
 
     # Severity (phenotypes)
     if item.get("severity"):
@@ -947,15 +1013,23 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
 
         nodes_json.append(node_data)
 
-    edges_json = [
-        {
+    edges_json = []
+    for edge in graph.edges:
+        edge_data: dict[str, Any] = {
             "source": edge.source,
             "target": edge.target,
             "predicate": edge.predicate,
             "is_orphan": edge.target in graph.orphan_targets,
         }
-        for edge in graph.edges
-    ]
+        if edge.description:
+            edge_data["description"] = edge.description
+        if edge.relationship:
+            edge_data["relationship"] = edge.relationship
+        if edge.direction:
+            edge_data["direction"] = edge.direction
+        if edge.endpoint_context:
+            edge_data["endpoint_context"] = edge.endpoint_context
+        edges_json.append(edge_data)
 
     return json.dumps(
         {
