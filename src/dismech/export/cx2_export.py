@@ -26,6 +26,7 @@ from ndex2.cx2 import CX2Network, CX2NetworkXFactory
 from dismech.graph import (
     _build_section_lookup,
     _gene_lookup_keys,
+    _genetic_item_infers_mechanism_edges,
     _iter_variant_items,
     _resolve_descriptor_target,
     build_causal_graph,
@@ -1014,6 +1015,8 @@ def _build_edge_detail_lookup(
             continue
         source_name = item.get("name")
         if not source_name:
+            continue
+        if not _genetic_item_infers_mechanism_edges(item):
             continue
         mechanism_targets: set[str] = set()
         for gene_key in _gene_lookup_keys(item, allow_name_fallback=True):
