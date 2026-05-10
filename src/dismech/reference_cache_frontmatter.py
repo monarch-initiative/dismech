@@ -13,6 +13,9 @@ It validates only structural facts:
 - required cache fields are present and have the expected types
 - optional fields match the shapes written by the upstream cache writer
 - the filename matches the normalized ``reference_id``
+- ``PMID:`` caches carry at least one of ``authors`` / ``journal`` (issue
+  #1737 defense-in-depth — the documented fabrication fingerprint had
+  neither field populated)
 
 The heavier last line of defence remains the existing
 ``linkml-reference-validator`` run inside ``just qc``.
@@ -133,6 +136,22 @@ def _validate_contract(path: Path, data: dict[str, Any]) -> list[str]:
         matches_filename = path.name.casefold() == expected_name.casefold()
     if not matches_filename:
         reasons.append(f"filename must match reference_id ({expected_name})")
+
+    # Defense-in-depth check for the fabrication fingerprint documented in
+    # issue #1737: hand-crafted PMID cache files lacking real bibliographic
+    # metadata (no authors, no journal) where the body content was just the
+    # YAML snippet copy-pasted back, defeating the snippet-substring check
+    # in linkml-reference-validator. All legitimate PMID caches in the
+    # current corpus carry at least one of authors / journal — including
+    # pre-abstract-era papers, foreign-language abstracts, and minimal
+    # PubMed records.
+    if frontmatter.reference_id.startswith("PMID:") and not (
+        frontmatter.authors or frontmatter.journal
+    ):
+        reasons.append(
+            "PMID cache files must carry at least one of `authors:` or "
+            "`journal:` (fabrication fingerprint per #1737)"
+        )
 
     return reasons
 

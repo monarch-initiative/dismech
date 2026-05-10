@@ -119,6 +119,80 @@ def test_check_cache_file_accepts_database_field(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
+    """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
+    with neither ``authors`` nor ``journal`` and a paraphrastic title was
+    how prior fabrications evaded ``validate-references``. The deterministic
+    check must reject the shape regardless of whether the body is real."""
+    fabricated = tmp_path / "PMID_36606642.md"
+    fabricated.write_text(
+        "---\n"
+        'reference_id: "PMID:36606642"\n'
+        'title: "Some plausible-sounding review"\n'
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "Body content unverified.\n",
+        encoding="utf-8",
+    )
+    finding = check_cache_file(fabricated)
+    assert isinstance(finding, Finding)
+    assert any(
+        "authors" in reason and "journal" in reason for reason in finding.reasons
+    )
+
+
+def test_pmid_cache_with_only_journal_is_accepted(tmp_path: Path):
+    """Pre-abstract-era and brief PubMed records often carry ``journal`` and
+    ``year`` but no ``authors``. They are legitimate and must pass."""
+    good = tmp_path / "PMID_2897563.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:2897563"\n'
+        'title: "Klinefelter\'s syndrome."\n'
+        "journal: Lancet\n"
+        "year: '1988'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Klinefelter's syndrome.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
+def test_pmid_cache_with_only_authors_is_accepted(tmp_path: Path):
+    """Mirror coverage: ``authors`` alone is also sufficient."""
+    good = tmp_path / "PMID_99999999.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:99999999"\n'
+        'title: "Some paper"\n'
+        "authors:\n"
+        "- Doe J\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Some paper\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
+def test_non_pmid_cache_is_not_subject_to_metadata_check(tmp_path: Path):
+    """Non-PMID prefixes (CGGV, ORPHA, clinicaltrials, GEO, …) follow
+    different cache shapes and must not be flagged for missing
+    journal/authors."""
+    cggv = tmp_path / "CGGV_assertion_abc.md"
+    cggv.write_text(
+        "---\n"
+        'reference_id: "CGGV:assertion_abc"\n'
+        'title: "Gene-disease validity assertion"\n'
+        "content_type: structured_record\n"
+        "---\n\n"
+        "# CGGV:assertion_abc\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(cggv) is None
+
+
 @pytest.mark.skipif(not CACHE_DIR.is_dir(), reason="references_cache/ not present")
 def test_existing_repo_caches_match_frontmatter_contract():
     findings = scan_cache_dir(CACHE_DIR)
