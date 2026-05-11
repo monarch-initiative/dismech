@@ -1231,6 +1231,34 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1952,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2049,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2066,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2275,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2293,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2343,33 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2518,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hematological Disease</span>
@@ -2580,7 +2681,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">7</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3450,7 +3551,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chronic Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intravascular hemolysis releases free hemoglobin, scavenging nitric oxide and causing endothelial dysfunction, pulmonary hypertension, and stroke risk.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nitric oxide metabolic process\", \"response to oxidative stress\"]}}, {\"id\": \"Chronic Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004870\"}}, {\"id\": \"Chronic Organ Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated vaso-occlusion and ischemia-reperfusion injury cause progressive damage to spleen, kidneys, lungs, and brain.\\n\", \"meta\": {\"biological_processes\": [\"response to ischemia\", \"cellular response to oxidative stress\"]}}, {\"id\": \"Hemoglobin Polymerization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deoxygenated HbS polymerizes into rigid fibers, deforming red blood cells into sickle shape. HbS has glutamic acid to valine substitution at position 6 of beta-globin.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein polymerization\", \"response to hypoxia\"]}}, {\"id\": \"Pain Crises\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012531\"}}, {\"id\": \"Red Blood Cell Sickling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sickled RBCs are rigid and fragile, leading to hemolytic anemia and shortened RBC lifespan (10-20 days vs normal 120 days).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Red Blood Cell\"], \"biological_processes\": [\"erythrocyte homeostasis\", \"positive regulation of erythrocyte clearance\"]}}, {\"id\": \"Vaso-Occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sickled cells adhere to vascular endothelium and obstruct microcirculation, causing tissue ischemia and pain crises. Inflammation amplifies adhesion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial Cell\"], \"biological_processes\": [\"leukocyte adhesion to vascular endothelial cell\", \"positive regulation of cell adhesion\"]}}], \"edges\": [{\"source\": \"Hemoglobin Polymerization\", \"target\": \"Red Blood Cell Sickling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Red Blood Cell Sickling\", \"target\": \"Vaso-Occlusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Red Blood Cell Sickling\", \"target\": \"Chronic Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vaso-Occlusion\", \"target\": \"Pain Crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vaso-Occlusion\", \"target\": \"Chronic Organ Damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Chronic Organ Damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Chronic Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C64483\", \"term_label\": \"Indirect Bilirubin Measurement\", \"readouts\": [{\"target\": \"Chronic Hemolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher indirect bilirubin reflects heme catabolism from accelerated red-cell breakdown.\"}]}}, {\"id\": \"Chronic Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intravascular hemolysis releases free hemoglobin, scavenging nitric oxide and causing endothelial dysfunction, pulmonary hypertension, and stroke risk.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nitric oxide metabolic process\", \"response to oxidative stress\"]}}, {\"id\": \"Chronic Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0004870\"}}, {\"id\": \"Chronic Organ Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated vaso-occlusion and ischemia-reperfusion injury cause progressive damage to spleen, kidneys, lungs, and brain.\\n\", \"meta\": {\"biological_processes\": [\"response to ischemia\", \"cellular response to oxidative stress\"]}}, {\"id\": \"Fetal Hemoglobin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Variable\", \"term_id\": \"NCIT:C92262\", \"term_label\": \"Hemoglobin F Measurement\", \"readouts\": [{\"target\": \"Hemoglobin Polymerization\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Higher HbF is associated with reduced HbS polymerization and can serve as a pharmacodynamic readout for HbF-inducing therapies.\"}]}}, {\"id\": \"HbS\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Present\", \"term_id\": \"NCIT:C122123\", \"term_label\": \"Hemoglobin S Measurement\", \"readouts\": [{\"target\": \"Hemoglobin Polymerization\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"HbS fraction identifies the polymerizing hemoglobin substrate; risk depends on genotype, oxygenation, concentration, and modifying hemoglobins.\"}]}}, {\"id\": \"Hemoglobin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Decreased\", \"term_id\": \"NCIT:C64848\", \"term_label\": \"Hemoglobin Measurement\", \"readouts\": [{\"target\": \"Chronic Hemolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Lower hemoglobin concentration reflects anemia from ongoing hemolysis and marrow compensation limits.\"}]}}, {\"id\": \"Hemoglobin Polymerization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deoxygenated HbS polymerizes into rigid fibers, deforming red blood cells into sickle shape. HbS has glutamic acid to valine substitution at position 6 of beta-globin.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein polymerization\", \"response to hypoxia\"]}}, {\"id\": \"LDH\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C64855\", \"term_label\": \"Lactate Dehydrogenase Measurement\", \"readouts\": [{\"target\": \"Chronic Hemolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"Higher LDH reflects intravascular hemolysis and has been associated with hemolysis-linked vasculopathy risk.\"}]}}, {\"id\": \"Pain Crises\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012531\"}}, {\"id\": \"Red Blood Cell Sickling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sickled RBCs are rigid and fragile, leading to hemolytic anemia and shortened RBC lifespan (10-20 days vs normal 120 days).\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Red Blood Cell\"], \"biological_processes\": [\"erythrocyte homeostasis\", \"positive regulation of erythrocyte clearance\"]}}, {\"id\": \"Reticulocytes\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C51947\", \"term_label\": \"Reticulocyte Count\", \"readouts\": [{\"target\": \"Chronic Hemolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Elevated reticulocytes reflect marrow response to red-cell destruction in chronic hemolysis.\"}]}}, {\"id\": \"Vaso-Occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sickled cells adhere to vascular endothelium and obstruct microcirculation, causing tissue ischemia and pain crises. Inflammation amplifies adhesion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Endothelial Cell\"], \"biological_processes\": [\"leukocyte adhesion to vascular endothelial cell\", \"positive regulation of cell adhesion\"]}}], \"edges\": [{\"source\": \"Hemoglobin Polymerization\", \"target\": \"Red Blood Cell Sickling\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Red Blood Cell Sickling\", \"target\": \"Vaso-Occlusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Red Blood Cell Sickling\", \"target\": \"Chronic Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vaso-Occlusion\", \"target\": \"Pain Crises\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vaso-Occlusion\", \"target\": \"Chronic Organ Damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Chronic Organ Damage\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Chronic Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Hemoglobin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower hemoglobin concentration reflects anemia from ongoing hemolysis and marrow compensation limits.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Reticulocytes\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated reticulocytes reflect marrow response to red-cell destruction in chronic hemolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher indirect bilirubin reflects heme catabolism from accelerated red-cell breakdown.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Chronic Hemolysis\", \"target\": \"LDH\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher LDH reflects intravascular hemolysis and has been associated with hemolysis-linked vasculopathy risk.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\"}, {\"source\": \"Hemoglobin Polymerization\", \"target\": \"HbS\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"HbS fraction identifies the polymerizing hemoglobin substrate; risk depends on genotype, oxygenation, concentration, and modifying hemoglobins.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Hemoglobin Polymerization\", \"target\": \"Fetal Hemoglobin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher HbF is associated with reduced HbS polymerization and can serve as a pharmacodynamic readout for HbF-inducing therapies.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5368,7 +5469,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="item-box biochemical-box">
@@ -5382,12 +5483,61 @@
                 <div class="item-desc">Context: Chronic anemia, Hb typically 6-9 g/dL</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Chronic Hemolysis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Negative
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Lower hemoglobin concentration reflects anemia from ongoing hemolysis and marrow compensation limits.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199090" target="_blank">PMID:31199090</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The primary end point was the percentage of participants who had a hemoglobin response, which was defined as an increase of more than 1.0 g per deciliter from baseline at week 24 in the intention-to-treat analysis."</div>
+                
+                
+                <div class="evidence-explanation">This phase 3 SCD trial used hemoglobin response as a blood biomarker endpoint, supporting hemoglobin concentration as a clinically measured biomarker in SCD.</div>
+                
+            </div>
             
             <div class="evidence-item">
                 <div class="evidence-header">
@@ -5425,6 +5575,35 @@
                 <div class="item-desc">Context: Compensatory increased production</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Chronic Hemolysis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Elevated reticulocytes reflect marrow response to red-cell destruction in chronic hemolysis.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5435,18 +5614,20 @@
             <div class="evidence-item">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7715639" target="_blank">PMID:7715639</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16291595" target="_blank">PMID:16291595</a>
                     </span>
                     
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
                     
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
                     
                 </div>
                 
-                <div class="evidence-snippet">"In a previous open-label study of hydroxyurea therapy, the synthesis of fetal hemoglobin increased in most patients with sickle cell anemia, with only mild myelotoxicity."</div>
+                <div class="evidence-snippet">"In a cohort of 213 patients with sickle cell disease, we found statistically significant associations of steady-state LDH with low levels of hemoglobin and haptoglobin and high levels of reticulocytes, bilirubin, plasma hemoglobin, aspartate aminotransferase, arginase, and soluble adhesion molecules."</div>
                 
                 
-                <div class="evidence-explanation">Elevated reticulocyte counts reflect compensatory bone marrow response to hemolysis.</div>
+                <div class="evidence-explanation">This SCD cohort study supports elevated reticulocytes as part of the hemolysis-associated biomarker profile.</div>
                 
             </div>
             
@@ -5468,6 +5649,65 @@
                 <div class="item-desc">Context: Indirect, from hemolysis</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Chronic Hemolysis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Higher indirect bilirubin reflects heme catabolism from accelerated red-cell breakdown.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199090" target="_blank">PMID:31199090</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"At week 24, the 1500-mg voxelotor group had significantly greater reductions from baseline in the indirect bilirubin level and percentage of reticulocytes than the placebo group."</div>
+                
+                
+                <div class="evidence-explanation">This phase 3 SCD trial used indirect bilirubin as a hemolysis biomarker that changed with treatment.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5483,6 +5723,65 @@
                 <div class="item-desc">Context: Hemolysis marker</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Chronic Hemolysis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Prognostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Higher LDH reflects intravascular hemolysis and has been associated with hemolysis-linked vasculopathy risk.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16291595" target="_blank">PMID:16291595</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"We hypothesized that serum LDH may represent a convenient biomarker of intravascular hemolysis and NO bioavailability, characterizing a clinical subphenotype of hemolysis-associated vasculopathy."</div>
+                
+                
+                <div class="evidence-explanation">This human SCD cohort paper directly evaluates serum LDH as a biomarker of intravascular hemolysis and nitric-oxide bioavailability.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5498,6 +5797,159 @@
                 <div class="item-desc">Context: Greater than 50% on hemoglobin electrophoresis</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Correlates With
+                        </span>
+                        <span class="readout-target">Hemoglobin Polymerization</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Threshold Dependent
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">HbS fraction identifies the polymerizing hemoglobin substrate; risk depends on genotype, oxygenation, concentration, and modifying hemoglobins.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199090" target="_blank">PMID:31199090</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Deoxygenated sickle hemoglobin (HbS) polymerization drives the pathophysiology of sickle cell disease. Therefore, direct inhibition of HbS polymerization has potential to favorably modify disease outcomes. Voxelotor is an HbS polymerization inhibitor."</div>
+                
+                
+                <div class="evidence-explanation">This phase 3 SCD trial frames HbS polymerization as the proximal disease biochemical process targeted by therapy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Fetal Hemoglobin
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Variable)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Higher HbF modifies SCD severity and is induced by therapies such as hydroxyurea.</div>
+                
+                
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Correlates With
+                        </span>
+                        <span class="readout-target">Hemoglobin Polymerization</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Negative
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Pharmacodynamic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Higher HbF is associated with reduced HbS polymerization and can serve as a pharmacodynamic readout for HbF-inducing therapies.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18667698" target="_blank">PMID:18667698</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Interindividual variation in fetal hemoglobin (HbF) expression is a known and potentially heritable modifier of SCD severity. High HbF levels are correlated with reduced morbidity and mortality."</div>
+                
+                
+                <div class="evidence-explanation">This human genetic association study supports HbF level as a clinically meaningful modifier biomarker in SCD.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7715639" target="_blank">PMID:7715639</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In a previous open-label study of hydroxyurea therapy, the synthesis of fetal hemoglobin increased in most patients with sickle cell anemia, with only mild myelotoxicity."</div>
+                
+                
+                <div class="evidence-explanation">This sickle-cell anemia trial background supports HbF induction as a treatment-linked biomarker.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5533,7 +5985,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Sickle Cell Disease
 creation_date: &#39;2025-12-18T17:01:35Z&#39;
-updated_date: &#39;2026-04-28T06:34:16Z&#39;
+updated_date: &#39;2026-05-10T22:52:07Z&#39;
 category: Mendelian
 parents:
 - Hematological Disease
@@ -6174,7 +6626,32 @@ biochemical:
 - name: Hemoglobin
   presence: Decreased
   context: &#34;Chronic anemia, Hb typically 6-9 g/dL&#34;
+  readouts:
+  - target: Chronic Hemolysis
+    relationship: READOUT_OF
+    direction: NEGATIVE
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      Lower hemoglobin concentration reflects anemia from ongoing hemolysis and
+      marrow compensation limits.
+  biomarker_term:
+    preferred_term: hemoglobin measurement
+    term:
+      id: NCIT:C64848
+      label: Hemoglobin Measurement
   evidence:
+  - reference: PMID:31199090
+    reference_title: &#34;A Phase 3 Randomized Trial of Voxelotor in Sickle Cell Disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The primary end point was the percentage of participants who had a
+      hemoglobin response, which was defined as an increase of more than 1.0 g
+      per deciliter from baseline at week 24 in the intention-to-treat analysis.
+    explanation: &gt;-
+      This phase 3 SCD trial used hemoglobin response as a blood biomarker
+      endpoint, supporting hemoglobin concentration as a clinically measured
+      biomarker in SCD.
   - reference: PMID:15998894
     reference_title: &#34;Dysregulated arginine metabolism, hemolysis-associated pulmonary hypertension, and mortality in sickle cell disease.&#34;
     supports: PARTIAL
@@ -6183,21 +6660,165 @@ biochemical:
 - name: Reticulocytes
   presence: Elevated
   context: Compensatory increased production
+  readouts:
+  - target: Chronic Hemolysis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      Elevated reticulocytes reflect marrow response to red-cell destruction in
+      chronic hemolysis.
+  biomarker_term:
+    preferred_term: reticulocyte count
+    term:
+      id: NCIT:C51947
+      label: Reticulocyte Count
   evidence:
-  - reference: PMID:7715639
-    reference_title: &#34;Effect of hydroxyurea on the frequency of painful crises in sickle cell anemia. Investigators of the Multicenter Study of Hydroxyurea in Sickle Cell Anemia.&#34;
-    supports: NO_EVIDENCE
-    snippet: &#34;In a previous open-label study of hydroxyurea therapy, the synthesis of fetal hemoglobin increased in most patients with sickle cell anemia, with only mild myelotoxicity.&#34;
-    explanation: Elevated reticulocyte counts reflect compensatory bone marrow response to hemolysis.
+  - reference: PMID:16291595
+    reference_title: &#34;Lactate dehydrogenase as a biomarker of hemolysis-associated nitric oxide resistance, priapism, leg ulceration, pulmonary hypertension, and death in patients with sickle cell disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In a cohort of 213 patients with sickle cell disease, we found
+      statistically significant associations of steady-state LDH with low levels
+      of hemoglobin and haptoglobin and high levels of reticulocytes,
+      bilirubin, plasma hemoglobin, aspartate aminotransferase, arginase, and
+      soluble adhesion molecules.
+    explanation: &gt;-
+      This SCD cohort study supports elevated reticulocytes as part of the
+      hemolysis-associated biomarker profile.
 - name: Bilirubin
   presence: Elevated
   context: Indirect, from hemolysis
+  readouts:
+  - target: Chronic Hemolysis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      Higher indirect bilirubin reflects heme catabolism from accelerated
+      red-cell breakdown.
+  biomarker_term:
+    preferred_term: indirect bilirubin measurement
+    term:
+      id: NCIT:C64483
+      label: Indirect Bilirubin Measurement
+  evidence:
+  - reference: PMID:31199090
+    reference_title: &#34;A Phase 3 Randomized Trial of Voxelotor in Sickle Cell Disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      At week 24, the 1500-mg voxelotor group had significantly greater
+      reductions from baseline in the indirect bilirubin level and percentage of
+      reticulocytes than the placebo group.
+    explanation: &gt;-
+      This phase 3 SCD trial used indirect bilirubin as a hemolysis biomarker
+      that changed with treatment.
 - name: LDH
   presence: Elevated
   context: Hemolysis marker
+  readouts:
+  - target: Chronic Hemolysis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: PROGNOSTIC
+    interpretation: &gt;-
+      Higher LDH reflects intravascular hemolysis and has been associated with
+      hemolysis-linked vasculopathy risk.
+  biomarker_term:
+    preferred_term: lactate dehydrogenase measurement
+    term:
+      id: NCIT:C64855
+      label: Lactate Dehydrogenase Measurement
+  synonyms:
+  - lactate dehydrogenase
+  evidence:
+  - reference: PMID:16291595
+    reference_title: &#34;Lactate dehydrogenase as a biomarker of hemolysis-associated nitric oxide resistance, priapism, leg ulceration, pulmonary hypertension, and death in patients with sickle cell disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We hypothesized that serum LDH may represent a convenient biomarker of
+      intravascular hemolysis and NO bioavailability, characterizing a clinical
+      subphenotype of hemolysis-associated vasculopathy.
+    explanation: &gt;-
+      This human SCD cohort paper directly evaluates serum LDH as a biomarker of
+      intravascular hemolysis and nitric-oxide bioavailability.
 - name: HbS
   presence: Present
   context: &#34;Greater than 50% on hemoglobin electrophoresis&#34;
+  readouts:
+  - target: Hemoglobin Polymerization
+    relationship: CORRELATES_WITH
+    direction: THRESHOLD_DEPENDENT
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      HbS fraction identifies the polymerizing hemoglobin substrate; risk
+      depends on genotype, oxygenation, concentration, and modifying hemoglobins.
+  biomarker_term:
+    preferred_term: hemoglobin S measurement
+    term:
+      id: NCIT:C122123
+      label: Hemoglobin S Measurement
+  synonyms:
+  - sickle hemoglobin
+  evidence:
+  - reference: PMID:31199090
+    reference_title: &#34;A Phase 3 Randomized Trial of Voxelotor in Sickle Cell Disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Deoxygenated sickle hemoglobin (HbS) polymerization drives the
+      pathophysiology of sickle cell disease. Therefore, direct inhibition of
+      HbS polymerization has potential to favorably modify disease outcomes.
+      Voxelotor is an HbS polymerization inhibitor.
+    explanation: &gt;-
+      This phase 3 SCD trial frames HbS polymerization as the proximal disease
+      biochemical process targeted by therapy.
+- name: Fetal Hemoglobin
+  presence: Variable
+  context: &gt;-
+    Higher HbF modifies SCD severity and is induced by therapies such as
+    hydroxyurea.
+  readouts:
+  - target: Hemoglobin Polymerization
+    relationship: CORRELATES_WITH
+    direction: NEGATIVE
+    endpoint_context: PHARMACODYNAMIC
+    interpretation: &gt;-
+      Higher HbF is associated with reduced HbS polymerization and can serve as
+      a pharmacodynamic readout for HbF-inducing therapies.
+  biomarker_term:
+    preferred_term: hemoglobin F measurement
+    term:
+      id: NCIT:C92262
+      label: Hemoglobin F Measurement
+  synonyms:
+  - HbF
+  evidence:
+  - reference: PMID:18667698
+    reference_title: &#34;DNA polymorphisms at the BCL11A, HBS1L-MYB, and beta-globin loci associate with fetal hemoglobin levels and pain crises in sickle cell disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Interindividual variation in fetal hemoglobin (HbF) expression is a known
+      and potentially heritable modifier of SCD severity. High HbF levels are
+      correlated with reduced morbidity and mortality.
+    explanation: &gt;-
+      This human genetic association study supports HbF level as a clinically
+      meaningful modifier biomarker in SCD.
+  - reference: PMID:7715639
+    reference_title: &#34;Effect of hydroxyurea on the frequency of painful crises in sickle cell anemia. Investigators of the Multicenter Study of Hydroxyurea in Sickle Cell Anemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In a previous open-label study of hydroxyurea therapy, the synthesis of
+      fetal hemoglobin increased in most patients with sickle cell anemia, with
+      only mild myelotoxicity.
+    explanation: &gt;-
+      This sickle-cell anemia trial background supports HbF induction as a
+      treatment-linked biomarker.
 genetic:
 - name: HBB
   association: Causative
@@ -6883,7 +7504,7 @@ SCD arises from a single missense variant in HBB (β6 Glu→Val) that promotes d
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sickle Cell Disease", "mondoId": "MONDO:0011382", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sickle_Cell_Disease", "yamlRevision": "7dcce4e738b1"};
+        const OS_CONFIG = {"diseaseName": "Sickle Cell Disease", "mondoId": "MONDO:0011382", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sickle_Cell_Disease", "yamlRevision": "9cb485987642"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

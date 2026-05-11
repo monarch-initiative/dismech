@@ -590,7 +590,7 @@ window.searchData = [
       "inborn error of metabolism"
     ],
     "creation_date": "2026-04-15T00:00:00Z",
-    "updated_date": "2026-04-20T00:00:00Z",
+    "updated_date": "2026-05-11T01:43:24Z",
     "subtypes": [
       "Neonatal onset",
       "Infantile onset",
@@ -657,7 +657,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -944,6 +944,96 @@ window.searchData = [
     "num_genes": 5,
     "num_treatments": 3,
     "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "46,XY disorder of sex development due to 17-beta-hydroxysteroid dehydrogenase 3 deficiency",
+    "disease_id": "MONDO:0009916",
+    "category": "Mendelian",
+    "parents": [
+      "Disorder of sex development",
+      "Androgen biosynthesis disorder",
+      "Steroid biosynthesis disorder"
+    ],
+    "creation_date": "2026-05-11T03:03:02Z",
+    "updated_date": "2026-05-11T03:03:02Z",
+    "subtypes": [],
+    "description": "46,XY disorder of sex development due to 17-beta-hydroxysteroid dehydrogenase 3 deficiency is an autosomal recessive androgen biosynthesis disorder caused by biallelic HSD17B3 loss-of-function variants. Impaired conversion of androstenedione to testosterone lowers fetal testicular testosterone production, producing underandrogenization of external genitalia in individuals with a 46,XY karyotype. Diagnosis relies on steroid hormone ratios and molecular confirmation; pubertal virilization may occur when androstenedione secretion rises.",
+    "pathophysiology": [
+      "HSD17B3 Loss of Function",
+      "Impaired Androstenedione to Testosterone Conversion",
+      "Fetal Testicular Testosterone Deficiency",
+      "46XY Undervirilization Phenotype"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "androgen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Cryptorchidism",
+      "46,XY undervirilization",
+      "Hypospadias",
+      "Ambiguous genitalia",
+      "Clitoral hypertrophy",
+      "Infertility",
+      "Inguinal hernia",
+      "Increased circulating androstenedione concentration",
+      "Urogenital sinus anomaly",
+      "Bifid scrotum",
+      "Gynecomastia",
+      "Hypoplasia of penis"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Biochemical",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000028",
+      "HP:0000037",
+      "HP:0000047",
+      "HP:0000062",
+      "HP:0008665",
+      "HP:0000789",
+      "HP:0000023",
+      "HP:0025380",
+      "HP:0100779",
+      "HP:0000048",
+      "HP:0000771",
+      "HP:0008736"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HSD17B3"
+    ],
+    "treatments": [
+      "Testosterone therapy for male sex-of-rearing management",
+      "Gonadectomy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Testosterone",
+      "Androstenedione"
+    ],
+    "source_file": "46_XY_DSD_Due_to_17_Beta_Hydroxysteroid_Dehydrogenase_3_Deficiency.yaml",
+    "page_url": "../pages/disorders/46,XY_disorder_of_sex_development_due_to_17-beta-hydroxysteroid_dehydrogenase_3_deficiency.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "4"
   },
   {
@@ -5928,6 +6018,86 @@ window.searchData = [
     "num_genes": 2,
     "num_treatments": 2,
     "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Aland Islands Eye Disease",
+    "disease_id": "MONDO:0010371",
+    "category": "Mendelian",
+    "parents": [
+      "CACNA1F-related retinopathy",
+      "X-linked disease",
+      "inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-05-10T00:00:00Z",
+    "updated_date": "2026-05-10T00:00:00Z",
+    "subtypes": [],
+    "description": "Aland Islands eye disease is a rare X-linked recessive CACNA1F-related retinal channelopathy. Pathogenic CACNA1F variants disrupt Cav1.4 voltage-gated calcium-channel function at rod and cone photoreceptor synapses, impairing neurotransmission to bipolar cells and producing abnormal electroretinograms, fundus hypopigmentation, reduced visual acuity, nystagmus, astigmatism, progressive axial myopia, impaired dark adaptation, and protan color-vision defects.",
+    "pathophysiology": [
+      "CACNA1F Cav1.4 Channel Variant",
+      "Photoreceptor Synaptic Calcium-Dependent Transmission Defect",
+      "Retinal Signal Transmission and ERG Abnormality",
+      "AIED Visual Function Phenotype"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal bipolar neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0000748"
+    ],
+    "biological_processes": [
+      "calcium ion transmembrane transport",
+      "glutamatergic synaptic transmission"
+    ],
+    "phenotypes": [
+      "Astigmatism",
+      "Abnormal electroretinogram",
+      "Progressive axial myopia",
+      "Color vision defect",
+      "Nystagmus",
+      "Reduced visual acuity",
+      "Hypoplasia of the fovea",
+      "Hypopigmentation of the fundus",
+      "Difficulty adjusting from light to dark"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Diagnostic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000483",
+      "HP:0000512",
+      "HP:0000545",
+      "HP:0000551",
+      "HP:0000639",
+      "HP:0007663",
+      "HP:0007750",
+      "HP:0007894",
+      "HP:0030513"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CACNA1F"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aland_Island_Eye_Disease.yaml",
+    "page_url": "../pages/disorders/Aland_Islands_Eye_Disease.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "4"
   },
   {
@@ -15688,7 +15858,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": null,
-    "updated_date": "2026-04-28T16:00:00Z",
+    "updated_date": "2026-05-10T22:52:07Z",
     "subtypes": [
       "Beta Thalassemia Minor (Trait)",
       "Beta Thalassemia Intermedia",
@@ -15818,7 +15988,8 @@ window.searchData = [
       "HbF",
       "Serum Ferritin",
       "Indirect Bilirubin",
-      "Reticulocytes"
+      "Reticulocytes",
+      "Liver Iron Concentration"
     ],
     "source_file": "Beta_Thalassemia.yaml",
     "page_url": "../pages/disorders/Beta_Thalassemia.html",
@@ -15826,8 +15997,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 8,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Bilateral Striopallidodentate Calcinosis",
@@ -33290,7 +33461,7 @@ window.searchData = [
       "Neuromuscular Disease"
     ],
     "creation_date": "2026-01-07T17:31:51Z",
-    "updated_date": "2026-04-27T08:39:26Z",
+    "updated_date": "2026-05-10T22:52:07Z",
     "subtypes": [
       "Classic Duchenne",
       "Intermediate DMD"
@@ -33406,7 +33577,8 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Creatine Kinase",
-      "Dystrophin"
+      "Dystrophin",
+      "Micro-dystrophin Expression"
     ],
     "source_file": "Duchenne_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Duchenne_Muscular_Dystrophy.html",
@@ -33414,7 +33586,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "12"
   },
   {
@@ -37465,7 +37637,7 @@ window.searchData = [
       "X-linked genetic disorders"
     ],
     "creation_date": "2026-01-08T17:12:45Z",
-    "updated_date": "2026-05-09T07:51:37Z",
+    "updated_date": "2026-05-11T01:25:44Z",
     "subtypes": [],
     "description": "Fabry disease is an X-linked lysosomal storage disorder caused by pathogenic variants in GLA that reduce or abolish \u03b1-galactosidase A activity, leading to lysosomal accumulation of glycosphingolipids, principally globotriaosylceramide (Gb3) and its deacylated derivative globotriaosylsphingosine (lyso-Gb3). Substrate accumulation initiates a network of cellular stress responses including endoplasmic reticulum stress, autophagy impairment, mitochondrial dysfunction, and activation of innate immune pathways, leading to progressive organ damage in kidney, heart, vasculature, and nervous system.\n",
     "pathophysiology": [
@@ -37559,7 +37731,8 @@ window.searchData = [
     ],
     "environmental": [],
     "biochemical": [
-      "Lyso-Gb3"
+      "Lyso-Gb3",
+      "Renal Globotriaosylceramide Inclusions"
     ],
     "source_file": "Fabry_Disease.yaml",
     "page_url": "../pages/disorders/Fabry_disease.html",
@@ -37567,7 +37740,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "5"
   },
   {
@@ -69360,7 +69533,7 @@ window.searchData = [
       "mitochondrial disease"
     ],
     "creation_date": "2026-04-13T04:00:00Z",
-    "updated_date": "2026-04-13T23:45:00Z",
+    "updated_date": "2026-05-11T02:48:48Z",
     "subtypes": [],
     "description": "NARP syndrome is a maternally inherited mitochondrial disease caused most often by pathogenic MT-ATP6 variants. The syndrome is characterized by impaired oxidative phosphorylation with prominent neurologic and retinal vulnerability, classically manifesting with neuropathy, ataxia, and retinitis pigmentosa. Clinical severity varies with heteroplasmy and may overlap with Leigh syndrome.",
     "pathophysiology": [
@@ -69420,8 +69593,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Neonatal Severe Encephalopathy with Lactic Acidosis and Brain Abnormalities",
@@ -89366,7 +89539,7 @@ window.searchData = [
       "Genetic Disease"
     ],
     "creation_date": "2025-12-18T17:01:35Z",
-    "updated_date": "2026-04-28T06:34:16Z",
+    "updated_date": "2026-05-10T22:52:07Z",
     "subtypes": [],
     "description": "Deoxygenated HbS polymerizes into rigid fibers, deforming red blood cells into sickle shape. HbS has glutamic acid to valine substitution at position 6 of beta-globin.\n",
     "pathophysiology": [
@@ -89503,7 +89676,8 @@ window.searchData = [
       "Reticulocytes",
       "Bilirubin",
       "LDH",
-      "HbS"
+      "HbS",
+      "Fetal Hemoglobin"
     ],
     "source_file": "Sickle_Cell_Disease.yaml",
     "page_url": "../pages/disorders/Sickle_Cell_Disease.html",
@@ -89511,7 +89685,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 9,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
   },
   {
@@ -90178,7 +90352,7 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-04-13T01:17:48Z",
-    "updated_date": "2026-04-13T01:17:48Z",
+    "updated_date": "2026-05-11T02:17:33Z",
     "subtypes": [],
     "description": "Smith-Lemli-Opitz syndrome (SLOS) is an autosomal recessive developmental and metabolic disorder caused by biallelic pathogenic variants in DHCR7, which reduce 7-dehydrocholesterol reductase activity at the terminal step of cholesterol biosynthesis. The defining biochemical signature is decreased cholesterol with accumulation of 7-dehydrocholesterol. Clinical severity spans fetal-lethal multiple-malformation disease to milder neurodevelopmental phenotypes; characteristic findings include microcephaly, intellectual disability, 2-3 toe syndactyly, cleft palate, postaxial polydactyly, and male genital underdevelopment. The main mechanistic story is a dual sterol defect: cholesterol deficiency perturbs sterol-dependent developmental signaling, while excess 7-dehydrocholesterol and its oxidized derivatives add toxic effects on cellular membranes and neural development.",
     "pathophysiology": [
@@ -90257,7 +90431,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -101335,7 +101509,7 @@ window.searchData = [
       "neurodegeneration with brain iron accumulation"
     ],
     "creation_date": "2026-04-15T17:35:00Z",
-    "updated_date": "2026-04-15T22:15:00Z",
+    "updated_date": "2026-05-11T03:17:50Z",
     "subtypes": [],
     "description": "Aceruloplasminemia is an autosomal recessive CP-related iron metabolism disorder characterized by absent ceruloplasmin ferroxidase activity, multi-organ iron accumulation, and progressive neurologic, retinal, metabolic, and hematologic disease.",
     "pathophysiology": [
@@ -101394,7 +101568,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
   },
   {
@@ -101902,11 +102076,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1033,
-  "total_unique_evidence_sources": 18981,
+  "total_disorder_pages": 1035,
+  "total_unique_evidence_sources": 19008,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 183,
-  "total_pathographs": 1026,
-  "total_unique_pathological_events": 4888
+  "total_pathographs": 1028,
+  "total_unique_pathological_events": 4896
 };
 window.dispatchEvent(new Event('searchDataReady'));
