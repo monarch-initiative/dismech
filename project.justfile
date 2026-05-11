@@ -184,6 +184,22 @@ validate-comorbidities-all:
         exit 1
     fi
 
+# Validate all surrogate endpoint collection YAML files
+[group('QC')]
+validate-surrogate-endpoints:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=(kb/surrogate_endpoints/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No surrogate endpoint collection files found."
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        echo "=== $(basename "$f") ==="
+        uv run linkml-validate --schema {{schema_path}} --target-class FDASurrogateEndpointCollection "$f"
+    done
+
 # Validate all mechanism module YAML files (schema + terms + references)
 [group('QC')]
 validate-modules:
