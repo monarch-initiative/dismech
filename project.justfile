@@ -915,7 +915,17 @@ fetch-reference +identifiers:
     #!/usr/bin/env bash
     for identifier in {{identifiers}}; do
         echo "Fetching reference: $identifier"
-        uv run linkml-reference-validator cache reference "$identifier"
+        case "$identifier" in
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*)
+                if [ ! -f data/civic/accepted_assertion_summaries.tsv ] || [ ! -f data/civic/accepted_clinical_evidence_summaries.tsv ]; then
+                    uv run python -m dismech.structured_sources.cli refresh civic
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
+                ;;
+            *)
+                uv run linkml-reference-validator cache reference "$identifier"
+                ;;
+        esac
     done
 
 # Tag top-level PublicationReference entries with authoritative-source labels
@@ -967,6 +977,11 @@ clingen-refresh:
 clingen-dosage-refresh:
     uv run python -m dismech.structured_sources.cli refresh clingen-dosage
 
+# Refresh CIViC accepted assertion/evidence TSVs (pinned by data/civic/MANIFEST.yaml)
+[group('Research')]
+civic-refresh:
+    uv run python -m dismech.structured_sources.cli refresh civic
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
@@ -984,6 +999,12 @@ clingen-rebuild *args="":
 [group('Research')]
 clingen-dosage-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild clingen-dosage {{args}}
+
+# Rebuild every references_cache/CIVIC_*.md from current CIViC TSVs
+# Use --id to limit to specific CIVIC_EID or CIVIC_ASSERTION identifiers.
+[group('Research')]
+civic-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild civic {{args}}
 
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
