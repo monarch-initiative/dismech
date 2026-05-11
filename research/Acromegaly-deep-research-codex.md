@@ -9,7 +9,7 @@ template_file: codex_acromegaly_manual_curation
 template_variables:
   disease_name: Acromegaly
   category: Endocrine Disorder
-citation_count: 2
+citation_count: 4
 source_providers:
 - pubmed
 - mondo-cache
@@ -46,10 +46,21 @@ focused on FDA surrogate endpoint integration.
 
 - PMID:33803429
   - `The most important assays for the biochemical diagnosis and management of acromegaly are growth hormone (GH) and insulin-like growth factor-1 (IGF-1).`
-  - `Measurement of IGF-1 levels is the key factor in the diagnosis and monitoring of acromegaly`
+  - `Measurement of IGF-1 levels is the key factor in the diagnosis and monitoring of acromegaly, but basal and nadir GH following OGTT are also important.`
   - `Basal GH levels are measured in the morning after fasting and are usually elevated in patients with acromegaly`
   - `Measurement of GH and IGF-1 levels is also used to determine surgical remission, response to medical treatment, and guide treatment decisions.`
   - `GH is a measure of the secretory activity of the tumor and provides a correlate of pituitary GH secretion, while IGF-1 is a measure of biochemical and biological activity of the disease`
+
+### Phenotypes and Treatment Context
+
+- PMID:33803429
+  - `associated conditions, including sleep apnea, hypertension, type 2 diabetes mellitus, arthritis, carpal tunnel syndrome, and hyperhidrosis.`
+- PMID:21123741
+  - `Somatostatin analogs (SA) are widely used in acromegaly, either as first-line or adjuvant treatment after surgery.`
+  - `Generally, the response to SA takes into account both control of GH and IGF-I excess, with consequent improvement of clinical symptoms directly related to GH and IGF-I excess, and tumor shrinkage.`
+- PMID:27631335
+  - `Pegvisomant is a genetically engineered, recombinant growth hormone receptor antagonist, which is effective in normalizing serum insulin-like growth factor 1 (IGF-1) levels in the majority of patients with acromegaly and ameliorating symptoms and signs associated with GH excess.`
+  - `It mitigates excess GH action, as demonstrated by IGF-1 normalization, but has no direct effects on pituitary tumors causing acromegaly.`
 
 ### Guideline Context
 
@@ -85,7 +96,9 @@ focused on FDA surrogate endpoint integration.
 
 - Covered: GH-secreting somatotroph disease mechanism, GH-driven IGF-1
   overproduction, tissue overgrowth/metabolic morbidity, serum IGF-1, serum GH,
-  and the three FDA endpoint rows.
+  common associated phenotypes, somatostatin receptor ligand therapy,
+  pegvisomant therapy, and the three FDA endpoint rows.
 - Not modeled here: rare ectopic GHRH/GH acromegaly, detailed surgical or
-  radiotherapy management, and genetic predisposition subtypes. AIP-related
-  predisposition already has a separate focused repo entry.
+  radiotherapy management, dopamine agonist therapy, and genetic predisposition
+  subtypes. AIP-related predisposition already has a separate focused repo
+  entry.
