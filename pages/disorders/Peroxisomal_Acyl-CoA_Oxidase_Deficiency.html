@@ -1231,6 +1231,34 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1952,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2049,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2066,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2275,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2293,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2343,33 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2518,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">hereditary disease</span>
@@ -2578,7 +2679,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">11</div>
+                <div class="stat-value">23</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3502,6 +3603,69 @@
                 
 	                
 	                
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Leukodystrophy</span>
+	                            
+	                            <span class="crosslink-desc">Inflammatory demyelination and progressive white-matter injury produce the leukodystrophy phenotype.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebral and Cerebellar White Matter Abnormalities</span>
+	                            
+	                            <span class="crosslink-desc">Progressive demyelination is visible as cerebral, cerebellar, brainstem, and subcortical white-matter abnormalities on MRI.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Developmental Regression</span>
+	                            
+	                            <span class="crosslink-desc">Progressive neurodegeneration causes loss of acquired developmental skills in early childhood.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Early-Onset Hypotonia</span>
+	                            
+	                            <span class="crosslink-desc">Infantile CNS dysfunction presents early with hypotonia.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Infantile Seizures</span>
+	                            
+	                            <span class="crosslink-desc">Infantile CNS involvement includes seizures during the early disease phase.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Psychomotor Delay</span>
+	                            
+	                            <span class="crosslink-desc">Early neurologic disease delays acquisition of psychomotor milestones before regression.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Visual Impairment</span>
+	                            
+	                            <span class="crosslink-desc">Progressive neurodegeneration can lead to loss of visual function during regression.</span>
+	                            
+	                        </div>
+	                        
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hearing Impairment</span>
+	                            
+	                            <span class="crosslink-desc">Progressive neurodegeneration can lead to loss of hearing during regression.</span>
+	                            
+	                        </div>
+	                        
+	                    </div>
+	                </div>
+	                
 	                
     
     <details class="evidence-details">
@@ -3602,7 +3766,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACOX1 IVS3-1G\u003eA splice-site variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous acceptor splice-site variant was identified in a fatal infantile case after fibroblast biochemical testing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACOX1 pathogenic variants reduce straight-chain acyl-CoA oxidase activity, disrupting the first acyl-CoA oxidase step of peroxisomal very-long-chain fatty-acid beta-oxidation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"fatty acid beta-oxidation using acyl-CoA oxidase\", \"very long-chain fatty acid beta-oxidation\"], \"molecular_functions\": [\"acyl-CoA oxidase activity\"], \"genes\": [\"ACOX1\"]}}, {\"id\": \"ACOX1 intragenic deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous deletion removing a large part of intron 3 and exons 4-14 was reported in one patient.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ACOX1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACOX1\"], \"association\": \"Biallelic loss-of-function variants cause autosomal recessive ACOX1 deficiency.\", \"variant_count\": 2}}, {\"id\": \"Acox1-deficient BV-2 microglial cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mutant BV-2 microglial cell lines model peroxisomal beta-oxidation defects, VLCFA accumulation, lipid/immune/autophagy reprogramming, and a disease-associated microglial signature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:37138705\"}}, {\"id\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblast transcriptomic and PCR-array studies show IL-1 pathway activation with increased IL-6 and IL-8 secretion, linking ACOX1 loss and VLCFA exposure to inflammatory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"inflammatory response\", \"interleukin-1-mediated signaling pathway\", \"cytokine-mediated signaling pathway\"], \"experimental_models\": [{\"name\": \"Patient fibroblast inflammatory response model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Patient fibroblasts assay IL-1, IL-6, and IL-8 inflammatory signaling caused by ACOX1 deficiency.\"}]}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HSCT has been attempted in ACOX1 deficiency but did not halt the neurodegenerative course; available evidence suggests possible reduction of white-matter inflammation rather than disease arrest.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Microglial Disease-Associated Inflammatory Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acox1-deficient and other peroxisomal beta-oxidation-defect microglial cell models show broad lipid, immune, lysosomal, autophagy, and disease-associated microglial programs, suggesting microglial pathology as an additional contributor to peroxisomal leukodystrophy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"autophagy\", \"cholesterol homeostasis\"], \"experimental_models\": [{\"name\": \"Acox1-deficient BV-2 microglial cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Mutant microglia model lipid, immune, autophagy, and DAM-like programs.\"}]}}, {\"id\": \"Neurodegenerative White Matter Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACOX1 deficiency produces progressive central nervous system disease with inflammatory demyelination, cerebral and cerebellar white-matter involvement, cortical and cerebellar atrophy, neuronal loss, and secondary functional decline.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte\", \"microglial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"brain\", \"white matter of cerebellum\", \"cerebellum\"]}}, {\"id\": \"Patient fibroblast inflammatory response model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured patient fibroblasts model the ACOX1-deficient inflammatory response and demonstrate IL-1 pathway activation and cytokine modulation by MAPK, p38MAPK, and JNK inhibitors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:22508517\"}}, {\"id\": \"Very-Long-Chain Fatty Acid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired peroxisomal beta-oxidation causes accumulation of very-long-chain fatty acids, including abnormal plasma VLCFA values and deficient C26:0 oxidation in cellular testing.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"very long-chain fatty acid beta-oxidation\"]}}], \"edges\": [{\"source\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"target\": \"Very-Long-Chain Fatty Acid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Very-Long-Chain Fatty Acid Accumulation\", \"target\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Very-Long-Chain Fatty Acid Accumulation\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Microglial Disease-Associated Inflammatory Phenotype\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient fibroblast inflammatory response model\", \"target\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Acox1-deficient BV-2 microglial cell model\", \"target\": \"Microglial Disease-Associated Inflammatory Phenotype\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"ACOX1 pathogenic variants\", \"target\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACOX1 intragenic deletion\", \"target\": \"ACOX1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACOX1 IVS3-1G\u003eA splice-site variant\", \"target\": \"ACOX1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACOX1 IVS3-1G\u003eA splice-site variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous acceptor splice-site variant was identified in a fatal infantile case after fibroblast biochemical testing.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACOX1 pathogenic variants reduce straight-chain acyl-CoA oxidase activity, disrupting the first acyl-CoA oxidase step of peroxisomal very-long-chain fatty-acid beta-oxidation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"fatty acid beta-oxidation using acyl-CoA oxidase\", \"very long-chain fatty acid beta-oxidation\"], \"molecular_functions\": [\"acyl-CoA oxidase activity\"], \"genes\": [\"ACOX1\"]}}, {\"id\": \"ACOX1 intragenic deletion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A homozygous deletion removing a large part of intron 3 and exons 4-14 was reported in one patient.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ACOX1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACOX1\"], \"association\": \"Biallelic loss-of-function variants cause autosomal recessive ACOX1 deficiency.\", \"variant_count\": 2}}, {\"id\": \"Acox1-deficient BV-2 microglial cell model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Mutant BV-2 microglial cell lines model peroxisomal beta-oxidation defects, VLCFA accumulation, lipid/immune/autophagy reprogramming, and a disease-associated microglial signature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:37138705\"}}, {\"id\": \"Cerebral and Cerebellar White Matter Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI can show cerebral and cerebellar white-matter abnormalities and progressive demyelinating lesions.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002500\"}}, {\"id\": \"Deficient C26:0 oxidation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\", \"term_id\": \"CHEBI:31009\", \"term_label\": \"hexacosanoic acid\", \"readouts\": [{\"target\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low C26:0 oxidation in fibroblasts reports the impaired ACOX1 straight-chain acyl-CoA oxidase activity.\"}]}}, {\"id\": \"Developmental Regression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive neurologic disease leads to loss of acquired motor and communication abilities in early childhood.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002376\"}}, {\"id\": \"Early-Onset Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is an early infantile feature of ACOX1 deficiency.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Elevated very-long-chain fatty acids\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:27283\", \"term_label\": \"very long-chain fatty acid\", \"readouts\": [{\"target\": \"Very-Long-Chain Fatty Acid Accumulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated VLCFA measurements are the diagnostic biochemical readout of the VLCFA accumulation node.\"}]}}, {\"id\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblast transcriptomic and PCR-array studies show IL-1 pathway activation with increased IL-6 and IL-8 secretion, linking ACOX1 loss and VLCFA exposure to inflammatory signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"inflammatory response\", \"interleukin-1-mediated signaling pathway\", \"cytokine-mediated signaling pathway\"], \"experimental_models\": [{\"name\": \"Patient fibroblast inflammatory response model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Patient fibroblasts assay IL-1, IL-6, and IL-8 inflammatory signaling caused by ACOX1 deficiency.\"}]}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is reported during the neurodegenerative course.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"HSCT has been attempted in ACOX1 deficiency but did not halt the neurodegenerative course; available evidence suggests possible reduction of white-matter inflammation rather than disease arrest.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Infantile Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in the early infantile presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Leukodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"White-matter demyelination and leukodystrophy are central radiographic and pathological features.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002415\"}}, {\"id\": \"Microglial Disease-Associated Inflammatory Phenotype\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acox1-deficient and other peroxisomal beta-oxidation-defect microglial cell models show broad lipid, immune, lysosomal, autophagy, and disease-associated microglial programs, suggesting microglial pathology as an additional contributor to peroxisomal leukodystrophy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"autophagy\", \"cholesterol homeostasis\"], \"experimental_models\": [{\"name\": \"Acox1-deficient BV-2 microglial cell model\", \"model_type\": \"CELL_LINE\", \"description\": \"Mutant microglia model lipid, immune, autophagy, and DAM-like programs.\"}]}}, {\"id\": \"Neurodegenerative White Matter Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACOX1 deficiency produces progressive central nervous system disease with inflammatory demyelination, cerebral and cerebellar white-matter involvement, cortical and cerebellar atrophy, neuronal loss, and secondary functional decline.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"oligodendrocyte\", \"microglial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"brain\", \"white matter of cerebellum\", \"cerebellum\"]}}, {\"id\": \"Patient fibroblast inflammatory response model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured patient fibroblasts model the ACOX1-deficient inflammatory response and demonstrate IL-1 pathway activation and cytokine modulation by MAPK, p38MAPK, and JNK inhibitors.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:22508517\"}}, {\"id\": \"Preserved phytanic acid, pristanic acid, and plasmalogen screening markers\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"NORMAL\", \"readouts\": [{\"target\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Normal phytanic acid, pristanic acid, and plasmalogen screening markers help distinguish isolated ACOX1 beta-oxidation deficiency from broader peroxisomal dysfunction but do not exclude disease.\"}]}}, {\"id\": \"Psychomotor Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected children have delayed psychomotor development before regression.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Retinitis Pigmentosa\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinitis pigmentosa is reported as a common manifestation of ACOX1 deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000510\"}}, {\"id\": \"Very-Long-Chain Fatty Acid Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired peroxisomal beta-oxidation causes accumulation of very-long-chain fatty acids, including abnormal plasma VLCFA values and deficient C26:0 oxidation in cellular testing.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"very long-chain fatty acid beta-oxidation\"]}}, {\"id\": \"Visual Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision abnormalities and retinopathy can develop during the progressive course.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"target\": \"Very-Long-Chain Fatty Acid Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Very-Long-Chain Fatty Acid Accumulation\", \"target\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Very-Long-Chain Fatty Acid Accumulation\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Microglial Disease-Associated Inflammatory Phenotype\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Leukodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Cerebral and Cerebellar White Matter Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Developmental Regression\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Early-Onset Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Infantile Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Psychomotor Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Visual Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurodegenerative White Matter Disease\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Retinitis Pigmentosa\", \"target\": \"Visual Impairment\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hematopoietic Stem Cell Transplantation\", \"target\": \"Neurodegenerative White Matter Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient fibroblast inflammatory response model\", \"target\": \"Fibroblast IL-1 Cytokine Inflammatory Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Acox1-deficient BV-2 microglial cell model\", \"target\": \"Microglial Disease-Associated Inflammatory Phenotype\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Very-Long-Chain Fatty Acid Accumulation\", \"target\": \"Elevated very-long-chain fatty acids\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated VLCFA measurements are the diagnostic biochemical readout of the VLCFA accumulation node.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"target\": \"Deficient C26:0 oxidation\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low C26:0 oxidation in fibroblasts reports the impaired ACOX1 straight-chain acyl-CoA oxidase activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"target\": \"Preserved phytanic acid, pristanic acid, and plasmalogen screening markers\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Normal phytanic acid, pristanic acid, and plasmalogen screening markers help distinguish isolated ACOX1 beta-oxidation deficiency from broader peroxisomal dysfunction but do not exclude disease.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ACOX1 pathogenic variants\", \"target\": \"ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACOX1 intragenic deletion\", \"target\": \"ACOX1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"ACOX1 IVS3-1G\u003eA splice-site variant\", \"target\": \"ACOX1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3876,6 +4040,13 @@
                     </div>
                     
                     
+                    
+                    <div class="item-meta">
+                        <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
+                        
+                        <span class="tag" style="background: #bbf7d0; color: #166534;">Visual Impairment</span>
+                        
+                    </div>
                     
                     
     
@@ -4952,6 +5123,35 @@
                 <div class="item-desc">Context: Increased plasma and cellular VLCFAs are the hallmark biochemical finding of ACOX1 deficiency, although plasma screening can be misleading in some cases.</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Very-Long-Chain Fatty Acid Accumulation</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Elevated VLCFA measurements are the diagnostic biochemical readout of the VLCFA accumulation node.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5017,6 +5217,35 @@
                 <div class="item-desc">Context: C26:0 oxidation activity is reduced in fibroblast testing, supporting an isolated peroxisomal beta-oxidation defect.</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Negative
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Low C26:0 oxidation in fibroblasts reports the impaired ACOX1 straight-chain acyl-CoA oxidase activity.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5060,6 +5289,35 @@
                 </div>
                 
                 <div class="item-desc">Context: Normal phytanic acid, pristanic acid, and erythrocyte plasmalogen values can occur despite ACOX1 deficiency, creating a diagnostic pitfall.</div>
+                
+                
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Correlates With
+                        </span>
+                        <span class="readout-target">ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Threshold Dependent
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Normal phytanic acid, pristanic acid, and plasmalogen screening markers help distinguish isolated ACOX1 beta-oxidation deficiency from broader peroxisomal dysfunction but do not exclude disease.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
                 
                 
     
@@ -5645,7 +5903,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Peroxisomal Acyl-CoA Oxidase Deficiency
 creation_date: &#34;2026-05-10T20:13:58Z&#34;
-updated_date: &#34;2026-05-10T21:28:58Z&#34;
+updated_date: &#34;2026-05-11T04:05:53Z&#34;
 description: &gt;-
   Peroxisomal acyl-CoA oxidase deficiency is a rare autosomal recessive
   peroxisomal fatty-acid oxidation disorder caused by ACOX1 deficiency. Loss of
@@ -5991,6 +6249,107 @@ pathophysiology:
         explanation: &gt;-
           Longitudinal MRI supports progressive CNS demyelination and white
           matter tract involvement.
+    downstream:
+      - target: Leukodystrophy
+        description: Inflammatory demyelination and progressive white-matter injury produce the leukodystrophy phenotype.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:24619150
+            reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Serial brain magnetic resonance imaging in the younger sibling indicated demyelination began in the medulla and progressed rostrally to include the white matter of the cerebellum, pons, midbrain, and eventually subcortical white matter.&#34;
+            explanation: &gt;-
+              Serial human MRI directly supports progressive demyelinating
+              white-matter disease as the basis of the leukodystrophy
+              phenotype.
+      - target: Cerebral and Cerebellar White Matter Abnormalities
+        description: Progressive demyelination is visible as cerebral, cerebellar, brainstem, and subcortical white-matter abnormalities on MRI.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:24619150
+            reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Serial brain magnetic resonance imaging in the younger sibling indicated demyelination began in the medulla and progressed rostrally to include the white matter of the cerebellum, pons, midbrain, and eventually subcortical white matter.&#34;
+            explanation: &gt;-
+              Serial MRI directly supports progressive white-matter
+              abnormalities as the imaging expression of the demyelinating
+              disease node.
+      - target: Developmental Regression
+        description: Progressive neurodegeneration causes loss of acquired developmental skills in early childhood.
+        causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+        intermediate_mechanisms:
+          - demyelination, neuronal loss, and axonal degeneration
+        evidence:
+          - reference: PMID:24619150
+            reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;the natural history of the disease follows a fairly consistent pattern of infantile-onset hypotonia, seizures, delayed acquisition of early developmental milestones, followed by rapid developmental regression between 24 and 48 months of age.&#34;
+            explanation: &gt;-
+              The natural-history summary supports developmental regression as
+              a downstream clinical phase of the neurodegenerative disease.
+      - target: Early-Onset Hypotonia
+        description: Infantile CNS dysfunction presents early with hypotonia.
+        causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+        evidence:
+          - reference: PMID:18536048
+            reference_title: &#34;Peroxisomal acyl-CoA-oxidase deficiency: two new cases.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Early onset hypotonia, seizures and psychomotor delay were observed in both cases.&#34;
+            explanation: &gt;-
+              The two-patient report supports hypotonia as an early neurologic
+              manifestation of ACOX1 deficiency.
+      - target: Infantile Seizures
+        description: Infantile CNS involvement includes seizures during the early disease phase.
+        causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+        evidence:
+          - reference: PMID:18536048
+            reference_title: &#34;Peroxisomal acyl-CoA-oxidase deficiency: two new cases.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Early onset hypotonia, seizures and psychomotor delay were observed in both cases.&#34;
+            explanation: &gt;-
+              The report identifies seizures among the early neurologic
+              manifestations in affected infants.
+      - target: Psychomotor Delay
+        description: Early neurologic disease delays acquisition of psychomotor milestones before regression.
+        causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+        evidence:
+          - reference: PMID:18536048
+            reference_title: &#34;Peroxisomal acyl-CoA-oxidase deficiency: two new cases.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Early onset hypotonia, seizures and psychomotor delay were observed in both cases.&#34;
+            explanation: &gt;-
+              The report supports psychomotor delay as part of the early
+              neurologic presentation.
+      - target: Visual Impairment
+        description: Progressive neurodegeneration can lead to loss of visual function during regression.
+        causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+        evidence:
+          - reference: PMID:24619150
+            reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Developmental regression began at 3.5 years with rapid loss of all vision, hearing, gross motor, and verbal skills.&#34;
+            explanation: &gt;-
+              The detailed clinical course links regression with rapid loss of
+              visual function.
+      - target: Hearing Impairment
+        description: Progressive neurodegeneration can lead to loss of hearing during regression.
+        causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+        evidence:
+          - reference: PMID:24619150
+            reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Developmental regression began at 3.5 years with rapid loss of all vision, hearing, gross motor, and verbal skills.&#34;
+            explanation: &gt;-
+              The detailed clinical course links regression with rapid loss of
+              hearing.
 phenotypes:
   - category: Neurologic
     name: Early-Onset Hypotonia
@@ -6135,6 +6494,19 @@ phenotypes:
         explanation: &gt;-
           This literature summary identifies retinitis pigmentosa as a common
           manifestation in reported ACOX1 deficiency.
+    sequelae:
+      - target: Visual Impairment
+        description: Retinal degeneration contributes to visual impairment in the sensory branch of ACOX1 deficiency.
+        causal_link_type: DIRECT
+        evidence:
+          - reference: PMID:24619150
+            reference_title: &#34;Effects of hematopoietic stem cell transplantation on acyl-CoA oxidase deficiency: a sibling comparison study.&#34;
+            supports: SUPPORT
+            evidence_source: HUMAN_CLINICAL
+            snippet: &#34;Retinitis pigmentosa, vision abnormalities, and hearing loss are also common manifestations&#34;
+            explanation: &gt;-
+              The clinical summary reports retinitis pigmentosa together with
+              vision abnormalities, supporting a direct sensory sequela edge.
   - category: Sensory
     name: Visual Impairment
     frequency: FREQUENT
@@ -6248,6 +6620,14 @@ phenotypes:
 biochemical:
   - name: Elevated very-long-chain fatty acids
     presence: INCREASED
+    readouts:
+      - target: Very-Long-Chain Fatty Acid Accumulation
+        relationship: READOUT_OF
+        direction: POSITIVE
+        endpoint_context: DIAGNOSTIC
+        interpretation: &gt;-
+          Elevated VLCFA measurements are the diagnostic biochemical readout of
+          the VLCFA accumulation node.
     biomarker_term:
       preferred_term: very long-chain fatty acid
       term:
@@ -6276,6 +6656,14 @@ biochemical:
           beta-oxidation defect.
   - name: Deficient C26:0 oxidation
     presence: DECREASED
+    readouts:
+      - target: ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency
+        relationship: READOUT_OF
+        direction: NEGATIVE
+        endpoint_context: DIAGNOSTIC
+        interpretation: &gt;-
+          Low C26:0 oxidation in fibroblasts reports the impaired ACOX1
+          straight-chain acyl-CoA oxidase activity.
     biomarker_term:
       preferred_term: hexacosanoic acid
       term:
@@ -6295,6 +6683,15 @@ biochemical:
           fibroblasts.
   - name: Preserved phytanic acid, pristanic acid, and plasmalogen screening markers
     presence: NORMAL
+    readouts:
+      - target: ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency
+        relationship: CORRELATES_WITH
+        direction: THRESHOLD_DEPENDENT
+        endpoint_context: DIAGNOSTIC
+        interpretation: &gt;-
+          Normal phytanic acid, pristanic acid, and plasmalogen screening
+          markers help distinguish isolated ACOX1 beta-oxidation deficiency
+          from broader peroxisomal dysfunction but do not exclude disease.
     context: &gt;-
       Normal phytanic acid, pristanic acid, and erythrocyte plasmalogen values
       can occur despite ACOX1 deficiency, creating a diagnostic pitfall.
@@ -7649,7 +8046,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Peroxisomal Acyl-CoA Oxidase Deficiency", "mondoId": "MONDO:0009919", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peroxisomal_Acyl-CoA_Oxidase_Deficiency", "yamlRevision": "37b9413bdd31"};
+        const OS_CONFIG = {"diseaseName": "Peroxisomal Acyl-CoA Oxidase Deficiency", "mondoId": "MONDO:0009919", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Peroxisomal_Acyl-CoA_Oxidase_Deficiency", "yamlRevision": "bb4e22797c13"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
