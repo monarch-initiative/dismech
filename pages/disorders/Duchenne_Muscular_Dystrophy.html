@@ -1231,6 +1231,34 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1952,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2049,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2066,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2275,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2293,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2343,33 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2518,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Muscular Dystrophy</span>
@@ -2580,7 +2681,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">24</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4520,7 +4621,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcium Influx\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium enters dystrophin-deficient muscle cells through damaged membrane, contributing to hypercontraction, protease activation, and downstream myofiber necrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Calcium Ion Transport Into Cytosol\"]}}, {\"id\": \"Cardiac Myocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dystrophin deficiency in cardiomyocytes destabilizes the DGC, exposing the myocardium to membrane injury, calcium stress, and myocyte degeneration.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac Muscle Cell\"], \"biological_processes\": [\"Cardiac Muscle Contraction\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Chronic Muscle Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Necrotic dystrophic muscle releases damage signals that recruit macrophages and amplify cytokine-mediated injury. Persistent inflammation links the primary membrane defect to fibrotic remodeling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"DMD Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Duchenne muscular dystrophy is caused by pathogenic variants in the X-linked DMD gene that abolish or severely reduce functional dystrophin. Out-of-frame deletions, duplications, nonsense, frameshift, and splice-disrupting variants typically produce the Duchenne phenotype, whereas in-frame variants that preserve partially functional dystrophin more often produce Becker or intermediate dystrophinopathy.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DMD\"]}}, {\"id\": \"DMD exon deletions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiexon or single-exon deletions are the most frequent DMD mutation class and often cause Duchenne disease when they disrupt the reading frame.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"copy_number_loss\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DMD exon duplications\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"DMD exon duplications are a recurrent copy-number class. Their clinical effect depends on transcript structure and whether the duplication disrupts the reading frame.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"copy_number_gain\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DMD pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DMD\"], \"association\": \"Causative loss-of-function variants\", \"variant_count\": 4}}, {\"id\": \"DMD point and small sequence variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, frameshift, splice-site, and other small sequence variants account for the remaining major DMD mutation class and can cause the Duchenne phenotype when they truncate or destabilize dystrophin.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"sequence_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Dystrophin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the DMD gene cause absent or dysfunctional dystrophin protein. Dystrophin links the cytoskeleton to the extracellular matrix in muscle fibers and cardiomyocytes, providing structural stability during contraction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Plasma Membrane Organization\"], \"genes\": [\"DMD\"]}}, {\"id\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dystrophin-glycoprotein complex normally stabilizes cardiac and skeletal muscle sarcolemma by coupling the cytoskeleton, plasma membrane, and extracellular matrix. Dystrophin loss destabilizes this complex and leaves striated muscle cells vulnerable to contraction-associated membrane damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Plasma Membrane Organization\"]}}, {\"id\": \"Elevated Creatine Kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Failed Satellite Cell Regeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Satellite-cell proliferation attempts to repair ongoing dystrophic injury, but repeated necrosis outpaces regenerative capacity and leaves muscle loss progressively irreversible.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Satellite Stem Cell\"]}}, {\"id\": \"Fibrofatty Muscle Replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic dystrophic injury activates fibroblasts and myofibroblast-like remodeling programs, depositing extracellular matrix and replacing functional muscle with fibrotic and fatty tissue. This tissue-level remodeling causes calf pseudohypertrophy and reduces contractile reserve.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\", \"Adipocyte\"], \"biological_processes\": [\"Extracellular Matrix Organization\"]}}, {\"id\": \"Gowers Sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003391\"}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent cardiomyocyte injury and connective-tissue remodeling produce myocardial fibrosis, stiffening the myocardium and contributing to DMD cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac Muscle Cell\", \"Fibroblast\"], \"biological_processes\": [\"Extracellular Matrix Organization\"]}}, {\"id\": \"Myofiber Necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated contraction-associated membrane injury causes skeletal myofiber necrosis, releasing damage signals that initiate inflammatory remodeling and repeated repair attempts.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"]}}, {\"id\": \"Out-of-frame or truncating DMD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Duchenne-associated deletions, duplications, nonsense variants, frameshifts, and splice variants commonly disrupt the DMD reading frame and produce prematurely truncated or dysfunctional dystrophin.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Progressive Muscle Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without dystrophin, muscle fibers are susceptible to contraction-induced damage. Repeated cycles of degeneration and regeneration exhaust satellite cell pools, leading to fibrosis and fatty replacement of muscle tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"], \"biological_processes\": [\"Skeletal Muscle Contraction\"]}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003323\"}}, {\"id\": \"Pseudohypertrophy of Calves\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003707\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Respiratory Muscle Weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive dystrophic degeneration of diaphragm and intercostal skeletal muscle reduces ventilation, cough effectiveness, and airway clearance, creating the respiratory-insufficiency branch of DMD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"], \"biological_processes\": [\"Skeletal Muscle Contraction\"]}}, {\"id\": \"Sarcolemmal Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unprotected sarcolemma undergoes contraction-induced microtears and loss of membrane integrity, releasing intracellular enzymes and creating the entry point for downstream calcium injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Plasma Membrane Organization\"]}}], \"edges\": [{\"source\": \"DMD Loss-of-Function Variants\", \"target\": \"Dystrophin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dystrophin Deficiency\", \"target\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"target\": \"Sarcolemmal Fragility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"target\": \"Cardiac Myocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Fragility\", \"target\": \"Calcium Influx\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Fragility\", \"target\": \"Elevated Creatine Kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Influx\", \"target\": \"Myofiber Necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myofiber Necrosis\", \"target\": \"Failed Satellite Cell Regeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myofiber Necrosis\", \"target\": \"Chronic Muscle Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Satellite Cell Regeneration\", \"target\": \"Progressive Muscle Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Muscle Inflammation\", \"target\": \"Fibrofatty Muscle Replacement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty Muscle Replacement\", \"target\": \"Progressive Muscle Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty Muscle Replacement\", \"target\": \"Pseudohypertrophy of Calves\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Muscle Degeneration\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Muscle Degeneration\", \"target\": \"Gowers Sign\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Muscle Degeneration\", \"target\": \"Respiratory Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Muscle Weakness\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Myocyte Injury\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myocardial Fibrosis\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DMD pathogenic variants\", \"target\": \"DMD Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DMD pathogenic variants\", \"target\": \"Dystrophin Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Out-of-frame or truncating DMD variants\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DMD exon deletions\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DMD exon duplications\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DMD point and small sequence variants\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcium Influx\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Calcium enters dystrophin-deficient muscle cells through damaged membrane, contributing to hypercontraction, protease activation, and downstream myofiber necrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Calcium Ion Transport Into Cytosol\"]}}, {\"id\": \"Cardiac Myocyte Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dystrophin deficiency in cardiomyocytes destabilizes the DGC, exposing the myocardium to membrane injury, calcium stress, and myocyte degeneration.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac Muscle Cell\"], \"biological_processes\": [\"Cardiac Muscle Contraction\"]}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"Chronic Muscle Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Necrotic dystrophic muscle releases damage signals that recruit macrophages and amplify cytokine-mediated injury. Persistent inflammation links the primary membrane defect to fibrotic remodeling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Creatine Kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C64489\", \"term_label\": \"Creatine Kinase Measurement\", \"readouts\": [{\"target\": \"Sarcolemmal Fragility\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum CK reflects leakage from damaged skeletal muscle fibers and is a biochemical readout of sarcolemmal injury in DMD.\"}]}}, {\"id\": \"DMD Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Duchenne muscular dystrophy is caused by pathogenic variants in the X-linked DMD gene that abolish or severely reduce functional dystrophin. Out-of-frame deletions, duplications, nonsense, frameshift, and splice-disrupting variants typically produce the Duchenne phenotype, whereas in-frame variants that preserve partially functional dystrophin more often produce Becker or intermediate dystrophinopathy.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DMD\"]}}, {\"id\": \"DMD exon deletions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Multiexon or single-exon deletions are the most frequent DMD mutation class and often cause Duchenne disease when they disrupt the reading frame.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"copy_number_loss\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DMD exon duplications\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"DMD exon duplications are a recurrent copy-number class. Their clinical effect depends on transcript structure and whether the duplication disrupts the reading frame.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"copy_number_gain\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DMD pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DMD\"], \"association\": \"Causative loss-of-function variants\", \"variant_count\": 4}}, {\"id\": \"DMD point and small sequence variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense, frameshift, splice-site, and other small sequence variants account for the remaining major DMD mutation class and can cause the Duchenne phenotype when they truncate or destabilize dystrophin.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"sequence_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Dystrophin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Absent\", \"term_id\": \"NCIT:C209442\", \"term_label\": \"Dystrophin Measurement\", \"readouts\": [{\"target\": \"Dystrophin Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Absent or severely reduced dystrophin staining directly reports the proximal dystrophin-deficiency mechanism.\"}]}}, {\"id\": \"Dystrophin Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the DMD gene cause absent or dysfunctional dystrophin protein. Dystrophin links the cytoskeleton to the extracellular matrix in muscle fibers and cardiomyocytes, providing structural stability during contraction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Plasma Membrane Organization\"], \"genes\": [\"DMD\"]}}, {\"id\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The dystrophin-glycoprotein complex normally stabilizes cardiac and skeletal muscle sarcolemma by coupling the cytoskeleton, plasma membrane, and extracellular matrix. Dystrophin loss destabilizes this complex and leaves striated muscle cells vulnerable to contraction-associated membrane damage.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Plasma Membrane Organization\"]}}, {\"id\": \"Elevated Creatine Kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Failed Satellite Cell Regeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Satellite-cell proliferation attempts to repair ongoing dystrophic injury, but repeated necrosis outpaces regenerative capacity and leaves muscle loss progressively irreversible.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Satellite Stem Cell\"]}}, {\"id\": \"Fibrofatty Muscle Replacement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic dystrophic injury activates fibroblasts and myofibroblast-like remodeling programs, depositing extracellular matrix and replacing functional muscle with fibrotic and fatty tissue. This tissue-level remodeling causes calf pseudohypertrophy and reduces contractile reserve.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Fibroblast\", \"Adipocyte\"], \"biological_processes\": [\"Extracellular Matrix Organization\"]}}, {\"id\": \"Gowers Sign\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003391\"}}, {\"id\": \"Micro-dystrophin Expression\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Treatment-induced\", \"term_id\": \"NCIT:C209442\", \"term_label\": \"Dystrophin Measurement\", \"readouts\": [{\"target\": \"Dystrophin Deficiency\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Treatment-induced micro-dystrophin expression reports biological response at the dystrophin-deficiency node rather than baseline disease status.\"}]}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent cardiomyocyte injury and connective-tissue remodeling produce myocardial fibrosis, stiffening the myocardium and contributing to DMD cardiomyopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac Muscle Cell\", \"Fibroblast\"], \"biological_processes\": [\"Extracellular Matrix Organization\"]}}, {\"id\": \"Myofiber Necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated contraction-associated membrane injury causes skeletal myofiber necrosis, releasing damage signals that initiate inflammatory remodeling and repeated repair attempts.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"]}}, {\"id\": \"Out-of-frame or truncating DMD variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Duchenne-associated deletions, duplications, nonsense variants, frameshifts, and splice variants commonly disrupt the DMD reading frame and produce prematurely truncated or dysfunctional dystrophin.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DMD\"], \"variant_type\": \"loss_of_function_variant\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Progressive Muscle Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without dystrophin, muscle fibers are susceptible to contraction-induced damage. Repeated cycles of degeneration and regeneration exhaust satellite cell pools, leading to fibrosis and fatty replacement of muscle tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"], \"biological_processes\": [\"Skeletal Muscle Contraction\"]}}, {\"id\": \"Progressive Muscle Weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003323\"}}, {\"id\": \"Pseudohypertrophy of Calves\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003707\"}}, {\"id\": \"Respiratory Insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Respiratory Muscle Weakness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive dystrophic degeneration of diaphragm and intercostal skeletal muscle reduces ventilation, cough effectiveness, and airway clearance, creating the respiratory-insufficiency branch of DMD.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\"], \"biological_processes\": [\"Skeletal Muscle Contraction\"]}}, {\"id\": \"Sarcolemmal Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unprotected sarcolemma undergoes contraction-induced microtears and loss of membrane integrity, releasing intracellular enzymes and creating the entry point for downstream calcium injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Skeletal Muscle Fiber\", \"Cardiac Muscle Cell\"], \"biological_processes\": [\"Plasma Membrane Organization\"]}}], \"edges\": [{\"source\": \"DMD Loss-of-Function Variants\", \"target\": \"Dystrophin Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dystrophin Deficiency\", \"target\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"target\": \"Sarcolemmal Fragility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dystrophin-Glycoprotein Complex Destabilization\", \"target\": \"Cardiac Myocyte Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Fragility\", \"target\": \"Calcium Influx\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Fragility\", \"target\": \"Elevated Creatine Kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Influx\", \"target\": \"Myofiber Necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myofiber Necrosis\", \"target\": \"Failed Satellite Cell Regeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myofiber Necrosis\", \"target\": \"Chronic Muscle Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failed Satellite Cell Regeneration\", \"target\": \"Progressive Muscle Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Muscle Inflammation\", \"target\": \"Fibrofatty Muscle Replacement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty Muscle Replacement\", \"target\": \"Progressive Muscle Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrofatty Muscle Replacement\", \"target\": \"Pseudohypertrophy of Calves\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Muscle Degeneration\", \"target\": \"Progressive Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Muscle Degeneration\", \"target\": \"Gowers Sign\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Progressive Muscle Degeneration\", \"target\": \"Respiratory Muscle Weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Respiratory Muscle Weakness\", \"target\": \"Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac Myocyte Injury\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Myocardial Fibrosis\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Fragility\", \"target\": \"Creatine Kinase\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum CK reflects leakage from damaged skeletal muscle fibers and is a biochemical readout of sarcolemmal injury in DMD.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Dystrophin Deficiency\", \"target\": \"Dystrophin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Absent or severely reduced dystrophin staining directly reports the proximal dystrophin-deficiency mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Dystrophin Deficiency\", \"target\": \"Micro-dystrophin Expression\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Treatment-induced micro-dystrophin expression reports biological response at the dystrophin-deficiency node rather than baseline disease status.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"DMD pathogenic variants\", \"target\": \"DMD Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DMD pathogenic variants\", \"target\": \"Dystrophin Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Out-of-frame or truncating DMD variants\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DMD exon deletions\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DMD exon duplications\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DMD point and small sequence variants\", \"target\": \"DMD pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6383,7 +6484,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
             
             <div class="item-box biochemical-box">
@@ -6397,6 +6498,65 @@
                 <div class="item-desc">Context: Markedly elevated (10-100x normal), highest in early disease</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Sarcolemmal Fragility</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Elevated serum CK reflects leakage from damaged skeletal muscle fibers and is a biochemical readout of sarcolemmal injury in DMD.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3302699" target="_blank">PMID:3302699</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Serum levels of creatine kinase (CK) isoenzymes (MM, MB, and BB) were measured by sensitive enzyme immunoassay (EIA) methods in 50 patients with Duchenne muscular dystrophy (DMD) and in 39 controls. MM, MB, and BB levels in DMD patients were higher than in controls, and these three levels..."</div>
+                
+                
+                <div class="evidence-explanation">This patient-control enzyme-immunoassay study supports elevated serum CK isoenzymes as a biochemical marker of Duchenne muscular dystrophy.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -6412,6 +6572,139 @@
                 <div class="item-desc">Context: Absent or severely reduced on muscle biopsy immunostaining</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Dystrophin Deficiency</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Present Absent
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Absent or severely reduced dystrophin staining directly reports the proximal dystrophin-deficiency mechanism.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2674948" target="_blank">PMID:2674948</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"There was a very strong correlation of clinical diagnoses with the type of dystrophin abnormality; all Duchenne muscular dystrophy patient muscle contained no detectable dystrophin, Becker muscular dystrophy patient muscle had clearly abnormal dystrophin, and unrelated diseases showed normal dystrophin."</div>
+                
+                
+                <div class="evidence-explanation">Immunoblot and immunofluorescence testing in human muscle directly supports absent dystrophin as a Duchenne biochemical diagnostic marker.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Micro-dystrophin Expression
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Treatment-induced)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: Measured in muscle biopsy after delandistrogene moxeparvovec gene therapy; distinguish from endogenous full-length dystrophin.</div>
+                
+                
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Pharmacodynamic Marker Of
+                        </span>
+                        <span class="readout-target">Dystrophin Deficiency</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Present Absent
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Pharmacodynamic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Treatment-induced micro-dystrophin expression reports biological response at the dystrophin-deficiency node rather than baseline disease status.</div>
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37539981" target="_blank">PMID:37539981</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The primary endpoint was change from baseline (CFBL) to week 12 in delandistrogene moxeparvovec micro-dystrophin by western blot. Additional endpoints evaluated included: safety; vector genome copies; CFBL to week 12 in muscle fiber-localized micro-dystrophin by immunofluorescence; and..."</div>
+                
+                
+                <div class="evidence-explanation">The ENDEAVOR DMD gene-therapy study used micro-dystrophin expression in muscle biopsy as a measured biochemical endpoint.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -6447,7 +6740,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Duchenne Muscular Dystrophy
 creation_date: &#39;2026-01-07T17:31:51Z&#39;
-updated_date: &#39;2026-04-27T08:39:26Z&#39;
+updated_date: &#39;2026-05-10T22:52:07Z&#39;
 category: Genetic
 parents:
 - Muscular Dystrophy
@@ -7608,9 +7901,99 @@ biochemical:
 - name: Creatine Kinase
   presence: Elevated
   context: Markedly elevated (10-100x normal), highest in early disease
+  readouts:
+  - target: Sarcolemmal Fragility
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      Elevated serum CK reflects leakage from damaged skeletal muscle fibers
+      and is a biochemical readout of sarcolemmal injury in DMD.
+  biomarker_term:
+    preferred_term: creatine kinase measurement
+    term:
+      id: NCIT:C64489
+      label: Creatine Kinase Measurement
+  evidence:
+  - reference: PMID:3302699
+    reference_title: &#34;Serum creatine kinase isoenzymes in Duchenne muscular dystrophy determined by sensitive enzyme immunoassay methods.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Serum levels of creatine kinase (CK) isoenzymes (MM, MB, and BB) were
+      measured by sensitive enzyme immunoassay (EIA) methods in 50 patients
+      with Duchenne muscular dystrophy (DMD) and in 39 controls. MM, MB, and BB
+      levels in DMD patients were higher than in controls, and these three
+      levels decreased with advancing age of DMD patients.
+    explanation: &gt;-
+      This patient-control enzyme-immunoassay study supports elevated serum CK
+      isoenzymes as a biochemical marker of Duchenne muscular dystrophy.
 - name: Dystrophin
   presence: Absent
   context: Absent or severely reduced on muscle biopsy immunostaining
+  readouts:
+  - target: Dystrophin Deficiency
+    relationship: READOUT_OF
+    direction: PRESENT_ABSENT
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      Absent or severely reduced dystrophin staining directly reports the
+      proximal dystrophin-deficiency mechanism.
+  biomarker_term:
+    preferred_term: dystrophin measurement
+    term:
+      id: NCIT:C209442
+      label: Dystrophin Measurement
+  evidence:
+  - reference: PMID:2674948
+    reference_title: &#34;Dystrophin diagnosis: comparison of dystrophin abnormalities by immunofluorescence and immunoblot analyses.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      There was a very strong correlation of clinical diagnoses with the type of
+      dystrophin abnormality; all Duchenne muscular dystrophy patient muscle
+      contained no detectable dystrophin, Becker muscular dystrophy patient
+      muscle had clearly abnormal dystrophin, and unrelated diseases showed
+      normal dystrophin.
+    explanation: &gt;-
+      Immunoblot and immunofluorescence testing in human muscle directly
+      supports absent dystrophin as a Duchenne biochemical diagnostic marker.
+- name: Micro-dystrophin Expression
+  presence: Treatment-induced
+  context: &gt;-
+    Measured in muscle biopsy after delandistrogene moxeparvovec gene therapy;
+    distinguish from endogenous full-length dystrophin.
+  readouts:
+  - target: Dystrophin Deficiency
+    relationship: PHARMACODYNAMIC_MARKER_OF
+    direction: PRESENT_ABSENT
+    endpoint_context: PHARMACODYNAMIC
+    interpretation: &gt;-
+      Treatment-induced micro-dystrophin expression reports biological response
+      at the dystrophin-deficiency node rather than baseline disease status.
+  biomarker_term:
+    preferred_term: dystrophin measurement
+    term:
+      id: NCIT:C209442
+      label: Dystrophin Measurement
+  synonyms:
+  - delandistrogene moxeparvovec micro-dystrophin
+  evidence:
+  - reference: PMID:37539981
+    reference_title: &#34;Delandistrogene Moxeparvovec Gene Therapy in Ambulatory Patients (Aged ≥4 to &lt;8 Years) with Duchenne Muscular Dystrophy: 1-Year Interim Results from Study SRP-9001-103 (ENDEAVOR).&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The primary endpoint was change from baseline (CFBL) to week 12 in
+      delandistrogene moxeparvovec micro-dystrophin by western blot. Additional
+      endpoints evaluated included: safety; vector genome copies; CFBL to week
+      12 in muscle fiber-localized micro-dystrophin by immunofluorescence; and
+      functional assessments, including North Star Ambulatory Assessment, with
+      comparison with a propensity score-weighted external natural history
+      control.
+    explanation: &gt;-
+      The ENDEAVOR DMD gene-therapy study used micro-dystrophin expression in
+      muscle biopsy as a measured biochemical endpoint.
 genetic:
 - name: DMD pathogenic variants
   gene_term:
@@ -8883,7 +9266,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Duchenne Muscular Dystrophy", "mondoId": "MONDO:0010679", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Duchenne_Muscular_Dystrophy", "yamlRevision": "9d674608c371"};
+        const OS_CONFIG = {"diseaseName": "Duchenne Muscular Dystrophy", "mondoId": "MONDO:0010679", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Duchenne_Muscular_Dystrophy", "yamlRevision": "5e6c4959af43"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
