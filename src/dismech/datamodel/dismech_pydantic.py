@@ -448,6 +448,10 @@ class LysosomalStorageEnum(str, Enum):
     """
     Accumulation of glycoproteins (fucosidosis, mannosidosis, sialidosis)
     """
+    disorder_of_glycogen_metabolism = "disorder of glycogen metabolism"
+    """
+    Accumulation of glycogen in tissues (Pompe disease and related glycogen storage diseases)
+    """
     neuronal_ceroid_lipofuscinosis = "neuronal ceroid lipofuscinosis"
     """
     Accumulation of lipofuscin in neurons (Batten disease family)
@@ -1078,6 +1082,76 @@ class SpatialExtentEnum(str, Enum):
     """
 
 
+class TemporalityEnum(str, Enum):
+    """
+    Temporal qualifiers for descriptor post-composition
+    """
+    Acute = "ACUTE"
+    """
+    Acute manifestation or episode
+    """
+    Transient = "TRANSIENT"
+    """
+    Transient manifestation
+    """
+    Subacute = "SUBACUTE"
+    """
+    Subacute manifestation or episode
+    """
+    Chronic = "CHRONIC"
+    """
+    Chronic or persistent over time
+    """
+    Recurrent = "RECURRENT"
+    """
+    Repeated episodes separated by symptom-free intervals
+    """
+    Diurnal = "DIURNAL"
+    """
+    Manifestation occurring during the day
+    """
+    Nocturnal = "NOCTURNAL"
+    """
+    Manifestation occurring at night
+    """
+    Prolonged = "PROLONGED"
+    """
+    Manifestation lasting longer than typical
+    """
+
+
+class ClinicalCourseEnum(str, Enum):
+    """
+    Clinical course qualifiers for descriptor post-composition
+    """
+    Progressive = "PROGRESSIVE"
+    """
+    Worsening over time
+    """
+    Stable = "STABLE"
+    """
+    Not varying in severity or amount over time
+    """
+
+
+class SeverityQualifierEnum(str, Enum):
+    """
+    Severity qualifiers for descriptor post-composition
+    """
+    Mild = "MILD"
+    """
+    Mild severity
+    """
+    Moderate = "MODERATE"
+    """
+    Moderate severity
+    """
+    Severe = "SEVERE"
+    """
+    Severe severity
+    """
+
+
 class AssayTerm(str):
     """
     A term representing an assay
@@ -1202,6 +1276,216 @@ class BiomarkerTerm(str):
     A biomarker term from NCIT. Includes proteins, gene products, fusion products, and other molecular markers. No hierarchy constraint - validates term exists and label matches.
     """
     pass
+
+
+class BiomarkerReadoutRelationshipEnum(str, Enum):
+    """
+    Relationship between a biomarker and the pathograph node it reports on
+    """
+    Readout_of = "READOUT_OF"
+    """
+    The biomarker directly or indirectly measures the linked event or mechanism
+    """
+    Correlates_with = "CORRELATES_WITH"
+    """
+    The biomarker is statistically or clinically associated with the linked event or endpoint
+    """
+    Predicts = "PREDICTS"
+    """
+    The biomarker predicts a later event, endpoint, or clinical outcome
+    """
+    Pharmacodynamic_marker_of = "PHARMACODYNAMIC_MARKER_OF"
+    """
+    The biomarker reports biological response to a treatment or intervention at the linked node
+    """
+
+
+class BiomarkerReadoutDirectionEnum(str, Enum):
+    """
+    Direction of association between biomarker value/presence and the linked event or endpoint
+    """
+    Positive = "POSITIVE"
+    """
+    Higher biomarker value or stronger presence tracks with more of the linked event
+    """
+    Negative = "NEGATIVE"
+    """
+    Higher biomarker value or stronger presence tracks with less of the linked event
+    """
+    PresentSOLIDUSabsent = "PRESENT_ABSENT"
+    """
+    Biomarker presence or absence, rather than monotonic level, is the interpretable signal
+    """
+    Threshold_dependent = "THRESHOLD_DEPENDENT"
+    """
+    Interpretation depends on threshold, range, genotype, assay, or clinical context
+    """
+
+
+class BiomarkerEndpointContextEnum(str, Enum):
+    """
+    Endpoint or use context for a biomarker readout link
+    """
+    Diagnostic = "DIAGNOSTIC"
+    """
+    Used to support diagnosis or disease classification
+    """
+    Prognostic = "PROGNOSTIC"
+    """
+    Associated with future risk, disease severity, or clinical outcome
+    """
+    Monitoring = "MONITORING"
+    """
+    Used to track disease state or progression over time
+    """
+    Pharmacodynamic = "PHARMACODYNAMIC"
+    """
+    Used to track biological response to treatment or perturbation
+    """
+    Candidate_surrogate = "CANDIDATE_SURROGATE"
+    """
+    Potential surrogate endpoint candidate requiring explicit outcome-link evidence
+    """
+
+
+class SurrogateEndpointTableEnum(str, Enum):
+    """
+    FDA surrogate endpoint table section from which a row was curated
+    """
+    Adult_non_cancer_related = "ADULT_NONCANCER"
+    """
+    Adult Surrogate Endpoints - Non-cancer Related
+    """
+    Adult_cancer_related = "ADULT_CANCER"
+    """
+    Adult Surrogate Endpoints - Cancer Related
+    """
+    Pediatric_non_cancer_related = "PEDIATRIC_NONCANCER"
+    """
+    Pediatric Surrogate Endpoints - Non-cancer Related
+    """
+    Pediatric_cancer_related = "PEDIATRIC_CANCER"
+    """
+    Pediatric Surrogate Endpoints - Cancer Related
+    """
+
+
+class SurrogateEndpointApprovalTypeEnum(str, Enum):
+    """
+    Regulatory approval pathway context represented in the FDA surrogate endpoint table
+    """
+    Accelerated = "ACCELERATED"
+    """
+    Endpoint may support accelerated approval in the curated context
+    """
+    Traditional = "TRADITIONAL"
+    """
+    Endpoint may support traditional approval in the curated context
+    """
+    Accelerated_or_traditional = "ACCELERATED_OR_TRADITIONAL"
+    """
+    Endpoint may support accelerated or traditional approval depending on context of use
+    """
+    Traditional_and_monograph = "TRADITIONAL_AND_MONOGRAPH"
+    """
+    Endpoint appears in FDA table as traditional and monograph
+    """
+
+
+class SurrogateEndpointValidationLevelEnum(str, Enum):
+    """
+    BEST-aligned regulatory validation level inferred or curated for a surrogate endpoint
+    """
+    Validated_surrogate_endpoint = "VALIDATED_SURROGATE_ENDPOINT"
+    """
+    Supported by clinical data providing strong evidence that the endpoint predicts clinical benefit
+    """
+    Reasonably_likely_surrogate_endpoint = "REASONABLY_LIKELY_SURROGATE_ENDPOINT"
+    """
+    Supported by strong mechanistic and/or epidemiologic rationale, but without sufficient clinical validation for full surrogate validation
+    """
+    Context_dependent_surrogate_endpoint = "CONTEXT_DEPENDENT_SURROGATE_ENDPOINT"
+    """
+    Validation and approval pathway depend on context of use, disease setting, effect size, duration, residual uncertainty, and available therapy
+    """
+
+
+class ClinicalBenefitLinkageEnum(str, Enum):
+    """
+    How a surrogate endpoint is linked to clinical benefit in the regulatory context
+    """
+    Known_to_predict_clinical_benefit = "KNOWN_TO_PREDICT_CLINICAL_BENEFIT"
+    """
+    FDA table approval context indicates the endpoint is known to predict clinical benefit for the curated context
+    """
+    Reasonably_likely_to_predict_clinical_benefit = "REASONABLY_LIKELY_TO_PREDICT_CLINICAL_BENEFIT"
+    """
+    FDA table approval context indicates the endpoint is reasonably likely to predict clinical benefit
+    """
+    Context_dependent = "CONTEXT_DEPENDENT"
+    """
+    Clinical-benefit linkage depends on context of use and approval pathway
+    """
+
+
+class SurrogateEndpointFootnoteEnum(str, Enum):
+    """
+    Footnotes and symbols used in the FDA surrogate endpoint workbook
+    """
+    Composite_biomarker_surrogate = "COMPOSITE_BIOMARKER_SURROGATE"
+    """
+    Surrogate endpoint is part of a composite of biomarker surrogate endpoints
+    """
+    Mechanism_agnostic = "MECHANISM_AGNOSTIC"
+    """
+    Many mechanisms of action are associated with the surrogate endpoint, so it is not directly related to a particular causal pathway
+    """
+    Tumor_burden_context_dependent = "TUMOR_BURDEN_CONTEXT_DEPENDENT"
+    """
+    Tumor-burden endpoints may support accelerated or traditional approval depending on context of use
+    """
+    Anticipated_primary_efficacy_use = "ANTICIPATED_PRIMARY_EFFICACY_USE"
+    """
+    FDA anticipates the endpoint could be appropriate as a primary efficacy endpoint although it has not yet supported an approved NDA or BLA
+    """
+    Bone_mineral_density_context = "BONE_MINERAL_DENSITY_CONTEXT"
+    """
+    Bone mineral density footnote for male or glucocorticoid-induced osteoporosis contexts
+    """
+    Clinical_endpoints_required = "CLINICAL_ENDPOINTS_REQUIRED"
+    """
+    Clinical endpoints were required for the approvals
+    """
+    Arrhythmia_response_definition = "ARRHYTHMIA_RESPONSE_DEFINITION"
+    """
+    Specialized response definition footnote for supraventricular tachycardia endpoint
+    """
+
+
+class SurrogateEndpointMappingStatusEnum(str, Enum):
+    """
+    Status of mapping an FDA disease/use row to dismech disease entries
+    """
+    Exact_dismech_match = "EXACT_DISMECH_MATCH"
+    """
+    FDA disease/use maps directly to an existing dismech disease entry
+    """
+    Curated_dismech_mapping = "CURATED_DISMECH_MAPPING"
+    """
+    Mapping was manually curated despite non-identical labels
+    """
+    Candidate_dismech_mapping = "CANDIDATE_DISMECH_MAPPING"
+    """
+    Row mentions a disease represented in dismech but the FDA disease/use row is broader, multi-condition, or otherwise requires review
+    """
+    Needs_curation = "NEEDS_CURATION"
+    """
+    No dismech disease mapping has been assigned yet
+    """
+    Not_disease_specific = "NOT_DISEASE_SPECIFIC"
+    """
+    FDA row is a use, vaccine, or broad product context rather than a directly mappable disease entry
+    """
 
 
 class GeneProductTerm(str):
@@ -1897,6 +2181,16 @@ class MechanismConfidenceEnum(str, Enum):
     """
 
 
+class ReferenceTagEnum(str, Enum):
+    """
+    Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like "which disorders lack a GeneReviews citation?"
+    """
+    GeneReviews = "GeneReviews"
+    """
+    Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management.
+    """
+
+
 
 class CurationEvent(ConfiguredBaseModel):
     """
@@ -1927,7 +2221,7 @@ class Term(ConfiguredBaseModel):
 
 class Descriptor(ConfiguredBaseModel):
     """
-    Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and post-composition via modifier, located_in, and laterality slots.
+    Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and post-composition via modifier, located_in, laterality, spatial_extent, onset, temporality, clinical_course, and severity slots.
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'abstract': True,
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
@@ -1958,6 +2252,8 @@ class Descriptor(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -1997,7 +2293,14 @@ class Descriptor(ConfiguredBaseModel):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2048,6 +2351,8 @@ class DietaryModification(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2105,6 +2410,8 @@ class CellTypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2147,7 +2454,14 @@ class CellTypeDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2181,6 +2495,8 @@ class BiologicalProcessDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2223,7 +2539,14 @@ class BiologicalProcessDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2257,6 +2580,8 @@ class MolecularFunctionDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2299,7 +2624,14 @@ class MolecularFunctionDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2333,6 +2665,8 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2375,7 +2709,14 @@ class AnatomicalEntityDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2409,6 +2750,8 @@ class ChemicalEntityDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2451,7 +2794,14 @@ class ChemicalEntityDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2485,6 +2835,8 @@ class GeneDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2527,7 +2879,14 @@ class GeneDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2561,6 +2920,8 @@ class CellularComponentDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2603,7 +2964,14 @@ class CellularComponentDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2637,6 +3005,8 @@ class ProteinComplexDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2679,7 +3049,14 @@ class ProteinComplexDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2712,6 +3089,8 @@ class AssayDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2754,7 +3133,14 @@ class AssayDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2787,6 +3173,8 @@ class TriggerDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2829,7 +3217,14 @@ class TriggerDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2862,6 +3257,8 @@ class DiseaseDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2904,7 +3301,14 @@ class DiseaseDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -2938,6 +3342,8 @@ class SubtypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2980,7 +3386,14 @@ class SubtypeDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3013,6 +3426,8 @@ class BiomarkerDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3055,7 +3470,14 @@ class BiomarkerDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3088,6 +3510,8 @@ class GeneProductDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3130,7 +3554,14 @@ class GeneProductDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3170,6 +3601,8 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3212,7 +3645,14 @@ class HistopathologyFindingDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3245,6 +3685,8 @@ class LifeCycleStageDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3287,7 +3729,14 @@ class LifeCycleStageDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3320,6 +3769,8 @@ class PhenotypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3362,7 +3813,14 @@ class PhenotypeDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3396,6 +3854,8 @@ class InheritanceDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3438,7 +3898,14 @@ class InheritanceDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3517,6 +3984,8 @@ class TreatmentDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3559,7 +4028,14 @@ class TreatmentDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3592,6 +4068,8 @@ class RegimenDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3634,7 +4112,14 @@ class RegimenDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3672,6 +4157,8 @@ class ExposureDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3714,7 +4201,14 @@ class ExposureDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3750,6 +4244,8 @@ class EnvironmentDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3792,7 +4288,14 @@ class EnvironmentDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3830,6 +4333,8 @@ class FoodDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3872,7 +4377,14 @@ class FoodDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3905,6 +4417,8 @@ class OrganismDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3947,7 +4461,14 @@ class OrganismDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -3980,6 +4501,8 @@ class HostDescriptor(OrganismDescriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4022,7 +4545,14 @@ class HostDescriptor(OrganismDescriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -4053,6 +4583,8 @@ class SampleTypeDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4092,7 +4624,14 @@ class SampleTypeDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -4133,6 +4672,8 @@ class GeneticContext(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4172,6 +4713,8 @@ class GeneticContext(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4224,6 +4767,8 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4279,10 +4824,11 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'HistopathologyFinding',
                        'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
-    severity: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
-         'domain_of': ['PhenotypeContext', 'Phenotype'],
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
          'examples': [{'value': 'Severe'}]} })
-    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['PhenotypeContext']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -4293,6 +4839,8 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4334,6 +4882,8 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -4372,7 +4922,10 @@ class PhenotypeContext(ConfiguredBaseModel):
          'domain_of': ['PhenotypeContext', 'Prevalence', 'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
-         'domain_of': ['PhenotypeContext', 'ProgressionInfo', 'Demographics'],
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'subtype',
          'domain_of': ['PhenotypeContext',
@@ -4424,6 +4977,8 @@ class Dataset(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4489,6 +5044,8 @@ class Dataset(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -4530,6 +5087,8 @@ class Dataset(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4582,6 +5141,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4620,6 +5180,8 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4690,6 +5252,8 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -4731,6 +5295,8 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4804,6 +5370,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4842,6 +5409,8 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4893,6 +5462,8 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -4941,6 +5512,8 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5006,6 +5579,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5044,6 +5618,8 @@ class ComputationalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5110,6 +5686,8 @@ class ComputationalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5151,6 +5729,8 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5205,6 +5785,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5246,6 +5827,8 @@ class ModelVariable(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5289,6 +5872,8 @@ class ModelVariable(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5344,6 +5929,7 @@ class SeverityTier(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5407,6 +5993,8 @@ class ModelVariableDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5446,7 +6034,14 @@ class ModelVariableDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -5490,6 +6085,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5528,6 +6124,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5571,6 +6169,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5612,6 +6212,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5656,6 +6258,7 @@ class Subtype(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5697,6 +6300,8 @@ class Subtype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5737,6 +6342,8 @@ class Subtype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5860,7 +6467,10 @@ class CausalEdge(ConfiguredBaseModel):
                                                     'name': 'intermediate_mechanisms'}}})
 
     target: str = Field(default=..., description="""The name of the target element in a causal relationship""", json_schema_extra = { "linkml_meta": {'alias': 'target',
-         'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
+         'domain_of': ['CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -5875,6 +6485,8 @@ class CausalEdge(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5915,6 +6527,8 @@ class CausalEdge(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5966,7 +6580,10 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                                    'name': 'target'}}})
 
     target: str = Field(default=..., description="""Name of the pathophysiology entry this treatment targets. Must match a pathophysiology name in the same disease file.""", json_schema_extra = { "linkml_meta": {'alias': 'target',
-         'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
+         'domain_of': ['CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout']} })
     treatment_effect: Optional[TreatmentEffectEnum] = Field(default=None, description="""How the treatment affects the targeted mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'treatment_effect', 'domain_of': ['TreatmentMechanismTarget']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
@@ -5982,6 +6599,8 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6022,6 +6641,8 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6076,7 +6697,10 @@ class ModelMechanismLink(ConfiguredBaseModel):
                                    'name': 'target'}}})
 
     target: str = Field(default=..., description="""Name of the pathophysiology entry this model is linked to. Must match a pathophysiology name in the same disease file.""", json_schema_extra = { "linkml_meta": {'alias': 'target',
-         'domain_of': ['CausalEdge', 'TreatmentMechanismTarget', 'ModelMechanismLink']} })
+         'domain_of': ['CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout']} })
     description: Optional[str] = Field(default=None, description="""Brief assertion-level note describing what facet of the linked mechanism the model captures or assays.""", json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -6091,6 +6715,8 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6131,6 +6757,8 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6164,6 +6792,462 @@ class ModelMechanismLink(ConfiguredBaseModel):
          'recommended': True} })
 
 
+class BiomarkerReadout(ConfiguredBaseModel):
+    """
+    Links a biochemical biomarker to a pathograph node that it measures, reflects, predicts, or pharmacodynamically reports on. This is an observational readout link, not a causal claim that the biomarker causes the target mechanism or phenotype.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'direction': {'description': 'Direction of association between '
+                                                     'biomarker level/presence and the '
+                                                     'linked event or endpoint.',
+                                      'name': 'direction'},
+                        'endpoint_context': {'description': 'Diagnostic, prognostic, '
+                                                            'monitoring, '
+                                                            'pharmacodynamic, or '
+                                                            'candidate-surrogate use '
+                                                            'context.',
+                                             'name': 'endpoint_context'},
+                        'evidence': {'description': 'Evidence supporting this '
+                                                    'biomarker-to-pathograph-node '
+                                                    'readout link',
+                                     'name': 'evidence'},
+                        'interpretation': {'description': 'Human-readable '
+                                                          'interpretation of the link '
+                                                          'for display and curation '
+                                                          'review.',
+                                           'name': 'interpretation'},
+                        'relationship': {'description': 'How the biomarker relates to '
+                                                        'the linked pathograph node.',
+                                         'name': 'relationship',
+                                         'required': True},
+                        'target': {'description': 'Name of the pathograph node this '
+                                                  'biomarker reports on. Prefer a '
+                                                  'pathophysiology entry; phenotype '
+                                                  'targets are also allowed when the '
+                                                  'biomarker is explicitly tied to a '
+                                                  'clinical manifestation.',
+                                   'name': 'target',
+                                   'required': True}}})
+
+    target: str = Field(default=..., description="""Name of the pathograph node this biomarker reports on. Prefer a pathophysiology entry; phenotype targets are also allowed when the biomarker is explicitly tied to a clinical manifestation.""", json_schema_extra = { "linkml_meta": {'alias': 'target',
+         'domain_of': ['CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout']} })
+    relationship: BiomarkerReadoutRelationshipEnum = Field(default=..., description="""How the biomarker relates to the linked pathograph node.""", json_schema_extra = { "linkml_meta": {'alias': 'relationship', 'domain_of': ['BiomarkerReadout']} })
+    direction: Optional[BiomarkerReadoutDirectionEnum] = Field(default=None, description="""Direction of association between biomarker level/presence and the linked event or endpoint.""", json_schema_extra = { "linkml_meta": {'alias': 'direction', 'domain_of': ['BiomarkerReadout']} })
+    endpoint_context: Optional[BiomarkerEndpointContextEnum] = Field(default=None, description="""Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.""", json_schema_extra = { "linkml_meta": {'alias': 'endpoint_context', 'domain_of': ['BiomarkerReadout']} })
+    interpretation: Optional[str] = Field(default=None, description="""Human-readable interpretation of the link for display and curation review.""", json_schema_extra = { "linkml_meta": {'alias': 'interpretation', 'domain_of': ['BiomarkerReadout']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Evidence supporting this biomarker-to-pathograph-node readout link""", json_schema_extra = { "linkml_meta": {'alias': 'evidence',
+         'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis'],
+         'recommended': True} })
+
+
+class SurrogateEndpoint(ConfiguredBaseModel):
+    """
+    A regulatory surrogate endpoint assertion curated from FDA's surrogate endpoint table or a similar authoritative source. This captures an endpoint used as a substitute for direct clinical benefit in a specified disease/use, patient population, approval-pathway, and therapeutic mechanism context.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'approval_type': {'name': 'approval_type', 'required': True},
+                        'clinical_benefit': {'description': 'Specific clinical benefit '
+                                                            'or clinical outcome '
+                                                            'predicted by the '
+                                                            'surrogate endpoint, when '
+                                                            'curated. FDA table rows '
+                                                            'may leave this blank.',
+                                             'name': 'clinical_benefit'},
+                        'clinical_benefit_linkage': {'description': 'BEST-aligned '
+                                                                    'relationship to '
+                                                                    'clinical benefit. '
+                                                                    'FDA table rows '
+                                                                    'usually imply '
+                                                                    'this via the '
+                                                                    'approval pathway '
+                                                                    'rather than '
+                                                                    'naming a specific '
+                                                                    'clinical outcome.',
+                                                     'name': 'clinical_benefit_linkage',
+                                                     'required': True},
+                        'disease_or_use': {'name': 'disease_or_use', 'required': True},
+                        'endpoint_validation_level': {'description': 'BEST-aligned '
+                                                                     'level. For '
+                                                                     'FDA-table rows '
+                                                                     'this is derived '
+                                                                     'from approval '
+                                                                     'type unless a '
+                                                                     'curator '
+                                                                     'overrides it '
+                                                                     'with more '
+                                                                     'specific '
+                                                                     'evidence.',
+                                                      'name': 'endpoint_validation_level',
+                                                      'required': True},
+                        'mapping_status': {'name': 'mapping_status', 'required': True},
+                        'patient_population': {'name': 'patient_population',
+                                               'required': True},
+                        'row_id': {'name': 'row_id', 'required': True},
+                        'source_row_number': {'name': 'source_row_number',
+                                              'required': True},
+                        'source_sheet': {'name': 'source_sheet', 'required': True},
+                        'source_table': {'name': 'source_table', 'required': True},
+                        'surrogate_endpoint': {'name': 'surrogate_endpoint',
+                                               'required': True}}})
+
+    row_id: str = Field(default=..., description="""Stable row identifier assigned during source-table curation""", json_schema_extra = { "linkml_meta": {'alias': 'row_id', 'domain_of': ['SurrogateEndpoint']} })
+    source_table: SurrogateEndpointTableEnum = Field(default=..., description="""FDA surrogate endpoint table section from which the row was curated""", json_schema_extra = { "linkml_meta": {'alias': 'source_table', 'domain_of': ['SurrogateEndpoint']} })
+    source_sheet: str = Field(default=..., description="""Spreadsheet worksheet name or source table label""", json_schema_extra = { "linkml_meta": {'alias': 'source_sheet', 'domain_of': ['SurrogateEndpoint']} })
+    source_row_number: int = Field(default=..., description="""Row number in the source spreadsheet worksheet""", json_schema_extra = { "linkml_meta": {'alias': 'source_row_number', 'domain_of': ['SurrogateEndpoint']} })
+    disease_or_use: str = Field(default=..., description="""FDA disease or use text for a surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'disease_or_use', 'domain_of': ['SurrogateEndpoint']} })
+    patient_population: str = Field(default=..., description="""FDA patient population text for a surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'patient_population', 'domain_of': ['SurrogateEndpoint']} })
+    surrogate_endpoint: str = Field(default=..., description="""Surrogate endpoint text from the FDA surrogate endpoint table""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoint', 'domain_of': ['SurrogateEndpoint']} })
+    approval_type: SurrogateEndpointApprovalTypeEnum = Field(default=..., description="""FDA approval pathway context for the surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'approval_type', 'domain_of': ['SurrogateEndpoint']} })
+    drug_mechanism_of_action: Optional[str] = Field(default=None, description="""FDA drug mechanism-of-action context for the surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'drug_mechanism_of_action', 'domain_of': ['SurrogateEndpoint']} })
+    age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
+         'examples': [{'value': 'Childhood-Adolescence'}]} })
+    endpoint_validation_level: SurrogateEndpointValidationLevelEnum = Field(default=..., description="""BEST-aligned level. For FDA-table rows this is derived from approval type unless a curator overrides it with more specific evidence.""", json_schema_extra = { "linkml_meta": {'alias': 'endpoint_validation_level', 'domain_of': ['SurrogateEndpoint']} })
+    clinical_benefit_linkage: ClinicalBenefitLinkageEnum = Field(default=..., description="""BEST-aligned relationship to clinical benefit. FDA table rows usually imply this via the approval pathway rather than naming a specific clinical outcome.""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_benefit_linkage', 'domain_of': ['SurrogateEndpoint']} })
+    clinical_benefit: Optional[str] = Field(default=None, description="""Specific clinical benefit or clinical outcome predicted by the surrogate endpoint, when curated. FDA table rows may leave this blank.""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_benefit', 'domain_of': ['SurrogateEndpoint']} })
+    clinical_benefit_linkage_basis: Optional[str] = Field(default=None, description="""Explanation of how the clinical-benefit linkage was inferred or curated""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_benefit_linkage_basis', 'domain_of': ['SurrogateEndpoint']} })
+    footnotes: Optional[list[SurrogateEndpointFootnoteEnum]] = Field(default=None, description="""FDA workbook footnote semantics attached to the source row""", json_schema_extra = { "linkml_meta": {'alias': 'footnotes', 'domain_of': ['SurrogateEndpoint']} })
+    context_of_use: Optional[str] = Field(default=None, description="""Concise context-of-use statement combining disease/use, population, endpoint, approval type, and therapeutic mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'context_of_use', 'domain_of': ['SurrogateEndpoint']} })
+    mapping_status: SurrogateEndpointMappingStatusEnum = Field(default=..., description="""Status of mapping the FDA disease/use row to dismech disease entries""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_status', 'domain_of': ['SurrogateEndpoint']} })
+    mapped_diseases: Optional[list[str]] = Field(default=None, description="""Names of dismech disease entries mapped or candidate-mapped to this FDA row""", json_schema_extra = { "linkml_meta": {'alias': 'mapped_diseases', 'domain_of': ['SurrogateEndpoint']} })
+    mapped_disease_files: Optional[list[str]] = Field(default=None, description="""Relative paths of dismech disease YAML files mapped or candidate-mapped to this FDA row""", json_schema_extra = { "linkml_meta": {'alias': 'mapped_disease_files', 'domain_of': ['SurrogateEndpoint']} })
+    mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes',
+         'domain_of': ['SurrogateEndpoint', 'AssociationSignal']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'alias': 'source_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_sha256',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'alias': 'source_content_current_as_of',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'alias': 'retrieved_date',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
+         'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class SurrogateEndpointCollection(ConfiguredBaseModel):
+    """
+    A source-level collection of curated regulatory surrogate endpoint assertions
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'name': {'name': 'name', 'required': True},
+                        'surrogate_endpoints': {'name': 'surrogate_endpoints',
+                                                'required': True}}})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'alias': 'source_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_sha256',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'alias': 'source_content_current_as_of',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'alias': 'retrieved_date',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    surrogate_endpoints: list[SurrogateEndpoint] = Field(default=..., description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoints',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
 class ProteinStructure(ConfiguredBaseModel):
     """
     A 3D protein structure from PDB or AlphaFold relevant to understanding a treatment's mechanism of action. Enables embedded 3D visualization of drug-target interactions via Mol* viewer.
@@ -6185,6 +7269,8 @@ class ProteinStructure(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6243,6 +7329,7 @@ class PublicationReference(ConfiguredBaseModel):
          'domain_of': ['Dataset', 'PublicationReference', 'TrackedIssue'],
          'implements': ['linkml:title']} })
     found_in: Optional[list[str]] = Field(default=None, description="""Deep-research output files where this reference was cited""", json_schema_extra = { "linkml_meta": {'alias': 'found_in', 'domain_of': ['PublicationReference']} })
+    tags: Optional[list[ReferenceTagEnum]] = Field(default=None, description="""Authoritative-source tags for a reference (e.g. GeneReviews). Populated programmatically by scripts/tag_references.py; use `just tag-references` to refresh.""", json_schema_extra = { "linkml_meta": {'alias': 'tags', 'domain_of': ['PublicationReference']} })
     findings: Optional[list[Finding]] = Field(default=None, description="""Key findings or claims extracted from this source (publication or dataset)""", json_schema_extra = { "linkml_meta": {'alias': 'findings',
          'domain_of': ['Dataset',
                        'ExperimentalModel',
@@ -6266,6 +7353,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6308,6 +7396,8 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6348,6 +7438,8 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6389,6 +7481,8 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -6453,6 +7547,8 @@ class TrackedIssue(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -6504,6 +7600,8 @@ class Finding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6569,6 +7667,8 @@ class Prevalence(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6610,6 +7710,8 @@ class Prevalence(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -6658,7 +7760,10 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
-         'domain_of': ['PhenotypeContext', 'ProgressionInfo', 'Demographics'],
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
@@ -6671,6 +7776,8 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6731,6 +7838,8 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -6780,6 +7889,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6818,6 +7928,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6860,6 +7972,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -6909,6 +8023,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6953,6 +8069,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6991,6 +8108,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7035,6 +8154,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7155,6 +8276,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7214,6 +8337,7 @@ class Phenotype(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7262,6 +8386,8 @@ class Phenotype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7307,6 +8433,8 @@ class Phenotype(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7360,8 +8488,9 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    severity: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
-         'domain_of': ['PhenotypeContext', 'Phenotype'],
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
          'examples': [{'value': 'Severe'}]} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
@@ -7373,6 +8502,8 @@ class Phenotype(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7430,6 +8561,7 @@ class Biochemical(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7462,6 +8594,15 @@ class Biochemical(ConfiguredBaseModel):
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'presence',
          'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
+    readouts: Optional[list[BiomarkerReadout]] = Field(default=None, description="""Links this biomarker to disease pathograph nodes that it measures, reflects, predicts, or pharmacodynamically reports on. The target should be a named pathograph node, typically a pathophysiology mechanism.""", json_schema_extra = { "linkml_meta": {'alias': 'readouts',
+         'comments': ['Target names should match pathophysiology or phenotype entry '
+                      'names in the same disease file',
+                      'Readout links are observational/associative, not causal '
+                      'disease-progression edges',
+                      'Use evidence on the readout link when the '
+                      "biomarker-to-mechanism mapping is distinct from the biomarker's "
+                      'own evidence'],
+         'domain_of': ['Biochemical']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -7473,6 +8614,8 @@ class Biochemical(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7526,6 +8669,8 @@ class Biochemical(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7636,6 +8781,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7682,6 +8828,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7732,6 +8880,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7773,6 +8923,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7834,6 +8986,7 @@ class Genetic(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7873,6 +9026,8 @@ class Genetic(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7964,6 +9119,8 @@ class Genetic(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8017,6 +9174,7 @@ class Environmental(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8055,6 +9213,8 @@ class Environmental(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8096,6 +9256,8 @@ class Environmental(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8140,6 +9302,8 @@ class Environmental(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8232,6 +9396,7 @@ class Disease(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8277,6 +9442,8 @@ class Disease(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8366,12 +9533,15 @@ class Disease(ConfiguredBaseModel):
     experimental_models: Optional[list[ExperimentalModel]] = Field(default=None, description="""Disease-relevant organoids, cell lines, chip systems, cocultures, and related experimental models curated as mechanism or translational resources.""", json_schema_extra = { "linkml_meta": {'alias': 'experimental_models', 'domain_of': ['Disease'], 'recommended': False} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'alias': 'datasets', 'domain_of': ['Disease'], 'recommended': True} })
     clinical_trials: Optional[list[ClinicalTrial]] = Field(default=None, description="""Clinical trials relevant to disease treatment and research""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_trials', 'domain_of': ['Disease'], 'recommended': False} })
+    surrogate_endpoints: Optional[list[SurrogateEndpoint]] = Field(default=None, description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoints',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
     computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'computational_models', 'domain_of': ['Disease']} })
     classifications: Optional[DiseaseClassifications] = Field(default=None, description="""Classification assignments for this disease from various nosologies""", json_schema_extra = { "linkml_meta": {'alias': 'classifications', 'domain_of': ['Disease']} })
     definitions: Optional[list[Definition]] = Field(default=None, description="""Definitions or diagnostic criteria for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'definitions', 'domain_of': ['Disease']} })
     mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease or subtype (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
     external_assertions: Optional[list[ExternalAssertion]] = Field(default=None, description="""External curated assertions or registry records relevant to this entity""", json_schema_extra = { "linkml_meta": {'alias': 'external_assertions', 'domain_of': ['Disease', 'Variant']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -8382,6 +9552,8 @@ class Disease(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8465,6 +9637,7 @@ class Stage(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8503,6 +9676,8 @@ class Stage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8543,6 +9718,8 @@ class Stage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8584,6 +9761,8 @@ class Stage(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8668,6 +9847,8 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8715,6 +9896,8 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8756,6 +9939,8 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8821,6 +10006,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8860,6 +10046,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8900,6 +10088,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8941,6 +10131,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9030,6 +10222,8 @@ class AnimalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9074,6 +10268,8 @@ class AnimalModel(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9118,6 +10314,7 @@ class Treatment(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9156,6 +10353,8 @@ class Treatment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9214,6 +10413,8 @@ class Treatment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9255,6 +10456,8 @@ class Treatment(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9331,6 +10534,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9368,6 +10572,8 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9413,6 +10619,8 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9456,6 +10664,7 @@ class Transmission(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9494,6 +10703,8 @@ class Transmission(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9534,6 +10745,8 @@ class Transmission(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9575,6 +10788,8 @@ class Transmission(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9621,6 +10836,7 @@ class Assay(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9659,6 +10875,8 @@ class Assay(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9701,6 +10919,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9744,6 +10963,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9785,6 +11006,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9835,6 +11058,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9877,6 +11102,7 @@ class Inheritance(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9918,6 +11144,8 @@ class Inheritance(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9963,6 +11191,8 @@ class Inheritance(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10008,6 +11238,7 @@ class Variant(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10046,6 +11277,8 @@ class Variant(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10089,6 +11322,8 @@ class Variant(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10157,6 +11392,8 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10205,6 +11442,7 @@ class Mechanism(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10243,6 +11481,8 @@ class Mechanism(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10285,6 +11525,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10323,6 +11564,8 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10363,6 +11606,8 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10413,6 +11658,8 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10454,6 +11701,8 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10513,6 +11762,8 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10554,6 +11805,8 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10613,6 +11866,8 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10654,6 +11909,8 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10713,6 +11970,8 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10754,6 +12013,8 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10813,6 +12074,8 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10854,6 +12117,8 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10913,6 +12178,8 @@ class IUISAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10954,6 +12221,8 @@ class IUISAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11013,6 +12282,8 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11054,6 +12325,8 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11117,6 +12390,7 @@ class Definition(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11156,6 +12430,8 @@ class Definition(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11200,6 +12476,8 @@ class Definition(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11241,6 +12519,8 @@ class Definition(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11288,6 +12568,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11326,6 +12607,8 @@ class CriteriaSet(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11374,6 +12657,8 @@ class CriteriaSet(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11415,6 +12700,8 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11468,6 +12755,8 @@ class CriteriaItem(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11507,7 +12796,14 @@ class CriteriaItem(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -11533,7 +12829,8 @@ class TermMapping(ConfiguredBaseModel):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11544,6 +12841,8 @@ class TermMapping(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11599,7 +12898,8 @@ class ICD10CMMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11610,6 +12910,8 @@ class ICD10CMMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11665,7 +12967,8 @@ class ICD11FMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11676,6 +12979,8 @@ class ICD11FMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11731,7 +13036,8 @@ class MondoMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11742,6 +13048,8 @@ class MondoMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11797,7 +13105,8 @@ class NCITMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -11808,6 +13117,8 @@ class NCITMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11867,6 +13178,8 @@ class MappingConsistency(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11943,6 +13256,8 @@ class ConditionDescriptor(Descriptor):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11987,7 +13302,14 @@ class ConditionDescriptor(Descriptor):
     modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal)""", json_schema_extra = { "linkml_meta": {'alias': 'modifier', 'domain_of': ['Descriptor']} })
     located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'alias': 'located_in', 'domain_of': ['Descriptor']} })
     laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'alias': 'laterality', 'domain_of': ['Descriptor']} })
-    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern of this phenotype or process (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'alias': 'spatial_extent', 'domain_of': ['Descriptor']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'alias': 'onset', 'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'alias': 'temporality', 'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_course', 'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'severity',
+         'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor', 'PhenotypeContext', 'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'alias': 'qualifiers',
          'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
@@ -12019,6 +13341,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -12069,6 +13392,8 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12147,7 +13472,8 @@ class AssociationSignal(ConfiguredBaseModel):
          'domain_of': ['PhenotypeContext', 'Prevalence', 'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     demographics: Optional[Demographics] = Field(default=None, description="""Demographic stratification for an association signal""", json_schema_extra = { "linkml_meta": {'alias': 'demographics', 'domain_of': ['AssociationSignal']} })
-    mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes', 'domain_of': ['AssociationSignal']} })
+    mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes',
+         'domain_of': ['SurrogateEndpoint', 'AssociationSignal']} })
     disorder_a_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder A in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_a_count', 'domain_of': ['AssociationSignal']} })
     disorder_b_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_b_count', 'domain_of': ['AssociationSignal']} })
     pair_count: Optional[int] = Field(default=None, description="""Number of records/patients with co-occurrence of disorder A and disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'pair_count', 'domain_of': ['AssociationSignal']} })
@@ -12173,6 +13499,8 @@ class AssociationSignal(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12214,6 +13542,8 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12255,7 +13585,10 @@ class Demographics(ConfiguredBaseModel):
 
     sex: Optional[SexEnum] = Field(default=None, description="""Sex-specific stratum, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'sex', 'domain_of': ['PhenotypeContext', 'Demographics']} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
-         'domain_of': ['PhenotypeContext', 'ProgressionInfo', 'Demographics'],
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
 
 
@@ -12281,6 +13614,8 @@ class AssociationMetric(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12332,6 +13667,8 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12373,6 +13710,8 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12427,6 +13766,8 @@ class GOEnrichment(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12497,6 +13838,8 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12537,6 +13880,8 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12593,6 +13938,8 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12633,6 +13980,8 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12697,6 +14046,8 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12738,6 +14089,8 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'CausalEdge',
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12779,6 +14132,8 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12816,6 +14171,148 @@ class DiseaseCollection(ConfiguredBaseModel):
          'tree_root': True})
 
     diseases: Optional[list[Disease]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'diseases', 'domain_of': ['DiseaseCollection']} })
+
+
+class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
+    """
+    FDA surrogate endpoint table import preserving row-level source provenance
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'alias': 'source_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_sha256',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'alias': 'source_content_current_as_of',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'alias': 'retrieved_date',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    surrogate_endpoints: list[SurrogateEndpoint] = Field(default=..., description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoints',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
 
 
 # Model rebuild
@@ -12867,6 +14364,9 @@ EvidenceItem.model_rebuild()
 CausalEdge.model_rebuild()
 TreatmentMechanismTarget.model_rebuild()
 ModelMechanismLink.model_rebuild()
+BiomarkerReadout.model_rebuild()
+SurrogateEndpoint.model_rebuild()
+SurrogateEndpointCollection.model_rebuild()
 ProteinStructure.model_rebuild()
 PublicationReference.model_rebuild()
 ExternalAssertion.model_rebuild()
@@ -12926,3 +14426,4 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
+FDASurrogateEndpointCollection.model_rebuild()

@@ -1,0 +1,258 @@
+---
+reference_id: "DOI:10.1200/jco.23.01569"
+title: "Lenvatinib Plus Pembrolizumab Versus Sunitinib in First-Line Treatment of Advanced Renal Cell Carcinoma: Final Prespecified Overall Survival Analysis of CLEAR, a Phase III Study"
+authors:
+- Robert J. Motzer
+- Camillo Porta
+- Masatoshi Eto
+- Thomas Powles
+- Viktor Grünwald
+- Thomas E. Hutson
+- Boris Alekseev
+- Sun Young Rha
+- Jaime Merchan
+- Jeffrey C. Goh
+- Aly-Khan A. Lalani
+- Ugo De Giorgi
+- Bohuslav Melichar
+- Sung-Hoo Hong
+- Howard Gurney
+- María José Méndez-Vidal
+- Evgeny Kopyltsov
+- Sergei Tjulandin
+- Teresa Alonso Gordoa
+- Vadim Kozlov
+- Anna Alyasova
+- Eric Winquist
+- Pablo Maroto
+- Miso Kim
+- Avivit Peer
+- Giuseppe Procopio
+- Toshio Takagi
+- Shirley Wong
+- Jens Bedke
+- Manuela Schmidinger
+- Karla Rodriguez-Lopez
+- Joseph Burgents
+- Cixin He
+- Chinyere E. Okpara
+- Jodi McKenzie
+- Toni K. Choueiri
+- Robert J. Motzer
+- Toni Choueiri
+- Thomas Hutson
+- Luke Nordquist
+- David Spigel
+- Jaime Merchan
+- Saby George
+- Sandhya Srinivas
+- Brendan Curti
+- Andrew Pippas
+- Elisabeth Heath
+- Subramanya Rao
+- Theodore Gourdin
+- Mehmood Hashmi
+- Nafisa Burhani
+- Ana Molina
+- Alan Koletsky
+- Robert Alter
+- Carlos Alemany
+- Benjamin Gartrell
+- Mike Cusnir
+- Harsha Vyas
+- Stephanie Graff
+- Christian Squillante
+- Mark Knapp
+- Ivor Percent
+- Vijay Patel
+- Daniel Spitz
+- Cameron Harkness
+- Marc Matrana
+- Lindsay Overton
+- Stephen Richey
+- Donald Richards
+- Habib Ghaddar
+- Robert Galamaga
+- Ralph Hauke
+- Joseph Haggerty
+- Ronald Harris
+- Mark Johns
+- Samith Kochuparambil
+- Christian Kollmannsberger
+- Bobby Shayegan
+- Christina Canil
+- Eric Winquist
+- Catherine Sperlich
+- Georg Bjarnason
+- Naveen Basappa
+- Wolfgang Loidl
+- Wolfgang Horninger
+- Manuela Schmidinger
+- "Lionel D'Hondt"
+- Dirk Schrijvers
+- Annemie Rutten
+- Peter Schatteman
+- Wim Wynendaele
+- Daisy Luyten
+- Spyridon Sideris
+- Christine Gennigens
+- Bohuslav Melichar
+- Jana Katolicka
+- Jiri Tomasek
+- Jana Prausova
+- Tomas Buchler
+- Petra Holeckova
+- Philippe Barthelemy
+- Diego Tosi
+- Baptiste Abbar
+- Sylvie Negrier
+- Stephane Oudard
+- Eric Voog
+- Sylvie Zanetta
+- Frederic Rolland
+- Jens Bedke
+- Stefan Siemer
+- Manfred Wirth
+- Jan Schleicher
+- Maria De Santis
+- Lothar Bergmann
+- Michael Staehler
+- Philipp Ivanyi
+- Christoph Lutz
+- Gunhild Von Amsberg
+- Martin Boegemann
+- Uwe Zimmermann
+- Raymond McDermott
+- Richard Bambury
+- Paul Donnellan
+- Oscar Breathnach
+- Raya Leibowitz-Amit
+- Olesya Goldman
+- Avivit Peer
+- David Sarid
+- Hovav Nechushtan
+- Raanan Berger
+- Victoria Neiman
+- Fabio Calabro
+- Paolo Pedrazzoli
+- Francesco Boccardo
+- Alketa Hamzaj
+- Ferdinando Riccardi
+- Ugo De Giorgi
+- Sandro Pignata
+- Sandra Santarossa
+- Francesco Massari
+- Giuseppe Tonini
+- Caterina Accettura
+- Francesco Carrozza
+- Roberto Sabbatini
+- Elena Verzoni
+- Elisa Biscaldi
+- Britt Suelmann
+- Alfonsus van den Eertwegh
+- Hans van Thienen
+- Ewa Kalinka
+- Jacek Jassem
+- Violetta Sulzyc-Bielicka
+- Slawomir Mandziuk
+- Sergei Tjulandin
+- Oleg Karyakin
+- Anna Alyasova
+- Boris Alekseev
+- Alexander Zyrianov
+- Vsevolod Matveev
+- Evgeny Kopyltsov
+- Vadim Kozlov
+- Jose Angel Arranz Arija
+- Pablo Borrega Garcia
+- Miguel Angel Climent Duran
+- Begona Perez Valderrama
+- Emilio Esteban Gonzalez
+- Francisco Javier Garcia del Muro Solans
+- Jesus Garcia-Donas Jimenez
+- Teresa Alonso Gordoa
+- Jose Pablo Maroto Rey
+- Begoña Mellado Gonzalez
+- Maria Jose Mendez Vidal
+- Javier Puente Vazquez
+- Cristina Suarez Rodriguez
+- Enrique Grande Pulido
+- Guillermo Crespo
+- Natalia Fernandez Nuñez
+- Ignacio Duran Martinez
+- Joerg Beyer
+- Natalie Fischer
+- Hilary Glen
+- Ricky Frazer
+- Jennifer Allison
+- Thomas Powles
+- Jahangeer Malik
+- Christy Ralph
+- Sarah Rudman
+- Thomas Geldart
+- Aristotelis Bamias
+- Sofia Baka
+- Vassilios Georgoulias
+- Konstantinos Papazisis
+- Haralabos Kalofonos
+- Eleni Timotheadou
+- Seok-Soo Byun
+- Bumjin Lim
+- Sun Young Rha
+- Seong Il Seo
+- Jinsoo Chung
+- Miso Kim
+- Sung-Hoo Hong
+- Jae Lyun Lee
+- Se Hoon Park
+- Tae Gyun Kwon
+- Ian Davis
+- Shirley Wong
+- Ian Byard
+- Andrew Weickhardt
+- Howard Gurney
+- Jeffrey Goh
+- Takahiro Osawa
+- Naoya Masumori
+- Shingo Hatakeyama
+- Mitsuru Saito
+- Yoshihiko Tomita
+- Yuji Miura
+- Masayoshi Nagata
+- Go Kimura
+- Mototsugu Oya
+- Toshio Takagi
+- Yu Nakamura
+- Hisashi Hasumi
+- Masatsugu Iwamura
+- Akira Komiya
+- Atsushi Komaru
+- Masafumi Oyama
+- Yoshihisa Matsukawa
+- Norihito Soga
+- Minoru Kato
+- Masahiro Nozawa
+- Makito Miyake
+- Yuzo Nakano
+- Kohei Edamura
+- Nobuyuki Hinata
+- Homare Okazoe
+- Masayuki Takahashi
+- Masatoshi Eto
+- Kojiro Oba
+- Takeshi Kishida
+- Osamu Ukimura
+journal: Journal of Clinical Oncology
+year: '2024'
+doi: 10.1200/jco.23.01569
+content_type: abstract_only
+---
+
+# Lenvatinib Plus Pembrolizumab Versus Sunitinib in First-Line Treatment of Advanced Renal Cell Carcinoma: Final Prespecified Overall Survival Analysis of CLEAR, a Phase III Study
+**Authors:** Robert J. Motzer, Camillo Porta, Masatoshi Eto, Thomas Powles, Viktor Grünwald, Thomas E. Hutson, Boris Alekseev, Sun Young Rha, Jaime Merchan, Jeffrey C. Goh, Aly-Khan A. Lalani, Ugo De Giorgi, Bohuslav Melichar, Sung-Hoo Hong, Howard Gurney, María José Méndez-Vidal, Evgeny Kopyltsov, Sergei Tjulandin, Teresa Alonso Gordoa, Vadim Kozlov, Anna Alyasova, Eric Winquist, Pablo Maroto, Miso Kim, Avivit Peer, Giuseppe Procopio, Toshio Takagi, Shirley Wong, Jens Bedke, Manuela Schmidinger, Karla Rodriguez-Lopez, Joseph Burgents, Cixin He, Chinyere E. Okpara, Jodi McKenzie, Toni K. Choueiri, Robert J. Motzer, Toni Choueiri, Thomas Hutson, Luke Nordquist, David Spigel, Jaime Merchan, Saby George, Sandhya Srinivas, Brendan Curti, Andrew Pippas, Elisabeth Heath, Subramanya Rao, Theodore Gourdin, Mehmood Hashmi, Nafisa Burhani, Ana Molina, Alan Koletsky, Robert Alter, Carlos Alemany, Benjamin Gartrell, Mike Cusnir, Harsha Vyas, Stephanie Graff, Christian Squillante, Mark Knapp, Ivor Percent, Vijay Patel, Daniel Spitz, Cameron Harkness, Marc Matrana, Lindsay Overton, Stephen Richey, Donald Richards, Habib Ghaddar, Robert Galamaga, Ralph Hauke, Joseph Haggerty, Ronald Harris, Mark Johns, Samith Kochuparambil, Christian Kollmannsberger, Bobby Shayegan, Christina Canil, Eric Winquist, Catherine Sperlich, Georg Bjarnason, Naveen Basappa, Wolfgang Loidl, Wolfgang Horninger, Manuela Schmidinger, Lionel D'Hondt, Dirk Schrijvers, Annemie Rutten, Peter Schatteman, Wim Wynendaele, Daisy Luyten, Spyridon Sideris, Christine Gennigens, Bohuslav Melichar, Jana Katolicka, Jiri Tomasek, Jana Prausova, Tomas Buchler, Petra Holeckova, Philippe Barthelemy, Diego Tosi, Baptiste Abbar, Sylvie Negrier, Stephane Oudard, Eric Voog, Sylvie Zanetta, Frederic Rolland, Jens Bedke, Stefan Siemer, Manfred Wirth, Jan Schleicher, Maria De Santis, Lothar Bergmann, Michael Staehler, Philipp Ivanyi, Christoph Lutz, Gunhild Von Amsberg, Martin Boegemann, Uwe Zimmermann, Raymond McDermott, Richard Bambury, Paul Donnellan, Oscar Breathnach, Raya Leibowitz-Amit, Olesya Goldman, Avivit Peer, David Sarid, Hovav Nechushtan, Raanan Berger, Victoria Neiman, Fabio Calabro, Paolo Pedrazzoli, Francesco Boccardo, Alketa Hamzaj, Ferdinando Riccardi, Ugo De Giorgi, Sandro Pignata, Sandra Santarossa, Francesco Massari, Giuseppe Tonini, Caterina Accettura, Francesco Carrozza, Roberto Sabbatini, Elena Verzoni, Elisa Biscaldi, Britt Suelmann, Alfonsus van den Eertwegh, Hans van Thienen, Ewa Kalinka, Jacek Jassem, Violetta Sulzyc-Bielicka, Slawomir Mandziuk, Sergei Tjulandin, Oleg Karyakin, Anna Alyasova, Boris Alekseev, Alexander Zyrianov, Vsevolod Matveev, Evgeny Kopyltsov, Vadim Kozlov, Jose Angel Arranz Arija, Pablo Borrega Garcia, Miguel Angel Climent Duran, Begona Perez Valderrama, Emilio Esteban Gonzalez, Francisco Javier Garcia del Muro Solans, Jesus Garcia-Donas Jimenez, Teresa Alonso Gordoa, Jose Pablo Maroto Rey, Begoña Mellado Gonzalez, Maria Jose Mendez Vidal, Javier Puente Vazquez, Cristina Suarez Rodriguez, Enrique Grande Pulido, Guillermo Crespo, Natalia Fernandez Nuñez, Ignacio Duran Martinez, Joerg Beyer, Natalie Fischer, Hilary Glen, Ricky Frazer, Jennifer Allison, Thomas Powles, Jahangeer Malik, Christy Ralph, Sarah Rudman, Thomas Geldart, Aristotelis Bamias, Sofia Baka, Vassilios Georgoulias, Konstantinos Papazisis, Haralabos Kalofonos, Eleni Timotheadou, Seok-Soo Byun, Bumjin Lim, Sun Young Rha, Seong Il Seo, Jinsoo Chung, Miso Kim, Sung-Hoo Hong, Jae Lyun Lee, Se Hoon Park, Tae Gyun Kwon, Ian Davis, Shirley Wong, Ian Byard, Andrew Weickhardt, Howard Gurney, Jeffrey Goh, Takahiro Osawa, Naoya Masumori, Shingo Hatakeyama, Mitsuru Saito, Yoshihiko Tomita, Yuji Miura, Masayoshi Nagata, Go Kimura, Mototsugu Oya, Toshio Takagi, Yu Nakamura, Hisashi Hasumi, Masatsugu Iwamura, Akira Komiya, Atsushi Komaru, Masafumi Oyama, Yoshihisa Matsukawa, Norihito Soga, Minoru Kato, Masahiro Nozawa, Makito Miyake, Yuzo Nakano, Kohei Edamura, Nobuyuki Hinata, Homare Okazoe, Masayuki Takahashi, Masatoshi Eto, Kojiro Oba, Takeshi Kishida, Osamu Ukimura
+**Journal:** Journal of Clinical Oncology (2024)
+**DOI:** [10.1200/jco.23.01569](https://doi.org/10.1200/jco.23.01569)
+
+## Content
+
+Clinical trials frequently include multiple end points that mature at different times. The initial report, typically based on the primary end point, may be published when key planned co-primary or secondary analyses are not yet available. Clinical trial updates provide an opportunity to disseminate additional results from studies, published in JCO or elsewhere, for which the primary end point has already been reported.  We present the final prespecified overall survival (OS) analysis of the open-label, phase III CLEAR study in treatment-naïve patients with advanced renal cell carcinoma (aRCC). With an additional follow-up of 23 months from the primary analysis, we report results from the lenvatinib plus pembrolizumab versus sunitinib comparison of CLEAR. Treatment-naïve patients with aRCC were randomly assigned to receive lenvatinib (20 mg orally once daily in 21-day cycles) plus pembrolizumab (200 mg intravenously once every 3 weeks) or sunitinib (50 mg orally once daily [4 weeks on/2 weeks off]). At this data cutoff date (July 31, 2022), the OS hazard ratio (HR) was 0.79 (95% CI, 0.63 to 0.99). The median OS (95% CI) was 53.7 months (95% CI, 48.7 to not estimable [NE]) with lenvatinib plus pembrolizumab versus 54.3 months (95% CI, 40.9 to NE) with sunitinib; 36-month OS rates (95% CI) were 66.4% (95% CI, 61.1 to 71.2) and 60.2% (95% CI, 54.6 to 65.2), respectively. The median progression-free survival (95% CI) was 23.9 months (95% CI, 20.8 to 27.7) with lenvatinib plus pembrolizumab and 9.2 months (95% CI, 6.0 to 11.0) with sunitinib (HR, 0.47 [95% CI, 0.38 to 0.57]). Objective response rate also favored the combination over sunitinib (71.3% v 36.7%; relative risk 1.94 [95% CI, 1.67 to 2.26]). Treatment-emergent adverse events occurred in >90% of patients who received either treatment. In conclusion, lenvatinib plus pembrolizumab achieved consistent, durable benefit with a manageable safety profile in treatment-naïve patients with aRCC.

@@ -184,6 +184,22 @@ validate-comorbidities-all:
         exit 1
     fi
 
+# Validate all surrogate endpoint collection YAML files
+[group('QC')]
+validate-surrogate-endpoints:
+    #!/usr/bin/env bash
+    set -e
+    shopt -s nullglob
+    files=(kb/surrogate_endpoints/*.yaml)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No surrogate endpoint collection files found."
+        exit 0
+    fi
+    for f in "${files[@]}"; do
+        echo "=== $(basename "$f") ==="
+        uv run linkml-validate --schema {{schema_path}} --target-class FDASurrogateEndpointCollection "$f"
+    done
+
 # Validate all mechanism module YAML files (schema + terms + references)
 [group('QC')]
 validate-modules:
@@ -941,11 +957,48 @@ cohd-add-signal file *args="":
 refresh-orphadata:
     uv run python -m dismech.structured_sources.cli refresh orphanet
 
+# Refresh ClinGen Gene-Disease Validity CSV (pinned by data/clingen/MANIFEST.yaml)
+[group('Research')]
+clingen-refresh:
+    uv run python -m dismech.structured_sources.cli refresh clingen
+
+# Refresh ClinGen Dosage Sensitivity TSV (pinned by data/clingen-dosage/MANIFEST.yaml)
+[group('Research')]
+clingen-dosage-refresh:
+    uv run python -m dismech.structured_sources.cli refresh clingen-dosage
+
 # Rebuild every references_cache/ORPHA_*.md from current bulk XML
 # Use --id to limit to specific ORPHA codes.
 [group('Research')]
 structured-rebuild-orphanet *args="":
     uv run python -m dismech.structured_sources.cli rebuild orphanet {{args}}
+
+# Rebuild every references_cache/CGGV_*.md from current ClinGen CSV
+# Use --id to limit to specific CGGV assertion IDs.
+[group('Research')]
+clingen-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild clingen {{args}}
+
+# Rebuild every references_cache/CGDS_*.md from current ClinGen Dosage TSV
+# Use --id to limit to specific CGDS or HGNC identifiers.
+[group('Research')]
+clingen-dosage-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild clingen-dosage {{args}}
+
+# List the first N ClinGen Gene-Disease Validity assertion IDs
+[group('Research')]
+clingen-list limit="20":
+    uv run python -m dismech.structured_sources.cli list clingen --limit {{limit}}
+
+# List the first N ClinGen Dosage Sensitivity gene IDs
+[group('Research')]
+clingen-dosage-list limit="20":
+    uv run python -m dismech.structured_sources.cli list clingen-dosage --limit {{limit}}
+
+# Audit ClinGen Gene-Disease Validity coverage in disorder YAML
+[group('Research')]
+clingen-audit-yaml *args="":
+    uv run python -m dismech.structured_sources.cli clingen-audit-yaml {{args}}
 
 # List the first N identifiers from a structured source
 [group('Research')]

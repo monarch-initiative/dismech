@@ -167,6 +167,71 @@ def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> 
     assert node_types["F508del"] == "genetic"
 
 
+def test_build_causal_graph_includes_biomarker_readout_links() -> None:
+    """Biochemical marker readouts should add observational pathograph edges."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Membrane Injury",
+                "downstream": [{"target": "Muscle Weakness"}],
+            }
+        ],
+        "phenotypes": [{"name": "Muscle Weakness"}],
+        "biochemical": [
+            {
+                "name": "Creatine Kinase",
+                "presence": "Elevated",
+                "biomarker_term": {
+                    "preferred_term": "creatine kinase measurement",
+                    "term": {
+                        "id": "NCIT:C64489",
+                        "label": "Creatine Kinase Measurement",
+                    },
+                },
+                "readouts": [
+                    {
+                        "target": "Membrane Injury",
+                        "relationship": "READOUT_OF",
+                        "direction": "POSITIVE",
+                        "endpoint_context": "MONITORING",
+                        "interpretation": "Higher CK reflects greater membrane injury.",
+                    }
+                ],
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    assert ("Membrane Injury", "Creatine Kinase", "readout") in edges
+
+    data = json.loads(graph_to_json(graph, disorder))
+    edge = next(
+        edge
+        for edge in data["edges"]
+        if edge["source"] == "Membrane Injury" and edge["target"] == "Creatine Kinase"
+    )
+    assert edge["predicate"] == "readout"
+    assert edge["relationship"] == "READOUT_OF"
+    assert edge["direction"] == "POSITIVE"
+    assert edge["endpoint_context"] == "MONITORING"
+
+    node = next(node for node in data["nodes"] if node["id"] == "Creatine Kinase")
+    assert node["node_type"] == "biochemical"
+    assert node["meta"]["presence"] == "Elevated"
+    assert node["meta"]["readouts"] == [
+        {
+            "target": "Membrane Injury",
+            "relationship": "READOUT_OF",
+            "direction": "POSITIVE",
+            "endpoint_context": "MONITORING",
+            "interpretation": "Higher CK reflects greater membrane injury.",
+        }
+    ]
+
+
 def test_graph_to_json_includes_matching_histopathology_terms() -> None:
     """Matching pathograph nodes should expose NCIT-backed histopathology metadata."""
     disorder = {
