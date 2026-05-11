@@ -1348,6 +1348,146 @@ class BiomarkerEndpointContextEnum(str, Enum):
     """
 
 
+class SurrogateEndpointTableEnum(str, Enum):
+    """
+    FDA surrogate endpoint table section from which a row was curated
+    """
+    Adult_non_cancer_related = "ADULT_NONCANCER"
+    """
+    Adult Surrogate Endpoints - Non-cancer Related
+    """
+    Adult_cancer_related = "ADULT_CANCER"
+    """
+    Adult Surrogate Endpoints - Cancer Related
+    """
+    Pediatric_non_cancer_related = "PEDIATRIC_NONCANCER"
+    """
+    Pediatric Surrogate Endpoints - Non-cancer Related
+    """
+    Pediatric_cancer_related = "PEDIATRIC_CANCER"
+    """
+    Pediatric Surrogate Endpoints - Cancer Related
+    """
+
+
+class SurrogateEndpointApprovalTypeEnum(str, Enum):
+    """
+    Regulatory approval pathway context represented in the FDA surrogate endpoint table
+    """
+    Accelerated = "ACCELERATED"
+    """
+    Endpoint may support accelerated approval in the curated context
+    """
+    Traditional = "TRADITIONAL"
+    """
+    Endpoint may support traditional approval in the curated context
+    """
+    Accelerated_or_traditional = "ACCELERATED_OR_TRADITIONAL"
+    """
+    Endpoint may support accelerated or traditional approval depending on context of use
+    """
+    Traditional_and_monograph = "TRADITIONAL_AND_MONOGRAPH"
+    """
+    Endpoint appears in FDA table as traditional and monograph
+    """
+
+
+class SurrogateEndpointValidationLevelEnum(str, Enum):
+    """
+    BEST-aligned regulatory validation level inferred or curated for a surrogate endpoint
+    """
+    Validated_surrogate_endpoint = "VALIDATED_SURROGATE_ENDPOINT"
+    """
+    Supported by clinical data providing strong evidence that the endpoint predicts clinical benefit
+    """
+    Reasonably_likely_surrogate_endpoint = "REASONABLY_LIKELY_SURROGATE_ENDPOINT"
+    """
+    Supported by strong mechanistic and/or epidemiologic rationale, but without sufficient clinical validation for full surrogate validation
+    """
+    Context_dependent_surrogate_endpoint = "CONTEXT_DEPENDENT_SURROGATE_ENDPOINT"
+    """
+    Validation and approval pathway depend on context of use, disease setting, effect size, duration, residual uncertainty, and available therapy
+    """
+
+
+class ClinicalBenefitLinkageEnum(str, Enum):
+    """
+    How a surrogate endpoint is linked to clinical benefit in the regulatory context
+    """
+    Known_to_predict_clinical_benefit = "KNOWN_TO_PREDICT_CLINICAL_BENEFIT"
+    """
+    FDA table approval context indicates the endpoint is known to predict clinical benefit for the curated context
+    """
+    Reasonably_likely_to_predict_clinical_benefit = "REASONABLY_LIKELY_TO_PREDICT_CLINICAL_BENEFIT"
+    """
+    FDA table approval context indicates the endpoint is reasonably likely to predict clinical benefit
+    """
+    Context_dependent = "CONTEXT_DEPENDENT"
+    """
+    Clinical-benefit linkage depends on context of use and approval pathway
+    """
+
+
+class SurrogateEndpointFootnoteEnum(str, Enum):
+    """
+    Footnotes and symbols used in the FDA surrogate endpoint workbook
+    """
+    Composite_biomarker_surrogate = "COMPOSITE_BIOMARKER_SURROGATE"
+    """
+    Surrogate endpoint is part of a composite of biomarker surrogate endpoints
+    """
+    Mechanism_agnostic = "MECHANISM_AGNOSTIC"
+    """
+    Many mechanisms of action are associated with the surrogate endpoint, so it is not directly related to a particular causal pathway
+    """
+    Tumor_burden_context_dependent = "TUMOR_BURDEN_CONTEXT_DEPENDENT"
+    """
+    Tumor-burden endpoints may support accelerated or traditional approval depending on context of use
+    """
+    Anticipated_primary_efficacy_use = "ANTICIPATED_PRIMARY_EFFICACY_USE"
+    """
+    FDA anticipates the endpoint could be appropriate as a primary efficacy endpoint although it has not yet supported an approved NDA or BLA
+    """
+    Bone_mineral_density_context = "BONE_MINERAL_DENSITY_CONTEXT"
+    """
+    Bone mineral density footnote for male or glucocorticoid-induced osteoporosis contexts
+    """
+    Clinical_endpoints_required = "CLINICAL_ENDPOINTS_REQUIRED"
+    """
+    Clinical endpoints were required for the approvals
+    """
+    Arrhythmia_response_definition = "ARRHYTHMIA_RESPONSE_DEFINITION"
+    """
+    Specialized response definition footnote for supraventricular tachycardia endpoint
+    """
+
+
+class SurrogateEndpointMappingStatusEnum(str, Enum):
+    """
+    Status of mapping an FDA disease/use row to dismech disease entries
+    """
+    Exact_dismech_match = "EXACT_DISMECH_MATCH"
+    """
+    FDA disease/use maps directly to an existing dismech disease entry
+    """
+    Curated_dismech_mapping = "CURATED_DISMECH_MAPPING"
+    """
+    Mapping was manually curated despite non-identical labels
+    """
+    Candidate_dismech_mapping = "CANDIDATE_DISMECH_MAPPING"
+    """
+    Row mentions a disease represented in dismech but the FDA disease/use row is broader, multi-condition, or otherwise requires review
+    """
+    Needs_curation = "NEEDS_CURATION"
+    """
+    No dismech disease mapping has been assigned yet
+    """
+    Not_disease_specific = "NOT_DISEASE_SPECIFIC"
+    """
+    FDA row is a use, vaccine, or broad product context rather than a directly mappable disease entry
+    """
+
+
 class GeneProductTerm(str):
     """
     A gene product term from NCIT. Includes proteins, fusion proteins, oncoproteins, and other gene products involved in disease mechanisms.
@@ -2113,6 +2253,7 @@ class Descriptor(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2211,6 +2352,7 @@ class DietaryModification(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2269,6 +2411,7 @@ class CellTypeDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2353,6 +2496,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2437,6 +2581,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2521,6 +2666,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2605,6 +2751,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2689,6 +2836,7 @@ class GeneDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2773,6 +2921,7 @@ class CellularComponentDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2857,6 +3006,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -2940,6 +3090,7 @@ class AssayDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3023,6 +3174,7 @@ class TriggerDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3106,6 +3258,7 @@ class DiseaseDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3190,6 +3343,7 @@ class SubtypeDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3273,6 +3427,7 @@ class BiomarkerDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3356,6 +3511,7 @@ class GeneProductDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3446,6 +3602,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3529,6 +3686,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3612,6 +3770,7 @@ class PhenotypeDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3696,6 +3855,7 @@ class InheritanceDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3825,6 +3985,7 @@ class TreatmentDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3908,6 +4069,7 @@ class RegimenDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -3996,6 +4158,7 @@ class ExposureDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4082,6 +4245,7 @@ class EnvironmentDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4170,6 +4334,7 @@ class FoodDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4253,6 +4418,7 @@ class OrganismDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4336,6 +4502,7 @@ class HostDescriptor(OrganismDescriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4417,6 +4584,7 @@ class SampleTypeDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4505,6 +4673,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4544,6 +4713,8 @@ class GeneticContext(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4596,6 +4767,8 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4666,6 +4839,8 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4708,6 +4883,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -4746,7 +4922,10 @@ class PhenotypeContext(ConfiguredBaseModel):
          'domain_of': ['PhenotypeContext', 'Prevalence', 'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
-         'domain_of': ['PhenotypeContext', 'ProgressionInfo', 'Demographics'],
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'subtype',
          'domain_of': ['PhenotypeContext',
@@ -4799,6 +4978,7 @@ class Dataset(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -4865,6 +5045,7 @@ class Dataset(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -4906,6 +5087,8 @@ class Dataset(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -4958,6 +5141,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -4997,6 +5181,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5068,6 +5253,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5109,6 +5295,8 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5182,6 +5370,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5221,6 +5410,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5273,6 +5463,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5321,6 +5512,8 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5386,6 +5579,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5425,6 +5619,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5492,6 +5687,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -5533,6 +5729,8 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5587,6 +5785,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5629,6 +5828,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5672,6 +5872,8 @@ class ModelVariable(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -5727,6 +5929,7 @@ class SeverityTier(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5791,6 +5994,7 @@ class ModelVariableDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5881,6 +6085,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -5920,6 +6125,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -5964,6 +6170,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6005,6 +6212,8 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -6049,6 +6258,7 @@ class Subtype(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6091,6 +6301,7 @@ class Subtype(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6132,6 +6343,7 @@ class Subtype(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6274,6 +6486,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6315,6 +6528,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6386,6 +6600,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6427,6 +6642,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6500,6 +6716,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6541,6 +6758,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6635,6 +6853,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6676,6 +6895,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6709,6 +6929,325 @@ class BiomarkerReadout(ConfiguredBaseModel):
          'recommended': True} })
 
 
+class SurrogateEndpoint(ConfiguredBaseModel):
+    """
+    A regulatory surrogate endpoint assertion curated from FDA's surrogate endpoint table or a similar authoritative source. This captures an endpoint used as a substitute for direct clinical benefit in a specified disease/use, patient population, approval-pathway, and therapeutic mechanism context.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'approval_type': {'name': 'approval_type', 'required': True},
+                        'clinical_benefit': {'description': 'Specific clinical benefit '
+                                                            'or clinical outcome '
+                                                            'predicted by the '
+                                                            'surrogate endpoint, when '
+                                                            'curated. FDA table rows '
+                                                            'may leave this blank.',
+                                             'name': 'clinical_benefit'},
+                        'clinical_benefit_linkage': {'description': 'BEST-aligned '
+                                                                    'relationship to '
+                                                                    'clinical benefit. '
+                                                                    'FDA table rows '
+                                                                    'usually imply '
+                                                                    'this via the '
+                                                                    'approval pathway '
+                                                                    'rather than '
+                                                                    'naming a specific '
+                                                                    'clinical outcome.',
+                                                     'name': 'clinical_benefit_linkage',
+                                                     'required': True},
+                        'disease_or_use': {'name': 'disease_or_use', 'required': True},
+                        'endpoint_validation_level': {'description': 'BEST-aligned '
+                                                                     'level. For '
+                                                                     'FDA-table rows '
+                                                                     'this is derived '
+                                                                     'from approval '
+                                                                     'type unless a '
+                                                                     'curator '
+                                                                     'overrides it '
+                                                                     'with more '
+                                                                     'specific '
+                                                                     'evidence.',
+                                                      'name': 'endpoint_validation_level',
+                                                      'required': True},
+                        'mapping_status': {'name': 'mapping_status', 'required': True},
+                        'patient_population': {'name': 'patient_population',
+                                               'required': True},
+                        'row_id': {'name': 'row_id', 'required': True},
+                        'source_row_number': {'name': 'source_row_number',
+                                              'required': True},
+                        'source_sheet': {'name': 'source_sheet', 'required': True},
+                        'source_table': {'name': 'source_table', 'required': True},
+                        'surrogate_endpoint': {'name': 'surrogate_endpoint',
+                                               'required': True}}})
+
+    row_id: str = Field(default=..., description="""Stable row identifier assigned during source-table curation""", json_schema_extra = { "linkml_meta": {'alias': 'row_id', 'domain_of': ['SurrogateEndpoint']} })
+    source_table: SurrogateEndpointTableEnum = Field(default=..., description="""FDA surrogate endpoint table section from which the row was curated""", json_schema_extra = { "linkml_meta": {'alias': 'source_table', 'domain_of': ['SurrogateEndpoint']} })
+    source_sheet: str = Field(default=..., description="""Spreadsheet worksheet name or source table label""", json_schema_extra = { "linkml_meta": {'alias': 'source_sheet', 'domain_of': ['SurrogateEndpoint']} })
+    source_row_number: int = Field(default=..., description="""Row number in the source spreadsheet worksheet""", json_schema_extra = { "linkml_meta": {'alias': 'source_row_number', 'domain_of': ['SurrogateEndpoint']} })
+    disease_or_use: str = Field(default=..., description="""FDA disease or use text for a surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'disease_or_use', 'domain_of': ['SurrogateEndpoint']} })
+    patient_population: str = Field(default=..., description="""FDA patient population text for a surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'patient_population', 'domain_of': ['SurrogateEndpoint']} })
+    surrogate_endpoint: str = Field(default=..., description="""Surrogate endpoint text from the FDA surrogate endpoint table""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoint', 'domain_of': ['SurrogateEndpoint']} })
+    approval_type: SurrogateEndpointApprovalTypeEnum = Field(default=..., description="""FDA approval pathway context for the surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'approval_type', 'domain_of': ['SurrogateEndpoint']} })
+    drug_mechanism_of_action: Optional[str] = Field(default=None, description="""FDA drug mechanism-of-action context for the surrogate endpoint row""", json_schema_extra = { "linkml_meta": {'alias': 'drug_mechanism_of_action', 'domain_of': ['SurrogateEndpoint']} })
+    age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
+         'examples': [{'value': 'Childhood-Adolescence'}]} })
+    endpoint_validation_level: SurrogateEndpointValidationLevelEnum = Field(default=..., description="""BEST-aligned level. For FDA-table rows this is derived from approval type unless a curator overrides it with more specific evidence.""", json_schema_extra = { "linkml_meta": {'alias': 'endpoint_validation_level', 'domain_of': ['SurrogateEndpoint']} })
+    clinical_benefit_linkage: ClinicalBenefitLinkageEnum = Field(default=..., description="""BEST-aligned relationship to clinical benefit. FDA table rows usually imply this via the approval pathway rather than naming a specific clinical outcome.""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_benefit_linkage', 'domain_of': ['SurrogateEndpoint']} })
+    clinical_benefit: Optional[str] = Field(default=None, description="""Specific clinical benefit or clinical outcome predicted by the surrogate endpoint, when curated. FDA table rows may leave this blank.""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_benefit', 'domain_of': ['SurrogateEndpoint']} })
+    clinical_benefit_linkage_basis: Optional[str] = Field(default=None, description="""Explanation of how the clinical-benefit linkage was inferred or curated""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_benefit_linkage_basis', 'domain_of': ['SurrogateEndpoint']} })
+    footnotes: Optional[list[SurrogateEndpointFootnoteEnum]] = Field(default=None, description="""FDA workbook footnote semantics attached to the source row""", json_schema_extra = { "linkml_meta": {'alias': 'footnotes', 'domain_of': ['SurrogateEndpoint']} })
+    context_of_use: Optional[str] = Field(default=None, description="""Concise context-of-use statement combining disease/use, population, endpoint, approval type, and therapeutic mechanism""", json_schema_extra = { "linkml_meta": {'alias': 'context_of_use', 'domain_of': ['SurrogateEndpoint']} })
+    mapping_status: SurrogateEndpointMappingStatusEnum = Field(default=..., description="""Status of mapping the FDA disease/use row to dismech disease entries""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_status', 'domain_of': ['SurrogateEndpoint']} })
+    mapped_diseases: Optional[list[str]] = Field(default=None, description="""Names of dismech disease entries mapped or candidate-mapped to this FDA row""", json_schema_extra = { "linkml_meta": {'alias': 'mapped_diseases', 'domain_of': ['SurrogateEndpoint']} })
+    mapped_disease_files: Optional[list[str]] = Field(default=None, description="""Relative paths of dismech disease YAML files mapped or candidate-mapped to this FDA row""", json_schema_extra = { "linkml_meta": {'alias': 'mapped_disease_files', 'domain_of': ['SurrogateEndpoint']} })
+    mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes',
+         'domain_of': ['SurrogateEndpoint', 'AssociationSignal']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'alias': 'source_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_sha256',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'alias': 'source_content_current_as_of',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'alias': 'retrieved_date',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
+         'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class SurrogateEndpointCollection(ConfiguredBaseModel):
+    """
+    A source-level collection of curated regulatory surrogate endpoint assertions
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'name': {'name': 'name', 'required': True},
+                        'surrogate_endpoints': {'name': 'surrogate_endpoints',
+                                                'required': True}}})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'alias': 'source_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_sha256',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'alias': 'source_content_current_as_of',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'alias': 'retrieved_date',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    surrogate_endpoints: list[SurrogateEndpoint] = Field(default=..., description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoints',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
 class ProteinStructure(ConfiguredBaseModel):
     """
     A 3D protein structure from PDB or AlphaFold relevant to understanding a treatment's mechanism of action. Enables embedded 3D visualization of drug-target interactions via Mol* viewer.
@@ -6731,6 +7270,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6813,6 +7353,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -6856,6 +7397,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6897,6 +7439,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -6938,6 +7481,8 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7002,6 +7547,8 @@ class TrackedIssue(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7054,6 +7601,7 @@ class Finding(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7120,6 +7668,7 @@ class Prevalence(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7161,6 +7710,8 @@ class Prevalence(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7209,7 +7760,10 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'Genetic'],
          'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
-         'domain_of': ['PhenotypeContext', 'ProgressionInfo', 'Demographics'],
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'evidence',
          'domain_of': ['PhenotypeContext',
@@ -7223,6 +7777,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7283,6 +7838,8 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7332,6 +7889,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7371,6 +7929,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7413,6 +7972,8 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7463,6 +8024,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7507,6 +8069,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7546,6 +8109,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7591,6 +8155,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7711,6 +8276,8 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7770,6 +8337,7 @@ class Phenotype(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -7819,6 +8387,7 @@ class Phenotype(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7865,6 +8434,7 @@ class Phenotype(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -7932,6 +8502,8 @@ class Phenotype(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -7989,6 +8561,7 @@ class Biochemical(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8042,6 +8615,7 @@ class Biochemical(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8095,6 +8669,8 @@ class Biochemical(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8205,6 +8781,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8252,6 +8829,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8303,6 +8881,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8344,6 +8923,8 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8405,6 +8986,7 @@ class Genetic(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8445,6 +9027,7 @@ class Genetic(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8536,6 +9119,8 @@ class Genetic(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8589,6 +9174,7 @@ class Environmental(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8628,6 +9214,7 @@ class Environmental(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -8669,6 +9256,8 @@ class Environmental(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -8714,6 +9303,7 @@ class Environmental(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8806,6 +9396,7 @@ class Disease(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8852,6 +9443,7 @@ class Disease(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8941,12 +9533,15 @@ class Disease(ConfiguredBaseModel):
     experimental_models: Optional[list[ExperimentalModel]] = Field(default=None, description="""Disease-relevant organoids, cell lines, chip systems, cocultures, and related experimental models curated as mechanism or translational resources.""", json_schema_extra = { "linkml_meta": {'alias': 'experimental_models', 'domain_of': ['Disease'], 'recommended': False} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'alias': 'datasets', 'domain_of': ['Disease'], 'recommended': True} })
     clinical_trials: Optional[list[ClinicalTrial]] = Field(default=None, description="""Clinical trials relevant to disease treatment and research""", json_schema_extra = { "linkml_meta": {'alias': 'clinical_trials', 'domain_of': ['Disease'], 'recommended': False} })
+    surrogate_endpoints: Optional[list[SurrogateEndpoint]] = Field(default=None, description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoints',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
     computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'computational_models', 'domain_of': ['Disease']} })
     classifications: Optional[DiseaseClassifications] = Field(default=None, description="""Classification assignments for this disease from various nosologies""", json_schema_extra = { "linkml_meta": {'alias': 'classifications', 'domain_of': ['Disease']} })
     definitions: Optional[list[Definition]] = Field(default=None, description="""Definitions or diagnostic criteria for this disease""", json_schema_extra = { "linkml_meta": {'alias': 'definitions', 'domain_of': ['Disease']} })
     mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease or subtype (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'alias': 'mappings', 'domain_of': ['Subtype', 'Disease']} })
     external_assertions: Optional[list[ExternalAssertion]] = Field(default=None, description="""External curated assertions or registry records relevant to this entity""", json_schema_extra = { "linkml_meta": {'alias': 'external_assertions', 'domain_of': ['Disease', 'Variant']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -8957,6 +9552,8 @@ class Disease(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9040,6 +9637,7 @@ class Stage(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9079,6 +9677,7 @@ class Stage(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9120,6 +9719,7 @@ class Stage(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9161,6 +9761,8 @@ class Stage(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9246,6 +9848,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9294,6 +9897,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9335,6 +9939,8 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9400,6 +10006,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9440,6 +10047,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9481,6 +10089,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9522,6 +10131,8 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9612,6 +10223,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9657,6 +10269,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9701,6 +10314,7 @@ class Treatment(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9740,6 +10354,7 @@ class Treatment(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9799,6 +10414,7 @@ class Treatment(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -9840,6 +10456,8 @@ class Treatment(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -9916,6 +10534,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9954,6 +10573,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10000,6 +10620,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10043,6 +10664,7 @@ class Transmission(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10082,6 +10704,7 @@ class Transmission(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10123,6 +10746,7 @@ class Transmission(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10164,6 +10788,8 @@ class Transmission(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10210,6 +10836,7 @@ class Assay(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10249,6 +10876,7 @@ class Assay(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10291,6 +10919,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10335,6 +10964,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10376,6 +11006,8 @@ class Diagnosis(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -10427,6 +11059,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10469,6 +11102,7 @@ class Inheritance(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10511,6 +11145,7 @@ class Inheritance(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10557,6 +11192,7 @@ class Inheritance(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10602,6 +11238,7 @@ class Variant(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10641,6 +11278,7 @@ class Variant(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10685,6 +11323,7 @@ class Variant(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -10754,6 +11393,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10802,6 +11442,7 @@ class Mechanism(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10841,6 +11482,7 @@ class Mechanism(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10883,6 +11525,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10922,6 +11565,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10963,6 +11607,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11014,6 +11659,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11055,6 +11701,8 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11115,6 +11763,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11156,6 +11805,8 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11216,6 +11867,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11257,6 +11909,8 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11317,6 +11971,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11358,6 +12013,8 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11418,6 +12075,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11459,6 +12117,8 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11519,6 +12179,7 @@ class IUISAssignment(ClassificationAssignment):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11560,6 +12221,8 @@ class IUISAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11620,6 +12283,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11661,6 +12325,8 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11724,6 +12390,7 @@ class Definition(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11764,6 +12431,7 @@ class Definition(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11809,6 +12477,7 @@ class Definition(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -11850,6 +12519,8 @@ class Definition(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -11897,6 +12568,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11936,6 +12608,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11985,6 +12658,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12026,6 +12700,8 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12080,6 +12756,7 @@ class CriteriaItem(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12152,7 +12829,8 @@ class TermMapping(ConfiguredBaseModel):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -12163,6 +12841,8 @@ class TermMapping(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12218,7 +12898,8 @@ class ICD10CMMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -12229,6 +12910,8 @@ class ICD10CMMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12284,7 +12967,8 @@ class ICD11FMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -12295,6 +12979,8 @@ class ICD11FMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12350,7 +13036,8 @@ class MondoMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -12361,6 +13048,8 @@ class MondoMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12416,7 +13105,8 @@ class NCITMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_source', 'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_justification', 'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'alias': 'consistency', 'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues', 'domain_of': ['Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
          'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -12427,6 +13117,8 @@ class NCITMapping(TermMapping):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12486,6 +13178,8 @@ class MappingConsistency(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12563,6 +13257,7 @@ class ConditionDescriptor(Descriptor):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12646,6 +13341,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'SeverityTier',
                        'DifferentialDiagnosis',
                        'Subtype',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -12696,6 +13392,8 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12774,7 +13472,8 @@ class AssociationSignal(ConfiguredBaseModel):
          'domain_of': ['PhenotypeContext', 'Prevalence', 'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     demographics: Optional[Demographics] = Field(default=None, description="""Demographic stratification for an association signal""", json_schema_extra = { "linkml_meta": {'alias': 'demographics', 'domain_of': ['AssociationSignal']} })
-    mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes', 'domain_of': ['AssociationSignal']} })
+    mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'alias': 'mapping_notes',
+         'domain_of': ['SurrogateEndpoint', 'AssociationSignal']} })
     disorder_a_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder A in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_a_count', 'domain_of': ['AssociationSignal']} })
     disorder_b_count: Optional[int] = Field(default=None, description="""Number of records/patients carrying disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'disorder_b_count', 'domain_of': ['AssociationSignal']} })
     pair_count: Optional[int] = Field(default=None, description="""Number of records/patients with co-occurrence of disorder A and disorder B in the source dataset""", json_schema_extra = { "linkml_meta": {'alias': 'pair_count', 'domain_of': ['AssociationSignal']} })
@@ -12801,6 +13500,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -12842,6 +13542,8 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12883,7 +13585,10 @@ class Demographics(ConfiguredBaseModel):
 
     sex: Optional[SexEnum] = Field(default=None, description="""Sex-specific stratum, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'sex', 'domain_of': ['PhenotypeContext', 'Demographics']} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'alias': 'age_range',
-         'domain_of': ['PhenotypeContext', 'ProgressionInfo', 'Demographics'],
+         'domain_of': ['PhenotypeContext',
+                       'SurrogateEndpoint',
+                       'ProgressionInfo',
+                       'Demographics'],
          'examples': [{'value': 'Childhood-Adolescence'}]} })
 
 
@@ -12909,6 +13614,8 @@ class AssociationMetric(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -12961,6 +13668,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -13002,6 +13710,8 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -13057,6 +13767,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13128,6 +13839,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13169,6 +13881,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -13226,6 +13939,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13267,6 +13981,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -13332,6 +14047,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13374,6 +14090,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'TreatmentMechanismTarget',
                        'ModelMechanismLink',
                        'BiomarkerReadout',
+                       'SurrogateEndpoint',
                        'ExternalAssertion',
                        'Finding',
                        'Prevalence',
@@ -13415,6 +14132,8 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ComputationalModel',
                        'ModelVariable',
                        'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
@@ -13452,6 +14171,148 @@ class DiseaseCollection(ConfiguredBaseModel):
          'tree_root': True})
 
     diseases: Optional[list[Disease]] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'diseases', 'domain_of': ['DiseaseCollection']} })
+
+
+class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
+    """
+    FDA surrogate endpoint table import preserving row-level source provenance
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'alias': 'name',
+         'domain_of': ['ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
+         'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'SurrogateEndpointCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'alias': 'source_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_url',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'alias': 'source_workbook_sha256',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'alias': 'source_content_current_as_of',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'alias': 'retrieved_date',
+         'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    surrogate_endpoints: list[SurrogateEndpoint] = Field(default=..., description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'alias': 'surrogate_endpoints',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'alias': 'tracked_issues',
+         'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'notes',
+         'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment',
+                       'Transmission',
+                       'Diagnosis',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
 
 
 # Model rebuild
@@ -13504,6 +14365,8 @@ CausalEdge.model_rebuild()
 TreatmentMechanismTarget.model_rebuild()
 ModelMechanismLink.model_rebuild()
 BiomarkerReadout.model_rebuild()
+SurrogateEndpoint.model_rebuild()
+SurrogateEndpointCollection.model_rebuild()
 ProteinStructure.model_rebuild()
 PublicationReference.model_rebuild()
 ExternalAssertion.model_rebuild()
@@ -13563,3 +14426,4 @@ ComorbidityHypothesis.model_rebuild()
 UpstreamConditionHypothesis.model_rebuild()
 MechanisticHypothesis.model_rebuild()
 DiseaseCollection.model_rebuild()
+FDASurrogateEndpointCollection.model_rebuild()

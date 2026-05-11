@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-05-10T15:56:11
+# Generation date: 2026-05-10T18:02:02
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -56,8 +56,8 @@ from rdflib import (
     URIRef
 )
 
-from linkml_runtime.linkml_model.types import Boolean, Datetime, Float, Integer, String, Uri, Uriorcurie
-from linkml_runtime.utils.metamodelcore import Bool, URI, URIorCURIE, XSDDateTime
+from linkml_runtime.linkml_model.types import Boolean, Date, Datetime, Float, Integer, String, Uri, Uriorcurie
+from linkml_runtime.utils.metamodelcore import Bool, URI, URIorCURIE, XSDDate, XSDDateTime
 
 metamodel_version = "1.7.0"
 version = None
@@ -163,6 +163,14 @@ class SubtypeName(extended_str):
     pass
 
 
+class SurrogateEndpointRowId(extended_str):
+    pass
+
+
+class SurrogateEndpointCollectionName(extended_str):
+    pass
+
+
 class PublicationReferenceReference(extended_str):
     pass
 
@@ -256,6 +264,10 @@ class CriteriaSetName(extended_str):
 
 
 class ComorbidityAssociationName(extended_str):
+    pass
+
+
+class FDASurrogateEndpointCollectionName(SurrogateEndpointCollectionName):
     pass
 
 
@@ -1923,6 +1935,220 @@ class BiomarkerReadout(YAMLRoot):
 
 
 @dataclass(repr=False)
+class SurrogateEndpoint(YAMLRoot):
+    """
+    A regulatory surrogate endpoint assertion curated from FDA's surrogate endpoint table or a similar authoritative
+    source. This captures an endpoint used as a substitute for direct clinical benefit in a specified disease/use,
+    patient population, approval-pathway, and therapeutic mechanism context.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["SurrogateEndpoint"]
+    class_class_curie: ClassVar[str] = "dismech:SurrogateEndpoint"
+    class_name: ClassVar[str] = "SurrogateEndpoint"
+    class_model_uri: ClassVar[URIRef] = DISMECH.SurrogateEndpoint
+
+    row_id: Union[str, SurrogateEndpointRowId] = None
+    source_table: Union[str, "SurrogateEndpointTableEnum"] = None
+    source_sheet: str = None
+    source_row_number: int = None
+    disease_or_use: str = None
+    patient_population: str = None
+    surrogate_endpoint: str = None
+    approval_type: Union[str, "SurrogateEndpointApprovalTypeEnum"] = None
+    endpoint_validation_level: Union[str, "SurrogateEndpointValidationLevelEnum"] = None
+    clinical_benefit_linkage: Union[str, "ClinicalBenefitLinkageEnum"] = None
+    mapping_status: Union[str, "SurrogateEndpointMappingStatusEnum"] = None
+    drug_mechanism_of_action: Optional[str] = None
+    age_range: Optional[str] = None
+    clinical_benefit: Optional[str] = None
+    clinical_benefit_linkage_basis: Optional[str] = None
+    footnotes: Optional[Union[Union[str, "SurrogateEndpointFootnoteEnum"], list[Union[str, "SurrogateEndpointFootnoteEnum"]]]] = empty_list()
+    context_of_use: Optional[str] = None
+    mapped_diseases: Optional[Union[str, list[str]]] = empty_list()
+    mapped_disease_files: Optional[Union[str, list[str]]] = empty_list()
+    mapping_notes: Optional[str] = None
+    source_url: Optional[Union[str, URI]] = None
+    source_workbook_url: Optional[Union[str, URI]] = None
+    source_workbook_sha256: Optional[str] = None
+    source_content_current_as_of: Optional[Union[str, XSDDate]] = None
+    retrieved_date: Optional[Union[str, XSDDate]] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.row_id):
+            self.MissingRequiredField("row_id")
+        if not isinstance(self.row_id, SurrogateEndpointRowId):
+            self.row_id = SurrogateEndpointRowId(self.row_id)
+
+        if self._is_empty(self.source_table):
+            self.MissingRequiredField("source_table")
+        if not isinstance(self.source_table, SurrogateEndpointTableEnum):
+            self.source_table = SurrogateEndpointTableEnum(self.source_table)
+
+        if self._is_empty(self.source_sheet):
+            self.MissingRequiredField("source_sheet")
+        if not isinstance(self.source_sheet, str):
+            self.source_sheet = str(self.source_sheet)
+
+        if self._is_empty(self.source_row_number):
+            self.MissingRequiredField("source_row_number")
+        if not isinstance(self.source_row_number, int):
+            self.source_row_number = int(self.source_row_number)
+
+        if self._is_empty(self.disease_or_use):
+            self.MissingRequiredField("disease_or_use")
+        if not isinstance(self.disease_or_use, str):
+            self.disease_or_use = str(self.disease_or_use)
+
+        if self._is_empty(self.patient_population):
+            self.MissingRequiredField("patient_population")
+        if not isinstance(self.patient_population, str):
+            self.patient_population = str(self.patient_population)
+
+        if self._is_empty(self.surrogate_endpoint):
+            self.MissingRequiredField("surrogate_endpoint")
+        if not isinstance(self.surrogate_endpoint, str):
+            self.surrogate_endpoint = str(self.surrogate_endpoint)
+
+        if self._is_empty(self.approval_type):
+            self.MissingRequiredField("approval_type")
+        if not isinstance(self.approval_type, SurrogateEndpointApprovalTypeEnum):
+            self.approval_type = SurrogateEndpointApprovalTypeEnum(self.approval_type)
+
+        if self._is_empty(self.endpoint_validation_level):
+            self.MissingRequiredField("endpoint_validation_level")
+        if not isinstance(self.endpoint_validation_level, SurrogateEndpointValidationLevelEnum):
+            self.endpoint_validation_level = SurrogateEndpointValidationLevelEnum(self.endpoint_validation_level)
+
+        if self._is_empty(self.clinical_benefit_linkage):
+            self.MissingRequiredField("clinical_benefit_linkage")
+        if not isinstance(self.clinical_benefit_linkage, ClinicalBenefitLinkageEnum):
+            self.clinical_benefit_linkage = ClinicalBenefitLinkageEnum(self.clinical_benefit_linkage)
+
+        if self._is_empty(self.mapping_status):
+            self.MissingRequiredField("mapping_status")
+        if not isinstance(self.mapping_status, SurrogateEndpointMappingStatusEnum):
+            self.mapping_status = SurrogateEndpointMappingStatusEnum(self.mapping_status)
+
+        if self.drug_mechanism_of_action is not None and not isinstance(self.drug_mechanism_of_action, str):
+            self.drug_mechanism_of_action = str(self.drug_mechanism_of_action)
+
+        if self.age_range is not None and not isinstance(self.age_range, str):
+            self.age_range = str(self.age_range)
+
+        if self.clinical_benefit is not None and not isinstance(self.clinical_benefit, str):
+            self.clinical_benefit = str(self.clinical_benefit)
+
+        if self.clinical_benefit_linkage_basis is not None and not isinstance(self.clinical_benefit_linkage_basis, str):
+            self.clinical_benefit_linkage_basis = str(self.clinical_benefit_linkage_basis)
+
+        if not isinstance(self.footnotes, list):
+            self.footnotes = [self.footnotes] if self.footnotes is not None else []
+        self.footnotes = [v if isinstance(v, SurrogateEndpointFootnoteEnum) else SurrogateEndpointFootnoteEnum(v) for v in self.footnotes]
+
+        if self.context_of_use is not None and not isinstance(self.context_of_use, str):
+            self.context_of_use = str(self.context_of_use)
+
+        if not isinstance(self.mapped_diseases, list):
+            self.mapped_diseases = [self.mapped_diseases] if self.mapped_diseases is not None else []
+        self.mapped_diseases = [v if isinstance(v, str) else str(v) for v in self.mapped_diseases]
+
+        if not isinstance(self.mapped_disease_files, list):
+            self.mapped_disease_files = [self.mapped_disease_files] if self.mapped_disease_files is not None else []
+        self.mapped_disease_files = [v if isinstance(v, str) else str(v) for v in self.mapped_disease_files]
+
+        if self.mapping_notes is not None and not isinstance(self.mapping_notes, str):
+            self.mapping_notes = str(self.mapping_notes)
+
+        if self.source_url is not None and not isinstance(self.source_url, URI):
+            self.source_url = URI(self.source_url)
+
+        if self.source_workbook_url is not None and not isinstance(self.source_workbook_url, URI):
+            self.source_workbook_url = URI(self.source_workbook_url)
+
+        if self.source_workbook_sha256 is not None and not isinstance(self.source_workbook_sha256, str):
+            self.source_workbook_sha256 = str(self.source_workbook_sha256)
+
+        if self.source_content_current_as_of is not None and not isinstance(self.source_content_current_as_of, XSDDate):
+            self.source_content_current_as_of = XSDDate(self.source_content_current_as_of)
+
+        if self.retrieved_date is not None and not isinstance(self.retrieved_date, XSDDate):
+            self.retrieved_date = XSDDate(self.retrieved_date)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class SurrogateEndpointCollection(YAMLRoot):
+    """
+    A source-level collection of curated regulatory surrogate endpoint assertions
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["SurrogateEndpointCollection"]
+    class_class_curie: ClassVar[str] = "dismech:SurrogateEndpointCollection"
+    class_name: ClassVar[str] = "SurrogateEndpointCollection"
+    class_model_uri: ClassVar[URIRef] = DISMECH.SurrogateEndpointCollection
+
+    name: Union[str, SurrogateEndpointCollectionName] = None
+    surrogate_endpoints: Union[dict[Union[str, SurrogateEndpointRowId], Union[dict, SurrogateEndpoint]], list[Union[dict, SurrogateEndpoint]]] = empty_dict()
+    description: Optional[str] = None
+    source_url: Optional[Union[str, URI]] = None
+    source_workbook_url: Optional[Union[str, URI]] = None
+    source_workbook_sha256: Optional[str] = None
+    source_content_current_as_of: Optional[Union[str, XSDDate]] = None
+    retrieved_date: Optional[Union[str, XSDDate]] = None
+    tracked_issues: Optional[Union[Union[dict, "TrackedIssue"], list[Union[dict, "TrackedIssue"]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, SurrogateEndpointCollectionName):
+            self.name = SurrogateEndpointCollectionName(self.name)
+
+        if self._is_empty(self.surrogate_endpoints):
+            self.MissingRequiredField("surrogate_endpoints")
+        self._normalize_inlined_as_list(slot_name="surrogate_endpoints", slot_type=SurrogateEndpoint, key_name="row_id", keyed=True)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.source_url is not None and not isinstance(self.source_url, URI):
+            self.source_url = URI(self.source_url)
+
+        if self.source_workbook_url is not None and not isinstance(self.source_workbook_url, URI):
+            self.source_workbook_url = URI(self.source_workbook_url)
+
+        if self.source_workbook_sha256 is not None and not isinstance(self.source_workbook_sha256, str):
+            self.source_workbook_sha256 = str(self.source_workbook_sha256)
+
+        if self.source_content_current_as_of is not None and not isinstance(self.source_content_current_as_of, XSDDate):
+            self.source_content_current_as_of = XSDDate(self.source_content_current_as_of)
+
+        if self.retrieved_date is not None and not isinstance(self.retrieved_date, XSDDate):
+            self.retrieved_date = XSDDate(self.retrieved_date)
+
+        if not isinstance(self.tracked_issues, list):
+            self.tracked_issues = [self.tracked_issues] if self.tracked_issues is not None else []
+        self.tracked_issues = [v if isinstance(v, TrackedIssue) else TrackedIssue(**as_dict(v)) for v in self.tracked_issues]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class ProteinStructure(YAMLRoot):
     """
     A 3D protein structure from PDB or AlphaFold relevant to understanding a treatment's mechanism of action. Enables
@@ -2834,6 +3060,7 @@ class Disease(YAMLRoot):
     experimental_models: Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]] = empty_dict()
     datasets: Optional[Union[dict[Union[str, DatasetAccession], Union[dict, Dataset]], list[Union[dict, Dataset]]]] = empty_dict()
     clinical_trials: Optional[Union[dict[Union[str, ClinicalTrialName], Union[dict, ClinicalTrial]], list[Union[dict, ClinicalTrial]]]] = empty_dict()
+    surrogate_endpoints: Optional[Union[dict[Union[str, SurrogateEndpointRowId], Union[dict, SurrogateEndpoint]], list[Union[dict, SurrogateEndpoint]]]] = empty_dict()
     computational_models: Optional[Union[dict[Union[str, ComputationalModelName], Union[dict, ComputationalModel]], list[Union[dict, ComputationalModel]]]] = empty_dict()
     classifications: Optional[Union[dict, "DiseaseClassifications"]] = None
     definitions: Optional[Union[dict[Union[str, DefinitionName], Union[dict, "Definition"]], list[Union[dict, "Definition"]]]] = empty_dict()
@@ -2937,6 +3164,8 @@ class Disease(YAMLRoot):
         self._normalize_inlined_as_list(slot_name="datasets", slot_type=Dataset, key_name="accession", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="clinical_trials", slot_type=ClinicalTrial, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="surrogate_endpoints", slot_type=SurrogateEndpoint, key_name="row_id", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="computational_models", slot_type=ComputationalModel, key_name="name", keyed=True)
 
@@ -4709,6 +4938,30 @@ class DiseaseCollection(YAMLRoot):
         super().__post_init__(**kwargs)
 
 
+@dataclass(repr=False)
+class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
+    """
+    FDA surrogate endpoint table import preserving row-level source provenance
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["FDASurrogateEndpointCollection"]
+    class_class_curie: ClassVar[str] = "dismech:FDASurrogateEndpointCollection"
+    class_name: ClassVar[str] = "FDASurrogateEndpointCollection"
+    class_model_uri: ClassVar[URIRef] = DISMECH.FDASurrogateEndpointCollection
+
+    name: Union[str, FDASurrogateEndpointCollectionName] = None
+    surrogate_endpoints: Union[dict[Union[str, SurrogateEndpointRowId], Union[dict, SurrogateEndpoint]], list[Union[dict, SurrogateEndpoint]]] = empty_dict()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, FDASurrogateEndpointCollectionName):
+            self.name = FDASurrogateEndpointCollectionName(self.name)
+
+        super().__post_init__(**kwargs)
+
+
 # Enumerations
 class EvidenceItemSupportEnum(EnumDefinitionImpl):
     """
@@ -5534,6 +5787,170 @@ class BiomarkerEndpointContextEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="BiomarkerEndpointContextEnum",
         description="Endpoint or use context for a biomarker readout link",
+    )
+
+class SurrogateEndpointTableEnum(EnumDefinitionImpl):
+    """
+    FDA surrogate endpoint table section from which a row was curated
+    """
+    ADULT_NONCANCER = PermissibleValue(
+        text="ADULT_NONCANCER",
+        title="Adult non-cancer related",
+        description="Adult Surrogate Endpoints - Non-cancer Related")
+    ADULT_CANCER = PermissibleValue(
+        text="ADULT_CANCER",
+        title="Adult cancer related",
+        description="Adult Surrogate Endpoints - Cancer Related")
+    PEDIATRIC_NONCANCER = PermissibleValue(
+        text="PEDIATRIC_NONCANCER",
+        title="Pediatric non-cancer related",
+        description="Pediatric Surrogate Endpoints - Non-cancer Related")
+    PEDIATRIC_CANCER = PermissibleValue(
+        text="PEDIATRIC_CANCER",
+        title="Pediatric cancer related",
+        description="Pediatric Surrogate Endpoints - Cancer Related")
+
+    _defn = EnumDefinition(
+        name="SurrogateEndpointTableEnum",
+        description="FDA surrogate endpoint table section from which a row was curated",
+    )
+
+class SurrogateEndpointApprovalTypeEnum(EnumDefinitionImpl):
+    """
+    Regulatory approval pathway context represented in the FDA surrogate endpoint table
+    """
+    ACCELERATED = PermissibleValue(
+        text="ACCELERATED",
+        title="Accelerated",
+        description="Endpoint may support accelerated approval in the curated context")
+    TRADITIONAL = PermissibleValue(
+        text="TRADITIONAL",
+        title="Traditional",
+        description="Endpoint may support traditional approval in the curated context")
+    ACCELERATED_OR_TRADITIONAL = PermissibleValue(
+        text="ACCELERATED_OR_TRADITIONAL",
+        title="Accelerated or traditional",
+        description="Endpoint may support accelerated or traditional approval depending on context of use")
+    TRADITIONAL_AND_MONOGRAPH = PermissibleValue(
+        text="TRADITIONAL_AND_MONOGRAPH",
+        title="Traditional and monograph",
+        description="Endpoint appears in FDA table as traditional and monograph")
+
+    _defn = EnumDefinition(
+        name="SurrogateEndpointApprovalTypeEnum",
+        description="Regulatory approval pathway context represented in the FDA surrogate endpoint table",
+    )
+
+class SurrogateEndpointValidationLevelEnum(EnumDefinitionImpl):
+    """
+    BEST-aligned regulatory validation level inferred or curated for a surrogate endpoint
+    """
+    VALIDATED_SURROGATE_ENDPOINT = PermissibleValue(
+        text="VALIDATED_SURROGATE_ENDPOINT",
+        title="Validated surrogate endpoint",
+        description="""Supported by clinical data providing strong evidence that the endpoint predicts clinical benefit""")
+    REASONABLY_LIKELY_SURROGATE_ENDPOINT = PermissibleValue(
+        text="REASONABLY_LIKELY_SURROGATE_ENDPOINT",
+        title="Reasonably likely surrogate endpoint",
+        description="""Supported by strong mechanistic and/or epidemiologic rationale, but without sufficient clinical validation for full surrogate validation""")
+    CONTEXT_DEPENDENT_SURROGATE_ENDPOINT = PermissibleValue(
+        text="CONTEXT_DEPENDENT_SURROGATE_ENDPOINT",
+        title="Context-dependent surrogate endpoint",
+        description="""Validation and approval pathway depend on context of use, disease setting, effect size, duration, residual uncertainty, and available therapy""")
+
+    _defn = EnumDefinition(
+        name="SurrogateEndpointValidationLevelEnum",
+        description="BEST-aligned regulatory validation level inferred or curated for a surrogate endpoint",
+    )
+
+class ClinicalBenefitLinkageEnum(EnumDefinitionImpl):
+    """
+    How a surrogate endpoint is linked to clinical benefit in the regulatory context
+    """
+    KNOWN_TO_PREDICT_CLINICAL_BENEFIT = PermissibleValue(
+        text="KNOWN_TO_PREDICT_CLINICAL_BENEFIT",
+        title="Known to predict clinical benefit",
+        description="""FDA table approval context indicates the endpoint is known to predict clinical benefit for the curated context""")
+    REASONABLY_LIKELY_TO_PREDICT_CLINICAL_BENEFIT = PermissibleValue(
+        text="REASONABLY_LIKELY_TO_PREDICT_CLINICAL_BENEFIT",
+        title="Reasonably likely to predict clinical benefit",
+        description="""FDA table approval context indicates the endpoint is reasonably likely to predict clinical benefit""")
+    CONTEXT_DEPENDENT = PermissibleValue(
+        text="CONTEXT_DEPENDENT",
+        title="Context dependent",
+        description="Clinical-benefit linkage depends on context of use and approval pathway")
+
+    _defn = EnumDefinition(
+        name="ClinicalBenefitLinkageEnum",
+        description="How a surrogate endpoint is linked to clinical benefit in the regulatory context",
+    )
+
+class SurrogateEndpointFootnoteEnum(EnumDefinitionImpl):
+    """
+    Footnotes and symbols used in the FDA surrogate endpoint workbook
+    """
+    COMPOSITE_BIOMARKER_SURROGATE = PermissibleValue(
+        text="COMPOSITE_BIOMARKER_SURROGATE",
+        title="Composite biomarker surrogate",
+        description="Surrogate endpoint is part of a composite of biomarker surrogate endpoints")
+    MECHANISM_AGNOSTIC = PermissibleValue(
+        text="MECHANISM_AGNOSTIC",
+        title="Mechanism agnostic",
+        description="""Many mechanisms of action are associated with the surrogate endpoint, so it is not directly related to a particular causal pathway""")
+    TUMOR_BURDEN_CONTEXT_DEPENDENT = PermissibleValue(
+        text="TUMOR_BURDEN_CONTEXT_DEPENDENT",
+        title="Tumor burden context dependent",
+        description="""Tumor-burden endpoints may support accelerated or traditional approval depending on context of use""")
+    ANTICIPATED_PRIMARY_EFFICACY_USE = PermissibleValue(
+        text="ANTICIPATED_PRIMARY_EFFICACY_USE",
+        title="Anticipated primary efficacy use",
+        description="""FDA anticipates the endpoint could be appropriate as a primary efficacy endpoint although it has not yet supported an approved NDA or BLA""")
+    BONE_MINERAL_DENSITY_CONTEXT = PermissibleValue(
+        text="BONE_MINERAL_DENSITY_CONTEXT",
+        title="Bone mineral density context",
+        description="Bone mineral density footnote for male or glucocorticoid-induced osteoporosis contexts")
+    CLINICAL_ENDPOINTS_REQUIRED = PermissibleValue(
+        text="CLINICAL_ENDPOINTS_REQUIRED",
+        title="Clinical endpoints required",
+        description="Clinical endpoints were required for the approvals")
+    ARRHYTHMIA_RESPONSE_DEFINITION = PermissibleValue(
+        text="ARRHYTHMIA_RESPONSE_DEFINITION",
+        title="Arrhythmia response definition",
+        description="Specialized response definition footnote for supraventricular tachycardia endpoint")
+
+    _defn = EnumDefinition(
+        name="SurrogateEndpointFootnoteEnum",
+        description="Footnotes and symbols used in the FDA surrogate endpoint workbook",
+    )
+
+class SurrogateEndpointMappingStatusEnum(EnumDefinitionImpl):
+    """
+    Status of mapping an FDA disease/use row to dismech disease entries
+    """
+    EXACT_DISMECH_MATCH = PermissibleValue(
+        text="EXACT_DISMECH_MATCH",
+        title="Exact dismech match",
+        description="FDA disease/use maps directly to an existing dismech disease entry")
+    CURATED_DISMECH_MAPPING = PermissibleValue(
+        text="CURATED_DISMECH_MAPPING",
+        title="Curated dismech mapping",
+        description="Mapping was manually curated despite non-identical labels")
+    CANDIDATE_DISMECH_MAPPING = PermissibleValue(
+        text="CANDIDATE_DISMECH_MAPPING",
+        title="Candidate dismech mapping",
+        description="""Row mentions a disease represented in dismech but the FDA disease/use row is broader, multi-condition, or otherwise requires review""")
+    NEEDS_CURATION = PermissibleValue(
+        text="NEEDS_CURATION",
+        title="Needs curation",
+        description="No dismech disease mapping has been assigned yet")
+    NOT_DISEASE_SPECIFIC = PermissibleValue(
+        text="NOT_DISEASE_SPECIFIC",
+        title="Not disease specific",
+        description="""FDA row is a use, vaccine, or broad product context rather than a directly mappable disease entry""")
+
+    _defn = EnumDefinition(
+        name="SurrogateEndpointMappingStatusEnum",
+        description="Status of mapping an FDA disease/use row to dismech disease entries",
     )
 
 class GeneProductTerm(EnumDefinitionImpl):
@@ -7183,6 +7600,78 @@ slots.endpoint_context = Slot(uri=DISMECH.endpoint_context, name="endpoint_conte
 slots.interpretation = Slot(uri=DISMECH.interpretation, name="interpretation", curie=DISMECH.curie('interpretation'),
                    model_uri=DISMECH.interpretation, domain=None, range=Optional[str])
 
+slots.row_id = Slot(uri=DISMECH.row_id, name="row_id", curie=DISMECH.curie('row_id'),
+                   model_uri=DISMECH.row_id, domain=None, range=URIRef)
+
+slots.source_table = Slot(uri=DISMECH.source_table, name="source_table", curie=DISMECH.curie('source_table'),
+                   model_uri=DISMECH.source_table, domain=None, range=Optional[Union[str, "SurrogateEndpointTableEnum"]])
+
+slots.source_sheet = Slot(uri=DISMECH.source_sheet, name="source_sheet", curie=DISMECH.curie('source_sheet'),
+                   model_uri=DISMECH.source_sheet, domain=None, range=Optional[str])
+
+slots.source_row_number = Slot(uri=DISMECH.source_row_number, name="source_row_number", curie=DISMECH.curie('source_row_number'),
+                   model_uri=DISMECH.source_row_number, domain=None, range=Optional[int])
+
+slots.source_url = Slot(uri=DISMECH.source_url, name="source_url", curie=DISMECH.curie('source_url'),
+                   model_uri=DISMECH.source_url, domain=None, range=Optional[Union[str, URI]])
+
+slots.source_workbook_url = Slot(uri=DISMECH.source_workbook_url, name="source_workbook_url", curie=DISMECH.curie('source_workbook_url'),
+                   model_uri=DISMECH.source_workbook_url, domain=None, range=Optional[Union[str, URI]])
+
+slots.source_workbook_sha256 = Slot(uri=DISMECH.source_workbook_sha256, name="source_workbook_sha256", curie=DISMECH.curie('source_workbook_sha256'),
+                   model_uri=DISMECH.source_workbook_sha256, domain=None, range=Optional[str])
+
+slots.source_content_current_as_of = Slot(uri=DISMECH.source_content_current_as_of, name="source_content_current_as_of", curie=DISMECH.curie('source_content_current_as_of'),
+                   model_uri=DISMECH.source_content_current_as_of, domain=None, range=Optional[Union[str, XSDDate]])
+
+slots.retrieved_date = Slot(uri=DISMECH.retrieved_date, name="retrieved_date", curie=DISMECH.curie('retrieved_date'),
+                   model_uri=DISMECH.retrieved_date, domain=None, range=Optional[Union[str, XSDDate]])
+
+slots.disease_or_use = Slot(uri=DISMECH.disease_or_use, name="disease_or_use", curie=DISMECH.curie('disease_or_use'),
+                   model_uri=DISMECH.disease_or_use, domain=None, range=Optional[str])
+
+slots.patient_population = Slot(uri=DISMECH.patient_population, name="patient_population", curie=DISMECH.curie('patient_population'),
+                   model_uri=DISMECH.patient_population, domain=None, range=Optional[str])
+
+slots.surrogate_endpoint = Slot(uri=DISMECH.surrogate_endpoint, name="surrogate_endpoint", curie=DISMECH.curie('surrogate_endpoint'),
+                   model_uri=DISMECH.surrogate_endpoint, domain=None, range=Optional[str])
+
+slots.approval_type = Slot(uri=DISMECH.approval_type, name="approval_type", curie=DISMECH.curie('approval_type'),
+                   model_uri=DISMECH.approval_type, domain=None, range=Optional[Union[str, "SurrogateEndpointApprovalTypeEnum"]])
+
+slots.drug_mechanism_of_action = Slot(uri=DISMECH.drug_mechanism_of_action, name="drug_mechanism_of_action", curie=DISMECH.curie('drug_mechanism_of_action'),
+                   model_uri=DISMECH.drug_mechanism_of_action, domain=None, range=Optional[str])
+
+slots.endpoint_validation_level = Slot(uri=DISMECH.endpoint_validation_level, name="endpoint_validation_level", curie=DISMECH.curie('endpoint_validation_level'),
+                   model_uri=DISMECH.endpoint_validation_level, domain=None, range=Optional[Union[str, "SurrogateEndpointValidationLevelEnum"]])
+
+slots.clinical_benefit_linkage = Slot(uri=DISMECH.clinical_benefit_linkage, name="clinical_benefit_linkage", curie=DISMECH.curie('clinical_benefit_linkage'),
+                   model_uri=DISMECH.clinical_benefit_linkage, domain=None, range=Optional[Union[str, "ClinicalBenefitLinkageEnum"]])
+
+slots.clinical_benefit = Slot(uri=DISMECH.clinical_benefit, name="clinical_benefit", curie=DISMECH.curie('clinical_benefit'),
+                   model_uri=DISMECH.clinical_benefit, domain=None, range=Optional[str])
+
+slots.clinical_benefit_linkage_basis = Slot(uri=DISMECH.clinical_benefit_linkage_basis, name="clinical_benefit_linkage_basis", curie=DISMECH.curie('clinical_benefit_linkage_basis'),
+                   model_uri=DISMECH.clinical_benefit_linkage_basis, domain=None, range=Optional[str])
+
+slots.footnotes = Slot(uri=DISMECH.footnotes, name="footnotes", curie=DISMECH.curie('footnotes'),
+                   model_uri=DISMECH.footnotes, domain=None, range=Optional[Union[Union[str, "SurrogateEndpointFootnoteEnum"], list[Union[str, "SurrogateEndpointFootnoteEnum"]]]])
+
+slots.context_of_use = Slot(uri=DISMECH.context_of_use, name="context_of_use", curie=DISMECH.curie('context_of_use'),
+                   model_uri=DISMECH.context_of_use, domain=None, range=Optional[str])
+
+slots.mapping_status = Slot(uri=DISMECH.mapping_status, name="mapping_status", curie=DISMECH.curie('mapping_status'),
+                   model_uri=DISMECH.mapping_status, domain=None, range=Optional[Union[str, "SurrogateEndpointMappingStatusEnum"]])
+
+slots.mapped_diseases = Slot(uri=DISMECH.mapped_diseases, name="mapped_diseases", curie=DISMECH.curie('mapped_diseases'),
+                   model_uri=DISMECH.mapped_diseases, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.mapped_disease_files = Slot(uri=DISMECH.mapped_disease_files, name="mapped_disease_files", curie=DISMECH.curie('mapped_disease_files'),
+                   model_uri=DISMECH.mapped_disease_files, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.surrogate_endpoints = Slot(uri=DISMECH.surrogate_endpoints, name="surrogate_endpoints", curie=DISMECH.curie('surrogate_endpoints'),
+                   model_uri=DISMECH.surrogate_endpoints, domain=None, range=Optional[Union[dict[Union[str, SurrogateEndpointRowId], Union[dict, SurrogateEndpoint]], list[Union[dict, SurrogateEndpoint]]]])
+
 slots.finding_term = Slot(uri=DISMECH.finding_term, name="finding_term", curie=DISMECH.curie('finding_term'),
                    model_uri=DISMECH.finding_term, domain=None, range=Optional[Union[dict, HistopathologyFindingDescriptor]])
 
@@ -8042,6 +8531,48 @@ slots.BiomarkerReadout_interpretation = Slot(uri=DISMECH.interpretation, name="B
 
 slots.BiomarkerReadout_evidence = Slot(uri=DISMECH.evidence, name="BiomarkerReadout_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.BiomarkerReadout_evidence, domain=BiomarkerReadout, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.SurrogateEndpoint_row_id = Slot(uri=DISMECH.row_id, name="SurrogateEndpoint_row_id", curie=DISMECH.curie('row_id'),
+                   model_uri=DISMECH.SurrogateEndpoint_row_id, domain=SurrogateEndpoint, range=Union[str, SurrogateEndpointRowId])
+
+slots.SurrogateEndpoint_source_table = Slot(uri=DISMECH.source_table, name="SurrogateEndpoint_source_table", curie=DISMECH.curie('source_table'),
+                   model_uri=DISMECH.SurrogateEndpoint_source_table, domain=SurrogateEndpoint, range=Union[str, "SurrogateEndpointTableEnum"])
+
+slots.SurrogateEndpoint_source_sheet = Slot(uri=DISMECH.source_sheet, name="SurrogateEndpoint_source_sheet", curie=DISMECH.curie('source_sheet'),
+                   model_uri=DISMECH.SurrogateEndpoint_source_sheet, domain=SurrogateEndpoint, range=str)
+
+slots.SurrogateEndpoint_source_row_number = Slot(uri=DISMECH.source_row_number, name="SurrogateEndpoint_source_row_number", curie=DISMECH.curie('source_row_number'),
+                   model_uri=DISMECH.SurrogateEndpoint_source_row_number, domain=SurrogateEndpoint, range=int)
+
+slots.SurrogateEndpoint_disease_or_use = Slot(uri=DISMECH.disease_or_use, name="SurrogateEndpoint_disease_or_use", curie=DISMECH.curie('disease_or_use'),
+                   model_uri=DISMECH.SurrogateEndpoint_disease_or_use, domain=SurrogateEndpoint, range=str)
+
+slots.SurrogateEndpoint_patient_population = Slot(uri=DISMECH.patient_population, name="SurrogateEndpoint_patient_population", curie=DISMECH.curie('patient_population'),
+                   model_uri=DISMECH.SurrogateEndpoint_patient_population, domain=SurrogateEndpoint, range=str)
+
+slots.SurrogateEndpoint_surrogate_endpoint = Slot(uri=DISMECH.surrogate_endpoint, name="SurrogateEndpoint_surrogate_endpoint", curie=DISMECH.curie('surrogate_endpoint'),
+                   model_uri=DISMECH.SurrogateEndpoint_surrogate_endpoint, domain=SurrogateEndpoint, range=str)
+
+slots.SurrogateEndpoint_approval_type = Slot(uri=DISMECH.approval_type, name="SurrogateEndpoint_approval_type", curie=DISMECH.curie('approval_type'),
+                   model_uri=DISMECH.SurrogateEndpoint_approval_type, domain=SurrogateEndpoint, range=Union[str, "SurrogateEndpointApprovalTypeEnum"])
+
+slots.SurrogateEndpoint_endpoint_validation_level = Slot(uri=DISMECH.endpoint_validation_level, name="SurrogateEndpoint_endpoint_validation_level", curie=DISMECH.curie('endpoint_validation_level'),
+                   model_uri=DISMECH.SurrogateEndpoint_endpoint_validation_level, domain=SurrogateEndpoint, range=Union[str, "SurrogateEndpointValidationLevelEnum"])
+
+slots.SurrogateEndpoint_clinical_benefit_linkage = Slot(uri=DISMECH.clinical_benefit_linkage, name="SurrogateEndpoint_clinical_benefit_linkage", curie=DISMECH.curie('clinical_benefit_linkage'),
+                   model_uri=DISMECH.SurrogateEndpoint_clinical_benefit_linkage, domain=SurrogateEndpoint, range=Union[str, "ClinicalBenefitLinkageEnum"])
+
+slots.SurrogateEndpoint_clinical_benefit = Slot(uri=DISMECH.clinical_benefit, name="SurrogateEndpoint_clinical_benefit", curie=DISMECH.curie('clinical_benefit'),
+                   model_uri=DISMECH.SurrogateEndpoint_clinical_benefit, domain=SurrogateEndpoint, range=Optional[str])
+
+slots.SurrogateEndpoint_mapping_status = Slot(uri=DISMECH.mapping_status, name="SurrogateEndpoint_mapping_status", curie=DISMECH.curie('mapping_status'),
+                   model_uri=DISMECH.SurrogateEndpoint_mapping_status, domain=SurrogateEndpoint, range=Union[str, "SurrogateEndpointMappingStatusEnum"])
+
+slots.SurrogateEndpointCollection_name = Slot(uri=DISMECH.name, name="SurrogateEndpointCollection_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.SurrogateEndpointCollection_name, domain=SurrogateEndpointCollection, range=Union[str, SurrogateEndpointCollectionName])
+
+slots.SurrogateEndpointCollection_surrogate_endpoints = Slot(uri=DISMECH.surrogate_endpoints, name="SurrogateEndpointCollection_surrogate_endpoints", curie=DISMECH.curie('surrogate_endpoints'),
+                   model_uri=DISMECH.SurrogateEndpointCollection_surrogate_endpoints, domain=SurrogateEndpointCollection, range=Union[dict[Union[str, SurrogateEndpointRowId], Union[dict, SurrogateEndpoint]], list[Union[dict, SurrogateEndpoint]]])
 
 slots.PublicationReference_reference = Slot(uri=DISMECH.reference, name="PublicationReference_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.PublicationReference_reference, domain=PublicationReference, range=Union[str, PublicationReferenceReference])
