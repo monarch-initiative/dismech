@@ -1,4 +1,29 @@
-# Primary Hyperoxaluria Type 1 - surrogate endpoint curation notes
+---
+provider: codex
+model: gpt-5
+cached: true
+start_time: '2026-05-11T20:21:17Z'
+end_time: '2026-05-11T20:51:31Z'
+duration_seconds: 1814.0
+template_file: codex_surrogate_endpoint_curation
+template_variables:
+  disease_name: Primary Hyperoxaluria Type 1
+  mondo_id: MONDO:0009823
+  category: Mendelian
+citation_count: 3
+source_providers:
+- pubmed
+- fda_surrogate_endpoint_table
+---
+
+## Question
+
+Curate primary hyperoxaluria type 1 in dismech with emphasis on the FDA adult
+and pediatric urinary oxalate surrogate endpoint rows, integrating the marker
+into the disease pathograph rather than creating a separate disease-level
+surrogate endpoint section.
+
+# Primary Hyperoxaluria Type 1 - deep research synthesis
 
 ## Scope
 
@@ -11,6 +36,47 @@ rows for primary hyperoxaluria type 1:
 The main disease YAML keeps the biological assertion centered on PH1:
 AGXT deficiency causes hepatic oxalate overproduction; urinary oxalate is the
 measured biochemical burden and pharmacodynamic readout of that node.
+
+## Disease Mechanism Synthesis
+
+PH1 is a Mendelian hepatic glyoxylate-metabolism disorder caused by biallelic
+AGXT pathogenic variants. The initiating defect is reduced liver peroxisomal
+alanine-glyoxylate aminotransferase activity, which normally converts glyoxylate
+to glycine. When that reaction is deficient, glyoxylate is converted to oxalate.
+Oxalate cannot be metabolized and must be cleared renally, making urinary
+oxalate both a direct disease-burden marker and a pharmacodynamic endpoint for
+therapies that reduce hepatic oxalate production.
+
+The pathograph therefore separates five linked events: AGT glyoxylate
+transamination deficiency, hepatic oxalate overproduction, urinary oxalate
+burden, calcium oxalate kidney deposition, and advanced CKD oxalate retention.
+The phenotype layer captures nephrolithiasis, nephrocalcinosis, progressive
+kidney dysfunction, and systemic oxalosis. Systemic oxalosis is modeled as an
+advanced-disease consequence: reduced renal clearance permits high plasma
+oxalate, driving calcium oxalate deposition in extra-renal tissues, especially
+bone, heart, and retina.
+
+## Treatment Landscape
+
+The cached GeneReviews abstract identifies three targeted therapeutic
+categories. Pyridoxine is variant-specific and reduces liver oxalate production
+in individuals with missense AGXT variants known to be responsive. RNA
+interference therapeutics, including lumasiran and nedosiran, target hepatic
+enzymes to reduce liver oxalate overproduction. Liver transplantation restores
+normal hepatic AGT enzyme activity. The disorder YAML models all three
+categories, with lumasiran and nedosiran targeting hepatic oxalate
+overproduction and pyridoxine/liver transplantation targeting the upstream AGT
+deficiency node.
+
+## Endpoint Interpretation
+
+The FDA adult and pediatric rows identify urinary oxalate as a validated
+surrogate endpoint in PH1 for traditional approval. The main disease YAML keeps
+FDA row details in the source table and uses `biochemical.readouts` as the
+bridge: urinary oxalate is a positive pharmacodynamic marker of hepatic oxalate
+overproduction. ILLUMINATE-A provides human clinical evidence that lumasiran
+reduces hepatic oxalate production by targeting glycolate oxidase and that the
+primary endpoint was percent change in 24-hour urinary oxalate excretion.
 
 ## Ontology decisions
 
@@ -37,7 +103,10 @@ PMID:20301460 GeneReviews:
 - "Urinary crystals aggregate, leading to nephrolithiasis (i.e., calcium oxalate kidney stones)"
 - "often the crystals deposit in kidney parenchyma (nephrocalcinosis)."
 - "The diagnosis of PH1 is established in a proband with supportive laboratory findings (excess excretion of oxalate in the urine and/or markedly increased plasma oxalate concentration) and biallelic pathogenic variants in AGXT identified by molecular genetic testing."
+- "Pyridoxine (vitamin B6) to reduce liver oxalate production in individuals with missense AGXT variants known to be pyridoxine responsive;"
 - "RNA interference (RNAi) therapeutics (lumasiran and nedosiran) that target specific hepatic enzymes to reduce liver overproduction of oxalate"
+- "liver transplantation to restore normal hepatic AGT enzyme activity."
+- "in persons with advanced chronic kidney disease (CKD), high plasma oxalate concentrations result in other organ and tissue damage from calcium oxalate deposition (i.e., \"oxalosis\"), most commonly in the bones, heart, and retina."
 - "PH1 is inherited in an autosomal recessive manner."
 
 PMID:33789010 ILLUMINATE-A:
