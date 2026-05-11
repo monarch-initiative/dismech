@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_ASSERTION:2"
+reference_id: "CIVIC_ASSERTION:2"
 title: "ERBB2 Amplification / Her2-receptor Positive Breast Cancer (Predictive Sensitivity/Response)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_ASSERTION:2
+# CIVIC_ASSERTION:2
 
-**CIViC_ASSERTION:2** — ERBB2 Amplification / Her2-receptor Positive Breast Cancer
+**CIVIC_ASSERTION:2** — ERBB2 Amplification / Her2-receptor Positive Breast Cancer
 
 ## Assertion
 - Molecular profile: ERBB2 Amplification (CIViC molecular profile 302)
@@ -20,7 +20,7 @@ content_type: "structured_record"
 - NCCN guideline: Breast Cancer v3.2017
 - Regulatory approval: true
 - FDA companion test: true
-- Evidence item IDs: CIViC_EID:529, CIViC_EID:528, CIViC_EID:1122
+- Evidence item IDs: CIVIC_EID:529, CIVIC_EID:528, CIVIC_EID:1122
 - Last review date: 2023-02-06 15:12:25 UTC
 - Flagged: false
 - CIViC URL: https://civicdb.org/links/assertions/2

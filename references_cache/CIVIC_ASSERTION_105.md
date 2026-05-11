@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_ASSERTION:105"
+reference_id: "CIVIC_ASSERTION:105"
 title: "EGFR L858R / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_ASSERTION:105
+# CIVIC_ASSERTION:105
 
-**CIViC_ASSERTION:105** — EGFR L858R / Lung Non-small Cell Carcinoma
+**CIVIC_ASSERTION:105** — EGFR L858R / Lung Non-small Cell Carcinoma
 
 ## Assertion
 - Molecular profile: EGFR L858R (CIViC molecular profile 33)
@@ -20,7 +20,7 @@ content_type: "structured_record"
 - NCCN guideline: Non-Small Cell Lung Cancer v3.2018
 - Regulatory approval: true
 - FDA companion test: true
-- Evidence item IDs: CIViC_EID:229, CIViC_EID:1665, CIViC_EID:2634, CIViC_EID:276, CIViC_EID:3811, CIViC_EID:11241, CIViC_EID:2621
+- Evidence item IDs: CIVIC_EID:229, CIVIC_EID:1665, CIVIC_EID:2634, CIVIC_EID:276, CIVIC_EID:3811, CIVIC_EID:11241, CIVIC_EID:2621
 - Last review date: 2024-02-13 22:28:17 UTC
 - Flagged: false
 - CIViC URL: https://civicdb.org/links/assertions/105

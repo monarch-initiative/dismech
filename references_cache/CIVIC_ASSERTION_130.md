@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_ASSERTION:130"
+reference_id: "CIVIC_ASSERTION:130"
 title: "EGFR T790M / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_ASSERTION:130
+# CIVIC_ASSERTION:130
 
-**CIViC_ASSERTION:130** — EGFR T790M / Lung Non-small Cell Carcinoma
+**CIVIC_ASSERTION:130** — EGFR T790M / Lung Non-small Cell Carcinoma
 
 ## Assertion
 - Molecular profile: EGFR T790M (CIViC molecular profile 34)
@@ -20,7 +20,7 @@ content_type: "structured_record"
 - NCCN guideline: Non-Small Cell Lung Cancer v7.2024
 - Regulatory approval: true
 - FDA companion test: true
-- Evidence item IDs: CIViC_EID:967, CIViC_EID:1867, CIViC_EID:1592, CIViC_EID:965, CIViC_EID:966, CIViC_EID:11598, CIViC_EID:11599, CIViC_EID:963, CIViC_EID:12946
+- Evidence item IDs: CIVIC_EID:967, CIVIC_EID:1867, CIVIC_EID:1592, CIVIC_EID:965, CIVIC_EID:966, CIVIC_EID:11598, CIVIC_EID:11599, CIVIC_EID:963, CIVIC_EID:12946
 - Last review date: 2026-04-20 15:45:24 UTC
 - Flagged: false
 - CIViC URL: https://civicdb.org/links/assertions/130

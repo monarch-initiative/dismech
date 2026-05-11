@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_ASSERTION:34"
+reference_id: "CIVIC_ASSERTION:34"
 title: "v::ALK Fusion / Lung Non-small Cell Carcinoma (Predictive Sensitivity/Response)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_ASSERTION:34
+# CIVIC_ASSERTION:34
 
-**CIViC_ASSERTION:34** — v::ALK Fusion / Lung Non-small Cell Carcinoma
+**CIVIC_ASSERTION:34** — v::ALK Fusion / Lung Non-small Cell Carcinoma
 
 ## Assertion
 - Molecular profile: v::ALK Fusion (CIViC molecular profile 495)
@@ -20,7 +20,7 @@ content_type: "structured_record"
 - NCCN guideline: Non-Small Cell Lung Cancer v6.2020
 - Regulatory approval: true
 - FDA companion test: true
-- Evidence item IDs: CIViC_EID:7284, CIViC_EID:8657, CIViC_EID:1273, CIViC_EID:1279, CIViC_EID:1272, CIViC_EID:1282
+- Evidence item IDs: CIVIC_EID:7284, CIVIC_EID:8657, CIVIC_EID:1273, CIVIC_EID:1279, CIVIC_EID:1272, CIVIC_EID:1282
 - Last review date: 2026-03-06 17:46:05 UTC
 - Flagged: false
 - CIViC URL: https://civicdb.org/links/assertions/34

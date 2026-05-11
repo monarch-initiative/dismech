@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_EID:12561"
+reference_id: "CIVIC_EID:12561"
 title: "MSI High / Colorectal Cancer (Predictive Sensitivity/Response)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_EID:12561
+# CIVIC_EID:12561
 
-**CIViC_EID:12561** — MSI High / Colorectal Cancer
+**CIVIC_EID:12561** — MSI High / Colorectal Cancer
 
 ## Evidence item
 - Molecular profile: MSI High (CIViC molecular profile 5118)

@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_EID:234"
+reference_id: "CIVIC_EID:234"
 title: "BCR::ABL1 Fusion AND ABL1 T315I / Chronic Myeloid Leukemia (Predictive Resistance)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_EID:234
+# CIVIC_EID:234
 
-**CIViC_EID:234** — BCR::ABL1 Fusion AND ABL1 T315I / Chronic Myeloid Leukemia
+**CIVIC_EID:234** — BCR::ABL1 Fusion AND ABL1 T315I / Chronic Myeloid Leukemia
 
 ## Evidence item
 - Molecular profile: BCR::ABL1 Fusion AND ABL1 T315I (CIViC molecular profile 4373)

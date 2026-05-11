@@ -984,8 +984,8 @@ clingen-rebuild *args="":
 clingen-dosage-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild clingen-dosage {{args}}
 
-# Rebuild every references_cache/CIViC_*.md from current CIViC TSVs
-# Use --id to limit to specific CIViC_EID or CIViC_ASSERTION identifiers.
+# Rebuild every references_cache/CIVIC_*.md from current CIViC TSVs
+# Use --id to limit to specific CIVIC_EID or CIVIC_ASSERTION identifiers.
 [group('Research')]
 civic-rebuild *args="":
     uv run python -m dismech.structured_sources.cli rebuild civic {{args}}

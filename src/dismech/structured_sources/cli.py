@@ -7,7 +7,7 @@ Exposes operations to refresh bulk data and (re)build cache files.
     uv run python -m dismech.structured_sources.cli rebuild orphanet --id 558
     uv run python -m dismech.structured_sources.cli rebuild clingen --id CGGV:assertion_...
     uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id HGNC:25662
-    uv run python -m dismech.structured_sources.cli rebuild civic --id CIViC_EID:260
+    uv run python -m dismech.structured_sources.cli rebuild civic --id CIVIC_EID:260
 """
 
 from __future__ import annotations

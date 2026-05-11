@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_EID:126"
+reference_id: "CIVIC_EID:126"
 title: "BRAF V600E / Colorectal Cancer (Predictive Resistance)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_EID:126
+# CIVIC_EID:126
 
-**CIViC_EID:126** — BRAF V600E / Colorectal Cancer
+**CIVIC_EID:126** — BRAF V600E / Colorectal Cancer
 
 ## Evidence item
 - Molecular profile: BRAF V600E (CIViC molecular profile 12)

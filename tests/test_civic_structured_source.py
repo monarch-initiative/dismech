@@ -63,20 +63,20 @@ def civic_source(tmp_path: Path) -> CivicSource:
 def test_serialize_civic_assertion(civic_source: CivicSource):
     text = civic_source.serialize("CIViC_ASSERTION:188").render()
 
-    assert 'reference_id: "CIViC_ASSERTION:188"' in text
+    assert 'reference_id: "CIVIC_ASSERTION:188"' in text
     assert 'database: "CIViC"' in text
     assert 'content_type: "structured_record"' in text
     assert (
-        "**CIViC_ASSERTION:188** — BCR::ABL1 Fusion / Chronic Myeloid Leukemia" in text
+        "**CIVIC_ASSERTION:188** — BCR::ABL1 Fusion / Chronic Myeloid Leukemia" in text
     )
-    assert "- Evidence item IDs: CIViC_EID:12589, CIViC_EID:12526" in text
+    assert "- Evidence item IDs: CIVIC_EID:12589, CIVIC_EID:12526" in text
     assert "BCR::ABL1 fusion is a diagnostic criterion for CML." in text
 
 
 def test_serialize_civic_evidence_item(civic_source: CivicSource):
     text = civic_source.serialize("CIViC_EID:260").render()
 
-    assert 'reference_id: "CIViC_EID:260"' in text
+    assert 'reference_id: "CIVIC_EID:260"' in text
     assert 'title: "BCR::ABL1 Fusion / Chronic Myeloid Leukemia' in text
     assert "- Citation: An et al., 2010 (PMID:20537386)" in text
     assert "Imatinib improves prognosis in patients with CML." in text
@@ -86,7 +86,7 @@ def test_civic_cache_file_passes_frontmatter_contract(
     civic_source: CivicSource, tmp_path: Path
 ):
     path = civic_source.write_cache_file("CIViC_EID:260", tmp_path)
-    assert path.name == "CIViC_EID_260.md"
+    assert path.name == "CIVIC_EID_260.md"
     assert check_cache_file(path) is None
 
 
@@ -96,7 +96,7 @@ def test_civic_cache_file_passes_frontmatter_contract(
 def test_serialize_accepts_evidence_identifier_variants(
     civic_source: CivicSource, identifier: str
 ):
-    assert civic_source.serialize(identifier).reference_id == "CIViC_EID:260"
+    assert civic_source.serialize(identifier).reference_id == "CIVIC_EID:260"
 
 
 @pytest.mark.parametrize(
@@ -105,7 +105,7 @@ def test_serialize_accepts_evidence_identifier_variants(
 def test_serialize_accepts_assertion_identifier_variants(
     civic_source: CivicSource, identifier: str
 ):
-    assert civic_source.serialize(identifier).reference_id == "CIViC_ASSERTION:188"
+    assert civic_source.serialize(identifier).reference_id == "CIVIC_ASSERTION:188"
 
 
 def test_civic_serialization_is_byte_deterministic(civic_source: CivicSource):

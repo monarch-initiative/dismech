@@ -110,7 +110,7 @@ class _CivicAssertionRecord:
 
     @property
     def reference_id(self) -> str:
-        return f"CIViC_ASSERTION:{self.assertion_id}"
+        return f"CIVIC_ASSERTION:{self.assertion_id}"
 
 
 @dataclass(frozen=True)
@@ -143,7 +143,7 @@ class _CivicEvidenceRecord:
 
     @property
     def reference_id(self) -> str:
-        return f"CIViC_EID:{self.evidence_id}"
+        return f"CIVIC_EID:{self.evidence_id}"
 
 
 class CivicSource(StructuredSource):
@@ -289,7 +289,7 @@ class CivicSource(StructuredSource):
 
     def _render_assertion_body(self, rec: _CivicAssertionRecord) -> list[str]:
         evidence_ids = ", ".join(
-            f"CIViC_EID:{x}" for x in _csv_values(rec.evidence_item_ids)
+            f"CIVIC_EID:{x}" for x in _csv_values(rec.evidence_item_ids)
         )
         return [
             f"# {rec.reference_id}",
@@ -443,7 +443,7 @@ def _bullet_lines(rows: Iterable[tuple[str, str]]) -> list[str]:
 
 
 def _sort_group(identifier: str) -> int:
-    return 0 if identifier.startswith("CIViC_ASSERTION:") else 1
+    return 0 if identifier.startswith("CIVIC_ASSERTION:") else 1
 
 
 def _sort_number(identifier: str) -> int:
@@ -462,8 +462,8 @@ def _normalize_identifier(identifier: str) -> str:
 
     upper = value.upper()
     if "ASSERTION" in upper or re.search(r"(^|[_:.-])AID[_:.-]?\d+$", upper):
-        return f"CIViC_ASSERTION:{number}"
+        return f"CIVIC_ASSERTION:{number}"
     if "EID" in upper or "EVIDENCE" in upper:
-        return f"CIViC_EID:{number}"
+        return f"CIVIC_EID:{number}"
 
     raise ValueError(f"unknown CIViC identifier type: {identifier}")

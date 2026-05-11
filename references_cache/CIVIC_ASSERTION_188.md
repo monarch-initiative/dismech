@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_ASSERTION:188"
+reference_id: "CIVIC_ASSERTION:188"
 title: "BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Diagnostic Positive)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_ASSERTION:188
+# CIVIC_ASSERTION:188
 
-**CIViC_ASSERTION:188** — BCR::ABL1 Fusion / Chronic Myeloid Leukemia
+**CIVIC_ASSERTION:188** — BCR::ABL1 Fusion / Chronic Myeloid Leukemia
 
 ## Assertion
 - Molecular profile: BCR::ABL1 Fusion (CIViC molecular profile 1)
@@ -16,7 +16,7 @@ content_type: "structured_record"
 - Assertion direction: Supports
 - Significance: Positive
 - AMP category: Tier I - Level A
-- Evidence item IDs: CIViC_EID:12589, CIViC_EID:12526, CIViC_EID:220
+- Evidence item IDs: CIVIC_EID:12589, CIVIC_EID:12526, CIVIC_EID:220
 - Last review date: 2025-11-18 20:46:50 UTC
 - Flagged: false
 - CIViC URL: https://civicdb.org/links/assertions/188

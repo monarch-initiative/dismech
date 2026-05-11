@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_EID:441"
+reference_id: "CIVIC_EID:441"
 title: "EML4::ALK Fusion AND ALK G1202R / Lung Non-small Cell Carcinoma (Predictive Resistance)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_EID:441
+# CIVIC_EID:441
 
-**CIViC_EID:441** — EML4::ALK Fusion AND ALK G1202R / Lung Non-small Cell Carcinoma
+**CIVIC_EID:441** — EML4::ALK Fusion AND ALK G1202R / Lung Non-small Cell Carcinoma
 
 ## Evidence item
 - Molecular profile: EML4::ALK Fusion AND ALK G1202R (CIViC molecular profile 4237)

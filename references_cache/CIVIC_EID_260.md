@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_EID:260"
+reference_id: "CIVIC_EID:260"
 title: "BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Predictive Sensitivity/Response)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_EID:260
+# CIVIC_EID:260
 
-**CIViC_EID:260** — BCR::ABL1 Fusion / Chronic Myeloid Leukemia
+**CIVIC_EID:260** — BCR::ABL1 Fusion / Chronic Myeloid Leukemia
 
 ## Evidence item
 - Molecular profile: BCR::ABL1 Fusion (CIViC molecular profile 1)

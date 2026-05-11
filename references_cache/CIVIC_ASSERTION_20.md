@@ -1,13 +1,13 @@
 ---
-reference_id: "CIViC_ASSERTION:20"
+reference_id: "CIVIC_ASSERTION:20"
 title: "BRAF V600E / Colorectal Cancer (Prognostic Poor Outcome)"
 database: "CIViC"
 content_type: "structured_record"
 ---
 
-# CIViC_ASSERTION:20
+# CIVIC_ASSERTION:20
 
-**CIViC_ASSERTION:20** — BRAF V600E / Colorectal Cancer
+**CIVIC_ASSERTION:20** — BRAF V600E / Colorectal Cancer
 
 ## Assertion
 - Molecular profile: BRAF V600E (CIViC molecular profile 12)
@@ -17,7 +17,7 @@ content_type: "structured_record"
 - Significance: Poor Outcome
 - AMP category: Tier I - Level A
 - NCCN guideline: Colon Cancer v2.2017
-- Evidence item IDs: CIViC_EID:7159, CIViC_EID:7158, CIViC_EID:7157, CIViC_EID:7156, CIViC_EID:103, CIViC_EID:1552
+- Evidence item IDs: CIVIC_EID:7159, CIVIC_EID:7158, CIVIC_EID:7157, CIVIC_EID:7156, CIVIC_EID:103, CIVIC_EID:1552
 - Last review date: 2023-02-06 15:32:50 UTC
 - Flagged: false
 - CIViC URL: https://civicdb.org/links/assertions/20
