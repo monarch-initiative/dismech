@@ -7,6 +7,7 @@ Exposes operations to refresh bulk data and (re)build cache files.
     uv run python -m dismech.structured_sources.cli rebuild orphanet --id 558
     uv run python -m dismech.structured_sources.cli rebuild clingen --id CGGV:assertion_...
     uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id HGNC:25662
+    uv run python -m dismech.structured_sources.cli rebuild civic --id CIViC_EID:260
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_summary,
     format_tsv,
 )
+from dismech.structured_sources.civic import CivicSource
 from dismech.structured_sources.orphanet import OrphanetSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -50,6 +52,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             ClinGenDosageSource.load_manifest(manifest)
         return ClinGenDosageSource(_DEFAULT_DATA_DIR / "clingen-dosage")
+    if name in {"civic", "civicdb"}:
+        manifest = _DEFAULT_DATA_DIR / "civic" / "MANIFEST.yaml"
+        if manifest.exists():
+            CivicSource.load_manifest(manifest)
+        return CivicSource(_DEFAULT_DATA_DIR / "civic")
     raise typer.BadParameter(f"unknown source: {name}")
 
 
