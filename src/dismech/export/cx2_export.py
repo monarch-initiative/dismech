@@ -1037,6 +1037,7 @@ def _build_edge_detail_lookup(
                     "relationship": readout.get("relationship"),
                     "direction": readout.get("direction"),
                     "endpoint_context": readout.get("endpoint_context"),
+                    "regulatory_endpoint_refs": readout.get("regulatory_endpoint_refs"),
                 },
             )
 
@@ -1317,7 +1318,12 @@ def _edge_attributes(
     if treatment_effect:
         attributes["treatment_effect"] = treatment_effect
 
-    for key in ("relationship", "direction", "endpoint_context"):
+    for key in (
+        "relationship",
+        "direction",
+        "endpoint_context",
+        "regulatory_endpoint_refs",
+    ):
         value = detail.get(key) or edge_payload.get(key)
         if value:
             attributes[key] = value

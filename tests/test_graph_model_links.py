@@ -195,6 +195,7 @@ def test_build_causal_graph_includes_biomarker_readout_links() -> None:
                         "relationship": "READOUT_OF",
                         "direction": "POSITIVE",
                         "endpoint_context": "MONITORING",
+                        "regulatory_endpoint_refs": ["FDA-SE-test-001"],
                         "interpretation": "Higher CK reflects greater membrane injury.",
                     }
                 ],
@@ -227,6 +228,7 @@ def test_build_causal_graph_includes_biomarker_readout_links() -> None:
             "relationship": "READOUT_OF",
             "direction": "POSITIVE",
             "endpoint_context": "MONITORING",
+            "regulatory_endpoint_refs": ["FDA-SE-test-001"],
             "interpretation": "Higher CK reflects greater membrane injury.",
         }
     ]

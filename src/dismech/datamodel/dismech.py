@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-05-10T18:02:02
+# Generation date: 2026-05-10T20:06:54
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1900,6 +1900,7 @@ class BiomarkerReadout(YAMLRoot):
     relationship: Union[str, "BiomarkerReadoutRelationshipEnum"] = None
     direction: Optional[Union[str, "BiomarkerReadoutDirectionEnum"]] = None
     endpoint_context: Optional[Union[str, "BiomarkerEndpointContextEnum"]] = None
+    regulatory_endpoint_refs: Optional[Union[str, list[str]]] = empty_list()
     interpretation: Optional[str] = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
@@ -1920,6 +1921,10 @@ class BiomarkerReadout(YAMLRoot):
 
         if self.endpoint_context is not None and not isinstance(self.endpoint_context, BiomarkerEndpointContextEnum):
             self.endpoint_context = BiomarkerEndpointContextEnum(self.endpoint_context)
+
+        if not isinstance(self.regulatory_endpoint_refs, list):
+            self.regulatory_endpoint_refs = [self.regulatory_endpoint_refs] if self.regulatory_endpoint_refs is not None else []
+        self.regulatory_endpoint_refs = [v if isinstance(v, str) else str(v) for v in self.regulatory_endpoint_refs]
 
         if self.interpretation is not None and not isinstance(self.interpretation, str):
             self.interpretation = str(self.interpretation)
@@ -7597,6 +7602,9 @@ slots.direction = Slot(uri=DISMECH.direction, name="direction", curie=DISMECH.cu
 slots.endpoint_context = Slot(uri=DISMECH.endpoint_context, name="endpoint_context", curie=DISMECH.curie('endpoint_context'),
                    model_uri=DISMECH.endpoint_context, domain=None, range=Optional[Union[str, "BiomarkerEndpointContextEnum"]])
 
+slots.regulatory_endpoint_refs = Slot(uri=DISMECH.regulatory_endpoint_refs, name="regulatory_endpoint_refs", curie=DISMECH.curie('regulatory_endpoint_refs'),
+                   model_uri=DISMECH.regulatory_endpoint_refs, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.interpretation = Slot(uri=DISMECH.interpretation, name="interpretation", curie=DISMECH.curie('interpretation'),
                    model_uri=DISMECH.interpretation, domain=None, range=Optional[str])
 
@@ -8525,6 +8533,9 @@ slots.BiomarkerReadout_direction = Slot(uri=DISMECH.direction, name="BiomarkerRe
 
 slots.BiomarkerReadout_endpoint_context = Slot(uri=DISMECH.endpoint_context, name="BiomarkerReadout_endpoint_context", curie=DISMECH.curie('endpoint_context'),
                    model_uri=DISMECH.BiomarkerReadout_endpoint_context, domain=BiomarkerReadout, range=Optional[Union[str, "BiomarkerEndpointContextEnum"]])
+
+slots.BiomarkerReadout_regulatory_endpoint_refs = Slot(uri=DISMECH.regulatory_endpoint_refs, name="BiomarkerReadout_regulatory_endpoint_refs", curie=DISMECH.curie('regulatory_endpoint_refs'),
+                   model_uri=DISMECH.BiomarkerReadout_regulatory_endpoint_refs, domain=BiomarkerReadout, range=Optional[Union[str, list[str]]])
 
 slots.BiomarkerReadout_interpretation = Slot(uri=DISMECH.interpretation, name="BiomarkerReadout_interpretation", curie=DISMECH.curie('interpretation'),
                    model_uri=DISMECH.BiomarkerReadout_interpretation, domain=BiomarkerReadout, range=Optional[str])
