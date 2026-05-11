@@ -1,0 +1,20 @@
+# Citations for Research Query
+
+**Query:** Pathophysiology and clinical mechanisms of Keratosis follicularis spinulosa decalvans. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.
+**Provider:** asta
+**Generated:** 2026-05-11T12:41:56.190721
+
+1. Joyeeta Chowdhury, Loknath Ghoshal, S. Bannerjee (2017). Keratosis Follicularis Spinulosa Decalvans in a female child- a rare presentation. Bangladesh Journal of Medical Science. https://www.semanticscholar.org/paper/5e9f0cad42322d13b2cf3e594acb6befe3b8f955
+2. Uma G Maheswari, V. Chaitra, S. S. Mohan (2013). Keratosis Follicularis Spinulosa Decalvans: A Rare Cause of Scarring Alopecia in Two Young Indian Girls. International Journal of Trichology. https://www.semanticscholar.org/paper/e5d84025fd4a49921f9ebe7c6684eeb931f4cb8d
+3. A. Berbert, S. A. Mantese, A. Rocha, Cláudia P Cherin, C. M. Couto (2010). Keratosis follicularis spinulosa decalvans: case report.. Anais brasileiros de dermatologia. https://www.semanticscholar.org/paper/92bc743c0fe409b45a2371207b99069be87e48b0
+4. A. Kaptanoğlu, C. Dalkan, F. Baba (2016). Keratosis follicularis spinulosa decalvans in a 15 months Cypriot girl. Indian Journal of Paediatric Dermatology. https://www.semanticscholar.org/paper/c6462a8257fc77f41a2eca4f9e29b2e2817a339e
+5. S. Chintagunta, Priyanka S. Jaju (2020). Keratosis follicularis spinulosa decalvans: A dermoscopic perspective. Indian Journal of Paediatric Dermatology. https://www.semanticscholar.org/paper/cf074ded3a25e7b3923d9c7b924293032156eba3
+6. I. Topal, I. Sahin, Betül Berberoğlu, M. Ozer (2014). KERATOSIS FOLLICULARIS SPINULOSA DECALVANS ASSOCIATED WITH ACNE KELOIDALIS NUCHAE. Our Dermatology Online. https://www.semanticscholar.org/paper/90f12f1ac8159640bea81d0b3808104d30f9bf3f
+7. F. Sequeira, E. Jayaseelan (2011). Keratosis follicularis spinulosa decalvans in a female.. Indian journal of dermatology, venereology and leprology. https://www.semanticscholar.org/paper/85620e7ed4d35ee6a80f0b34556144ef1680c8fa
+8. Natarin Caengprasath, T. Theerapanon, T. Porntaveetus, V. Shotelersuk (2021). MBTPS2, a membrane bound protease, underlying several distinct skin and bone disorders. Journal of Translational Medicine. https://www.semanticscholar.org/paper/fe9d86c9d7756cfdcf3a0bb128efcbedc053fdff
+9. Natarin Caengprasath, T. Theerapanon, T. Porntaveetus, V. Shotelersuk (2021). MBTPS2, a membrane bound protease, underlying several distinct skin and bone disorders. Journal of Translational Medicine. https://www.semanticscholar.org/paper/34290316ee50bf6a7e751ca593aec8e9d6a105f0
+10. Dipali D Malvankar, Sarvajnamurthy A Sacchidanand (2015). Keratosis Follicularis Spinulosa Decalvans: A Report of Three Cases. International Journal of Trichology. https://www.semanticscholar.org/paper/32223071aaac64612e2c7b20832a274653932a21
+11. K. Gharib, M. Khater, M. Nasr, M. Soliman, Ahmed Abdelshafi (2015). Keratosis Follicularis Spinulosa Decalvans: Diagnosis and TherapeuticEvaluation.. journal of Clinical Case Reports. https://www.semanticscholar.org/paper/ffb7481079e1eef36bbe53db8333a3115214383d
+12. R. Chauhan, Saumya Sankhwar, R. Tripathi, S. Pandey (2018). A rare presentation of keratosis follicularis spinulosa decalvans in female twins. Indian Journal of Dermatology, Venereology and Leprology. https://www.semanticscholar.org/paper/32b806a618ae76ef3afc69eecac3dd82bc212265
+13. E. Aten, Lisa C. Brasz, D. Bornholdt, Ingeborg B. Hooijkaas, M. Porteous et al. (2010). Keratosis Follicularis Spinulosa Decalvans is caused by mutations in MBTPS2. Human Mutation. https://www.semanticscholar.org/paper/52a52d183695a401b3c4273ab61a9745d364b58e
+14. Reem Brashi, Raghad E. Saleh, E. Alsulami, A. Niyazi, Maria AlSulami et al. (2024). Keratosis Follicularis Spinulosa Decalvans Associated With Woolly Hair: A Case Report. Cureus. https://www.semanticscholar.org/paper/de046f44f473bf66fff17faf8b284c0de31d61c8
