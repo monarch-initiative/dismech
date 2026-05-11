@@ -41,26 +41,26 @@ focused on FDA surrogate endpoint integration.
 
 - PMID:33807969
   - `Sitosterolemia is a lipid disorder characterized by the accumulation of dietary xenosterols in plasma and tissues caused by mutations in either ABCG5 or ABCG8.`
-  - `ABCG5 ABCG8 encodes a pair of ABC half transporters that form a heterodimer (G5G8).`
+  - `ABCG5 ABCG8 encodes a pair of ABC half transporters that form a heterodimer (G5G8), which then traffics to the surface of hepatocytes and enterocytes and promotes the secretion of cholesterol and xenosterols into the bile and the intestinal lumen.`
   - `promotes the secretion of cholesterol and xenosterols into the bile and the intestinal lumen.`
 
 - PMID:14769702
-  - `Sitosterolemia is a recessively inherited disorder that results from mutations in either ABCG5 or G8 proteins`
+  - `Sitosterolemia is a recessively inherited disorder that results from mutations in either ABCG5 or G8 proteins, with hyperabsorption of dietary sterols and decreased hepatic excretion of plant sterols and cholesterol.`
   - `hyperabsorption of dietary sterols and decreased hepatic excretion of plant sterols and cholesterol`
 
 ### Plant Sterol Accumulation and FDA Readout
 
 - PMID:14769702
   - `markedly elevated plasma and tissue sitosterol and campesterol levels`
-  - `Sitosterol concentrations decreased by 21% (P<0.001) in patients treated with ezetimibe`
+  - `Sitosterol concentrations decreased by 21% (P<0.001) in patients treated with ezetimibe compared with a nonsignificant 4% rise in those on placebo (between-group P<0.001).`
   - `Campesterol also progressively declined`
-  - `Ezetimibe produced significant and progressive reductions in plasma plant sterol concentrations in patients with sitosterolemia`
+  - `Ezetimibe produced significant and progressive reductions in plasma plant sterol concentrations in patients with sitosterolemia, consistent with the hypothesis that ezetimibe inhibits the intestinal absorption of plant sterols as well as cholesterol, leading to reductions in plasma concentrations.`
 
 ### Clinical Features and Hematology
 
 - PMID:29984642
   - `The main clinical features are tendinous and cutaneous xanthomas, arthritis or arthralgia, premature cardiovascular disease and atherosclerosis.`
-  - `Hematological abnormalities (hemolytic anemia and macrothrombocytopenia) may be present in 25-35% of patients`
+  - `Hematological abnormalities (hemolytic anemia and macrothrombocytopenia) may be present in 25-35% of patients, in whom it is usually associated with the main clinical features, as occurs in the 70% of the cases.`
   - `the peripheral blood smear is essential and reveals giant platelets and stomatocytes`
 
 ## Pathograph Decisions
