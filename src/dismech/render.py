@@ -19,6 +19,9 @@ from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
+_FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH = Path(
+    "surrogate_endpoints/fda_surrogate_endpoints.yaml"
+)
 _LITERATURE_START_PATTERNS = (
     re.compile(r"(?m)^# .+\bReport\s*$"),
     re.compile(r"(?m)^Disease (?:Pathophysiology|Characteristics) Research Report\s*$"),
@@ -445,6 +448,82 @@ def _annotate_model_links(disorder: dict) -> None:
                 )
 
             model["_modeled_mechanisms_resolved"] = resolved_links
+
+
+def _resolve_fda_surrogate_endpoints_path(yaml_path: Path) -> Path:
+    """Resolve the FDA surrogate endpoint source table relative to a disease file."""
+    nearby_kb_path = yaml_path.parent.parent / _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH
+    if nearby_kb_path.exists():
+        return nearby_kb_path
+    return Path("kb") / _FDA_SURROGATE_ENDPOINTS_RELATIVE_PATH
+
+
+@lru_cache(maxsize=8)
+def _load_fda_surrogate_endpoint_index(source_path: str) -> dict[str, dict]:
+    """Load source-level FDA surrogate endpoint rows by stable row_id."""
+    path = Path(source_path)
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text()) or {}
+    rows = data.get("surrogate_endpoints") or []
+    return {
+        str(row["row_id"]): row
+        for row in rows
+        if isinstance(row, dict) and row.get("row_id")
+    }
+
+
+def _summarize_regulatory_endpoint(row: dict) -> dict:
+    """Return the row fields needed for compact disease-page display."""
+    fields = (
+        "row_id",
+        "source_table",
+        "disease_or_use",
+        "patient_population",
+        "surrogate_endpoint",
+        "approval_type",
+        "drug_mechanism_of_action",
+        "age_range",
+        "endpoint_validation_level",
+        "clinical_benefit_linkage",
+        "context_of_use",
+        "source_url",
+    )
+    return {field: row[field] for field in fields if row.get(field) is not None}
+
+
+def _annotate_regulatory_endpoint_refs(disorder: dict, yaml_path: Path) -> None:
+    """Resolve biomarker readout FDA row refs for rendering without duplicating curation."""
+    source_path = _resolve_fda_surrogate_endpoints_path(yaml_path)
+    endpoint_index = _load_fda_surrogate_endpoint_index(str(source_path.resolve()))
+    if not endpoint_index:
+        return
+
+    for biomarker in disorder.get("biochemical") or []:
+        if not isinstance(biomarker, dict):
+            continue
+        for readout in biomarker.get("readouts") or []:
+            if not isinstance(readout, dict):
+                continue
+            refs = readout.get("regulatory_endpoint_refs") or []
+            if isinstance(refs, str):
+                refs = [refs]
+                readout["regulatory_endpoint_refs"] = refs
+            if not isinstance(refs, list):
+                continue
+
+            resolved = []
+            missing = []
+            for ref in refs:
+                row = endpoint_index.get(str(ref))
+                if row is None:
+                    missing.append(str(ref))
+                else:
+                    resolved.append(_summarize_regulatory_endpoint(row))
+            if resolved:
+                readout["_regulatory_endpoints"] = resolved
+            if missing:
+                readout["_missing_regulatory_endpoint_refs"] = missing
 
 
 def load_disorder(yaml_path: Path) -> dict:
@@ -967,6 +1046,7 @@ def render_disorder(
     # Load the disorder data
     disorder = load_disorder(yaml_path)
     _augment_mapping_hierarchies(disorder)
+    _annotate_regulatory_endpoint_refs(disorder, yaml_path)
 
     # Read raw YAML for display
     yaml_content = yaml_path.read_text()

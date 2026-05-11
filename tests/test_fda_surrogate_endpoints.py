@@ -110,5 +110,5 @@ def test_fda_surrogate_endpoint_target_disease_mappings() -> None:
     assert len(fabry_rows) == 3
     assert len(scd_rows) == 2
     assert len(thal_rows) == 2
-    assert {row["mapping_status"] for row in scd_rows} == {"CANDIDATE_DISMECH_MAPPING"}
-    assert {row["mapping_status"] for row in thal_rows} == {"CANDIDATE_DISMECH_MAPPING"}
+    assert {row["mapping_status"] for row in scd_rows} == {"CURATED_DISMECH_MAPPING"}
+    assert {row["mapping_status"] for row in thal_rows} == {"CURATED_DISMECH_MAPPING"}

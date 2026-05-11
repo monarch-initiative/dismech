@@ -6816,6 +6816,21 @@ class BiomarkerReadout(ConfiguredBaseModel):
                                                           'for display and curation '
                                                           'review.',
                                            'name': 'interpretation'},
+                        'regulatory_endpoint_refs': {'description': 'Source-table '
+                                                                    'regulatory '
+                                                                    'endpoint row IDs '
+                                                                    'linked to this '
+                                                                    'readout. Keep '
+                                                                    'regulatory '
+                                                                    'details in the '
+                                                                    'source table; use '
+                                                                    'this field only '
+                                                                    'as a local bridge '
+                                                                    'from disease '
+                                                                    'biology to '
+                                                                    'regulatory '
+                                                                    'context.',
+                                                     'name': 'regulatory_endpoint_refs'},
                         'relationship': {'description': 'How the biomarker relates to '
                                                         'the linked pathograph node.',
                                          'name': 'relationship',
@@ -6837,6 +6852,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
     relationship: BiomarkerReadoutRelationshipEnum = Field(default=..., description="""How the biomarker relates to the linked pathograph node.""", json_schema_extra = { "linkml_meta": {'alias': 'relationship', 'domain_of': ['BiomarkerReadout']} })
     direction: Optional[BiomarkerReadoutDirectionEnum] = Field(default=None, description="""Direction of association between biomarker level/presence and the linked event or endpoint.""", json_schema_extra = { "linkml_meta": {'alias': 'direction', 'domain_of': ['BiomarkerReadout']} })
     endpoint_context: Optional[BiomarkerEndpointContextEnum] = Field(default=None, description="""Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.""", json_schema_extra = { "linkml_meta": {'alias': 'endpoint_context', 'domain_of': ['BiomarkerReadout']} })
+    regulatory_endpoint_refs: Optional[list[str]] = Field(default=None, description="""Source-table regulatory endpoint row IDs linked to this readout. Keep regulatory details in the source table; use this field only as a local bridge from disease biology to regulatory context.""", json_schema_extra = { "linkml_meta": {'alias': 'regulatory_endpoint_refs', 'domain_of': ['BiomarkerReadout']} })
     interpretation: Optional[str] = Field(default=None, description="""Human-readable interpretation of the link for display and curation review.""", json_schema_extra = { "linkml_meta": {'alias': 'interpretation', 'domain_of': ['BiomarkerReadout']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'alias': 'description',
          'domain_of': ['Descriptor',

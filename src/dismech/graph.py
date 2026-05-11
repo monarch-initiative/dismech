@@ -703,6 +703,8 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
                     "relationship",
                     "direction",
                     "endpoint_context",
+                    "regulatory_endpoint_refs",
+                    "_regulatory_endpoints",
                     "interpretation",
                     "description",
                 )
