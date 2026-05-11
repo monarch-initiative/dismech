@@ -1231,6 +1231,34 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1952,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2049,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2066,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2275,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2293,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2343,33 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3950,7 +4051,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methyl-3-hydroxybutyrate (2M3HB)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"2-Methylacetoacetate (2MAA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ACAT1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACAT1 pathogenic variants reduce mitochondrial acetoacetyl-CoA thiolase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"acetyl-CoA C-acetyltransferase activity\"], \"genes\": [\"ACAT1\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACAT1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACAT1\"], \"variant_count\": 3}}, {\"id\": \"Abnormal basal ganglia morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral basal ganglia lesions may occur as a neurological complication, either as a sequela of severe ketoacidotic episodes or sometimes occurring without or before any apparent metabolic crisis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Acute ketoacidotic crisis syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe ketoacidotic episodes can present with toxic metabolic encephalopathy and associated acute-crisis signs, including reduced arousal, vomiting, hypotonia, tachypnea, seizures, and coma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cellular response to acidic pH\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma may occur in severe pediatric presentations during metabolic decompensation, representing the severe end of metabolic encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Compound heterozygous ACAT1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygosity for two different ACAT1 pathogenic variants is a common genotype. For example, ACAT1 c.481T\u003eC, p.(Tyr161His) was identified in compound heterozygosity in an adult patient presenting with diabetic ketoacidosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Episodic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of ketoacidosis are the hallmark manifestation. Episodes are triggered by catabolic stressors such as infection, fasting, or ketogenic diet, typically presenting in infancy or early childhood with high anion gap metabolic acidosis and ketonuria.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001993\"}}, {\"id\": \"Episodic metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under catabolic triggers such as infection, prolonged fasting, or ketogenic diet, increased reliance on ketone body flux and amino acid catabolism overwhelms the blocked T2 pathway. Accumulated organic acids produce high anion gap metabolic acidosis with ketosis and variable glycemia. Between crises, biochemical profiles may normalize, complicating detection. Episodes decrease in frequency with age, and are rare after age 10 in most patients.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to starvation\", \"cellular response to acidic pH\"]}}, {\"id\": \"Founder mutations in consanguineous populations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder mutations have been identified in specific populations. In a Palestinian cohort, a founder mutation was found in six patients from three families. All affected patients were offspring of consanguineous marriages, increasing the likelihood of homozygous pathogenic variants.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stress hyperglycemia is not uncommon during acute ketoacidotic crises in children with BKD. Persistent dysglycemia with elevated HbA1c has been reported in an adult patient, suggesting potential coexisting diabetes.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia may occur during metabolic crises, reflecting impaired energy metabolism and variable glycemic responses.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Impaired isoleucine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACAT1/T2 catalyzes the thiolytic cleavage of 2-methyl-acetoacetyl-CoA into propionyl-CoA and acetyl-CoA, the terminal step in the isoleucine degradation pathway. Loss of T2 activity blocks this step, leading to accumulation of upstream isoleucine-derived metabolites including 2-methyl-3-hydroxybutyrate, 2-methylacetoacetate, and tiglylglycine.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"biological_processes\": [\"isoleucine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Impaired ketone body metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T2 is involved in ketogenesis in the liver (synthesizing acetoacetyl-CoA from acetyl-CoA) and in the terminal step of ketolysis in extrahepatic tissues (cleaving acetoacetyl-CoA to two acetyl-CoAs). Loss of T2 activity impairs extrahepatic ketone body utilization, predisposing to ketosis and ketoacidosis under catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"neuron\", \"cardiac muscle cell\", \"cell of skeletal muscle\"], \"biological_processes\": [\"ketone body metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Isoleucine-derived organic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear 2-methylacetoacetyl-CoA redirects upstream isoleucine intermediates into diagnostic organic acids and acylcarnitines, including 2-methyl-3-hydroxybutyrate, tiglylglycine, 2-methylacetoacetate, tiglylcarnitine, and 2-methyl-3-hydroxybutyrylcarnitine.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"isoleucine catabolic process\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced arousal and energy during decompensation events, ranging from drowsiness to altered consciousness in severe episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during metabolic decompensation episodes, which can be severe with pH as low as 6.99 in reported cases.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Missense variants affecting buried residues\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Almost all of the 56 disease-associated missense ACAT1 variants affect residues that are completely or partially buried in the T2 structure, causing deficiency through lower in vivo T2 activity due to reduced folding efficiency or stability.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is observed during acute metabolic crises and may be a presenting feature in some patients even before the first recognized ketoacidotic episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurological complications and basal ganglia involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BKD can produce neurologic complications, especially extrapyramidal manifestations and basal ganglia lesions, as sequelae of ketoacidotic episodes or occasionally without a recognized preceding crisis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Psychomotor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay may occur, either as a consequence of severe or recurrent metabolic crises or as an early presenting feature in some patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure may occur in severe metabolic crises requiring intensive care support.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002878\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur during severe metabolic crises, including tonic-clonic seizures as part of toxic metabolic encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid breathing during metabolic acidosis episodes as compensatory respiratory response (Kussmaul breathing).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002789\"}}, {\"id\": \"Tiglylcarnitine (C5:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tiglylglycine (TIG)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Variable glycemic response during crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During acute illness and metabolic crisis, BKD patients may show stress hyperglycemia, while other presentations include hypoglycemia together with the characteristic metabolite accumulation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting during metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired isoleucine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired ketone body metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism\", \"target\": \"Isoleucine-derived organic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired ketone body metabolism\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"2-Methyl-3-hydroxybutyrate (2M3HB)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Tiglylglycine (TIG)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"2-Methylacetoacetate (2MAA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Tiglylcarnitine (C5:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Neurological complications and basal ganglia involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Episodic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Acute ketoacidotic crisis syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Variable glycemic response during crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Neurological complications and basal ganglia involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variable glycemic response during crisis\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variable glycemic response during crisis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological complications and basal ganglia involvement\", \"target\": \"Abnormal basal ganglia morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological complications and basal ganglia involvement\", \"target\": \"Psychomotor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAT1 pathogenic variants\", \"target\": \"ACAT1 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Compound heterozygous ACAT1 variants\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Founder mutations in consanguineous populations\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense variants affecting buried residues\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methyl-3-hydroxybutyrate (2M3HB)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"2-Methylacetoacetate (2MAA)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"ACAT1 molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ACAT1 pathogenic variants reduce mitochondrial acetoacetyl-CoA thiolase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"acetyl-CoA C-acetyltransferase activity\"], \"genes\": [\"ACAT1\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"ACAT1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ACAT1\"], \"variant_count\": 3}}, {\"id\": \"Abnormal basal ganglia morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral basal ganglia lesions may occur as a neurological complication, either as a sequela of severe ketoacidotic episodes or sometimes occurring without or before any apparent metabolic crisis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Acute ketoacidotic crisis syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe ketoacidotic episodes can present with toxic metabolic encephalopathy and associated acute-crisis signs, including reduced arousal, vomiting, hypotonia, tachypnea, seizures, and coma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cellular response to acidic pH\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma may occur in severe pediatric presentations during metabolic decompensation, representing the severe end of metabolic encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Compound heterozygous ACAT1 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygosity for two different ACAT1 pathogenic variants is a common genotype. For example, ACAT1 c.481T\u003eC, p.(Tyr161His) was identified in compound heterozygosity in an adult patient presenting with diabetic ketoacidosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Episodic ketoacidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of ketoacidosis are the hallmark manifestation. Episodes are triggered by catabolic stressors such as infection, fasting, or ketogenic diet, typically presenting in infancy or early childhood with high anion gap metabolic acidosis and ketonuria.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001993\"}}, {\"id\": \"Episodic metabolic decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under catabolic triggers such as infection, prolonged fasting, or ketogenic diet, increased reliance on ketone body flux and amino acid catabolism overwhelms the blocked T2 pathway. Accumulated organic acids produce high anion gap metabolic acidosis with ketosis and variable glycemia. Between crises, biochemical profiles may normalize, complicating detection. Episodes decrease in frequency with age, and are rare after age 10 in most patients.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to starvation\", \"cellular response to acidic pH\"]}}, {\"id\": \"Founder mutations in consanguineous populations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Founder mutations have been identified in specific populations. In a Palestinian cohort, a founder mutation was found in six patients from three families. All affected patients were offspring of consanguineous marriages, increasing the likelihood of homozygous pathogenic variants.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyperglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stress hyperglycemia is not uncommon during acute ketoacidotic crises in children with BKD. Persistent dysglycemia with elevated HbA1c has been reported in an adult patient, suggesting potential coexisting diabetes.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003074\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia may occur during metabolic crises, reflecting impaired energy metabolism and variable glycemic responses.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001943\"}}, {\"id\": \"Impaired isoleucine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACAT1/T2 catalyzes the thiolytic cleavage of 2-methyl-acetoacetyl-CoA into propionyl-CoA and acetyl-CoA, the terminal step in the isoleucine degradation pathway. Loss of T2 activity blocks this step, leading to accumulation of upstream isoleucine-derived metabolites including 2-methyl-3-hydroxybutyrate, 2-methylacetoacetate, and tiglylglycine.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"biological_processes\": [\"isoleucine catabolic process\", \"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Impaired ketone body metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T2 is involved in ketogenesis in the liver (synthesizing acetoacetyl-CoA from acetyl-CoA) and in the terminal step of ketolysis in extrahepatic tissues (cleaving acetoacetyl-CoA to two acetyl-CoAs). Loss of T2 activity impairs extrahepatic ketone body utilization, predisposing to ketosis and ketoacidosis under catabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"neuron\", \"cardiac muscle cell\", \"cell of skeletal muscle\"], \"biological_processes\": [\"ketone body metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Isoleucine-derived organic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure to clear 2-methylacetoacetyl-CoA redirects upstream isoleucine intermediates into diagnostic organic acids and acylcarnitines, including 2-methyl-3-hydroxybutyrate, tiglylglycine, 2-methylacetoacetate, tiglylcarnitine, and 2-methyl-3-hydroxybutyrylcarnitine.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"isoleucine catabolic process\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced arousal and energy during decompensation events, ranging from drowsiness to altered consciousness in severe episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during metabolic decompensation episodes, which can be severe with pH as low as 6.99 in reported cases.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Missense variants affecting buried residues\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Almost all of the 56 disease-associated missense ACAT1 variants affect residues that are completely or partially buried in the T2 structure, causing deficiency through lower in vivo T2 activity due to reduced folding efficiency or stability.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is observed during acute metabolic crises and may be a presenting feature in some patients even before the first recognized ketoacidotic episode.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurological complications and basal ganglia involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BKD can produce neurologic complications, especially extrapyramidal manifestations and basal ganglia lesions, as sequelae of ketoacidotic episodes or occasionally without a recognized preceding crisis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Psychomotor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Psychomotor delay may occur, either as a consequence of severe or recurrent metabolic crises or as an early presenting feature in some patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure may occur in severe metabolic crises requiring intensive care support.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002878\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur during severe metabolic crises, including tonic-clonic seizures as part of toxic metabolic encephalopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid breathing during metabolic acidosis episodes as compensatory respiratory response (Kussmaul breathing).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002789\"}}, {\"id\": \"Tiglylcarnitine (C5:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Tiglylglycine (TIG)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Variable glycemic response during crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During acute illness and metabolic crisis, BKD patients may show stress hyperglycemia, while other presentations include hypoglycemia together with the characteristic metabolite accumulation.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"glucose homeostasis\"]}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting during metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired isoleucine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAT1 molecular function deficiency\", \"target\": \"Impaired ketone body metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired isoleucine catabolism\", \"target\": \"Isoleucine-derived organic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired ketone body metabolism\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"2-Methyl-3-hydroxybutyrate (2M3HB)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Tiglylglycine (TIG)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"2-Methylacetoacetate (2MAA)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Tiglylcarnitine (C5:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Neurological complications and basal ganglia involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Isoleucine-derived organic acid accumulation\", \"target\": \"Episodic metabolic decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Episodic ketoacidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Acute ketoacidotic crisis syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Variable glycemic response during crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Episodic metabolic decompensation\", \"target\": \"Neurological complications and basal ganglia involvement\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute ketoacidotic crisis syndrome\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variable glycemic response during crisis\", \"target\": \"Hyperglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Variable glycemic response during crisis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological complications and basal ganglia involvement\", \"target\": \"Abnormal basal ganglia morphology\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurological complications and basal ganglia involvement\", \"target\": \"Psychomotor delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACAT1 pathogenic variants\", \"target\": \"ACAT1 molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Compound heterozygous ACAT1 variants\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Founder mutations in consanguineous populations\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense variants affecting buried residues\", \"target\": \"ACAT1 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5419,6 +5520,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5485,6 +5587,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5531,6 +5634,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5575,6 +5679,7 @@
                 
                 <div class="item-desc">Context: Elevated C5:1 (tiglylcarnitine) on blood acylcarnitine analysis by MS/MS is used in newborn screening and diagnostic workup. However, sensitivity is not 100 percent and some patients may lack this elevation even during crisis.
 </div>
+                
                 
                 
     
@@ -5641,6 +5746,7 @@
                 
                 <div class="item-desc">Context: Elevated C5-OH (2-methyl-3-hydroxybutyrylcarnitine) on blood acylcarnitine profile is a diagnostic marker used in newborn screening and during acute crisis evaluation.
 </div>
+                
                 
                 
     
