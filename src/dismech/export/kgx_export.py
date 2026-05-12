@@ -5,6 +5,7 @@ Transforms disorder YAML files into KGX-format edges for the knowledge graph.
 Each function extracts edges from a specific collection type within the disorder.
 """
 
+import re
 import uuid
 from typing import Any, Iterator
 
@@ -374,12 +375,32 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     )
 
 
+# Protective-effect patterns. Matched against environmental[].effect to flip the
+# predicate from contributes_to → associated_with_decreased_likelihood_of when the
+# curated text indicates the exposure reduces disease risk (see #2098).
+_PROTECTIVE_EFFECT_PATTERNS = (
+    re.compile(r"\breduces?\s+risk\b", re.IGNORECASE),
+    re.compile(r"\bdecreased?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
+    re.compile(r"\bprotect(s|ive|ion)?\s+against\b", re.IGNORECASE),
+    re.compile(r"\blower(s|ed)?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
+)
+
+
+def _exposure_predicate(effect: str | None) -> str:
+    """Map an environmental `effect` free-text field to a Biolink predicate."""
+    if effect and any(p.search(effect) for p in _PROTECTIVE_EFFECT_PATTERNS):
+        return "biolink:associated_with_decreased_likelihood_of"
+    return "biolink:contributes_to"
+
+
 def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> ExposureEventToOutcomeAssociation | None:
     """
     Convert an environmental exposure entry to a KGX edge.
 
-    Exposure → Disease using contributes_to (risk factor relationship).
-    Uses ExposureEventToOutcomeAssociation since Disease is-a Outcome in Biolink.
+    Exposure → Disease. Predicate is `biolink:contributes_to` by default;
+    if `effect` indicates a protective relationship (e.g., "Reduces risk
+    of X"), use `biolink:associated_with_decreased_likelihood_of` instead.
+    See #2098.
 
     Args:
         disease_id: The disease term ID
@@ -395,7 +416,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     # Format evidence (direct - attached to environmental entry)
     publications, supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
 
-    predicate = "biolink:contributes_to"
+    predicate = _exposure_predicate(environmental.get("effect"))
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
         subject=exposure_id,
