@@ -1081,6 +1081,7 @@ def render_disorder(
     # Register custom filters
     current_term_id = _extract_disorder_term_id(disorder)
     env.filters["curie_to_url"] = curie_to_url
+    env.filters["basename"] = lambda p: Path(p).name
     env.filters["dismech_page_url"] = _build_dismech_page_url_filter(
         yaml_path.parent,
         excluded_term_ids={current_term_id} if current_term_id else None,
@@ -1134,6 +1135,20 @@ def render_disorder(
         "https://dismech-openscientist.bbop.workers.dev",
     )
 
+    # Compute relative path from output directory to research root so that
+    # artifact image <img src="..."> paths resolve correctly in the HTML page.
+    try:
+        research_root_rel = str(
+            research_root.resolve().relative_to(output_path.parent.resolve())
+        )
+    except ValueError:
+        # research_root is not under output directory — use a relative path
+        research_root_rel = str(
+            Path(  # noqa: PTH118
+                os.path.relpath(research_root.resolve(), output_path.parent.resolve())
+            )
+        )
+
     html = template.render(
         disorder=disorder,
         yaml_content=yaml_content,
@@ -1146,6 +1161,7 @@ def render_disorder(
         phenotype_groups=phenotype_groups,
         report_sections=report_sections,
         literature_sections=literature_sections,
+        research_root_rel=research_root_rel,
         # OpenScientist integration
         disorder_slug=disorder_slug,
         yaml_revision=yaml_revision,
