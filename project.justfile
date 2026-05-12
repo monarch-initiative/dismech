@@ -811,14 +811,7 @@ research-disorder provider disorder *args="":
     # For Edison (falcon) runs, extract the trajectory_id recorded in the frontmatter
     # and fetch any artifacts (figures, tables, etc.) produced by the run.
     if [[ "{{provider}}" == "falcon" ]] && [ -f "$output_file" ] && [ -n "${EDISON_API_KEY:-}" ]; then
-        trajectory_id=$(python3 -c "
-import sys, yaml
-text = open('$output_file').read()
-if text.startswith('---'):
-    fm = text[4:text.find('\n---\n', 4)]
-    data = yaml.safe_load(fm) or {}
-    print(data.get('trajectory_id', ''))
-" 2>/dev/null || true)
+        trajectory_id=$(grep "^trajectory_id:" "$output_file" | head -1 | sed 's/trajectory_id:[[:space:]]*//' | tr -d "'\""  || true)
         if [ -n "$trajectory_id" ]; then
             echo "Fetching Edison artifacts for trajectory $trajectory_id ..."
             uv run python scripts/fetch_edison_artifacts.py "$trajectory_id" "$output_file" || \
