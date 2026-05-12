@@ -88,29 +88,6 @@ def test_load_api_key_raises_when_missing(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# _unique_filename
-# ---------------------------------------------------------------------------
-
-def test_unique_filename_passthrough():
-    used: set[str] = set()
-    assert fea._unique_filename("figure.png", used, 1) == "figure.png"
-    assert "figure.png" in used
-
-
-def test_unique_filename_deduplicates():
-    used: set[str] = {"figure.png"}
-    result = fea._unique_filename("figure.png", used, 1)
-    assert result == "figure-2.png"
-    assert "figure-2.png" in used
-
-
-def test_unique_filename_multiple_collisions():
-    used: set[str] = {"artifact.md", "artifact-2.md"}
-    result = fea._unique_filename("artifact.md", used, 1)
-    assert result == "artifact-3.md"
-
-
-# ---------------------------------------------------------------------------
 # _write_artifacts
 # ---------------------------------------------------------------------------
 
@@ -135,19 +112,6 @@ def test_write_artifacts_sets_relative_path_on_artifact(tmp_path):
     fea._write_artifacts([artifact], report)
 
     assert artifact.path == "Foo-deep-research-falcon_artifacts/chart.png"
-
-
-def test_write_artifacts_deduplicates_filenames(tmp_path):
-    report = tmp_path / "Foo-deep-research-falcon.md"
-    report.write_text(_base_report())
-    a1 = _make_artifact("table.md", content=b"A")
-    a2 = _make_artifact("table.md", content=b"B")
-
-    fea._write_artifacts([a1, a2], report)
-
-    artifact_dir = tmp_path / "Foo-deep-research-falcon_artifacts"
-    assert (artifact_dir / "table.md").read_bytes() == b"A"
-    assert (artifact_dir / "table-2.md").read_bytes() == b"B"
 
 
 # ---------------------------------------------------------------------------

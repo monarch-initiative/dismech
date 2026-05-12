@@ -46,39 +46,23 @@ def _load_api_key() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Artifact helpers (mirrors logic in deep_research_client.cli)
+# Artifact helpers
 # ---------------------------------------------------------------------------
 
-def _unique_filename(raw_name: str, used: set[str], index: int) -> str:
-    from deep_research_client.models import sanitize_artifact_filename
-
-    safe = sanitize_artifact_filename(raw_name, fallback=f"artifact-{index}")
-    if safe in {".", ".."}:
-        safe = f"artifact-{index}"
-
-    candidate = safe
-    stem = Path(safe).stem or f"artifact-{index}"
-    suffix = Path(safe).suffix
-    counter = 2
-    while candidate in used:
-        candidate = f"{stem}-{counter}{suffix}"
-        counter += 1
-    used.add(candidate)
-    return candidate
-
-
 def _write_artifacts(artifacts: list, output_file: Path) -> None:
-    """Decode and write artifact files to *output_file.stem*_artifacts/."""
+    """Decode and write artifact files to *output_file.stem*_artifacts/.
+
+    Filenames are already deduplicated by FalconProvider._extract_artifacts, so
+    we write each artifact directly without additional collision handling.
+    """
     artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    used: set[str] = set()
-    for index, artifact in enumerate(artifacts, 1):
-        filename = _unique_filename(artifact.filename, used, index)
-        dest = artifact_dir / filename
+    for artifact in artifacts:
+        dest = artifact_dir / artifact.filename
         dest.write_bytes(base64.b64decode(artifact.content_base64))
         # Store the path relative to the report's directory so markdown links work
-        artifact.path = (artifact_dir / filename).relative_to(output_file.parent).as_posix()
+        artifact.path = (artifact_dir / artifact.filename).relative_to(output_file.parent).as_posix()
         print(f"  Saved artifact: {dest}")
 
 
