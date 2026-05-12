@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-index_research_artifacts.py — Build an index of deep-research report artifacts.
+index_research_artifacts.py — Build an index of all deep-research reports.
 
 Scans all research/*.md files (excluding *.citations.md), parses their YAML
 frontmatter, and produces research/artifact_index.yaml with:
 
-  - A list of all reports that have artifacts
-  - A lookup table keyed by trajectory_id (and any other ID formats found)
+  - A list of ALL reports (with or without artifacts)
+  - A lookup table keyed by trajectory_id for reports that have one
   - A collision report flagging artifact filenames shared by multiple reports
 
 Usage:
@@ -56,17 +56,28 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
 # Main logic
 # ---------------------------------------------------------------------------
 
+def _provider_from_filename(name: str) -> str | None:
+    """Infer provider from filename when frontmatter lacks a provider field."""
+    # e.g. Foo-deep-research-falcon.md → falcon
+    # e.g. Foo-research-synthesis.md → synthesis
+    stem = name.removesuffix(".md")
+    for separator in ("-deep-research-", "-research-"):
+        if separator in stem:
+            return stem.rsplit(separator, 1)[-1]
+    return None
+
+
 def build_index(research_dir: Path) -> dict:
-    """Scan research_dir for reports with artifacts and build the index dict."""
+    """Scan research_dir for all reports and build the index dict."""
     report_files = sorted(
         p for p in research_dir.glob("*.md")
         if not p.name.endswith(".citations.md") and p.is_file()
     )
 
-    reports_with_artifacts: list[dict] = []
+    all_reports: list[dict] = []
     index_by_id: dict[str, dict] = {}
 
-    # Track artifact filenames (basename only) → list of report stems, for collision check
+    # Track artifact filenames (basename only) → list of report names, for collision check
     filename_map: dict[str, list[str]] = defaultdict(list)
 
     for report_path in report_files:
@@ -76,13 +87,12 @@ def build_index(research_dir: Path) -> dict:
             continue
         fm, _ = _split_frontmatter(text)
         artifacts = fm.get("artifacts") or []
-        if not artifacts:
-            continue
 
         report_name = report_path.name
+        provider = fm.get("provider") or _provider_from_filename(report_name)
         entry: dict = {
             "file": report_name,
-            "provider": fm.get("provider"),
+            "provider": provider,
             "trajectory_id": fm.get("trajectory_id"),
             "artifact_count": fm.get("artifact_count", len(artifacts)),
             "artifacts": [],
@@ -103,7 +113,7 @@ def build_index(research_dir: Path) -> dict:
             if art_info["filename"]:
                 filename_map[art_info["filename"]].append(report_name)
 
-        reports_with_artifacts.append(entry)
+        all_reports.append(entry)
 
         # Index by trajectory_id
         if entry["trajectory_id"]:
@@ -128,21 +138,22 @@ def build_index(research_dir: Path) -> dict:
                     ],
                 }
 
-    # Detect filename collisions: same basename, different reports
+    # Detect filename collisions: same basename, different artifact directories
     collisions = []
     for basename, report_list in sorted(filename_map.items()):
-        # Only a collision if the basename appears in artifacts from different artifact dirs
-        # (same report contributing the same filename twice is fine — DRC handles dedup)
         unique_reports = list(dict.fromkeys(report_list))
         if len(unique_reports) > 1:
             collisions.append({"filename": basename, "reports": unique_reports})
 
+    reports_with_artifacts = [r for r in all_reports if r["artifact_count"] > 0]
+
     return {
         "generated": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "report_count": len(reports_with_artifacts),
+        "report_count": len(all_reports),
+        "reports_with_artifacts_count": len(reports_with_artifacts),
         "artifact_total": sum(e["artifact_count"] for e in reports_with_artifacts),
         "collision_count": len(collisions),
-        "reports": reports_with_artifacts,
+        "reports": all_reports,
         "index_by_trajectory_id": index_by_id,
         "collisions": collisions,
     }
@@ -187,8 +198,9 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     print(
-        f"Indexed {index['report_count']} reports with "
-        f"{index['artifact_total']} artifacts → {output_path}"
+        f"Indexed {index['report_count']} reports "
+        f"({index['reports_with_artifacts_count']} with artifacts, "
+        f"{index['artifact_total']} total artifacts) → {output_path}"
     )
 
     if index["collisions"]:
