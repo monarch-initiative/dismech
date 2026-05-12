@@ -947,6 +947,12 @@ fetch-research-artifacts trajectory_id research_file:
     fi
     uv run python scripts/fetch_edison_artifacts.py "{{trajectory_id}}" "{{research_file}}"
 
+# Build an index of all deep-research artifact files across the research/ directory.
+# Produces research/artifact_index.yaml and warns about any filename collisions.
+[group('Research')]
+index-research-artifacts:
+    uv run python scripts/index_research_artifacts.py
+
 # Fetch and cache a reference by ID
 # This may be a PMID, DOI, or other supported identifier
 [group('Research')]
