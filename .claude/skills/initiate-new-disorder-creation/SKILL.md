@@ -96,6 +96,25 @@ Depending on user preference, use one or more of the following commands
 
 Use the filesystem-friendly name here.
 
+`falcon` requires `EDISON_API_KEY` to be exported in the environment.  Edison
+(formerly FutureHouse Falcon) is a large-scale literature agent that performs
+deep bibliographic research.  `falcon` runs may take 20 minutes or longer.
+In addition to the narrative report, Edison runs frequently produce **artifacts**
+— structured tables, figures, or supplementary documents — that summarise key
+findings in machine-readable form.  When `EDISON_API_KEY` is set, artifact
+retrieval happens automatically at the end of `just research-disorder falcon …`.
+Artifacts are written to a sub-directory alongside the report:
+
+    research/DISORDER_NAME-deep-research-falcon_artifacts/
+
+The report's YAML frontmatter records the `trajectory_id` used to retrieve them
+and lists each artifact under the `artifacts` key.  An `## Artifacts` section
+is inserted into the report body for any image artifacts so they render in
+Markdown viewers.  If artifact retrieval was skipped (e.g. `EDISON_API_KEY` was
+not set at the time), you can run it later with:
+
+    just fetch-research-artifacts <trajectory_id> research/DISORDER_NAME-deep-research-falcon.md
+
 `asta` requires `ASTA_API_KEY` to be exported in the environment. Asta behaves
 more like a literature search agent than a full narrative deep-research agent:
 its outputs are primarily lists of relevant papers, usually with summaries,
@@ -137,10 +156,18 @@ and a separate citations file here:
 
 `./research/DISORDER_NAME-deep-research-PROVIDER.md.citations.md`
 
+For Edison (falcon) runs, artifacts (figures, structured tables, etc.) are also
+saved in:
+
+`./research/DISORDER_NAME-deep-research-falcon_artifacts/`
+
+and referenced in the report's YAML frontmatter under the `artifacts` key.
+
 For example:
 
 - `research/Urticaria-deep-research-openai.md`
 - `research/Urticaria-deep-research-openai.md.citations.md`
+- `research/Urticaria-deep-research-falcon_artifacts/` *(falcon only)*
 
 You MUST read this before progressing.
 
