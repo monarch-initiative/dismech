@@ -341,7 +341,7 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
         gene: A gene dict from genetic[]
 
     Returns:
-        GeneToDiseaseAssociation or None if neither gene_term.term.id nor name is available
+        GeneToDiseaseAssociation or None if gene_term.term.id is absent
     """
     if not gene:
         return None
