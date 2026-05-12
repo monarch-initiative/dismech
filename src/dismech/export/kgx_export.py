@@ -968,7 +968,10 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     for treatment in record.get("treatments") or []:
         treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
         treatment_label = _get_term_id(treatment, ["treatment_term", "term", "label"])
-        node = _emit(treatment_id, treatment.get("name") or treatment_label, "biolink:Treatment")
+        # Use the canonical ontology label, not the free-text treatment.name —
+        # multiple disorders share one MAXO CURIE with different free-text names,
+        # and dedup would otherwise pick whichever name wins.
+        node = _emit(treatment_id, treatment_label or treatment.get("name"), "biolink:Treatment")
         if node:
             yield node
 
