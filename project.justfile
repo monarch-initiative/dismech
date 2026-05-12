@@ -808,6 +808,25 @@ research-disorder provider disorder *args="":
         --output "$output_file" \
         --separate-citations "$output_file.citations.md" \
         {{args}}
+    # For Edison (falcon) runs, extract the trajectory_id recorded in the frontmatter
+    # and fetch any artifacts (figures, tables, etc.) produced by the run.
+    if [[ "{{provider}}" == "falcon" ]] && [ -f "$output_file" ] && [ -n "${EDISON_API_KEY:-}" ]; then
+        trajectory_id=$(python3 -c "
+import sys, yaml
+text = open('$output_file').read()
+if text.startswith('---'):
+    fm = text[4:text.find('\n---\n', 4)]
+    data = yaml.safe_load(fm) or {}
+    print(data.get('trajectory_id', ''))
+" 2>/dev/null || true)
+        if [ -n "$trajectory_id" ]; then
+            echo "Fetching Edison artifacts for trajectory $trajectory_id ..."
+            uv run python scripts/fetch_edison_artifacts.py "$trajectory_id" "$output_file" || \
+                echo "Warning: artifact fetch failed (non-fatal); run 'just fetch-research-artifacts $trajectory_id $output_file' to retry."
+        else
+            echo "Note: no trajectory_id in report frontmatter; skipping artifact fetch."
+        fi
+    fi
 
 # Deep research on a comorbidity using specified provider
 # Examples:
@@ -907,6 +926,26 @@ research-disorder-cyberian-codex disorder *args="":
 [group('Research')]
 research-providers:
     uv run deep-research-client providers
+
+# Fetch artifacts (figures, tables, etc.) from a completed Edison trajectory and
+# save them alongside the specified research report.
+# The report's YAML frontmatter is updated with the trajectory_id and artifact list,
+# and an ## Artifacts section is added to the body for any image artifacts.
+#
+# Examples:
+#   just fetch-research-artifacts 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd \
+#       research/Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon.md
+#   just fetch-research-artifacts <trajectory_id> research/<Disorder>-deep-research-falcon.md
+[group('Research')]
+fetch-research-artifacts trajectory_id research_file:
+    #!/usr/bin/env bash
+    set -e
+    export EDISON_API_KEY="${EDISON_API_KEY:-$(cat edison_tok 2>/dev/null || true)}"
+    if [ -z "$EDISON_API_KEY" ]; then
+        echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
+        exit 1
+    fi
+    uv run python scripts/fetch_edison_artifacts.py "{{trajectory_id}}" "{{research_file}}"
 
 # Fetch and cache a reference by ID
 # This may be a PMID, DOI, or other supported identifier
