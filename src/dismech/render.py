@@ -1135,19 +1135,11 @@ def render_disorder(
         "https://dismech-openscientist.bbop.workers.dev",
     )
 
-    # Compute relative path from output directory to research root so that
-    # artifact image <img src="..."> paths resolve correctly in the HTML page.
-    try:
-        research_root_rel = str(
-            research_root.resolve().relative_to(output_path.parent.resolve())
-        )
-    except ValueError:
-        # research_root is not under output directory — use a relative path
-        research_root_rel = str(
-            Path(  # noqa: PTH118
-                os.path.relpath(research_root.resolve(), output_path.parent.resolve())
-            )
-        )
+    # Relative path from the output page directory to research root, so that
+    # artifact image <img src="..."> paths resolve correctly in the HTML.
+    research_root_rel = os.path.relpath(
+        research_root.resolve(), output_path.parent.resolve()
+    )
 
     html = template.render(
         disorder=disorder,
