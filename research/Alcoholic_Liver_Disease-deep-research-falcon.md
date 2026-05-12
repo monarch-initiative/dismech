@@ -2,26 +2,25 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-05-11T13:58:46.995300'
-end_time: '2026-05-11T14:13:30.425167'
-duration_seconds: 883.43
+start_time: '2026-05-12T15:22:37.681743'
+end_time: '2026-05-12T15:45:02.476081'
+duration_seconds: 1344.79
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Dimethylglycine Dehydrogenase Deficiency
+  disease_name: Alcoholic Liver Disease
   mondo_id: ''
-  category: Mendelian
+  category: Complex
 provider_config:
   timeout: null
   max_retries: 3
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 25
-trajectory_id: 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd
+citation_count: 46
 artifact_count: 1
 artifacts:
 - filename: artifact-00.md
-  path: Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon_artifacts/artifact-00.md
+  path: Alcoholic_Liver_Disease-deep-research-falcon_artifacts/artifact-00.md
   media_type: text/markdown
   source: edison_answer_artifacts
   data_storage_id: null
@@ -33,13 +32,13 @@ artifacts:
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Dimethylglycine Dehydrogenase Deficiency
+- **Disease Name:** Alcoholic Liver Disease
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** Complex
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Dimethylglycine Dehydrogenase Deficiency** covering all of the
+Please provide a comprehensive research report on **Alcoholic Liver Disease** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -494,13 +493,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Dimethylglycine Dehydrogenase Deficiency
+- **Disease Name:** Alcoholic Liver Disease
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** Complex
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Dimethylglycine Dehydrogenase Deficiency** covering all of the
+Please provide a comprehensive research report on **Alcoholic Liver Disease** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -938,309 +937,303 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Dimethylglycine Dehydrogenase Deficiency (DMGDH deficiency; hyperdimethylglycinemia): Comprehensive Disease Characteristics Report
+# Comprehensive Research Report: Alcoholic Liver Disease (Alcohol-Associated Liver Disease)
 
 ## Target disease
-- **Disease name:** Dimethylglycine dehydrogenase deficiency
-- **Category:** Mendelian / inborn error of metabolism (one‑carbon/choline degradation pathway)
-- **Key identifier available from retrieved sources:** **OMIM 605850** (reported in mechanistic/structural papers) (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3)
-- **MONDO / Orphanet / MeSH / ICD-10/ICD-11:** Not identified in the retrieved corpus for this run; these identifiers should be added from external ontology resources during curation (limitation of this tool-run).
+- **Disease name (preferred in recent literature):** Alcohol-associated liver disease (**ALD**) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- **Legacy/related terms:** alcoholic liver disease; alcohol-related liver disease; ArLD (hong2024alcoholrelatedliverdisease pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3)
+- **Disease category:** complex / multifactorial exposure-related disease (alcohol plus modifiers) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, israelsenUnknownyearmetaldfromconcept pages 7-10)
+- **MONDO ID:** Not identified in the retrieved evidence set (knowledge-base crosswalk needed).
 
-## Executive summary
-Dimethylglycine dehydrogenase deficiency is an ultra‑rare inborn error of choline catabolism/one‑carbon metabolism caused by loss of function in **DMGDH**, a mitochondrial **FAD- and tetrahydrofolate (THF)**‑dependent enzyme that oxidatively demethylates **N,N‑dimethylglycine (DMG)** to **sarcosine**. The canonical human phenotype is mild and has been described primarily in a **single adult patient**, featuring a **lifelong fish‑like odor**, **muscle fatigue/weakness**, and **persistent creatine kinase (CK) elevation**, with massively increased **DMG** in serum and urine. Diagnosis relies on **targeted metabolite measurement** (historically by **^1H NMR spectroscopy** of urine/serum) and confirmatory **molecular genetic testing** identifying **biallelic DMGDH variants** (e.g., **A326G; p.His109Arg**). Evidence for disease mechanism and variant pathogenicity is strengthened by biochemical/structural characterization of the H109R variant showing marked impairment in substrate affinity/cofactor incorporation and catalytic efficiency. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1)
+## 1. Disease information (concepts, identifiers, synonyms)
 
-| Disease name / synonym used | Causal gene | Key reported patient findings (clinical, biochemical, diagnostics) | Key quantitative lab values | Pathogenic variant / frequency | Evidence type |
-|---|---|---|---|---|---|
-| Dimethylglycine dehydrogenase deficiency; hyperdimethylglycinemia; “defect in dimethylglycine dehydrogenase”; sometimes discussed with fish-odor syndromes because odor was a presenting complaint (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar2001invivoand pages 89-94) | **DMGDH** (mitochondrial dimethylglycine dehydrogenase) (mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3) | Single reported index patient: 38-year-old man of African ancestry; fish-like body odor since age 5, worse with stress/exertion; unusual muscle fatigue/weakness; normal intelligence/overall good health; persistent CK elevation. Biochemical hallmark was marked accumulation of dimethylglycine with absent detectable sarcosine. Diagnosis used **1H NMR** of urine/serum, confirmed by **13C NMR**, **GC-MS**, and later **molecular testing**; trimethylaminuria was excluded by fish challenge and low urinary trimethylamine (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar2001invivoand pages 94-98, moolenaar1999defectindimethylglycine pages 1-2, moolenaar1999defectindimethylglycine pages 3-4, moolenaar1999defectindimethylglycine pages 5-5, moolenaar2001invivoand pages 98-101) | Serum DMG **221** vs ref **1–5**; urine DMG **457** and **441 mmol/mol creatinine** vs ref **1–26** (age >2 months); CK **1066 U/L** vs ref **30–270 U/L** (~4× ULN). Urine trimethylamine **<2 mmol/mol creatinine**; trimethylamine N-oxide **55 mmol/mol creatinine** (ref **20–125**) (moolenaar1999defectindimethylglycine pages 4-5, moolenaar2001invivoand pages 94-98, moolenaar1999defectindimethylglycine pages 1-2, moolenaar1999defectindimethylglycine pages 3-4, moolenaar2001invivoand pages 98-101, moolenaar1999defectindimethylglycine media 773767bc) | Homozygous **A326G** causing **H109R (His109Arg)** near flavin attachment site; reported as disease-causing in the index patient (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 1-1) | Human case report / diagnostic discovery study (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1) |
-| Dimethylglycine dehydrogenase deficiency (OMIM 605850); mild/non-fatal disorder with DMG accumulation and fish-like odor (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | **DMGDH** (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | Recombinant/structural studies linked H109R to decreased expression, reduced FAD saturation, lower thermal stability, impaired substrate affinity, and lower catalytic efficiency, providing mechanistic support for the patient phenotype of DMG accumulation, muscle fatigue, and odor (mcandrew2008molecularbasisof pages 4-6, mcandrew2008molecularbasisof pages 6-8, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | WT kinetics: Km1 **0.039 ± 0.010 mmol/L**, Km2 **15.4 ± 1.2 mmol/L**; with 4 mmol/L THF, Km2 **1.10 ± 0.55 mmol/L**. H109R: ~**47%** WT bound flavin in one expression system; **27-fold** lower specific activity, **65-fold** higher Km, ~**1800-fold** lower catalytic efficiency in one study; other study reported ~**10-fold** lower catalytic efficiency and **15–25-fold** higher Km (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3, mcandrew2008molecularbasisof pages 6-8) | **H109R** present in ExAC **58/118,656 alleles (0.049%)**, noted as predominantly in individuals of African descent (augustin2016structureandbiochemical pages 1-3) | Biochemical / structural study (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) |
-| Dimethylglycine dehydrogenase deficiency in choline-related inherited metabolic disease reviews; very rare / likely autosomal recessive disorder (walker2012trimethylaminuriaanddimethylglycine pages 3-5) | **DMGDH** (walker2012trimethylaminuriaanddimethylglycine pages 3-5) | Chapter/review sources summarize that only one case had been reported at that time; disease blocks choline catabolism, causing major DMG accumulation in plasma/urine; suggested practical diagnosis is raised plasma/urine DMG, ideally sampled when odor present. Proton NMR is emphasized as useful; routine liver biopsy would be needed for enzyme confirmation because activity is not normally detectable in blood cells/fibroblasts. Management suggestions included counseling, dietary choline restriction, avoiding excessive sweating; antibiotics to alter gut flora not indicated; riboflavin alone did not help, and folate plus riboflavin was suggested as a trial (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 5-5) | Plasma DMG increase described as ~**100-fold** and urine increase ~**20-fold**; healthy adult plasma reference **1–5 µmol/L**; urine reference **<26 mmol/mol creatinine** after age 2 months, with higher neonatal values up to ~**550 mmol/mol creatinine** in first 2 months (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 4-5) | Homozygous **A326G / H109R** summarized as causative in the known patient (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1) | Review / book chapter (walker2012trimethylaminuriaanddimethylglycine pages 3-5) |
+### 1.1 Concise overview and spectrum definition
+Alcohol-associated liver disease (ALD) is a spectrum of liver injury caused by chronic harmful alcohol exposure, ranging from **steatosis** to **steatohepatitis**, progressive **fibrosis**, **cirrhosis**, and **hepatocellular carcinoma (HCC)** (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2). Alcohol-associated hepatitis (AH) is an acute, severe inflammatory manifestation within this spectrum, described as presenting with **sudden jaundice and liver failure** (alvaradotapias2024alcoholassociatedliverdisease pages 1-3).
+
+### 1.2 Key identifiers / coding
+- **ICD-10:** Alcoholic liver disease is coded under **K70.*** (examples explicitly listed in retrieved sources: **K70.0–K70.4, K70.9**) (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23).
+- **ICD-11 / MeSH / OMIM / Orphanet:** Not extracted from the retrieved evidence set (additional targeted database lookup required). An expert consensus statement discusses **ICD-11 AUD criteria** (dependence requires “2 or more of 3 symptoms”) but does not provide ICD-11 liver-disease codes (lee2024designingclinicaltrials pages 3-5).
+
+### 1.3 Current nomenclature: ALD within the 2023 “steatotic liver disease (SLD)” framework
+Recent multisociety consensus reframed fatty liver disorders under **SLD** and subclassified into **MASLD**, **MetALD (MASLD + increased alcohol)**, and **ALD** (lee2024nationalprevalenceestimates pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3). A Nature Reviews Gastroenterology & Hepatology expert panel describes Delphi thresholds defining ALD as alcohol consumption exceeding **420 g/week (men)** or **350 g/week (women)** and MetALD as intermediate alcohol exposure ranges (lee2024designingclinicaltrials pages 3-5).
+
+### 1.4 Aggregated resource vs individual patient evidence
+Most disease definitions, staging concepts, and global burden estimates in this report come from **aggregated disease-level resources** (reviews and Global Burden of Disease [GBD] analyses) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, danpanichkul2025globalepidemiologyof pages 1-5). Administrative coding use-cases reflect **EHR-derived** approaches based on ICD-10 codes (manthey2025identifyinglevelsof pages 1-2).
+
+| Concept | Preferred term / definition | Common synonyms / legacy names | ICD-10 / coding | ICD-11 / AUD note | NHANES prevalence under 2023 SLD nomenclature | Notes (URL; publication date) |
+|---|---|---|---|---|---|---|
+| Disease entity | **Alcohol-associated liver disease (ALD)** is the current preferred term in recent hepatology literature; within the 2023 steatotic liver disease (SLD) framework, ALD is a subclass of SLD distinct from MASLD and MetALD (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, lee2024designingclinicaltrials pages 3-5) | Alcoholic liver disease; alcohol-related liver disease; ArLD; ALD (legacy and regional usage varies) (hong2024alcoholrelatedliverdisease pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | ICD-10 alcoholic liver disease code family **K70.***; examples cited in available sources include **K70.0–K70.4, K70.9** (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23) | Expert consensus paper notes ICD-11 criteria for alcohol dependence/AUD require **2 or more of 3 symptoms**; used as clinical context rather than liver-disease code mapping (lee2024designingclinicaltrials pages 3-5) | Not a prevalence row by itself | Alvarado-Tapias et al. 2024: https://doi.org/10.3350/cmh.2024.0709 ; Oct 2024. Lee et al. 2024 consensus statement: https://doi.org/10.1038/s41575-024-00936-x ; Jun 2024. |
+| SLD umbrella term | **Steatotic liver disease (SLD)** is the umbrella nomenclature adopted by multisociety consensus, encompassing MASLD, MetALD, ALD, and etiology-specific/cryptogenic SLD (lee2024nationalprevalenceestimates pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | Fatty liver disease spectrum (legacy framing) (lee2024designingclinicaltrials pages 3-5, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | No specific ICD-10 range provided in available evidence for SLD umbrella term | Delphi consensus on future ICD harmonization for SLD published, but no explicit ICD-11 liver-code mapping provided in available evidence (lee2024designingclinicaltrials pages 3-5) | **34.2%** (95% CI **31.9%–36.5%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. |
+| Metabolic subclass | **Metabolic dysfunction-associated steatotic liver disease (MASLD)** (lee2024designingclinicaltrials pages 3-5, lee2024nationalprevalenceestimates pages 1-2) | NAFLD showed ~99% overlap with MASLD in NHANES analysis (lee2024nationalprevalenceestimates pages 1-2) | No specific ICD-10 range provided in available evidence | In trial-consensus context, alcohol thresholds help distinguish MASLD from MetALD/ALD (lee2024designingclinicaltrials pages 3-5) | **31.3%** (95% CI **29.2%–33.4%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. |
+| Overlap subclass | **MetALD** = MASLD plus increased alcohol intake; consensus thresholds cited as women **140–350 g/week** and men **210–420 g/week** in one expert statement (lee2024designingclinicaltrials pages 3-5) | Metabolic dysfunction- and alcohol-associated liver disease; metabolic and alcohol-associated liver disease (alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | No specific ICD-10 range provided in available evidence | Relevant as a nomenclature and trial-stratification category rather than a distinct ICD-11 code in available evidence (lee2024designingclinicaltrials pages 3-5) | **2.0%** (95% CI **1.6%–2.9%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. Lee et al. 2024 consensus statement: https://doi.org/10.1038/s41575-024-00936-x ; Jun 2024. |
+| Alcohol subclass | **ALD** within SLD nomenclature; Delphi/expert statement defined ALD as alcohol consumption exceeding **420 g/week (men)** or **350 g/week (women)**, with or without cardiometabolic risk factors (lee2024designingclinicaltrials pages 3-5) | Alcohol-associated liver disease; alcoholic liver disease; alcohol-related liver disease (hong2024alcoholrelatedliverdisease pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | ICD-10 **K70.*** family applies to alcoholic liver disease diagnoses in administrative coding (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23) | ICD-11 AUD/dependence criteria mentioned in consensus/trial-design paper; no explicit ICD-11 ALD code supplied in available evidence (lee2024designingclinicaltrials pages 3-5) | **0.7%** (95% CI **0.5%–0.9%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. Manthey et al. 2025 ICD-10 EHR usage: https://doi.org/10.1186/s13011-025-00670-w ; Sep 2025. |
+| Administrative/EHR coding note | In EHR work, severe alcohol-related disease burden category explicitly included alcoholic liver disease diagnoses | Alcoholic liver cirrhosis and related alcohol-specific organ disease codes in EHR severity work (manthey2025identifyinglevelsof pages 1-2) | **K70; K70.0–K70.4; K70.9** specifically listed in available evidence (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23) | ICD-10 was the basis of the cited EHR classification; authors note different jurisdictions may use ICD-11, but mapping not provided here (manthey2025identifyinglevelsof pages 1-2) | Not applicable | Manthey et al. 2025: https://doi.org/10.1186/s13011-025-00670-w ; Sep 2025. Hagström et al. 2024 ICD consensus: https://doi.org/10.1097/hc9.0000000000000386 ; Feb 2024. |
 
 
-*Table: This table condenses the core literature on dimethylglycine dehydrogenase deficiency, including the nomenclature used, the causal gene, the single well-described human case, key quantitative laboratory abnormalities, and the main pathogenic variant with biochemical evidence. It is useful as a quick reference for disease curation and knowledge base population.*
-
----
-
-## 1. Disease information
-### 1.1 What is the disease?
-Dimethylglycine dehydrogenase deficiency (also called hyperdimethylglycinemia) is a genetic metabolic disorder in which impaired DMGDH activity blocks the mitochondrial step converting DMG to sarcosine, leading to **marked accumulation of DMG in body fluids** and a **mild clinical phenotype** in the best‑described patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar1999defectindimethylglycine pages 1-2)
-
-### 1.2 Common synonyms / alternative names (from primary literature)
-- “Dimethylglycine dehydrogenase deficiency” (walker2012trimethylaminuriaanddimethylglycine pages 3-5, augustin2016structureandbiochemical pages 7-9)
-- “Hyperdimethylglycinemia” (used as a descriptor for DMG elevation in the discovery paper) (moolenaar1999defectindimethylglycine pages 1-1)
-- “Defect in dimethylglycine dehydrogenase” (title/terminology of original case report) (moolenaar1999defectindimethylglycine pages 1-1)
-
-### 1.3 Evidence source type
-The disease description is derived primarily from:
-- **Individual human case report/discovery study** using metabolomics/NMR and molecular genetics (moolenaar1999defectindimethylglycine pages 1-1, moolenaar1999defectindimethylglycine pages 1-2)
-- **Authoritative chapter-level synthesis** describing rarity, diagnostic approach, and management suggestions (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Biochemical/structural functional studies** of the disease-associated variant (mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3)
-
----
+*Table: This table summarizes current naming conventions, coding references, and U.S. NHANES prevalence estimates relevant to Alcoholic Liver Disease / Alcohol-associated liver disease within the 2023 steatotic liver disease framework. It is useful for aligning legacy terminology, ICD coding, and modern subclassification terms in a disease knowledge base.*
 
 ## 2. Etiology
-### 2.1 Disease causal factors
-- **Genetic cause:** Biallelic pathogenic variants in **DMGDH**. The index patient was **homozygous for A326G**, encoding **p.His109Arg (H109R)**. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3)
-- **Mechanistic cause:** Loss of DMGDH enzymatic function causing failure of DMG demethylation and consequent accumulation of DMG in blood/urine. (augustin2016structureandbiochemical pages 1-3, moolenaar1999defectindimethylglycine pages 1-1)
+
+### 2.1 Primary causal factors
+The necessary upstream causal exposure is **harmful alcohol consumption**; however, ALD development and progression are heterogeneous and depend on host susceptibility and co-exposures (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, israelsenUnknownyearmetaldfromconcept pages 7-10).
 
 ### 2.2 Risk factors
-- **Genetic:** Having biallelic loss‑of‑function or severely hypomorphic variants in DMGDH (autosomal recessive inferred). A chapter review states the disorder is “likely autosomal recessive” and notes “only one case” had been reported at that time. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Environmental:** No validated environmental risk factors were identified; symptoms (odor) were reported to worsen with **stress/exertion** in the index patient (not a cause, but a trigger/modifier of symptom expression). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+#### Alcohol exposure intensity and pattern
+Clinical trial consensus emphasizes careful quantification of alcohol exposure (standard drinks converted to grams), as thresholds and definitions vary across studies (lee2024designingclinicaltrials pages 1-2).
 
-### 2.3 Protective factors / gene–environment interactions
-No protective genetic variants or gene–environment interactions specific to disease penetrance were reported in the retrieved literature. Given the extremely limited case count, these remain unknown.
+#### Genetic risk factors (susceptibility/modifier loci)
+Human genetic studies and reviews identify common modifier variants that increase risk of steatosis and/or progressive outcomes (fibrosis/cirrhosis/HCC), especially under metabolic or alcohol stress.
+- **PNPLA3 I148M (rs738409):** Reported to increase liver fat and increase risk of fibrosis/cirrhosis/HCC, with stronger effects under obesity/T2D and alcohol exposure (israelsenUnknownyearmetaldfromconcept pages 7-10). Proposed mechanism: variant accumulates on lipid droplets and impairs triglyceride breakdown by blocking ATGL access (israelsenUnknownyearmetaldfromconcept pages 7-10).
+- **TM6SF2 E167K (rs58542926):** Increases hepatic fat and risk of advanced disease; mechanistically linked to reduced VLDL secretion (israelsenUnknownyearmetaldfromconcept pages 7-10). Quantitative associations reported in an omics review include OR ~1.38 for steatosis/fibrosis and higher ORs for more severe steatosis/fibrosis grades (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **MBOAT7 rs641738 C>T:** A modest-risk variant that reduces phosphatidylinositol remodeling and is associated with higher risk of steatosis/inflammation/fibrosis/HCC; knockout mice show increased hepatic triglycerides and fibrosis (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **HSD17B13 rs72613567 (T>TA):** A loss-of-function splice variant commonly described as **protective** against progressive liver disease outcomes (fibrosis/cirrhosis/HCC) and associated with lower aminotransferases; one review notes ~25% per-allele risk reduction for fibrosis/cirrhosis/HCC (israelsenUnknownyearmetaldfromconcept pages 7-10), and another review summarizes larger reductions reported in some cohorts (e.g., ~30%–49% reductions) (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11). JCI review notes HSD17B13 variants are associated with reduced risk for cirrhosis/HCC in ALD (mackowiak2024alcoholassociatedliverdisease pages 8-9).
+- **Alcohol metabolism genes:** Population variation in **ALDH2** activity is highlighted in East Asian populations (30–40% with inactive ALDH2 polymorphisms), affecting acetaldehyde handling (mackowiak2024alcoholassociatedliverdisease pages 8-9). Another review summarizes that functional variants in **ADH1B** and **ALDH2** can reduce alcohol intake and are associated with substantially lower ALD risk (israelsenUnknownyearmetaldfromconcept pages 7-10).
 
----
+#### Environmental/clinical risk modifiers
+ALD pathogenesis and progression are influenced by co-factors such as sex, obesity/metabolic dysfunction, and the gut microbiome (d’arcangelo2026oxidativestressand pages 15-16, israelsenUnknownyearmetaldfromconcept pages 7-10). A U.S. mortality study also highlights concurrent societal shifts and obesity as contributors to worsening ALD burden in high-risk subgroups (pan2025alcoholassociatedliverdisease pages 1-2).
 
-## 3. Phenotypes
-### 3.1 Reported human phenotypes (best-described index case)
-**Clinical signs/symptoms**
-- Fish‑like body odor beginning in childhood (age 5) and persisting into adulthood. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-- Unusual muscle fatigue and/or mild muscle weakness. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 1-2)
-- Normal intelligence and generally good health otherwise reported in the original case. (moolenaar1999defectindimethylglycine pages 1-2)
+### 2.3 Protective factors
+- **Genetic:** HSD17B13 loss-of-function variants are repeatedly described as hepatoprotective (israelsenUnknownyearmetaldfromconcept pages 7-10, mackowiak2024alcoholassociatedliverdisease pages 8-9, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **Behavioral:** Alcohol abstinence is the most effective intervention to improve prognosis across ALD stages (alvaradotapias2024alcoholassociatedliverdisease pages 1-3).
 
-**Laboratory abnormalities**
-- Markedly increased DMG in serum and urine (quantified in Table 1 of discovery report). (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine media 773767bc)
-- Persistently increased serum/plasma creatine kinase (~4× upper limit of normal). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+### 2.4 Gene–environment interaction (GxE)
+The effect of key variants (notably PNPLA3) is reported to be **amplified by obesity, type 2 diabetes, and alcohol** exposure (israelsenUnknownyearmetaldfromconcept pages 7-10). Recent genetics reviews also emphasize that genetic risk “is not fixed” and can be modulated by diet/exercise/alcohol intake (wang2025geneticinsightsinto pages 1-2).
 
-**Phenotype timing and severity**
-- **Age of onset:** childhood for odor complaint (age ~5). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-- **Course:** chronic/lifelong in the index patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Severity:** described as mild/non‑fatal in later mechanistic literature. (augustin2016structureandbiochemical pages 7-9)
+## 3. Phenotypes (clinical spectrum; HPO suggestions)
 
-### 3.2 Suggested HPO terms (mapping based on described features)
-(These are ontology suggestions for curation; HPO IDs not retrieved in this run.)
-- Fishy body odor / abnormal body odor: **Abnormal body odor**
-- Fatigue: **Fatigue**
-- Muscle weakness: **Muscle weakness**
-- Elevated creatine kinase: **Elevated circulating creatine kinase concentration**
-- Increased dimethylglycine: **Abnormal circulating metabolite concentration** (specific metabolite annotation may require custom term)
+### 3.1 Core phenotypes across the ALD spectrum
+Key clinical–pathologic phenotypes include:
+- **Hepatic steatosis** (fatty liver) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- **Steatohepatitis** (inflammation plus steatosis) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- **Fibrosis → cirrhosis → portal hypertension/complications** (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, alvaradotapias2024alcoholassociatedliverdisease pages 3-4)
+- **Alcohol-associated hepatitis (AH):** acute jaundice and liver failure; histologic ASH features include steatosis, inflammatory infiltration, hepatocyte ballooning, and Mallory–Denk bodies (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
 
-### 3.3 Quantitative phenotype-associated data
-Table 1 in the original Clinical Chemistry report provides the key quantitative biochemical phenotype:
-- **Serum DMG:** **221** (reported as mmol/L in excerpt) vs reference **1–5** (moolenaar1999defectindimethylglycine pages 4-5)
-- **Urine DMG:** **457** and **441 mmol/mol creatinine** vs reference **1–26** (for age >2 months) (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine media 773767bc)
-- **Creatine kinase:** **1066 U/L** (ref 30–270 U/L) (moolenaar1999defectindimethylglycine pages 1-2)
+**Frequency:** AH has been described as occurring in ~4–8% of heavy drinkers in one recent review (kasuga2025currentinsightsinto pages 1-2). Progression to cirrhosis is estimated in **8–20%** of patients with fibrosis in a recent ALD natural history review (alvaradotapias2024alcoholassociatedliverdisease pages 1-3).
 
-**Visual evidence:** Table 1/Figure 5 showing these abnormalities and age-related urine DMG reference distribution are captured as cropped images. (moolenaar1999defectindimethylglycine media 773767bc, moolenaar1999defectindimethylglycine media 214a655b)
+### 3.2 Lab and imaging abnormalities (phenotype-type: laboratory)
+Standard diagnostic/monitoring labs include AST/ALT, bilirubin, GGT, ALP, platelets and indices derived from these (e.g., FIB-4), with AST/ALT ratio patterns often used clinically for suspicion of AH/advanced ALD (rama2026novelbiomarkersfor pages 5-6, rama2026novelbiomarkersfor pages 6-8).
 
-### 3.4 Quality of life impact
-The index case reported severe psychosocial impact from persistent odor (qualitative description in follow-on NMR paper). (moolenaar2001invivoand pages 94-98)
-
----
+### 3.3 Suggested HPO terms (non-exhaustive; for knowledge-base mapping)
+(These are ontology suggestions; not all are explicitly enumerated in the cited sources.)
+- Jaundice (HP:0000952)
+- Hyperbilirubinemia (HP:0002904)
+- Hepatic steatosis (HP:0001397)
+- Hepatitis (HP:0012115)
+- Elevated hepatic transaminases (HP:0002910)
+- Liver cirrhosis (HP:0001394)
+- Portal hypertension (HP:0000124)
+- Ascites (HP:0001541)
+- Hepatic encephalopathy (HP:0002326)
+- Hepatocellular carcinoma (HP:0001402)
 
 ## 4. Genetic / molecular information
-### 4.1 Causal gene
-- **DMGDH** encodes mitochondrial dimethylglycine dehydrogenase, a covalently flavinylated enzyme requiring THF. (augustin2016structureandbiochemical pages 1-3, moolenaar1999defectindimethylglycine pages 1-2)
 
-### 4.2 Pathogenic variant(s)
-- **Index disease variant:** **c.326A>G; p.His109Arg (H109R)**, homozygous in the reported patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3)
+### 4.1 “Causal genes” vs modifier genes
+ALD is not typically monogenic; instead, **common variants act as modifiers** of susceptibility and progression in the setting of alcohol exposure and other environmental risks (israelsenUnknownyearmetaldfromconcept pages 7-10, israelsenUnknownyearmetaldfromconcept pages 1-7). Key modifier genes supported in the retrieved evidence include **PNPLA3**, **TM6SF2**, **MBOAT7**, and **HSD17B13** (israelsenUnknownyearmetaldfromconcept pages 7-10, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
 
-### 4.3 Functional consequences (variant-level)
-Two independent functional analyses support pathogenicity:
-- H109R shows reduced flavin incorporation/cofactor saturation, markedly impaired substrate affinity and/or catalytic efficiency, and reduced stability—mechanistic routes to decreased enzymatic flux and DMG accumulation. (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3)
-- Quantitatively, one study reports the H109R mutant as having a **~65‑fold increase in Km** and **~27‑fold decrease in activity**, with overall **~1800‑fold loss in catalytic efficiency** (after accounting for flavination), consistent with a severe hypomorphic/LOF allele. (mcandrew2008molecularbasisof pages 4-6)
+### 4.2 Pathogenic / protective variants (selected)
+- **PNPLA3 rs738409 (I148M):** risk modifier for steatosis and progressive outcomes; interacts with metabolic and alcohol exposures (israelsenUnknownyearmetaldfromconcept pages 7-10).
+- **TM6SF2 rs58542926 (E167K):** risk modifier via lipid export/VLDL mechanisms (israelsenUnknownyearmetaldfromconcept pages 7-10, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **MBOAT7 rs641738 (C>T):** modest-risk modifier impacting phospholipid remodeling (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **HSD17B13 rs72613567 (T>TA):** protective loss-of-function splice variant (israelsenUnknownyearmetaldfromconcept pages 7-10, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **ALDH2 functional polymorphisms:** common inactive variants in East Asians (30–40%) affect acetaldehyde handling and may modify toxicity risk (mackowiak2024alcoholassociatedliverdisease pages 8-9).
 
-### 4.4 Population frequency context
-The H109R allele was observed in ExAC at **58/118,656 alleles (0.049%)**, predominantly in individuals of African descent, highlighting that population presence does not exclude pathogenicity for autosomal recessive disease when homozygosity is rare. (augustin2016structureandbiochemical pages 1-3)
-
-### 4.5 Modifier genes / epigenetics / chromosomal abnormalities
-No modifier genes, epigenetic findings, or chromosomal abnormalities were reported for DMGDH deficiency in the retrieved sources.
-
----
+### 4.3 Epigenetic information
+A 2024 review highlights epigenetic abnormalities as part of ALD pathogenesis (hong2024alcoholrelatedliverdisease pages 1-2), and biomarker reviews discuss exploratory epigenomic profiling (e.g., genome-wide methylation/ChIP-seq) as emerging but not yet clinically standardized (rama2026novelbiomarkersfor pages 14-15).
 
 ## 5. Environmental information
-No established environmental toxins, lifestyle factors, or infectious triggers are reported as causal. Symptom fluctuation with stress/exertion (odor worsening) is noted in the index case. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
 
----
+### 5.1 Lifestyle/environmental drivers
+- **Alcohol consumption:** primary driver; consensus documents emphasize rigorous quantification in grams and recognition of heterogeneous thresholds across studies (lee2024designingclinicaltrials pages 1-2).
+- **Microbiome and gut permeability:** “leaky gut” and dysbiosis with PAMP/LPS translocation are repeatedly described in AH pathogenesis (alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
+- **Metabolic comorbidity:** overlapping metabolic dysfunction contributes additively/superadditively to fibrosis risk in patients with steatotic liver disease and alcohol exposure (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, israelsenUnknownyearmetaldfromconcept pages 7-10).
 
-## 6. Mechanism / pathophysiology
-### 6.1 Molecular pathway and causal chain
-**Upstream:** Dietary choline → betaine → DMG (as part of choline catabolism / methyl group metabolism).
+## 6. Mechanism / pathophysiology (current understanding)
 
-**Core defect:** DMGDH is a mitochondrial **FAD- and THF-dependent** enzyme that demethylates DMG to sarcosine; THF accepts the methyl group (preventing release of formaldehyde). (augustin2016structureandbiochemical pages 1-3)
+### 6.1 High-level causal chain (exposure → cellular injury → clinical disease)
+1) **Alcohol absorption and metabolism** generates toxic intermediates (acetaldehyde) and perturbs mitochondrial lipid oxidation, driving steatosis and hepatocyte stress (kasuga2025currentinsightsinto pages 1-2, mackowiak2024alcoholassociatedliverdisease pages 1-2).
+2) **Oxidative and ER stress** lead to lipid peroxidation, macromolecular damage, and activation of regulated cell death pathways (apoptosis, necroptosis, pyroptosis, ferroptosis) (d’arcangelo2026oxidativestressand pages 1-2, mackowiak2024alcoholassociatedliverdisease pages 1-2).
+3) **Gut barrier dysfunction** increases portal influx of microbial PAMPs (e.g., LPS) and, together with hepatocyte DAMPs, triggers innate immune activation and systemic inflammation (alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
+4) **Inflammation** driven by Kupffer cells/macrophages and neutrophils (including NETosis) amplifies injury; severe AH is characterized by neutrophil predominance and high cytokine signaling (e.g., TNFα, IL-1β) (d’arcangelo2026oxidativestressand pages 1-2, kasuga2025currentinsightsinto pages 1-2).
+5) Persistent injury promotes **hepatic stellate cell activation**, extracellular matrix deposition and fibrosis/cirrhosis, with risk of HCC (d’arcangelo2026oxidativestressand pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 3-4).
 
-**Downstream biochemical consequence:** DMGDH deficiency results in **marked accumulation of DMG** in serum and urine, and **absent/undetectable sarcosine** in the original biochemical profile. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-2)
+### 6.2 Key pathways/cellular processes (GO suggestions)
+Evidence-supported processes include:
+- Response to oxidative stress; reactive oxygen species metabolic process; lipid peroxidation (d’arcangelo2026oxidativestressand pages 1-2)
+- Toll-like receptor signaling pathway; inflammatory response; cytokine-mediated signaling pathway (d’arcangelo2026oxidativestressand pages 1-2, kasuga2025currentinsightsinto pages 1-2)
+- Regulation of apoptotic process; necroptotic process; pyroptotic process; ferroptosis (d’arcangelo2026oxidativestressand pages 1-2, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- Extracellular matrix organization / fibrogenesis; wound healing (d’arcangelo2026oxidativestressand pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 3-4)
 
-**Clinical consequence (known):** fish‑like odor (likely from volatile DMG), fatigue/weakness, and elevated CK. However, because the phenotype is based on very few individuals, links beyond metabolite accumulation remain uncertain. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 5-5)
+### 6.3 Cell types involved (CL suggestions)
+- Hepatocyte; Kupffer cell (liver-resident macrophage); neutrophil; monocyte-derived macrophage; hepatic stellate cell; intestinal epithelial cell/enterocyte (d’arcangelo2026oxidativestressand pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
 
-### 6.2 Suggested GO biological process / cellular component terms
-(ontology suggestions)
-- **GO: one‑carbon metabolic process**
-- **GO: choline metabolic process / betaine metabolic process**
-- **GO: glycine metabolic process**
-- **GO cellular component:** mitochondrial matrix (DMGDH is mitochondrial) (augustin2016structureandbiochemical pages 1-3)
+### 6.4 Recent developments (prioritizing 2023–2024)
+- **Multi-omics emphasis:** A 2024 JCI review notes “new insights… utilizing the study of multiomics and other cutting-edge approaches,” and frames translation toward therapeutic targets (mackowiak2024alcoholassociatedliverdisease pages 1-2).
+- **Consensus trial-design:** A 2024 Nature Reviews Gastroenterology & Hepatology expert panel provides consensus on clinical trial design integrating liver outcomes and alcohol use endpoints, including the updated SLD nomenclature context (lee2024designingclinicaltrials pages 3-5).
 
-### 6.3 Suggested cell types (Cell Ontology)
-No specific cell type pathology is described; enzyme is liver‑relevant in catabolism. For curation, consider:
-- Hepatocyte (primary site of choline metabolism; inferred, not directly evidenced here)
-- Skeletal muscle cell (given CK and fatigue; speculative)
+## 7. Anatomical structures affected (UBERON/GO-CC suggestions)
 
----
+### 7.1 Organ/tissue level
+- **Primary organ:** liver (UBERON:0002107)
+- **Key liver compartments/cell populations:** hepatocytes, hepatic stellate cells, Kupffer cells; involvement of the **gut–liver axis** implicates intestinal epithelium as a contributing site (alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
 
-## 7. Anatomical structures affected
-### 7.1 Organ/system level (evidence-based)
-- **Muscle involvement:** suggested by fatigue/weakness and persistently elevated CK. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-
-### 7.2 Suggested UBERON terms
-- Skeletal muscle tissue (UBERON suggestion)
-- Liver (UBERON suggestion; diagnostic enzyme assay discussion implies liver relevance) (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-
-### 7.3 Subcellular localization
-- **Mitochondrial enzyme** (matrix-associated) consistent with biochemical characterization. (augustin2016structureandbiochemical pages 1-3)
-
----
+### 7.2 Subcellular compartments (GO-CC suggestions; evidence-supported themes)
+- Mitochondrion; endoplasmic reticulum; lipid droplet (mitochondrial/ER stress and lipid droplet biology are highlighted; lipid-droplet localization is central for PNPLA3/HSD17B13 biology) (israelsenUnknownyearmetaldfromconcept pages 7-10, mackowiak2024alcoholassociatedliverdisease pages 1-2).
 
 ## 8. Temporal development
-- **Onset:** childhood for odor (age ~5). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Course:** chronic/lifelong; no defined staging described. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
 
----
+### 8.1 Onset and course
+ALD is typically chronic and insidious, but AH represents an acute decompensating event with severe short-term outcomes (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, kasuga2025currentinsightsinto pages 1-2).
+
+### 8.2 Staging and severity (AH)
+Severe alcohol-associated hepatitis is often defined using **Maddrey’s discriminant function ≥32** or **MELD ≥20** in recent reviews (kumar2026emergingtherapeuticregimens pages 5-6). Short-term mortality in severe AH is repeatedly reported at **~20%–50%** (hong2024alcoholrelatedliverdisease pages 1-2, kasuga2025currentinsightsinto pages 1-2).
 
 ## 9. Inheritance and population
-### 9.1 Inheritance
-- Inferred **autosomal recessive** (chapter source: “likely autosomal recessive”; index patient homozygous). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
 
-### 9.2 Epidemiology
-- Extremely rare; as of the chapter publication, “only one case has been reported.” (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- No robust incidence/prevalence estimates were identified in the retrieved sources.
+ALD is a **multifactorial** disease with **polygenic modifier** effects and strong environmental dependence (israelsenUnknownyearmetaldfromconcept pages 7-10). Allele frequencies and population differences are highlighted for alcohol metabolism genes, e.g., inactive ALDH2 variants in East Asian populations (mackowiak2024alcoholassociatedliverdisease pages 8-9).
 
-### 9.3 Population/ancestry
-- Index case: described as a man of **African ancestry**. (moolenaar1999defectindimethylglycine pages 1-2)
-- H109R allele: enriched in ExAC African ancestry subset. (augustin2016structureandbiochemical pages 1-3)
+## 10. Diagnostics (current practice and emerging)
 
----
+### 10.1 Clinical assessment and routine biomarkers
+Routine labs (AST, ALT, bilirubin, GGT, ALP, platelets) are standard but have limited specificity; AST/ALT ratio patterns are supportive for AH/advanced disease suspicion (rama2026novelbiomarkersfor pages 5-6).
 
-## 10. Diagnostics
-### 10.1 Core diagnostic biomarker
-- **Elevated DMG in plasma/serum and urine** is the defining biochemical abnormality. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 4-5)
+### 10.2 Non-invasive fibrosis staging: elastography and serum panels
+A recent biomarker review summarizes validated elastography thresholds and practical caveats:
+- **Vibration-controlled transient elastography (VCTE):** validated cutoffs of **~12.1 kPa for ≥F3** and **~18.6 kPa for F4**, AUROCs ~0.90–0.91; LSM <8–10 kPa helps rule out advanced fibrosis; interpret with AST/bilirubin since inflammation can inflate stiffness and LSM may fall after abstinence (rama2026novelbiomarkersfor pages 6-8).
+- **2D shear-wave elastography** diagnostic performance is also reported (e.g., 88% sensitivity/95% specificity for advanced fibrosis with suggested cutoffs) (rama2026novelbiomarkersfor pages 6-8).
+- **ELF test:** described as having high accuracy for advanced fibrosis and can outperform APRI/FIB-4, with reported AUROC ~0.92–0.94 (rama2026novelbiomarkersfor pages 5-6).
+- **Pro-C3 / ADAPT:** Pro-C3 is highlighted as a predictor of outcomes and used in composite algorithms for advanced fibrosis detection (rama2026novelbiomarkersfor pages 17-18).
 
-### 10.2 Laboratory methods (real-world implementations)
-- **^1H NMR spectroscopy** of urine and serum was a key diagnostic approach in the discovery study; DMG displayed characteristic singlets (2.93 and 3.80 ppm) and was confirmed by spiking experiments. (moolenaar1999defectindimethylglycine pages 4-5)
-- **GC‑MS** confirmation can be performed, but the discovery paper notes DMG can be missed by routine organic-acid workflows using solvent extraction (lost during ethyl acetate extraction). (moolenaar1999defectindimethylglycine pages 3-4, walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Fish‑challenge testing** and urinary trimethylamine measures were used to exclude trimethylaminuria in the presenting “fish odor” complaint. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 3-4)
+### 10.3 Alcohol exposure biomarkers
+**Phosphatidylethanol (PEth)** is emphasized as an objective marker of recent alcohol intake; one review notes ≥200 ng/mL indicates regular high intake and that adding PEth can increase ALD detection “3–4×” compared with self-report alone (rama2026novelbiomarkersfor pages 5-6).
 
-### 10.3 Enzyme assay
-A chapter notes DMGDH activity is not normally detectable in blood cells/fibroblasts, so confirmatory enzyme testing would require **liver tissue (biopsy)**—a major practical limitation. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-
-### 10.4 Genetic testing
-Confirmatory diagnosis is via **DMGDH sequencing** to identify biallelic pathogenic variants (e.g., A326G/H109R). (moolenaar1999defectindimethylglycine pages 1-1, walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-
-### 10.5 Differential diagnosis
-Given the presenting symptom of fish-like odor, differential considerations include trimethylaminuria; DMGDH deficiency can be distinguished by **massively elevated DMG** and low trimethylamine after fish challenge. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 3-4)
-
----
+### 10.4 Emerging mechanistic biomarkers and multi-omics
+Reviews highlight emerging biomarkers reflecting cell death (CK-18 fragments), fibrogenesis (Pro-C3), genetic risk (PNPLA3/TM6SF2/HSD17B13 and PRS), and gut dysbiosis signatures/metabolites (SCFAs, bile acids, TMAO; reduced Faecalibacterium prausnitzii and Akkermansia muciniphila) (rama2026novelbiomarkersfor pages 1-3, rama2026novelbiomarkersfor pages 8-9).
 
 ## 11. Outcome / prognosis
-- Later biochemical/structural literature describes the disorder as **non‑fatal** and typically **mild**. (augustin2016structureandbiochemical pages 7-9)
-- No survival statistics, long-term organ outcomes, or standardized quality-of-life metrics were identified, due to limited case ascertainment.
 
----
+### 11.1 Severe AH prognosis
+Severe alcohol-associated hepatitis has “short-term mortality rate of **20%–50%**” in developed countries in a recent review (quoted from abstract) (kasuga2025currentinsightsinto pages 1-2).
+
+### 11.2 ALD mortality trends (real-world implementation and statistics)
+- **United States (1999–2022):** In a JAMA Network Open analysis of **436,814 ALD-related deaths**, age-adjusted mortality doubled **6.71 → 12.53 per 100,000**, accelerating in 2018–2022 (APC **8.94%**) with disproportionate increases among women, ages 25–44, and American Indian/Alaska Native populations (pan2025alcoholassociatedliverdisease pages 1-2).
+- **Global (GBD 2021; 2000–2021):** A 2025 analysis reports **3.02 million prevalent ALD cases** in 2021 (+38.68% since 2000) and **132,030 prevalent alcohol-attributable primary liver cancer cases** (+94.12%) (danpanichkul2025globalepidemiologyof pages 1-5).
 
 ## 12. Treatment
-### 12.1 Evidence-based interventions (limited)
-No established disease-modifying therapy exists.
 
-**Riboflavin trial (index case):** The original report states the patient received **riboflavin 10 mg/day for 3 months without clinical improvement**. (moolenaar1999defectindimethylglycine pages 3-4)
+### 12.1 Foundational management (standard of care)
+- **Alcohol abstinence:** described as “the most effective way to improve prognosis across all stages of ALD” (quoted from abstract) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3). Multidisciplinary care integrating AUD treatment is emphasized (adekunle2023therapeutictargetsin pages 1-2).
+- **Corticosteroids (severe AH):** described as “the only evidence-based pharmacologic treatment” in one severe AH review, with limited efficacy and substantial non-response (kasuga2025currentinsightsinto pages 1-2). Another review notes response rates ~50–60% among eligible patients by day-7 Lille score, with many contraindications (ineligibility 40–50%) (adekunle2023therapeutictargetsin pages 1-2).
+- **Nutrition therapy:** enteral nutrition strategies and caloric/protein targets are summarized for severe AH in Clinics in Liver Disease, including associations between inadequate intake and lower survival, and guidance to initiate enteral nutrition early when needed (hardesty2024currentpharmacotherapyand pages 4-6).
+- **Liver transplantation:** ALD is now the leading indication for liver transplant in the U.S.; early LT is discussed as a salvage option for steroid-refractory severe AH but remains limited by selection protocols and donor/ethical constraints (pan2025alcoholassociatedliverdisease pages 1-2, kasuga2025currentinsightsinto pages 1-2).
 
-**Supportive/empiric measures (expert opinion from authoritative chapter):**
-- Counseling
-- Dietary **choline restriction** and avoidance of excessive sweating (odor management)
-- Antibiotics to alter intestinal microflora “not indicated”
-- Suggested trial of folate with riboflavin (hypothesis-driven, not proven)
-(walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 12.2 Experimental / targeted therapies and clinical trials (selected)
+A recent ALD natural-history/therapy review tabulates “Emerging treatment options” (Table 2) including anti-inflammatory, apoptosis/cell death, bile-acid signaling, microbiome, and regenerative approaches, with trial identifiers (alvaradotapias2024alcoholassociatedliverdisease media 15159c76).
 
-### 12.2 Suggested MAXO terms
+**Selected trials and interventions (with registry IDs when available in retrieved evidence):**
+- **IL-1β inhibition (Canakinumab):** **NCT03775109** (listed in Table 2) (alvaradotapias2024alcoholassociatedliverdisease media 15159c76).
+- **IL-1 receptor antagonist (Anakinra):** **NCT04072822** (listed in Table 2); other clinical evidence indicates anakinra-based approaches have had mixed or unfavorable results in at least one trial (stopped early due to worsening MELD) (alvaradotapias2024alcoholassociatedliverdisease media 15159c76, d’arcangelo2026oxidativestressand pages 12-13).
+- **FXR agonist (Obeticholic acid):** **NCT02039219** (Table 2) (alvaradotapias2024alcoholassociatedliverdisease media 15159c76).
+- **Caspase inhibitor (Emricasan / IDN-6556):** **NCT01912404** (Table 2); the ClinicalTrials.gov record describes a phase 2 trial terminated early with only 5 enrolled due to concerns of high systemic drug levels, precluding meaningful analysis (alvaradotapias2024alcoholassociatedliverdisease media 15159c76, NCT01912404 chunk 1).
+- **Gut–liver axis modulation with IgG-enriched bovine colostrum:** **NCT02473341** phase 3 adjunct trial (NCT02473341 chunk 1).
+
+### 12.3 Suggested MAXO terms (examples)
 (ontology suggestions)
-- Dietary modification / dietary choline restriction
-- Vitamin supplementation (riboflavin; folate)
-- Genetic counseling
-
-### 12.3 Clinical trials
-No DMGDH deficiency–specific trials were retrieved.
-
----
+- Alcohol abstinence counseling (MAXO:0000508)
+- Corticosteroid therapy (MAXO:0000746)
+- Enteral nutrition (MAXO:0000660)
+- Liver transplantation (MAXO:0001175)
+- Elastography (MAXO:0000976)
 
 ## 13. Prevention
-- **Primary prevention:** not applicable in the usual sense for an autosomal recessive condition.
-- **Secondary prevention:** early biochemical/genetic diagnosis may reduce psychosocial morbidity by explaining odor and guiding supportive measures. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Genetic counseling:** indicated for families once a causative DMGDH genotype is identified (inferred from AR inheritance and chapter guidance). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
 
----
+Public-health burden analyses emphasize urgent prevention measures; major preventable levers include reducing harmful alcohol consumption and implementing targeted interventions in high-risk groups (danpanichkul2025globalepidemiologyof pages 1-5, pan2025alcoholassociatedliverdisease pages 1-2). Primary and secondary prevention in practice includes:
+- **Primary prevention:** population alcohol control policies (pricing/availability/marketing restrictions) and AUD prevention/treatment integration (supported as urgent in GBD-based epidemiology work) (danpanichkul2025globalepidemiologyof pages 1-5).
+- **Secondary prevention:** non-invasive fibrosis screening (VCTE/serum panels) in at-risk drinkers and monitoring with objective alcohol biomarkers (PEth) to detect relapse or underreported intake (rama2026novelbiomarkersfor pages 6-8, rama2026novelbiomarkersfor pages 5-6).
 
 ## 14. Other species / natural disease
-No naturally occurring veterinary disease analogs were identified in the retrieved sources.
+Not systematically covered in the retrieved evidence set.
 
----
+## 15. Model organisms / experimental models
+A 2024 JCI review notes the importance of preclinical models and describes introduction of **binge ethanol intake into chronically ethanol-fed mice** to model disease features (mackowiak2024alcoholassociatedliverdisease pages 1-2). A 2023 Hepatology paper uses the **NIAAA chronic + binge ethanol feeding model** and demonstrates that adipose lipolysis is important for ethanol-induced hepatic steatosis and lipid peroxidation, providing a mechanistic mouse model example (hong2024alcoholrelatedliverdisease pages 1-2).
 
-## 15. Model organisms / experimental systems
-### 15.1 Human protein functional models
-Functional evidence is largely derived from recombinant enzyme studies and structural biology (including a reported PDB structure for human DMGDH in one study). (augustin2016structureandbiochemical pages 1-3)
+## Key statistics summary (selected)
+- **NHANES (2017–Mar 2020) U.S. prevalence under SLD nomenclature:** SLD 34.2%, MASLD 31.3%, MetALD 2.0%, ALD 0.7% (lee2024nationalprevalenceestimates pages 1-2).
+- **GBD 2021 global counts (2021):** 3.02 million prevalent ALD cases and 132,030 prevalent alcohol-attributable primary liver cancer cases (danpanichkul2025globalepidemiologyof pages 1-5).
+- **U.S. mortality trend (1999–2022):** ALD age-adjusted mortality 6.71 → 12.53 per 100,000; 436,814 ALD deaths (pan2025alcoholassociatedliverdisease pages 1-2).
+- **Severe AH short-term mortality:** 20%–50% (kasuga2025currentinsightsinto pages 1-2).
 
-### 15.2 Need for in vivo models
-The molecular basis paper notes that additional DMGDH‑deficient humans or an appropriate mouse model would be needed to resolve genotype–phenotype questions. (mcandrew2008molecularbasisof pages 8-8)
-
----
-
-## Recent developments (prioritizing 2023–2024)
-Direct 2023–2024 primary case expansions were not available in the retrievable corpus for this run. As a proxy for “latest research” relevant to real‑world implementation, the most concrete near‑term development is the continued mainstreaming of **broad metabolomics and sequencing** for rare disease diagnosis (with older but still relevant metabolomics evidence in this run). For example, DI‑HRMS metabolomics has been evaluated for inborn errors using dried blood spots and plasma; one limitation noted is that some workflows may fail to recognize DMGDH deficiency depending on feature detection/annotation. (moolenaar2001invivoand pages 98-101)
-
----
-
-## Key primary sources (URLs and publication dates)
-- Moolenaar SH et al. **“Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: NMR spectroscopy study.”** *Clinical Chemistry* (Apr **1999**). https://doi.org/10.1093/clinchem/45.4.459 (moolenaar1999defectindimethylglycine pages 1-1)
-- McAndrew R et al. **“Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant H109R.”** *Journal of Inherited Metabolic Disease* (Oct **2008**). https://doi.org/10.1007/s10545-008-0999-2 (mcandrew2008molecularbasisof pages 1-3)
-- Walker V, Wevers RA. **“Trimethylaminuria and Dimethylglycine Dehydrogenase Deficiency.”** In *Inborn Metabolic Diseases* (Jan **2012**). https://doi.org/10.1007/978-3-540-28785-8_31 (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- Augustin P et al. **“Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease-related H109R variant.”** *FEBS Journal* (Oct **2016**). https://doi.org/10.1111/febs.13828 (augustin2016structureandbiochemical pages 1-3)
-
----
-
-## Clinical trials / registries relevant to real-world implementation
-- **CoRDS (Coordination of Rare Diseases at Sanford)** observational registry / natural history infrastructure: **NCT01793168** (first posted Feb **2013**, recruiting; last update posted May **2025**). https://clinicaltrials.gov/study/NCT01793168 (NCT01793168 chunk 2, NCT01793168 chunk 1)
-
----
-
-## Limitations of the current evidence base
-1. The human phenotype and natural history remain weakly defined because the core evidence is dominated by a single well-described individual and secondary summaries. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1)
-2. Standard disease identifiers beyond OMIM (e.g., MONDO, Orphanet, ICD, MeSH) were not found in the retrieved set and must be added via direct ontology database queries.
-3. Therapeutic guidance is largely expert opinion and hypothesis-driven supplementation trials rather than controlled clinical evidence. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 3-4)
+## Evidence limitations (in this tool-based evidence set)
+- MONDO and MeSH identifiers, ICD-11 liver-disease code mappings, OMIM/Orphanet IDs, and comprehensive phenotype frequency distributions were not found in the retrieved texts and would require targeted database queries beyond the current evidence set.
+- Several mechanistic and treatment details are best supported by recent reviews; primary mechanistic studies (PMID-first extraction) were not comprehensively retrieved here.
 
 
 References
 
-1. (augustin2016structureandbiochemical pages 7-9): Peter Augustin, Altijana Hromic, Tea Pavkov‐Keller, Karl Gruber, and Peter Macheroux. Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related h109r variant. The Febs Journal, 283:3587-3603, Oct 2016. URL: https://doi.org/10.1111/febs.13828, doi:10.1111/febs.13828. This article has 27 citations.
+1. (alvaradotapias2024alcoholassociatedliverdisease pages 1-3): Edilmar Alvarado-Tapias, Elisa Pose, Jordi Gratacós, Ana Clemente-Sánchez, Hugo Hugo López-Pelayo, and Ramón Bataller. Alcohol-associated liver disease: natural history, management and novel targeted therapies. Clinical and Molecular Hepatology, 31:S112-S133, Oct 2024. URL: https://doi.org/10.3350/cmh.2024.0709, doi:10.3350/cmh.2024.0709. This article has 32 citations.
 
-2. (augustin2016structureandbiochemical pages 1-3): Peter Augustin, Altijana Hromic, Tea Pavkov‐Keller, Karl Gruber, and Peter Macheroux. Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related h109r variant. The Febs Journal, 283:3587-3603, Oct 2016. URL: https://doi.org/10.1111/febs.13828, doi:10.1111/febs.13828. This article has 27 citations.
+2. (mackowiak2024alcoholassociatedliverdisease pages 1-2): Bryan Mackowiak, Yaojie Fu, Luca Maccioni, and Bin Gao. Alcohol-associated liver disease. The Journal of Clinical Investigation, Feb 2024. URL: https://doi.org/10.1172/jci176345, doi:10.1172/jci176345. This article has 352 citations.
 
-3. (walker2012trimethylaminuriaanddimethylglycine pages 3-5): Valerie Walker and Ron A. Wevers. Trimethylaminuria and dimethylglycine dehydrogenase deficiency. Inborn Metabolic Diseases, pages 381-385, Jan 2012. URL: https://doi.org/10.1007/978-3-540-28785-8\_31, doi:10.1007/978-3-540-28785-8\_31. This article has 3 citations.
+3. (hong2024alcoholrelatedliverdisease pages 1-2): Xiao Hong, Shuo-Wen Huang, He Jiang, Qing Ma, Jiang Qiu, Qihan Luo, Chunlu Cao, Yiyang Xu, Fuzhe Chen, Yufan Chen, Chunfeng Sun, Haozhe Fu, Yiming Liu, Changyu Li, Fangming Chen, and Ping Qiu. Alcohol-related liver disease (ald): current perspectives on pathogenesis, therapeutic strategies, and animal models. Frontiers in Pharmacology, Nov 2024. URL: https://doi.org/10.3389/fphar.2024.1432480, doi:10.3389/fphar.2024.1432480. This article has 34 citations.
 
-4. (mcandrew2008molecularbasisof pages 1-3): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+4. (israelsenUnknownyearmetaldfromconcept pages 7-10): M Israelsen, E Trépo, A Krag, and S Stender. Metald: from concept to clinic, genetic factors and clinical outcomes. Unknown journal, Unknown year.
 
-5. (moolenaar1999defectindimethylglycine pages 4-5): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+5. (manthey2025identifyinglevelsof pages 1-2): Jakob Manthey, Carolin Kilian, Ludwig Kraus, Ingo Schäfer, Anna Schranz, and Bernd Schulte. Identifying levels of alcohol use disorder severity in electronic health records. Substance Abuse Treatment, Prevention, and Policy, Sep 2025. URL: https://doi.org/10.1186/s13011-025-00670-w, doi:10.1186/s13011-025-00670-w. This article has 2 citations and is from a peer-reviewed journal.
 
-6. (moolenaar1999defectindimethylglycine pages 1-1): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+6. (kubina2025meta‐analysiseffectsof pages 23-23): Matthew Kubina, Vitchapong Prasitsumrit, Jarell Tan, Joo Wei Ethan Quek, Dhiraj Peddu, Ankit Mishra, Pojsakorn Danpanichkul, Jake P. Mann, Eric Trépo, Stephan Buch, Daniel Q. Huang, Cheng Han Ng, Mark D. Muthiah, Yu Jun Wong, Karn Wijarnpreecha, and Vincent L. Chen. Meta‐analysis: effects of steatotic liver disease‐associated genetic risk alleles on longitudinal outcomes. Alimentary Pharmacology &amp; Therapeutics, 62:244-276, Jun 2025. URL: https://doi.org/10.1111/apt.70256, doi:10.1111/apt.70256. This article has 11 citations and is from a highest quality peer-reviewed journal.
 
-7. (moolenaar2001invivoand pages 89-94): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+7. (lee2024designingclinicaltrials pages 3-5): Brian P. Lee, Katie Witkiewitz, Jessica Mellinger, Frank A. Anania, Ramon Bataller, Thomas G. Cotter, Brenda Curtis, Srinivasan Dasarathy, Kelly S. DeMartini, Ivan Diamond, Nancy Diazgranados, Andrea F. DiMartini, Daniel E. Falk, Anne C. Fernandez, Margarita N. German, Patrick S. Kamath, Kelley M. Kidwell, Lorenzo Leggio, Raye Litten, Alexandre Louvet, Michael R. Lucey, Mary E. McCaul, Arun J. Sanyal, Ashwani K. Singal, Norman L. Sussman, Norah A. Terrault, Mark R. Thursz, Elizabeth C. Verna, Svetlana Radaeva, Laura E. Nagy, and Mack C. Mitchell. Designing clinical trials to address alcohol use and alcohol-associated liver disease: an expert panel consensus statement. Nature reviews. Gastroenterology & hepatology, 21:626-645, Jun 2024. URL: https://doi.org/10.1038/s41575-024-00936-x, doi:10.1038/s41575-024-00936-x. This article has 52 citations.
 
-8. (moolenaar2001invivoand pages 94-98): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+8. (lee2024nationalprevalenceestimates pages 1-2): Brian P. Lee, Jennifer L. Dodge, and Norah A. Terrault. National prevalence estimates for steatotic liver disease and subclassifications using consensus nomenclature. Hepatology, 79:666-673, Sep 2024. URL: https://doi.org/10.1097/hep.0000000000000604, doi:10.1097/hep.0000000000000604. This article has 207 citations and is from a highest quality peer-reviewed journal.
 
-9. (moolenaar1999defectindimethylglycine pages 1-2): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+9. (danpanichkul2025globalepidemiologyof pages 1-5): Pojsakorn Danpanichkul, Luis Antonio Díaz, Kanokphong Suparan, Primrose Tothanarungroj, Supapitch Sirimangklanurak, Thanida Auttapracha, Hanna L. Blaney, Banthoon Sukphutanan, Yanfang Pang, Siwanart Kongarin, Francisco Idalsoaga, Eduardo Fuentes-López, Lorenzo Leggio, Mazen Noureddin, Trenton M. White, Alexandre Louvet, Philippe Mathurin, Rohit Loomba, Patrick S. Kamath, Jürgen Rehm, Jeffrey V. Lazarus, Karn Wijarnpreecha, and Juan Pablo Arab. Global epidemiology of alcohol-related liver disease, liver cancer, and alcohol use disorder, 2000–2021. Clinical and Molecular Hepatology, 31:525-547, Jan 2025. URL: https://doi.org/10.3350/cmh.2024.0835, doi:10.3350/cmh.2024.0835. This article has 57 citations.
 
-10. (moolenaar1999defectindimethylglycine pages 3-4): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+10. (lee2024designingclinicaltrials pages 1-2): Brian P. Lee, Katie Witkiewitz, Jessica Mellinger, Frank A. Anania, Ramon Bataller, Thomas G. Cotter, Brenda Curtis, Srinivasan Dasarathy, Kelly S. DeMartini, Ivan Diamond, Nancy Diazgranados, Andrea F. DiMartini, Daniel E. Falk, Anne C. Fernandez, Margarita N. German, Patrick S. Kamath, Kelley M. Kidwell, Lorenzo Leggio, Raye Litten, Alexandre Louvet, Michael R. Lucey, Mary E. McCaul, Arun J. Sanyal, Ashwani K. Singal, Norman L. Sussman, Norah A. Terrault, Mark R. Thursz, Elizabeth C. Verna, Svetlana Radaeva, Laura E. Nagy, and Mack C. Mitchell. Designing clinical trials to address alcohol use and alcohol-associated liver disease: an expert panel consensus statement. Nature reviews. Gastroenterology & hepatology, 21:626-645, Jun 2024. URL: https://doi.org/10.1038/s41575-024-00936-x, doi:10.1038/s41575-024-00936-x. This article has 52 citations.
 
-11. (moolenaar1999defectindimethylglycine pages 5-5): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+11. (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11): Maria V. Bourganou, Maria Eleni Chondrogianni, Ioannis Kyrou, Christina-Maria Flessa, Antonios Chatzigeorgiou, Evangelos Oikonomou, Vaia Lambadiari, Harpal S. Randeva, and Eva Kassi. Unraveling metabolic dysfunction-associated steatotic liver disease through the use of omics technologies. International Journal of Molecular Sciences, 26:1589, Feb 2025. URL: https://doi.org/10.3390/ijms26041589, doi:10.3390/ijms26041589. This article has 28 citations.
 
-12. (moolenaar2001invivoand pages 98-101): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+12. (mackowiak2024alcoholassociatedliverdisease pages 8-9): Bryan Mackowiak, Yaojie Fu, Luca Maccioni, and Bin Gao. Alcohol-associated liver disease. The Journal of Clinical Investigation, Feb 2024. URL: https://doi.org/10.1172/jci176345, doi:10.1172/jci176345. This article has 352 citations.
 
-13. (moolenaar1999defectindimethylglycine media 773767bc): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+13. (d’arcangelo2026oxidativestressand pages 15-16): Francesca D’Arcangelo, Neil Rajoriya, and Patricia F. Lalor. Oxidative stress and alcohol-related hepatitis: a role for future therapies. Antioxidants, 15:493, Apr 2026. URL: https://doi.org/10.3390/antiox15040493, doi:10.3390/antiox15040493. This article has 0 citations.
 
-14. (mcandrew2008molecularbasisof pages 4-6): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+14. (pan2025alcoholassociatedliverdisease pages 1-2): Chun-Wei Pan, Yazan Abboud, Amit S. Chitnis, Wei Zhang, Ashwani K. Singal, and Robert J Wong. Alcohol-associated liver disease mortality. JAMA Network Open, 8:e2514857, Jun 2025. URL: https://doi.org/10.1001/jamanetworkopen.2025.14857, doi:10.1001/jamanetworkopen.2025.14857. This article has 26 citations and is from a peer-reviewed journal.
 
-15. (mcandrew2008molecularbasisof pages 6-8): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+15. (wang2025geneticinsightsinto pages 1-2): Qianchang Wang, Zhe Wang, Minzhe Hu, Fangfeng Liu, and Zhengjian Wang. Genetic insights into alcohol-associated liver disease: integrative transcriptome-wide analysis identifies novel susceptibility genes. Frontiers in Medicine, Jul 2025. URL: https://doi.org/10.3389/fmed.2025.1623367, doi:10.3389/fmed.2025.1623367. This article has 2 citations.
 
-16. (moolenaar1999defectindimethylglycine media 214a655b): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+16. (alvaradotapias2024alcoholassociatedliverdisease pages 3-4): Edilmar Alvarado-Tapias, Elisa Pose, Jordi Gratacós, Ana Clemente-Sánchez, Hugo Hugo López-Pelayo, and Ramón Bataller. Alcohol-associated liver disease: natural history, management and novel targeted therapies. Clinical and Molecular Hepatology, 31:S112-S133, Oct 2024. URL: https://doi.org/10.3350/cmh.2024.0709, doi:10.3350/cmh.2024.0709. This article has 32 citations.
 
-17. (mcandrew2008molecularbasisof pages 8-8): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+17. (kasuga2025currentinsightsinto pages 1-2): Ryosuke Kasuga, Po‐Sung Chu, Takanori Kanai, and Nobuhiro Nakamoto. Current insights into pathogenesis and anti‐inflammatory treatment strategies for severe alcohol‐associated hepatitis: focus on neutrophil‐targeted therapies. Hepatology Research, 55:785-94, May 2025. URL: https://doi.org/10.1111/hepr.14206, doi:10.1111/hepr.14206. This article has 1 citations and is from a peer-reviewed journal.
 
-18. (NCT01793168 chunk 2):  Rare Disease Patient Registry & Natural History Study - Coordination of Rare Diseases at Sanford. Sanford Health. 2010. ClinicalTrials.gov Identifier: NCT01793168
+18. (rama2026novelbiomarkersfor pages 5-6): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
 
-19. (NCT01793168 chunk 1):  Rare Disease Patient Registry & Natural History Study - Coordination of Rare Diseases at Sanford. Sanford Health. 2010. ClinicalTrials.gov Identifier: NCT01793168
+19. (rama2026novelbiomarkersfor pages 6-8): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+20. (israelsenUnknownyearmetaldfromconcept pages 1-7): M Israelsen, E Trépo, A Krag, and S Stender. Metald: from concept to clinic, genetic factors and clinical outcomes. Unknown journal, Unknown year.
+
+21. (rama2026novelbiomarkersfor pages 14-15): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+22. (d’arcangelo2026oxidativestressand pages 1-2): Francesca D’Arcangelo, Neil Rajoriya, and Patricia F. Lalor. Oxidative stress and alcohol-related hepatitis: a role for future therapies. Antioxidants, 15:493, Apr 2026. URL: https://doi.org/10.3390/antiox15040493, doi:10.3390/antiox15040493. This article has 0 citations.
+
+23. (kumar2026emergingtherapeuticregimens pages 5-6): Rahul Kumar, Sakktivel Elangovan, and Sumeet K. Asrani. Emerging therapeutic regimens as alternatives to glucocorticoids for severe alcohol-associated hepatitis: a comprehensive review. Clinical and Molecular Hepatology, 32:599-619, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.1163, doi:10.3350/cmh.2025.1163. This article has 0 citations.
+
+24. (rama2026novelbiomarkersfor pages 17-18): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+25. (rama2026novelbiomarkersfor pages 1-3): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+26. (rama2026novelbiomarkersfor pages 8-9): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+27. (adekunle2023therapeutictargetsin pages 1-2): Ayooluwatomiwa Deborah Adekunle, Adeyinka Adejumo, and Ashwani K. Singal. Therapeutic targets in alcohol-associated liver disease: progress and challenges. Therapeutic Advances in Gastroenterology, Jan 2023. URL: https://doi.org/10.1177/17562848231170946, doi:10.1177/17562848231170946. This article has 10 citations and is from a peer-reviewed journal.
+
+28. (hardesty2024currentpharmacotherapyand pages 4-6): Josiah E. Hardesty and Craig J. McClain. Current pharmacotherapy and nutrition therapy of alcohol-associated liver disease. Clinics in Liver Disease, 28:731-745, Nov 2024. URL: https://doi.org/10.1016/j.cld.2024.06.018, doi:10.1016/j.cld.2024.06.018. This article has 2 citations and is from a peer-reviewed journal.
+
+29. (alvaradotapias2024alcoholassociatedliverdisease media 15159c76): Edilmar Alvarado-Tapias, Elisa Pose, Jordi Gratacós, Ana Clemente-Sánchez, Hugo Hugo López-Pelayo, and Ramón Bataller. Alcohol-associated liver disease: natural history, management and novel targeted therapies. Clinical and Molecular Hepatology, 31:S112-S133, Oct 2024. URL: https://doi.org/10.3350/cmh.2024.0709, doi:10.3350/cmh.2024.0709. This article has 32 citations.
+
+30. (d’arcangelo2026oxidativestressand pages 12-13): Francesca D’Arcangelo, Neil Rajoriya, and Patricia F. Lalor. Oxidative stress and alcohol-related hepatitis: a role for future therapies. Antioxidants, 15:493, Apr 2026. URL: https://doi.org/10.3390/antiox15040493, doi:10.3390/antiox15040493. This article has 0 citations.
+
+31. (NCT01912404 chunk 1):  Study of IDN-6556 in Patients With Severe Alcoholic Hepatitis and Contraindications to Steroid Therapy. Conatus Pharmaceuticals Inc.. 2013. ClinicalTrials.gov Identifier: NCT01912404
+
+32. (NCT02473341 chunk 1): Prof. Sandeep S Sidhu. Gut-Liver Axis Modulation With IgG-Enriched Immunotherapy in Severe Alcohol-Associated Hepatitis. Dayanand Medical College and Hospital. 2017. ClinicalTrials.gov Identifier: NCT02473341
+
+## Artifacts
+
+- [Edison artifact artifact-00](Alcoholic_Liver_Disease-deep-research-falcon_artifacts/artifact-00.md)

@@ -2,12 +2,12 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-05-11T13:58:46.995300'
-end_time: '2026-05-11T14:13:30.425167'
-duration_seconds: 883.43
+start_time: '2026-05-12T14:04:32.112266'
+end_time: '2026-05-12T14:20:19.317651'
+duration_seconds: 947.21
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Dimethylglycine Dehydrogenase Deficiency
+  disease_name: Achromatopsia
   mondo_id: ''
   category: Mendelian
 provider_config:
@@ -16,16 +16,27 @@ provider_config:
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 25
-trajectory_id: 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd
-artifact_count: 1
+citation_count: 38
+artifact_count: 3
 artifacts:
 - filename: artifact-00.md
-  path: Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon_artifacts/artifact-00.md
+  path: Achromatopsia-deep-research-falcon_artifacts/artifact-00.md
   media_type: text/markdown
   source: edison_answer_artifacts
   data_storage_id: null
   description: Edison artifact artifact-00
+- filename: artifact-01.md
+  path: Achromatopsia-deep-research-falcon_artifacts/artifact-01.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-01
+- filename: artifact-02.md
+  path: Achromatopsia-deep-research-falcon_artifacts/artifact-02.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-02
 ---
 
 ## Question
@@ -33,13 +44,13 @@ artifacts:
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Dimethylglycine Dehydrogenase Deficiency
+- **Disease Name:** Achromatopsia
 - **MONDO ID:**  (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Dimethylglycine Dehydrogenase Deficiency** covering all of the
+Please provide a comprehensive research report on **Achromatopsia** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -494,13 +505,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Dimethylglycine Dehydrogenase Deficiency
+- **Disease Name:** Achromatopsia
 - **MONDO ID:**  (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Dimethylglycine Dehydrogenase Deficiency** covering all of the
+Please provide a comprehensive research report on **Achromatopsia** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -938,309 +949,331 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Dimethylglycine Dehydrogenase Deficiency (DMGDH deficiency; hyperdimethylglycinemia): Comprehensive Disease Characteristics Report
+# Achromatopsia (ACHM) — Comprehensive Disease Characteristics Report (Mendelian)
 
-## Target disease
-- **Disease name:** Dimethylglycine dehydrogenase deficiency
-- **Category:** Mendelian / inborn error of metabolism (one‑carbon/choline degradation pathway)
-- **Key identifier available from retrieved sources:** **OMIM 605850** (reported in mechanistic/structural papers) (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3)
-- **MONDO / Orphanet / MeSH / ICD-10/ICD-11:** Not identified in the retrieved corpus for this run; these identifiers should be added from external ontology resources during curation (limitation of this tool-run).
-
-## Executive summary
-Dimethylglycine dehydrogenase deficiency is an ultra‑rare inborn error of choline catabolism/one‑carbon metabolism caused by loss of function in **DMGDH**, a mitochondrial **FAD- and tetrahydrofolate (THF)**‑dependent enzyme that oxidatively demethylates **N,N‑dimethylglycine (DMG)** to **sarcosine**. The canonical human phenotype is mild and has been described primarily in a **single adult patient**, featuring a **lifelong fish‑like odor**, **muscle fatigue/weakness**, and **persistent creatine kinase (CK) elevation**, with massively increased **DMG** in serum and urine. Diagnosis relies on **targeted metabolite measurement** (historically by **^1H NMR spectroscopy** of urine/serum) and confirmatory **molecular genetic testing** identifying **biallelic DMGDH variants** (e.g., **A326G; p.His109Arg**). Evidence for disease mechanism and variant pathogenicity is strengthened by biochemical/structural characterization of the H109R variant showing marked impairment in substrate affinity/cofactor incorporation and catalytic efficiency. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1)
-
-| Disease name / synonym used | Causal gene | Key reported patient findings (clinical, biochemical, diagnostics) | Key quantitative lab values | Pathogenic variant / frequency | Evidence type |
-|---|---|---|---|---|---|
-| Dimethylglycine dehydrogenase deficiency; hyperdimethylglycinemia; “defect in dimethylglycine dehydrogenase”; sometimes discussed with fish-odor syndromes because odor was a presenting complaint (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar2001invivoand pages 89-94) | **DMGDH** (mitochondrial dimethylglycine dehydrogenase) (mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3) | Single reported index patient: 38-year-old man of African ancestry; fish-like body odor since age 5, worse with stress/exertion; unusual muscle fatigue/weakness; normal intelligence/overall good health; persistent CK elevation. Biochemical hallmark was marked accumulation of dimethylglycine with absent detectable sarcosine. Diagnosis used **1H NMR** of urine/serum, confirmed by **13C NMR**, **GC-MS**, and later **molecular testing**; trimethylaminuria was excluded by fish challenge and low urinary trimethylamine (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar2001invivoand pages 94-98, moolenaar1999defectindimethylglycine pages 1-2, moolenaar1999defectindimethylglycine pages 3-4, moolenaar1999defectindimethylglycine pages 5-5, moolenaar2001invivoand pages 98-101) | Serum DMG **221** vs ref **1–5**; urine DMG **457** and **441 mmol/mol creatinine** vs ref **1–26** (age >2 months); CK **1066 U/L** vs ref **30–270 U/L** (~4× ULN). Urine trimethylamine **<2 mmol/mol creatinine**; trimethylamine N-oxide **55 mmol/mol creatinine** (ref **20–125**) (moolenaar1999defectindimethylglycine pages 4-5, moolenaar2001invivoand pages 94-98, moolenaar1999defectindimethylglycine pages 1-2, moolenaar1999defectindimethylglycine pages 3-4, moolenaar2001invivoand pages 98-101, moolenaar1999defectindimethylglycine media 773767bc) | Homozygous **A326G** causing **H109R (His109Arg)** near flavin attachment site; reported as disease-causing in the index patient (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 1-1) | Human case report / diagnostic discovery study (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1) |
-| Dimethylglycine dehydrogenase deficiency (OMIM 605850); mild/non-fatal disorder with DMG accumulation and fish-like odor (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | **DMGDH** (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | Recombinant/structural studies linked H109R to decreased expression, reduced FAD saturation, lower thermal stability, impaired substrate affinity, and lower catalytic efficiency, providing mechanistic support for the patient phenotype of DMG accumulation, muscle fatigue, and odor (mcandrew2008molecularbasisof pages 4-6, mcandrew2008molecularbasisof pages 6-8, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | WT kinetics: Km1 **0.039 ± 0.010 mmol/L**, Km2 **15.4 ± 1.2 mmol/L**; with 4 mmol/L THF, Km2 **1.10 ± 0.55 mmol/L**. H109R: ~**47%** WT bound flavin in one expression system; **27-fold** lower specific activity, **65-fold** higher Km, ~**1800-fold** lower catalytic efficiency in one study; other study reported ~**10-fold** lower catalytic efficiency and **15–25-fold** higher Km (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3, mcandrew2008molecularbasisof pages 6-8) | **H109R** present in ExAC **58/118,656 alleles (0.049%)**, noted as predominantly in individuals of African descent (augustin2016structureandbiochemical pages 1-3) | Biochemical / structural study (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) |
-| Dimethylglycine dehydrogenase deficiency in choline-related inherited metabolic disease reviews; very rare / likely autosomal recessive disorder (walker2012trimethylaminuriaanddimethylglycine pages 3-5) | **DMGDH** (walker2012trimethylaminuriaanddimethylglycine pages 3-5) | Chapter/review sources summarize that only one case had been reported at that time; disease blocks choline catabolism, causing major DMG accumulation in plasma/urine; suggested practical diagnosis is raised plasma/urine DMG, ideally sampled when odor present. Proton NMR is emphasized as useful; routine liver biopsy would be needed for enzyme confirmation because activity is not normally detectable in blood cells/fibroblasts. Management suggestions included counseling, dietary choline restriction, avoiding excessive sweating; antibiotics to alter gut flora not indicated; riboflavin alone did not help, and folate plus riboflavin was suggested as a trial (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 5-5) | Plasma DMG increase described as ~**100-fold** and urine increase ~**20-fold**; healthy adult plasma reference **1–5 µmol/L**; urine reference **<26 mmol/mol creatinine** after age 2 months, with higher neonatal values up to ~**550 mmol/mol creatinine** in first 2 months (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 4-5) | Homozygous **A326G / H109R** summarized as causative in the known patient (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1) | Review / book chapter (walker2012trimethylaminuriaanddimethylglycine pages 3-5) |
-
-
-*Table: This table condenses the core literature on dimethylglycine dehydrogenase deficiency, including the nomenclature used, the causal gene, the single well-described human case, key quantitative laboratory abnormalities, and the main pathogenic variant with biochemical evidence. It is useful as a quick reference for disease curation and knowledge base population.*
+## Executive summary (current understanding; 2023–2024 emphasis)
+Achromatopsia (ACHM) is a rare congenital cone photoreceptor disorder (cone dysfunction syndrome) with onset at birth/early infancy and a characteristic triad of markedly reduced visual acuity, photophobia/photoaversion, and absent/markedly impaired color discrimination, often accompanied by infantile nystagmus. It is most commonly autosomal recessive and caused by biallelic loss-of-function variants in cone phototransduction genes—especially **CNGA3** and **CNGB3**—with additional rarer causes including **GNAT2, PDE6C, PDE6H,** and **ATF6**. The best-supported disease mechanism is failure of cone phototransduction/cGMP-gated ion channel signaling (CNGA3/CNGB3/PDE6*/GNAT2) and, for ATF6-ACHM, a developmental cone deficit linked to ER/UPR biology. Clinical management today is largely supportive (filters, low-vision rehabilitation), but multiple **AAV subretinal gene-replacement trials** are in late phase I/II stages for CNGA3- and CNGB3-ACHM, with early signals of safety and functional benefit in subsets of participants.
 
 ---
 
 ## 1. Disease information
-### 1.1 What is the disease?
-Dimethylglycine dehydrogenase deficiency (also called hyperdimethylglycinemia) is a genetic metabolic disorder in which impaired DMGDH activity blocks the mitochondrial step converting DMG to sarcosine, leading to **marked accumulation of DMG in body fluids** and a **mild clinical phenotype** in the best‑described patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar1999defectindimethylglycine pages 1-2)
 
-### 1.2 Common synonyms / alternative names (from primary literature)
-- “Dimethylglycine dehydrogenase deficiency” (walker2012trimethylaminuriaanddimethylglycine pages 3-5, augustin2016structureandbiochemical pages 7-9)
-- “Hyperdimethylglycinemia” (used as a descriptor for DMG elevation in the discovery paper) (moolenaar1999defectindimethylglycine pages 1-1)
-- “Defect in dimethylglycine dehydrogenase” (title/terminology of original case report) (moolenaar1999defectindimethylglycine pages 1-1)
+### 1.1 Concise overview
+- **Definition:** Andersen et al. (2023) describe ACHM as “**a rare congenital condition with cone photoreceptor dysfunction causing color blindness, reduced vision, nystagmus and photophobia**” (andersen2023geneticandclinical pages 1-2). Baxter & Borchert (2024) similarly note it is an autosomal recessive cone dysfunction syndrome presenting at birth/early infancy with poor visual acuity, nystagmus, photophobia, and loss of color vision (baxter2024genetherapyfor pages 1-2).
+- **Synonyms / alternative names:** “**rod monochromacy**” and “**total color blindness**” are used as alternative names/descriptors (andersen2023geneticandclinical pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
+- **Evidence type:** The information in this report is derived from **aggregated disease-level resources** (reviews), plus **patient cohort natural history/quality-of-life studies** and **ClinicalTrials.gov trial records** (baxter2024genetherapyfor pages 1-2, andersen2023geneticandclinical pages 1-2, chan2023morphologicalandfunctional pages 1-2, NCT03001310 chunk 1).
 
-### 1.3 Evidence source type
-The disease description is derived primarily from:
-- **Individual human case report/discovery study** using metabolomics/NMR and molecular genetics (moolenaar1999defectindimethylglycine pages 1-1, moolenaar1999defectindimethylglycine pages 1-2)
-- **Authoritative chapter-level synthesis** describing rarity, diagnostic approach, and management suggestions (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Biochemical/structural functional studies** of the disease-associated variant (mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3)
+### 1.2 Key identifiers (available in retrieved evidence)
+- **MONDO:** OpenTargets maps “achromatopsia” to **MONDO_0018852** (OpenTargets Search: Achromatopsia).
+
+**Note (identifier coverage limitation):** OMIM/Orphanet/ICD-10/ICD-11/MeSH identifiers were not retrieved in the available evidence chunks in this run; they should be added from OMIM/Orphanet/ICD/MeSH primary sources in a follow-on extraction.
+
+| Identifier system | ID/value | Notes | Source (include URL/publication year if present) |
+|---|---|---|---|
+| Disease name | Achromatopsia | Rare congenital cone photoreceptor disorder; commonly presents at birth or early infancy with poor visual acuity, nystagmus, photophobia, and loss of color vision; autosomal recessive | Baxter & Borchert 2024, Int J Mol Sci, https://doi.org/10.3390/ijms25179739 (2024) (baxter2024genetherapyfor pages 1-2) |
+| MONDO | MONDO:0018852 | OpenTargets lists achromatopsia under MONDO_0018852 | OpenTargets disease-target association context (OpenTargets Search: Achromatopsia) |
+| Synonym | Rod monochromacy | Explicitly listed as an alternative name for achromatopsia | Andersen et al. 2023, Genes, https://doi.org/10.3390/genes14030690 (2023); Michalakis et al. 2022, Mol Diagn Ther, https://doi.org/10.1007/s40291-021-00565-z (2022) (andersen2023geneticandclinical pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) |
+| Synonym | Total color blindness | Used as an alternative disease name/descriptor | Michalakis et al. 2022, Mol Diagn Ther, https://doi.org/10.1007/s40291-021-00565-z (2022) (michalakis2022achromatopsiageneticsand pages 1-2) |
+| Inheritance | Autosomal recessive | Consistently reported across reviews and clinical studies | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) |
+| Prevalence estimate | ~1 in 30,000 | Commonly cited point estimate | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) |
+| Prevalence estimate | 1 in 30,000–50,000 | Range reported in natural-history/clinical review sources | Andersen et al. 2023, https://doi.org/10.3390/genes14030690 (2023); Asensio-Sánchez 2020 (andersen2023geneticandclinical pages 1-2, asensiosanchez2020genetherapyfor pages 1-2) |
+| Major causal genes | CNGA3; CNGB3 | Together account for up to ~90% of cases in recent reviews | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) |
+| Other established causal genes | GNAT2; PDE6C; PDE6H; ATF6 | Recurrently listed as rarer achromatopsia genes | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) |
+| OpenTargets associated targets | CNGA3; CNGB3; PDE6C; GNAT2; ATF6; PDE6H | Disease-target evidence also lists OPN1MW, OPN1LW, and CABP4, but the core Mendelian achromatopsia genes in retrieved review/clinical sources are CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6 | OpenTargets disease-target association context; corroborated by recent reviews (OpenTargets Search: Achromatopsia, baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) |
+
+
+*Table: This table summarizes key disease identifiers, synonyms, inheritance, prevalence, and causal genes for achromatopsia using only retrieved evidence. It is useful as a compact normalization reference for a disease knowledge base entry.*
 
 ---
 
 ## 2. Etiology
+
 ### 2.1 Disease causal factors
-- **Genetic cause:** Biallelic pathogenic variants in **DMGDH**. The index patient was **homozygous for A326G**, encoding **p.His109Arg (H109R)**. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3)
-- **Mechanistic cause:** Loss of DMGDH enzymatic function causing failure of DMG demethylation and consequent accumulation of DMG in blood/urine. (augustin2016structureandbiochemical pages 1-3, moolenaar1999defectindimethylglycine pages 1-1)
+- **Primary cause:** Mendelian, typically **autosomal recessive** inherited retinal disease due to biallelic pathogenic variants affecting cone function (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
+- **Core causal genes (well-established):** CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, ATF6 (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
 
-### 2.2 Risk factors
-- **Genetic:** Having biallelic loss‑of‑function or severely hypomorphic variants in DMGDH (autosomal recessive inferred). A chapter review states the disorder is “likely autosomal recessive” and notes “only one case” had been reported at that time. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Environmental:** No validated environmental risk factors were identified; symptoms (odor) were reported to worsen with **stress/exertion** in the index patient (not a cause, but a trigger/modifier of symptom expression). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+### 2.2 Genetic risk factors (causal variants)
+- **CNGA3/CNGB3 predominate:** Baxter & Borchert (2024) state: “**Up to 90% of achromatopsia patients harbour mutations in CNGA3 or CNB3**” (CNGB3) (baxter2024genetherapyfor pages 1-2). Michalakis et al. (2022) and Moussawi et al. (2021) also place the majority of cases in these genes (michalakis2022achromatopsiageneticsand pages 1-2, moussawi2021genetherapyin pages 1-3).
+- **Relative contributions (approximate; older synthesis):** Asensio-Sánchez (2020) reports CNGB3 ≈50% and CNGA3 ≈25% of autosomal recessive ACHM and lower proportions for GNAT2/PDE6C/PDE6H/ATF6 (asensiosanchez2020genetherapyfor pages 1-2, asensiosanchez2020genetherapyfor pages 7-10). These proportions should be treated as approximate and cohort-dependent.
 
-### 2.3 Protective factors / gene–environment interactions
-No protective genetic variants or gene–environment interactions specific to disease penetrance were reported in the retrieved literature. Given the extremely limited case count, these remain unknown.
+### 2.3 Environmental risk/protective factors
+No specific environmental exposures or protective factors are established as causal for **congenital** achromatopsia in the retrieved evidence; ACHM is primarily genetic (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
 
----
+### 2.4 Gene–environment interactions
+No gene–environment interaction evidence specific to ACHM was present in the retrieved sources.
 
-## 3. Phenotypes
-### 3.1 Reported human phenotypes (best-described index case)
-**Clinical signs/symptoms**
-- Fish‑like body odor beginning in childhood (age 5) and persisting into adulthood. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-- Unusual muscle fatigue and/or mild muscle weakness. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 1-2)
-- Normal intelligence and generally good health otherwise reported in the original case. (moolenaar1999defectindimethylglycine pages 1-2)
+| Gene (HGNC symbol) | Protein/function in cone | Pathway step (phototransduction/CNG/UPR) | Typical inheritance | Relative contribution/proportion if stated in evidence | Notes on phenotype (complete vs incomplete; progression) | Key sources (with URL/year) |
+|---|---|---|---|---|---|---|
+| **CNGA3** | Alpha subunit of the cone cyclic nucleotide-gated (CNG) channel; part of the final step converting cGMP changes into cone electrical responses (baxter2024genetherapyfor pages 1-2, baxter2024genetherapyfor pages 2-3, gerhardt2023biologypathobiologyand pages 1-2) | **CNG / cone phototransduction** | Autosomal recessive (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) | Together with **CNGB3**, accounts for **up to ~90%** of ACHM; older review gives CNGA3 alone **~25%** (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2, asensiosanchez2020genetherapyfor pages 1-2) | Can cause complete or incomplete ACHM; incomplete forms reported particularly with some missense variants in CNGA3; no strong genotype-phenotype correlation overall; progression less commonly documented than for CNGB3/PDE6C in Danish cohort (moussawi2021genetherapyin pages 1-3, andersen2023geneticandclinical pages 1-2, baxter2024genetherapyfor pages 1-2, andersen2023geneticandclinical pages 7-9) | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022); Gerhardt et al. 2023, https://doi.org/10.3390/biomedicines11020269 (2023) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2, gerhardt2023biologypathobiologyand pages 2-5) |
+| **CNGB3** | Beta subunit of the cone CNG channel; required with CNGA3 for functional cone CNG channel assembly and normal cone responses (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2, brotherton2024molecularmechanismsgoverning pages 3-5) | **CNG / cone phototransduction** | Autosomal recessive (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) | Together with **CNGA3**, **up to ~90%** of ACHM; older review gives CNGB3 alone **~50%** of autosomal recessive ACHM (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2, asensiosanchez2020genetherapyfor pages 7-10) | Often associated with **complete achromatopsia** in review evidence; progressive BCVA deterioration attributable to ACHM was observed in some CNGB3 patients in long-term Danish follow-up (moussawi2021genetherapyin pages 1-3, andersen2023geneticandclinical pages 1-2, andersen2023geneticandclinical pages 7-9) | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022); Asensio-Sánchez 2020 (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2, asensiosanchez2020genetherapyfor pages 7-10) |
+| **GNAT2** | Cone transducin alpha subunit; couples activated cone opsin to PDE activation in phototransduction (baxter2024genetherapyfor pages 1-2, yang2024dyschromatopsiaacomprehensive pages 4-5, baxter2024genetherapyfor pages 2-3) | **Phototransduction** | Autosomal recessive (disease-level ACHM inheritance) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) | Rare; older review states **<2%** (asensiosanchez2020genetherapyfor pages 1-2) | Missense GNAT2 variants have been associated with **incomplete achromatopsia** and relative preservation of cone structure/function in some reports; Danish cohort suggested myopia may be more frequent with GNAT2 and no BCVA deterioration was reported in that cohort subset (moussawi2021genetherapyin pages 1-3, andersen2023geneticandclinical pages 7-9, yang2024dyschromatopsiaacomprehensive pages 4-5) | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Yang et al. 2024, https://doi.org/10.3389/fnins.2024.1265630 (2024); Asensio-Sánchez 2020 (baxter2024genetherapyfor pages 1-2, yang2024dyschromatopsiaacomprehensive pages 4-5, asensiosanchez2020genetherapyfor pages 1-2) |
+| **PDE6C** | Cone phosphodiesterase catalytic subunit; hydrolyzes cGMP in response to transducin activation (baxter2024genetherapyfor pages 1-2, yang2024dyschromatopsiaacomprehensive pages 6-8, baxter2024genetherapyfor pages 2-3) | **Phototransduction / cGMP metabolism** | Autosomal recessive (disease-level ACHM inheritance) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) | Rare; older review states **<2%** (asensiosanchez2020genetherapyfor pages 1-2) | Missense PDE6C variants can be associated with **incomplete ACHM** in review evidence, but PDE6C is also linked to more progressive cone disease in some reports; Danish cohort found progression attributable to ACHM in PDE6C and more frequent myopia/severe myopia (moussawi2021genetherapyin pages 1-3, andersen2023geneticandclinical pages 1-2, andersen2023geneticandclinical pages 7-9, yang2024dyschromatopsiaacomprehensive pages 4-5) | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Yang et al. 2024, https://doi.org/10.3389/fnins.2024.1265630 (2024); Nouri et al. 2024, https://doi.org/10.1186/s12920-024-01942-3 (2024) (baxter2024genetherapyfor pages 1-2, yang2024dyschromatopsiaacomprehensive pages 6-8) |
+| **PDE6H** | Cone phosphodiesterase gamma/inhibitory subunit; regulates cone PDE activity and therefore cGMP levels (baxter2024genetherapyfor pages 1-2, yang2024dyschromatopsiaacomprehensive pages 6-8, yang2024dyschromatopsiaacomprehensive pages 4-5) | **Phototransduction / cGMP metabolism** | Autosomal recessive (disease-level ACHM inheritance) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) | Very rare; older review states **<1%** (asensiosanchez2020genetherapyfor pages 1-2) | Missense PDE6H variants have been associated with **incomplete achromatopsia** in review evidence; Danish cohort found no BCVA deterioration in PDE6H subset but a high proportion with myopia/severe myopia (moussawi2021genetherapyin pages 1-3, andersen2023geneticandclinical pages 7-9, yang2024dyschromatopsiaacomprehensive pages 6-8) | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Yang et al. 2024, https://doi.org/10.3389/fnins.2024.1265630 (2024); Asensio-Sánchez 2020 (baxter2024genetherapyfor pages 1-2, yang2024dyschromatopsiaacomprehensive pages 6-8, asensiosanchez2020genetherapyfor pages 1-2) |
+| **ATF6** | Activating transcription factor 6; ER membrane transcription factor regulating unfolded protein response and essential for human cone photoreceptor development (michalakis2022achromatopsiageneticsand pages 1-2, yang2024dyschromatopsiaacomprehensive pages 6-8) | **UPR / ER homeostasis / cone development** | Autosomal recessive (disease-level ACHM inheritance) (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2) | Rare; older review states **~1–2%** (asensiosanchez2020genetherapyfor pages 1-2) | Mechanistically distinct from phototransduction genes; associated with developmental cone defects and foveal hypoplasia/absence of cone structures rather than only signaling failure; may provide fewer residual cone targets for classic gene replacement; pharmacologic ATF6 activation has shown rescue of cone growth/gene expression in patient organoids (yang2024dyschromatopsiaacomprehensive pages 6-8, yang2024dyschromatopsiaacomprehensive pages 4-5) | Kroeger et al. 2021, https://doi.org/10.1073/pnas.2103196118 (2021); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022); Yang et al. 2024, https://doi.org/10.3389/fnins.2024.1265630 (2024) (michalakis2022achromatopsiageneticsand pages 1-2, yang2024dyschromatopsiaacomprehensive pages 6-8) |
 
-**Laboratory abnormalities**
-- Markedly increased DMG in serum and urine (quantified in Table 1 of discovery report). (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine media 773767bc)
-- Persistently increased serum/plasma creatine kinase (~4× upper limit of normal). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
 
-**Phenotype timing and severity**
-- **Age of onset:** childhood for odor complaint (age ~5). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-- **Course:** chronic/lifelong in the index patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Severity:** described as mild/non‑fatal in later mechanistic literature. (augustin2016structureandbiochemical pages 7-9)
-
-### 3.2 Suggested HPO terms (mapping based on described features)
-(These are ontology suggestions for curation; HPO IDs not retrieved in this run.)
-- Fishy body odor / abnormal body odor: **Abnormal body odor**
-- Fatigue: **Fatigue**
-- Muscle weakness: **Muscle weakness**
-- Elevated creatine kinase: **Elevated circulating creatine kinase concentration**
-- Increased dimethylglycine: **Abnormal circulating metabolite concentration** (specific metabolite annotation may require custom term)
-
-### 3.3 Quantitative phenotype-associated data
-Table 1 in the original Clinical Chemistry report provides the key quantitative biochemical phenotype:
-- **Serum DMG:** **221** (reported as mmol/L in excerpt) vs reference **1–5** (moolenaar1999defectindimethylglycine pages 4-5)
-- **Urine DMG:** **457** and **441 mmol/mol creatinine** vs reference **1–26** (for age >2 months) (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine media 773767bc)
-- **Creatine kinase:** **1066 U/L** (ref 30–270 U/L) (moolenaar1999defectindimethylglycine pages 1-2)
-
-**Visual evidence:** Table 1/Figure 5 showing these abnormalities and age-related urine DMG reference distribution are captured as cropped images. (moolenaar1999defectindimethylglycine media 773767bc, moolenaar1999defectindimethylglycine media 214a655b)
-
-### 3.4 Quality of life impact
-The index case reported severe psychosocial impact from persistent odor (qualitative description in follow-on NMR paper). (moolenaar2001invivoand pages 94-98)
+*Table: This table summarizes the established achromatopsia genes, their functional roles in cone biology, and evidence-based phenotype notes. It is useful for linking genotype to mechanism, inheritance, and expected clinical presentation.*
 
 ---
 
-## 4. Genetic / molecular information
-### 4.1 Causal gene
-- **DMGDH** encodes mitochondrial dimethylglycine dehydrogenase, a covalently flavinylated enzyme requiring THF. (augustin2016structureandbiochemical pages 1-3, moolenaar1999defectindimethylglycine pages 1-2)
+## 3. Phenotypes (with ontology suggestions)
 
-### 4.2 Pathogenic variant(s)
-- **Index disease variant:** **c.326A>G; p.His109Arg (H109R)**, homozygous in the reported patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3)
+### 3.1 Core phenotype spectrum
+Across reviews and cohort studies, ACHM is consistently characterized by:
+- **Reduced visual acuity** (HPO suggestion: **HP:0007663 Decreased visual acuity**). Andersen et al. report VA “around **20/200**” in typical cases (andersen2023geneticandclinical pages 1-2), and Baxter & Borchert note similar typical VA and that incomplete forms can have better acuity (20/40–20/120) (baxter2024genetherapyfor pages 1-2).
+- **Color vision loss** (HPO: **HP:0000551 Abnormal color vision**; for complete ACHM, **HP:0000618 Achromatopsia**). In a Danish cohort, “**49**” of 57 tested had complete color blindness and “**eight** had residual color vision” (andersen2023geneticandclinical pages 5-7).
+- **Photophobia/photoaversion** (HPO: **HP:0000613 Photophobia**). Chan et al. emphasize: “**photoaversion has been described to be one of the more debilitating symptoms of achromatopsia**” (chan2023morphologicalandfunctional pages 1-2).
+- **Infantile/childhood nystagmus** (HPO: **HP:0000639 Nystagmus**). In the Danish cohort, “**Most patients (89%, n = 72) had a history of childhood nystagmus**” (andersen2023geneticandclinical pages 5-7). Chan et al. report nystagmus in 88.5% among 61 patients (chan2023morphologicalandfunctional pages 4-6).
+- **Refractive error (myopia/hyperopia)** (HPO: **HP:0000545 Myopia**, **HP:0000540 Hyperopia**). In Andersen et al., myopia was more frequent in GNAT2/PDE6C/PDE6H subsets (75–80%) (andersen2023geneticandclinical pages 7-9).
 
-### 4.3 Functional consequences (variant-level)
-Two independent functional analyses support pathogenicity:
-- H109R shows reduced flavin incorporation/cofactor saturation, markedly impaired substrate affinity and/or catalytic efficiency, and reduced stability—mechanistic routes to decreased enzymatic flux and DMG accumulation. (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3)
-- Quantitatively, one study reports the H109R mutant as having a **~65‑fold increase in Km** and **~27‑fold decrease in activity**, with overall **~1800‑fold loss in catalytic efficiency** (after accounting for flavination), consistent with a severe hypomorphic/LOF allele. (mcandrew2008molecularbasisof pages 4-6)
+### 3.2 Anatomical structures affected
+- **Primary organ/tissue:** Retina, especially macula/fovea with **cone photoreceptors**.
+  - UBERON suggestions: **retina (UBERON:0000966)**; **macula lutea (UBERON:0001891)**; **fovea centralis (UBERON:0001866)**.
+  - Cell Ontology suggestions: **retinal cone photoreceptor cell (CL:0000210)**.
 
-### 4.4 Population frequency context
-The H109R allele was observed in ExAC at **58/118,656 alleles (0.049%)**, predominantly in individuals of African descent, highlighting that population presence does not exclude pathogenicity for autosomal recessive disease when homozygosity is rare. (augustin2016structureandbiochemical pages 1-3)
+### 3.3 Natural history / temporal development
+- **Onset:** At birth or early infancy (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
+- **Course:** Predominantly stationary with respect to visual acuity in many cohorts.
+  - Chan et al. (2023) state: “**Visual acuity was stable… over a time of observation from 2008 to 2021**” (chan2023morphologicalandfunctional pages 1-2).
+  - Andersen et al. report “**a median follow-up of 22 years** (…range 1–65 years)” and that the first and last VA were within ±0.2 logMAR in “**88% (n = 51)**” (andersen2023geneticandclinical pages 5-7).
+  - Progressive BCVA deterioration attributable to ACHM was reported in “**three of 58 patients**” in Andersen et al. (andersen2023geneticandclinical pages 1-2, andersen2023geneticandclinical pages 7-9).
 
-### 4.5 Modifier genes / epigenetics / chromosomal abnormalities
-No modifier genes, epigenetic findings, or chromosomal abnormalities were reported for DMGDH deficiency in the retrieved sources.
+---
+
+## 4. Genetic / molecular information (knowledge base–ready)
+
+### 4.1 Causal genes
+Established ACHM genes in the retrieved evidence: **CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, ATF6** (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2). OpenTargets also links ACHM to these targets and provides supporting PubMed ID lists (e.g., CNGA3/CNGB3 evidence) and the MONDO mapping (OpenTargets Search: Achromatopsia).
+
+### 4.2 Pathogenic variant characteristics
+The retrieved evidence primarily provides gene-level rather than variant-level detail. Variant class patterns inferred from the evidence include:
+- **Loss-of-function variants** are common drivers (recessive) in CNGA3/CNGB3-related ACHM (gong2024infantilenystagmussyndrome—associated pages 12-13).
+- Some reviews note incomplete ACHM may be associated with specific **missense** changes in GNAT2/CNGA3/PDE6C/PDE6H (moussawi2021genetherapyin pages 1-3).
+
+**Note (variant-level limitation):** ClinVar/HGMD/gnomAD allele frequencies, ACMG classifications, and recurrent founder variants were not retrieved in the evidence chunks and thus cannot be reliably populated here.
 
 ---
 
 ## 5. Environmental information
-No established environmental toxins, lifestyle factors, or infectious triggers are reported as causal. Symptom fluctuation with stress/exertion (odor worsening) is noted in the index case. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+No infectious, toxic, occupational, or lifestyle exposures were identified as causal contributors for congenital ACHM in the retrieved evidence.
 
 ---
 
 ## 6. Mechanism / pathophysiology
-### 6.1 Molecular pathway and causal chain
-**Upstream:** Dietary choline → betaine → DMG (as part of choline catabolism / methyl group metabolism).
 
-**Core defect:** DMGDH is a mitochondrial **FAD- and THF-dependent** enzyme that demethylates DMG to sarcosine; THF accepts the methyl group (preventing release of formaldehyde). (augustin2016structureandbiochemical pages 1-3)
+### 6.1 Cone phototransduction / cGMP / CNG channel failure (CNGA3, CNGB3, GNAT2, PDE6C, PDE6H)
+Mechanistically, ACHM (for the phototransduction-gene forms) arises from disruption of the cone phototransduction cascade and/or the CNG channel that converts cGMP signaling into an electrical response:
+- Yang et al. (2024) explicitly summarize the cascade: “**Activated PDE begins to hydrolyze cGMP efficiently. As the cGMP concentration decreases, the CNG channel closed**” (yang2024dyschromatopsiaacomprehensive pages 6-8). They further describe a PDE6H mechanism: “**cGMP gated channels are permanently closed**” in a way “**similar to permanent light stimulation**” (yang2024dyschromatopsiaacomprehensive pages 6-8).
+- Michalakis et al. (2022) describe the core dark/light physiology: in darkness high cGMP keeps CNG channels open producing Na+/Ca2+ current and depolarization; in light, opsin→transducin→PDE reduces cGMP, closes channels, and hyperpolarizes the cone (michalakis2022achromatopsiageneticsand pages 1-2).
+- Downstream consequences include absent cone-mediated ERG components with preserved rod function (diagnostic hallmark) and cone degeneration; Michalakis et al. note early cone degeneration features including **cGMP accumulation** (michalakis2022achromatopsiageneticsand pages 4-5).
 
-**Downstream biochemical consequence:** DMGDH deficiency results in **marked accumulation of DMG** in serum and urine, and **absent/undetectable sarcosine** in the original biochemical profile. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-2)
+**GO term suggestions (biological process):** phototransduction (GO:0007602), cyclic nucleotide-mediated signaling (GO:0019935), cGMP metabolic process (GO:0046068), ion transmembrane transport (GO:0034220).
 
-**Clinical consequence (known):** fish‑like odor (likely from volatile DMG), fatigue/weakness, and elevated CK. However, because the phenotype is based on very few individuals, links beyond metabolite accumulation remain uncertain. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 5-5)
+### 6.2 ATF6-related achromatopsia (developmental / ER/UPR biology)
+ATF6-associated ACHM is mechanistically distinct, involving ER homeostasis/UPR signaling and cone development:
+- Yang et al. (2024) state: “**ATF6 ... plays a key role in unfolded protein response (UPR) and endoplasmic reticulum homeostasis**” (yang2024dyschromatopsiaacomprehensive pages 6-8).
+- Michalakis et al. (2022) likewise describe ATF6 as an ER-localized transcription factor capable of activating the unfolded protein response (michalakis2022achromatopsiageneticsand pages 1-2).
 
-### 6.2 Suggested GO biological process / cellular component terms
-(ontology suggestions)
-- **GO: one‑carbon metabolic process**
-- **GO: choline metabolic process / betaine metabolic process**
-- **GO: glycine metabolic process**
-- **GO cellular component:** mitochondrial matrix (DMGDH is mitochondrial) (augustin2016structureandbiochemical pages 1-3)
-
-### 6.3 Suggested cell types (Cell Ontology)
-No specific cell type pathology is described; enzyme is liver‑relevant in catabolism. For curation, consider:
-- Hepatocyte (primary site of choline metabolism; inferred, not directly evidenced here)
-- Skeletal muscle cell (given CK and fatigue; speculative)
+**Therapeutic implication (conceptual):** Phototransduction-gene ACHM is amenable to gene supplementation (recessive loss-of-function), whereas ATF6-associated disease may have fewer intact cone structures to target and may require pathway modulation (yang2024dyschromatopsiaacomprehensive pages 4-5).
 
 ---
 
-## 7. Anatomical structures affected
-### 7.1 Organ/system level (evidence-based)
-- **Muscle involvement:** suggested by fatigue/weakness and persistently elevated CK. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-
-### 7.2 Suggested UBERON terms
-- Skeletal muscle tissue (UBERON suggestion)
-- Liver (UBERON suggestion; diagnostic enzyme assay discussion implies liver relevance) (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-
-### 7.3 Subcellular localization
-- **Mitochondrial enzyme** (matrix-associated) consistent with biochemical characterization. (augustin2016structureandbiochemical pages 1-3)
+## 7. Anatomical structures affected (ontology-ready)
+- **Primary:** retina (macula/fovea) and cone photoreceptor system.
+- **Subcellular / molecular compartments (relevant):** cone outer segment, cGMP signaling microdomain, CNG channels in outer segment membrane; ER/UPR machinery for ATF6.
+  - GO Cellular Component suggestions: photoreceptor outer segment (GO:0001750), plasma membrane (GO:0005886), endoplasmic reticulum membrane (GO:0005789).
 
 ---
 
 ## 8. Temporal development
-- **Onset:** childhood for odor (age ~5). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Course:** chronic/lifelong; no defined staging described. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+- **Typical onset:** congenital/infantile (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
+- **Progression:** predominantly stable VA over many years for many patients, but with documented minority progression in long follow-up (andersen2023geneticandclinical pages 5-7, andersen2023geneticandclinical pages 7-9).
 
 ---
 
 ## 9. Inheritance and population
-### 9.1 Inheritance
-- Inferred **autosomal recessive** (chapter source: “likely autosomal recessive”; index patient homozygous). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
 
-### 9.2 Epidemiology
-- Extremely rare; as of the chapter publication, “only one case has been reported.” (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- No robust incidence/prevalence estimates were identified in the retrieved sources.
+### 9.1 Epidemiology
+- **Prevalence:** commonly cited as ~**1 in 30,000** (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2), and also reported as a range **1 in 30,000–50,000** (andersen2023geneticandclinical pages 1-2, asensiosanchez2020genetherapyfor pages 1-2).
 
-### 9.3 Population/ancestry
-- Index case: described as a man of **African ancestry**. (moolenaar1999defectindimethylglycine pages 1-2)
-- H109R allele: enriched in ExAC African ancestry subset. (augustin2016structureandbiochemical pages 1-3)
+### 9.2 Inheritance
+- Typically **autosomal recessive** (baxter2024genetherapyfor pages 1-2, michalakis2022achromatopsiageneticsand pages 1-2).
+
+**Note (population genetics limitation):** No carrier frequencies, founder variants, or geographic variant distributions were retrievable from the evidence in this run.
 
 ---
 
 ## 10. Diagnostics
-### 10.1 Core diagnostic biomarker
-- **Elevated DMG in plasma/serum and urine** is the defining biochemical abnormality. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 4-5)
 
-### 10.2 Laboratory methods (real-world implementations)
-- **^1H NMR spectroscopy** of urine and serum was a key diagnostic approach in the discovery study; DMG displayed characteristic singlets (2.93 and 3.80 ppm) and was confirmed by spiking experiments. (moolenaar1999defectindimethylglycine pages 4-5)
-- **GC‑MS** confirmation can be performed, but the discovery paper notes DMG can be missed by routine organic-acid workflows using solvent extraction (lost during ethyl acetate extraction). (moolenaar1999defectindimethylglycine pages 3-4, walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Fish‑challenge testing** and urinary trimethylamine measures were used to exclude trimethylaminuria in the presenting “fish odor” complaint. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 3-4)
+### 10.1 Clinical and electrophysiology
+- Classic diagnostic confirmation includes demonstration of absent cone function: Andersen et al. refer to “**demonstration of a lack of cone function by electroretinography**” (andersen2023geneticandclinical pages 1-2). Baxter & Borchert note ERGs typically show normal rod/scotopic responses with absence of cone-mediated photopic components (baxter2024genetherapyfor pages 1-2).
 
-### 10.3 Enzyme assay
-A chapter notes DMGDH activity is not normally detectable in blood cells/fibroblasts, so confirmatory enzyme testing would require **liver tissue (biopsy)**—a major practical limitation. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 10.2 Imaging (OCT/FAF) and functional endpoints
+- **Fundus autofluorescence (FAF):** Baxter & Borchert classify 4 phenotypes (normal; central increased; central reduced; central decreased with hyperautofluorescent ring) (baxter2024genetherapyfor pages 1-2).
+- **OCT:** Baxter & Borchert classify 5 OCT patterns (continuous/disrupted/absent ellipsoid layer; hyporeflective zone; outer retinal atrophy with RPE loss) and note foveal hypoplasia is common (baxter2024genetherapyfor pages 1-2).
+- **Microperimetry as structure–function endpoint (2024):** In adolescents, OCT staging correlated with microperimetry sensitivity (central foveal and perifoveal rings) with p-values **0.0286**, **0.0008**, **0.0014**; in contrast, OCT staging did **not** correlate with VA or contrast sensitivity (cosmo2024microperimetrysensitivitycorrelates pages 1-2, cosmo2024microperimetrysensitivitycorrelates pages 4-6).
 
-### 10.4 Genetic testing
-Confirmatory diagnosis is via **DMGDH sequencing** to identify biallelic pathogenic variants (e.g., A326G/H109R). (moolenaar1999defectindimethylglycine pages 1-1, walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 10.3 Recommended testing approach (evidence-based synthesis)
+A practical diagnostic workflow supported by the retrieved sources is:
+1) Clinical phenotype (infantile onset, photophobia, nystagmus, color vision deficit), 2) ERG documenting absent cone responses with preserved rod responses, 3) OCT/FAF characterization of foveal/outer retinal structure, 4) genetic testing to identify causal gene(s) and determine eligibility for gene therapy trials (baxter2024genetherapyfor pages 1-2, andersen2023geneticandclinical pages 1-2, gong2024infantilenystagmussyndrome—associated pages 12-13).
 
-### 10.5 Differential diagnosis
-Given the presenting symptom of fish-like odor, differential considerations include trimethylaminuria; DMGDH deficiency can be distinguished by **massively elevated DMG** and low trimethylamine after fish challenge. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 3-4)
+**Differential diagnosis (limited in retrieved evidence):** The retrieved evidence does not provide a systematic differential diagnosis list; however, the context of inherited retinal diseases presenting with infantile nystagmus includes multiple entities (review context) (gong2024infantilenystagmussyndrome—associated pages 12-13). A dedicated differential diagnosis extraction would require additional sources.
 
 ---
 
-## 11. Outcome / prognosis
-- Later biochemical/structural literature describes the disorder as **non‑fatal** and typically **mild**. (augustin2016structureandbiochemical pages 7-9)
-- No survival statistics, long-term organ outcomes, or standardized quality-of-life metrics were identified, due to limited case ascertainment.
+## 11. Outcomes / prognosis
+- **Visual acuity stability:** Chan et al. report “**Visual acuity was stable…**” in their cohort over 2008–2021 (chan2023morphologicalandfunctional pages 1-2). Andersen et al. report long-term stability in most patients (±0.2 logMAR in **88%**) and rare ACHM-attributable deterioration (**3/58**) (andersen2023geneticandclinical pages 5-7, andersen2023geneticandclinical pages 7-9).
+- **Functional and QoL impact:** Photoaversion is described as debilitating (chan2023morphologicalandfunctional pages 1-2). In Chan et al., legal disability ratings ranged widely and **27.9%** were rated 100% (chan2023morphologicalandfunctional pages 6-8).
 
 ---
 
 ## 12. Treatment
-### 12.1 Evidence-based interventions (limited)
-No established disease-modifying therapy exists.
 
-**Riboflavin trial (index case):** The original report states the patient received **riboflavin 10 mg/day for 3 months without clinical improvement**. (moolenaar1999defectindimethylglycine pages 3-4)
+### 12.1 Supportive/rehabilitative (current real-world implementation)
+- Optical aids and filters are widely used; Chan et al. report: “**Edge filter glasses were the most used optical aids, while enlarged reading glasses were the most used low vision aids**” (chan2023morphologicalandfunctional pages 1-2).
+- In an extended aid inventory (subset), common devices included reading glasses (56.3%), magnifying glasses (55.2%), smartphones (39.1%), tablets (37.9%), monoculars (36.8%), and CCTV (31%) (chan2023morphologicalandfunctional pages 6-8).
 
-**Supportive/empiric measures (expert opinion from authoritative chapter):**
-- Counseling
-- Dietary **choline restriction** and avoidance of excessive sweating (odor management)
-- Antibiotics to alter intestinal microflora “not indicated”
-- Suggested trial of folate with riboflavin (hypothesis-driven, not proven)
-(walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+**MAXO suggestions:** low vision rehabilitation (MAXO:0000787), prescription of optical filters (filter-lens intervention; MAXO term may need confirmation), assistive device use.
 
-### 12.2 Suggested MAXO terms
-(ontology suggestions)
-- Dietary modification / dietary choline restriction
-- Vitamin supplementation (riboflavin; folate)
-- Genetic counseling
+### 12.2 Advanced therapeutics: gene therapy (2023–2024 status)
+- Baxter & Borchert (2024) emphasize “**There is no FDA-approved treatment for achromatopsia**” and note “**five gene therapy clinical trials registered**” (phase I/II) for CNGA3/CNGB3 (baxter2024genetherapyfor pages 1-2).
 
-### 12.3 Clinical trials
-No DMGDH deficiency–specific trials were retrieved.
+**Key trials and implementation details** (ClinicalTrials.gov plus 2024 expert synthesis):
+- **CNGA3 AAV subretinal trials:** NCT02610582 and NCT02935517 (NCT02610582 chunk 1, NCT02935517 chunk 1).
+  - NCT02610582 includes subretinal administration and multiple functional endpoints including microperimetry and patient-reported outcomes (NCT02610582 chunk 1).
+  - Gong & Hertle (2024) summarize a first CNGA3 trial: treatment “**well tolerated, with no serious adverse events**” and visual acuity/contrast sensitivity improvements persisting “**for at least three years**” (gong2024infantilenystagmussyndrome—associated pages 12-13).
+- **CNGB3 AAV subretinal trials:** NCT03001310 and NCT02599922 (NCT03001310 chunk 1, gong2024infantilenystagmussyndrome—associated pages 12-13).
+  - NCT03001310 is a completed phase I/II dose-escalation trial using **AAV2/8-hCARp.hCNGB3** with BCVA and retinal sensitivity endpoints at 24 weeks and QoL EQ-VAS measures (NCT03001310 chunk 1).
+  - Gong & Hertle (2024) report that in one CNGB3 program, “**rAAV2tYF-PR1.7-hCNGB3 treatment has improved photosensitivity in some patients**” (gong2024infantilenystagmussyndrome—associated pages 12-13).
+
+| NCT ID | Gene | Sponsor | Vector / promoter | Route | Phase | Age eligibility | Enrollment | Status | Primary endpoint(s) | Key secondary endpoints | Reported outcomes / development notes |
+|---|---|---|---|---|---|---|---:|---|---|---|---|
+| NCT02610582 | CNGA3 | STZ eyetrial | rAAV.hCNGA3; AAV8.hCNGA3 reported in review; promoter not specified in ClinicalTrials.gov chunk | Subretinal injection after pars plana vitrectomy | Phase I/II | 6–12 years and >=18 years; pediatric cohort C n=6 | 13 | Active, not recruiting | Safety at 12 months; adverse events/abnormal labs related to treatment (NCT02610582 chunk 2, NCT02610582 chunk 1) | Contrast sensitivity (Pelli Robson) at 6 months; BCVA (ETDRS), microperimetry (MAIA), chromatic pupil campimetry, VFQ25/CVFQ, A3-PRO; broader efficacy measures of improved visual function (NCT02610582 chunk 2, NCT02610582 chunk 1) | Review reports 9 CNGA3-ACHM patients treated; well tolerated with no serious adverse events; increases in visual acuity and contrast sensitivity persisted for at least 3 years; phase IIb follow-up planned for second eye and children 6–12 years (gong2024infantilenystagmussyndrome—associated pages 12-13) |
+| NCT02935517 | CNGA3 | Beacon Therapeutics | AGTC-402 / rAAV2tYF-PR1.7-hCNGA3 | Subretinal, one eye | Phase I/II | Adults >=18 years in groups 1–5; 6–17 years in group 3a; 4–8 years in groups 4a and 6 | 24 | Active, not recruiting | Safety: proportion with grade 3 or greater adverse events over 1 year (NCT02935517 chunk 1) | Change in visual acuity, light discomfort/light aversion, and color vision vs pretreatment over 1 year (NCT02935517 chunk 1) | Gong 2024 describes this as an open-label dose-escalation subretinal AAV2-variant trial using engineered cone opsin promoter; participants assigned to 4 dose groups in review summary; outcomes for CNGA3 arm described as less encouraging than CNGB3 in available review commentary (gong2024infantilenystagmussyndrome—associated pages 12-13, NCT02935517 chunk 1) |
+| NCT02599922 | CNGB3 | Beacon Therapeutics | rAAV2tYF-PR1.7-hCNGB3 | Subretinal | Phase I/II | Not stated in retrieved ClinicalTrials.gov chunks; review describes adults and children across achromatopsia programs | 32 | Active, not recruiting | Not fully detailed in retrieved ClinicalTrials.gov chunks; review characterizes trial as phase I/II open-label dose-escalation (gong2024infantilenystagmussyndrome—associated pages 12-13) | Not fully detailed in retrieved ClinicalTrials.gov chunks; review notes visual-function secondary outcomes (gong2024infantilenystagmussyndrome—associated pages 12-13) | Gong 2024 reports sequential assignment to 4 dose groups and that rAAV2tYF-PR1.7-hCNGB3 improved photosensitivity in some patients (gong2024infantilenystagmussyndrome—associated pages 12-13) |
+| NCT03758404 | CNGA3 | MeiraGTx UK II Ltd | AAV2/8-hG1.7p.coCNGA3 (review) | Not stated in retrieved ClinicalTrials.gov chunk; review groups these with similar subretinal phase I/II trials | Phase I/II | Adults and children (review) | 11 | Completed | Incidence of treatment-related adverse events at 6 months (review) (gong2024infantilenystagmussyndrome—associated pages 12-13) | Improvements in visual function (review) (gong2024infantilenystagmussyndrome—associated pages 12-13) | Gong 2024 describes this as similar to NCT03001310, evaluating AAV2/8-hG1.7p.coCNGA3 in adults and children (gong2024infantilenystagmussyndrome—associated pages 12-13) |
+| NCT03001310 | CNGB3 | MeiraGTx UK II Ltd | AAV2/8-hCARp.hCNGB3 | Subretinal, single administration; low/intermediate/high dose escalation | Phase I/II | >=3 years | 23 | Completed | Composite safety over 6 weeks post administration, including serious ocular/non-ocular events possibly related to ATIMP (NCT03001310 chunk 1) | Week-24 change in BCVA (ETDRS), mean retinal sensitivity by static perimetry, and QoL (EQ-VAS) for children/adults (NCT03001310 chunk 1) | Gong 2024 also describes a similar phase I/II open-label dose-escalation trial in adults and children; primary outcome framed as treatment-related adverse events at 6 months and secondary outcomes as visual-function improvements (gong2024infantilenystagmussyndrome—associated pages 12-13, NCT03001310 chunk 1) |
+
+
+*Table: This table summarizes the key human CNGA3- and CNGB3-targeted gene therapy trials for achromatopsia using only retrieved ClinicalTrials.gov records and the 2024 Gong review. It is useful for comparing sponsors, vectors, eligibility, endpoints, and the current state of clinical development.*
+
+**Expert opinion / analysis (authoritative source):** Gong & Hertle (2024) frame molecular diagnosis as crucial for access to gene-based therapies and highlight that AAV-based subretinal gene therapy is actively being studied in CNGA3/CNGB3 ACHM with evolving outcome measures (gong2024infantilenystagmussyndrome—associated pages 12-13).
 
 ---
 
 ## 13. Prevention
-- **Primary prevention:** not applicable in the usual sense for an autosomal recessive condition.
-- **Secondary prevention:** early biochemical/genetic diagnosis may reduce psychosocial morbidity by explaining odor and guiding supportive measures. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Genetic counseling:** indicated for families once a causative DMGDH genotype is identified (inferred from AR inheritance and chapter guidance). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+- **Primary prevention:** Not applicable in the classic exposure-reduction sense because ACHM is congenital genetic.
+- **Genetic counseling / family planning:** Most relevant prevention-like strategy is carrier testing and counseling in at-risk families (inferred from autosomal recessive inheritance; not detailed in retrieved text).
+- **Secondary/tertiary:** Early diagnosis and early low-vision rehabilitation (filters/devices) to reduce disability impact (chan2023morphologicalandfunctional pages 1-2).
 
 ---
 
 ## 14. Other species / natural disease
-No naturally occurring veterinary disease analogs were identified in the retrieved sources.
+The retrieved evidence describes naturally occurring large-animal ACHM models used translationally (dogs, sheep) and engineered models (mice), which serve as comparative biology for disease mechanisms and therapies (gerhardt2023biologypathobiologyand pages 10-12, asensiosanchez2020genetherapyfor pages 7-10).
 
 ---
 
-## 15. Model organisms / experimental systems
-### 15.1 Human protein functional models
-Functional evidence is largely derived from recombinant enzyme studies and structural biology (including a reported PDB structure for human DMGDH in one study). (augustin2016structureandbiochemical pages 1-3)
+## 15. Model organisms (key systems and translational use)
 
-### 15.2 Need for in vivo models
-The molecular basis paper notes that additional DMGDH‑deficient humans or an appropriate mouse model would be needed to resolve genotype–phenotype questions. (mcandrew2008molecularbasisof pages 8-8)
+### 15.1 Models used
+- **Mouse models:** Cnga3 knockout and other cone dysfunction models; rAAV-Cnga3 can restore cone responses and normalize cGMP (gerhardt2023biologypathobiologyand pages 10-12, michalakis2022achromatopsiageneticsand pages 4-5).
+- **Dog (CNGB3-mutant):** Subretinal AAV5-CNGB3 improved cone function; strong age dependence (gerhardt2023biologypathobiologyand pages 10-12).
+- **Sheep (Awassi, CNGA3):** Long-duration rescue after AAV-CNGA3 (≥6 years reported in review) (gerhardt2023biologypathobiologyand pages 10-12).
 
----
-
-## Recent developments (prioritizing 2023–2024)
-Direct 2023–2024 primary case expansions were not available in the retrievable corpus for this run. As a proxy for “latest research” relevant to real‑world implementation, the most concrete near‑term development is the continued mainstreaming of **broad metabolomics and sequencing** for rare disease diagnosis (with older but still relevant metabolomics evidence in this run). For example, DI‑HRMS metabolomics has been evaluated for inborn errors using dried blood spots and plasma; one limitation noted is that some workflows may fail to recognize DMGDH deficiency depending on feature detection/annotation. (moolenaar2001invivoand pages 98-101)
-
----
-
-## Key primary sources (URLs and publication dates)
-- Moolenaar SH et al. **“Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: NMR spectroscopy study.”** *Clinical Chemistry* (Apr **1999**). https://doi.org/10.1093/clinchem/45.4.459 (moolenaar1999defectindimethylglycine pages 1-1)
-- McAndrew R et al. **“Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant H109R.”** *Journal of Inherited Metabolic Disease* (Oct **2008**). https://doi.org/10.1007/s10545-008-0999-2 (mcandrew2008molecularbasisof pages 1-3)
-- Walker V, Wevers RA. **“Trimethylaminuria and Dimethylglycine Dehydrogenase Deficiency.”** In *Inborn Metabolic Diseases* (Jan **2012**). https://doi.org/10.1007/978-3-540-28785-8_31 (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- Augustin P et al. **“Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease-related H109R variant.”** *FEBS Journal* (Oct **2016**). https://doi.org/10.1111/febs.13828 (augustin2016structureandbiochemical pages 1-3)
+### 15.2 Key translational findings
+- **Age-dependence / therapeutic window:** In CNGB3 dogs, “**best treatment results were achieved in 3-week-old-animals, whereas treatment was minimally effective in dogs 1 year of age and older**” (gerhardt2023biologypathobiologyand pages 10-12).
+- **Durability:** In sheep, AAV-CNGA3 led to “**Significant long-term improvement… for at least 6 years**” (gerhardt2023biologypathobiologyand pages 10-12).
 
 ---
 
-## Clinical trials / registries relevant to real-world implementation
-- **CoRDS (Coordination of Rare Diseases at Sanford)** observational registry / natural history infrastructure: **NCT01793168** (first posted Feb **2013**, recruiting; last update posted May **2025**). https://clinicaltrials.gov/study/NCT01793168 (NCT01793168 chunk 2, NCT01793168 chunk 1)
+## Recent developments (2023–2024 highlights)
+- **Natural history and stability:** Large retrospective cohorts (2023) provide long follow-up supporting largely stationary VA with rare progression (andersen2023geneticandclinical pages 5-7, andersen2023geneticandclinical pages 7-9).
+- **Outcome measure refinement:** 2024 evidence suggests microperimetry may be a more sensitive structure–function endpoint than VA/contrast sensitivity for certain age groups (adolescents) (cosmo2024microperimetrysensitivitycorrelates pages 1-2, cosmo2024microperimetrysensitivitycorrelates pages 4-6).
+- **Clinical gene therapy maturation:** Detailed trial designs and endpoints are now available publicly via ClinicalTrials.gov for multiple CNGA3/CNGB3 programs, and expert synthesis highlights multi-year persistence of functional gains in at least one CNGA3 study (NCT02610582 chunk 1, NCT02935517 chunk 1, NCT03001310 chunk 1, gong2024infantilenystagmussyndrome—associated pages 12-13).
 
 ---
 
-## Limitations of the current evidence base
-1. The human phenotype and natural history remain weakly defined because the core evidence is dominated by a single well-described individual and secondary summaries. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1)
-2. Standard disease identifiers beyond OMIM (e.g., MONDO, Orphanet, ICD, MeSH) were not found in the retrieved set and must be added via direct ontology database queries.
-3. Therapeutic guidance is largely expert opinion and hypothesis-driven supplementation trials rather than controlled clinical evidence. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 3-4)
+## Data/statistics summary (from recent studies)
+- **Prevalence:** ~1:30,000 or 1:30,000–1:50,000 (baxter2024genetherapyfor pages 1-2, andersen2023geneticandclinical pages 1-2).
+- **VA stability:** 88% within ±0.2 logMAR over median 22-year follow-up in Danish cohort (andersen2023geneticandclinical pages 5-7).
+- **ACHM-attributable progression:** 3/58 in Danish cohort (andersen2023geneticandclinical pages 7-9).
+- **QoL/disability:** 27.9% rated 100% disability in one cohort subset (chan2023morphologicalandfunctional pages 6-8).
+
+---
+
+## Key evidence quotes (abstract-supported)
+- ACHM definition: “**Achromatopsia is a rare congenital condition with cone photoreceptor dysfunction causing color blindness, reduced vision, nystagmus and photophobia**” (andersen2023geneticandclinical pages 1-2).
+- Trial landscape: “**There is no FDA-approved treatment for achromatopsia; however… There are currently five gene therapy clinical trials registered…**” (baxter2024genetherapyfor pages 1-2).
+- Microperimetry endpoint: OCT staging correlated with microperimetry sensitivity (p = 0.0286; 0.0008; 0.0014) and not with VA/CS (cosmo2024microperimetrysensitivitycorrelates pages 1-2).
+
+---
+
+## Limitations of this extraction (what is missing and why)
+- **OMIM/Orphanet/ICD/MeSH identifiers** were not captured in retrieved evidence chunks.
+- **Variant-level information** (ClinVar IDs, exact variant nomenclature, ACMG classes, population allele frequencies, carrier frequencies, founder variants) was not present in the retrieved sources.
+- **Systematic differential diagnosis** and **formal clinical guidelines** were not included in retrieved evidence.
+
+These components require additional targeted retrieval from OMIM/Orphanet/ClinVar/gnomAD/GeneReviews and guideline databases.
 
 
 References
 
-1. (augustin2016structureandbiochemical pages 7-9): Peter Augustin, Altijana Hromic, Tea Pavkov‐Keller, Karl Gruber, and Peter Macheroux. Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related h109r variant. The Febs Journal, 283:3587-3603, Oct 2016. URL: https://doi.org/10.1111/febs.13828, doi:10.1111/febs.13828. This article has 27 citations.
+1. (andersen2023geneticandclinical pages 1-2): Mette Kjøbæk Gundestrup Andersen, Mette Bertelsen, Karen Grønskov, Susanne Kohl, and Line Kessel. Genetic and clinical characterization of danish achromatopsia patients. Genes, 14:690, Mar 2023. URL: https://doi.org/10.3390/genes14030690, doi:10.3390/genes14030690. This article has 19 citations.
 
-2. (augustin2016structureandbiochemical pages 1-3): Peter Augustin, Altijana Hromic, Tea Pavkov‐Keller, Karl Gruber, and Peter Macheroux. Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related h109r variant. The Febs Journal, 283:3587-3603, Oct 2016. URL: https://doi.org/10.1111/febs.13828, doi:10.1111/febs.13828. This article has 27 citations.
+2. (baxter2024genetherapyfor pages 1-2): Megan F. Baxter and Grace A. Borchert. Gene therapy for achromatopsia. International Journal of Molecular Sciences, 25:9739, Sep 2024. URL: https://doi.org/10.3390/ijms25179739, doi:10.3390/ijms25179739. This article has 17 citations.
 
-3. (walker2012trimethylaminuriaanddimethylglycine pages 3-5): Valerie Walker and Ron A. Wevers. Trimethylaminuria and dimethylglycine dehydrogenase deficiency. Inborn Metabolic Diseases, pages 381-385, Jan 2012. URL: https://doi.org/10.1007/978-3-540-28785-8\_31, doi:10.1007/978-3-540-28785-8\_31. This article has 3 citations.
+3. (michalakis2022achromatopsiageneticsand pages 1-2): Stylianos Michalakis, Maximilian Gerhardt, Günther Rudolph, Siegfried Priglinger, and Claudia Priglinger. Achromatopsia: genetics and gene therapy. Molecular Diagnosis & Therapy, 26:51-59, Dec 2022. URL: https://doi.org/10.1007/s40291-021-00565-z, doi:10.1007/s40291-021-00565-z. This article has 74 citations and is from a peer-reviewed journal.
 
-4. (mcandrew2008molecularbasisof pages 1-3): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+4. (chan2023morphologicalandfunctional pages 1-2): Caroline Chan, Berthold Seitz, and Barbara Käsmann-Kellner. Morphological and functional aspects and quality of life in patients with achromatopsia. Journal of Personalized Medicine, 13:1106, Jul 2023. URL: https://doi.org/10.3390/jpm13071106, doi:10.3390/jpm13071106. This article has 0 citations.
 
-5. (moolenaar1999defectindimethylglycine pages 4-5): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+5. (NCT03001310 chunk 1):  Gene Therapy for Achromatopsia (CNGB3). MeiraGTx UK II Ltd. 2017. ClinicalTrials.gov Identifier: NCT03001310
 
-6. (moolenaar1999defectindimethylglycine pages 1-1): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+6. (OpenTargets Search: Achromatopsia): Open Targets Query (Achromatopsia, 15 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-7. (moolenaar2001invivoand pages 89-94): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+7. (asensiosanchez2020genetherapyfor pages 1-2): VM Asensio-Sánchez. Gene therapy for the treatment of achromatopsia: recent advances. Unknown journal, 2020.
 
-8. (moolenaar2001invivoand pages 94-98): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+8. (moussawi2021genetherapyin pages 1-3): Zeinab El Moussawi, Marguerita Boueiri, and Christiane Al-Haddad. Gene therapy in color vision deficiency: a review. International Ophthalmology, 41:1917-1927, Feb 2021. URL: https://doi.org/10.1007/s10792-021-01717-0, doi:10.1007/s10792-021-01717-0. This article has 42 citations and is from a peer-reviewed journal.
 
-9. (moolenaar1999defectindimethylglycine pages 1-2): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+9. (asensiosanchez2020genetherapyfor pages 7-10): VM Asensio-Sánchez. Gene therapy for the treatment of achromatopsia: recent advances. Unknown journal, 2020.
 
-10. (moolenaar1999defectindimethylglycine pages 3-4): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+10. (baxter2024genetherapyfor pages 2-3): Megan F. Baxter and Grace A. Borchert. Gene therapy for achromatopsia. International Journal of Molecular Sciences, 25:9739, Sep 2024. URL: https://doi.org/10.3390/ijms25179739, doi:10.3390/ijms25179739. This article has 17 citations.
 
-11. (moolenaar1999defectindimethylglycine pages 5-5): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+11. (gerhardt2023biologypathobiologyand pages 1-2): Maximilian J. Gerhardt, Siegfried G. Priglinger, Martin Biel, and Stylianos Michalakis. Biology, pathobiology and gene therapy of cng channel-related retinopathies. Biomedicines, 11:269, Jan 2023. URL: https://doi.org/10.3390/biomedicines11020269, doi:10.3390/biomedicines11020269. This article has 20 citations.
 
-12. (moolenaar2001invivoand pages 98-101): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+12. (andersen2023geneticandclinical pages 7-9): Mette Kjøbæk Gundestrup Andersen, Mette Bertelsen, Karen Grønskov, Susanne Kohl, and Line Kessel. Genetic and clinical characterization of danish achromatopsia patients. Genes, 14:690, Mar 2023. URL: https://doi.org/10.3390/genes14030690, doi:10.3390/genes14030690. This article has 19 citations.
 
-13. (moolenaar1999defectindimethylglycine media 773767bc): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+13. (gerhardt2023biologypathobiologyand pages 2-5): Maximilian J. Gerhardt, Siegfried G. Priglinger, Martin Biel, and Stylianos Michalakis. Biology, pathobiology and gene therapy of cng channel-related retinopathies. Biomedicines, 11:269, Jan 2023. URL: https://doi.org/10.3390/biomedicines11020269, doi:10.3390/biomedicines11020269. This article has 20 citations.
 
-14. (mcandrew2008molecularbasisof pages 4-6): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+14. (brotherton2024molecularmechanismsgoverning pages 3-5): Chloe Brotherton and Roly Megaw. Molecular mechanisms governing sight loss in inherited cone disorders. Genes, 15:727, Jun 2024. URL: https://doi.org/10.3390/genes15060727, doi:10.3390/genes15060727. This article has 8 citations.
 
-15. (mcandrew2008molecularbasisof pages 6-8): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+15. (yang2024dyschromatopsiaacomprehensive pages 4-5): Zihao Yang, Lin Yan, Wenliang Zhang, Jia Qi, Wenjing An, and Kai Yao. Dyschromatopsia: a comprehensive analysis of mechanisms and cutting-edge treatments for color vision deficiency. Frontiers in Neuroscience, Jan 2024. URL: https://doi.org/10.3389/fnins.2024.1265630, doi:10.3389/fnins.2024.1265630. This article has 26 citations and is from a peer-reviewed journal.
 
-16. (moolenaar1999defectindimethylglycine media 214a655b): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+16. (yang2024dyschromatopsiaacomprehensive pages 6-8): Zihao Yang, Lin Yan, Wenliang Zhang, Jia Qi, Wenjing An, and Kai Yao. Dyschromatopsia: a comprehensive analysis of mechanisms and cutting-edge treatments for color vision deficiency. Frontiers in Neuroscience, Jan 2024. URL: https://doi.org/10.3389/fnins.2024.1265630, doi:10.3389/fnins.2024.1265630. This article has 26 citations and is from a peer-reviewed journal.
 
-17. (mcandrew2008molecularbasisof pages 8-8): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+17. (andersen2023geneticandclinical pages 5-7): Mette Kjøbæk Gundestrup Andersen, Mette Bertelsen, Karen Grønskov, Susanne Kohl, and Line Kessel. Genetic and clinical characterization of danish achromatopsia patients. Genes, 14:690, Mar 2023. URL: https://doi.org/10.3390/genes14030690, doi:10.3390/genes14030690. This article has 19 citations.
 
-18. (NCT01793168 chunk 2):  Rare Disease Patient Registry & Natural History Study - Coordination of Rare Diseases at Sanford. Sanford Health. 2010. ClinicalTrials.gov Identifier: NCT01793168
+18. (chan2023morphologicalandfunctional pages 4-6): Caroline Chan, Berthold Seitz, and Barbara Käsmann-Kellner. Morphological and functional aspects and quality of life in patients with achromatopsia. Journal of Personalized Medicine, 13:1106, Jul 2023. URL: https://doi.org/10.3390/jpm13071106, doi:10.3390/jpm13071106. This article has 0 citations.
 
-19. (NCT01793168 chunk 1):  Rare Disease Patient Registry & Natural History Study - Coordination of Rare Diseases at Sanford. Sanford Health. 2010. ClinicalTrials.gov Identifier: NCT01793168
+19. (gong2024infantilenystagmussyndrome—associated pages 12-13): Xiaoming Gong and Richard W. Hertle. Infantile nystagmus syndrome—associated inherited retinal diseases: perspectives from gene therapy clinical trials. Life, 14:1356, Oct 2024. URL: https://doi.org/10.3390/life14111356, doi:10.3390/life14111356. This article has 2 citations.
+
+20. (michalakis2022achromatopsiageneticsand pages 4-5): Stylianos Michalakis, Maximilian Gerhardt, Günther Rudolph, Siegfried Priglinger, and Claudia Priglinger. Achromatopsia: genetics and gene therapy. Molecular Diagnosis & Therapy, 26:51-59, Dec 2022. URL: https://doi.org/10.1007/s40291-021-00565-z, doi:10.1007/s40291-021-00565-z. This article has 74 citations and is from a peer-reviewed journal.
+
+21. (cosmo2024microperimetrysensitivitycorrelates pages 1-2): Eleonora Cosmo, Elisabetta Pilotto, Enrica Convento, Federico Parolini, and Edoardo Midena. Microperimetry sensitivity correlates to structural macular changes in adolescents with achromatopsia unlike other visual function tests. Journal of Clinical Medicine, 13:5968, Oct 2024. URL: https://doi.org/10.3390/jcm13195968, doi:10.3390/jcm13195968. This article has 0 citations.
+
+22. (cosmo2024microperimetrysensitivitycorrelates pages 4-6): Eleonora Cosmo, Elisabetta Pilotto, Enrica Convento, Federico Parolini, and Edoardo Midena. Microperimetry sensitivity correlates to structural macular changes in adolescents with achromatopsia unlike other visual function tests. Journal of Clinical Medicine, 13:5968, Oct 2024. URL: https://doi.org/10.3390/jcm13195968, doi:10.3390/jcm13195968. This article has 0 citations.
+
+23. (chan2023morphologicalandfunctional pages 6-8): Caroline Chan, Berthold Seitz, and Barbara Käsmann-Kellner. Morphological and functional aspects and quality of life in patients with achromatopsia. Journal of Personalized Medicine, 13:1106, Jul 2023. URL: https://doi.org/10.3390/jpm13071106, doi:10.3390/jpm13071106. This article has 0 citations.
+
+24. (NCT02610582 chunk 1):  Safety and Efficacy of rAAV.hCNGA3 Gene Therapy in Patients With CNGA3-linked Achromatopsia. STZ eyetrial. 2015. ClinicalTrials.gov Identifier: NCT02610582
+
+25. (NCT02935517 chunk 1):  Safety and Efficacy Trial of AAV Gene Therapy in Patients With CNGA3 Achromatopsia (A Clarity Clinical Trial). Beacon Therapeutics. 2017. ClinicalTrials.gov Identifier: NCT02935517
+
+26. (NCT02610582 chunk 2):  Safety and Efficacy of rAAV.hCNGA3 Gene Therapy in Patients With CNGA3-linked Achromatopsia. STZ eyetrial. 2015. ClinicalTrials.gov Identifier: NCT02610582
+
+27. (gerhardt2023biologypathobiologyand pages 10-12): Maximilian J. Gerhardt, Siegfried G. Priglinger, Martin Biel, and Stylianos Michalakis. Biology, pathobiology and gene therapy of cng channel-related retinopathies. Biomedicines, 11:269, Jan 2023. URL: https://doi.org/10.3390/biomedicines11020269, doi:10.3390/biomedicines11020269. This article has 20 citations.
+
+## Artifacts
+
+- [Edison artifact artifact-00](Achromatopsia-deep-research-falcon_artifacts/artifact-00.md)
+- [Edison artifact artifact-01](Achromatopsia-deep-research-falcon_artifacts/artifact-01.md)
+- [Edison artifact artifact-02](Achromatopsia-deep-research-falcon_artifacts/artifact-02.md)

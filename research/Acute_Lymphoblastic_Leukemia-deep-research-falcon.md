@@ -2,26 +2,25 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-05-11T13:58:46.995300'
-end_time: '2026-05-11T14:13:30.425167'
-duration_seconds: 883.43
+start_time: '2026-05-12T14:33:42.181158'
+end_time: '2026-05-12T14:54:12.027090'
+duration_seconds: 1229.85
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Dimethylglycine Dehydrogenase Deficiency
+  disease_name: Acute Lymphoblastic Leukemia
   mondo_id: ''
-  category: Mendelian
+  category: ''
 provider_config:
   timeout: null
   max_retries: 3
   parameters:
     allowed_domains: []
     temperature: 0.1
-citation_count: 25
-trajectory_id: 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd
+citation_count: 58
 artifact_count: 1
 artifacts:
 - filename: artifact-00.md
-  path: Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon_artifacts/artifact-00.md
+  path: Acute_Lymphoblastic_Leukemia-deep-research-falcon_artifacts/artifact-00.md
   media_type: text/markdown
   source: edison_answer_artifacts
   data_storage_id: null
@@ -33,13 +32,13 @@ artifacts:
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Dimethylglycine Dehydrogenase Deficiency
+- **Disease Name:** Acute Lymphoblastic Leukemia
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** 
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Dimethylglycine Dehydrogenase Deficiency** covering all of the
+Please provide a comprehensive research report on **Acute Lymphoblastic Leukemia** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -494,13 +493,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Dimethylglycine Dehydrogenase Deficiency
+- **Disease Name:** Acute Lymphoblastic Leukemia
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** 
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Dimethylglycine Dehydrogenase Deficiency** covering all of the
+Please provide a comprehensive research report on **Acute Lymphoblastic Leukemia** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -938,309 +937,375 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Dimethylglycine Dehydrogenase Deficiency (DMGDH deficiency; hyperdimethylglycinemia): Comprehensive Disease Characteristics Report
+## Acute Lymphoblastic Leukemia (ALL): Comprehensive Disease Characteristics Report (2023–2024 prioritized)
 
-## Target disease
-- **Disease name:** Dimethylglycine dehydrogenase deficiency
-- **Category:** Mendelian / inborn error of metabolism (one‑carbon/choline degradation pathway)
-- **Key identifier available from retrieved sources:** **OMIM 605850** (reported in mechanistic/structural papers) (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3)
-- **MONDO / Orphanet / MeSH / ICD-10/ICD-11:** Not identified in the retrieved corpus for this run; these identifiers should be added from external ontology resources during curation (limitation of this tool-run).
-
-## Executive summary
-Dimethylglycine dehydrogenase deficiency is an ultra‑rare inborn error of choline catabolism/one‑carbon metabolism caused by loss of function in **DMGDH**, a mitochondrial **FAD- and tetrahydrofolate (THF)**‑dependent enzyme that oxidatively demethylates **N,N‑dimethylglycine (DMG)** to **sarcosine**. The canonical human phenotype is mild and has been described primarily in a **single adult patient**, featuring a **lifelong fish‑like odor**, **muscle fatigue/weakness**, and **persistent creatine kinase (CK) elevation**, with massively increased **DMG** in serum and urine. Diagnosis relies on **targeted metabolite measurement** (historically by **^1H NMR spectroscopy** of urine/serum) and confirmatory **molecular genetic testing** identifying **biallelic DMGDH variants** (e.g., **A326G; p.His109Arg**). Evidence for disease mechanism and variant pathogenicity is strengthened by biochemical/structural characterization of the H109R variant showing marked impairment in substrate affinity/cofactor incorporation and catalytic efficiency. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1)
-
-| Disease name / synonym used | Causal gene | Key reported patient findings (clinical, biochemical, diagnostics) | Key quantitative lab values | Pathogenic variant / frequency | Evidence type |
-|---|---|---|---|---|---|
-| Dimethylglycine dehydrogenase deficiency; hyperdimethylglycinemia; “defect in dimethylglycine dehydrogenase”; sometimes discussed with fish-odor syndromes because odor was a presenting complaint (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar2001invivoand pages 89-94) | **DMGDH** (mitochondrial dimethylglycine dehydrogenase) (mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3) | Single reported index patient: 38-year-old man of African ancestry; fish-like body odor since age 5, worse with stress/exertion; unusual muscle fatigue/weakness; normal intelligence/overall good health; persistent CK elevation. Biochemical hallmark was marked accumulation of dimethylglycine with absent detectable sarcosine. Diagnosis used **1H NMR** of urine/serum, confirmed by **13C NMR**, **GC-MS**, and later **molecular testing**; trimethylaminuria was excluded by fish challenge and low urinary trimethylamine (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar2001invivoand pages 94-98, moolenaar1999defectindimethylglycine pages 1-2, moolenaar1999defectindimethylglycine pages 3-4, moolenaar1999defectindimethylglycine pages 5-5, moolenaar2001invivoand pages 98-101) | Serum DMG **221** vs ref **1–5**; urine DMG **457** and **441 mmol/mol creatinine** vs ref **1–26** (age >2 months); CK **1066 U/L** vs ref **30–270 U/L** (~4× ULN). Urine trimethylamine **<2 mmol/mol creatinine**; trimethylamine N-oxide **55 mmol/mol creatinine** (ref **20–125**) (moolenaar1999defectindimethylglycine pages 4-5, moolenaar2001invivoand pages 94-98, moolenaar1999defectindimethylglycine pages 1-2, moolenaar1999defectindimethylglycine pages 3-4, moolenaar2001invivoand pages 98-101, moolenaar1999defectindimethylglycine media 773767bc) | Homozygous **A326G** causing **H109R (His109Arg)** near flavin attachment site; reported as disease-causing in the index patient (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 1-1) | Human case report / diagnostic discovery study (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-1) |
-| Dimethylglycine dehydrogenase deficiency (OMIM 605850); mild/non-fatal disorder with DMG accumulation and fish-like odor (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | **DMGDH** (augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | Recombinant/structural studies linked H109R to decreased expression, reduced FAD saturation, lower thermal stability, impaired substrate affinity, and lower catalytic efficiency, providing mechanistic support for the patient phenotype of DMG accumulation, muscle fatigue, and odor (mcandrew2008molecularbasisof pages 4-6, mcandrew2008molecularbasisof pages 6-8, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) | WT kinetics: Km1 **0.039 ± 0.010 mmol/L**, Km2 **15.4 ± 1.2 mmol/L**; with 4 mmol/L THF, Km2 **1.10 ± 0.55 mmol/L**. H109R: ~**47%** WT bound flavin in one expression system; **27-fold** lower specific activity, **65-fold** higher Km, ~**1800-fold** lower catalytic efficiency in one study; other study reported ~**10-fold** lower catalytic efficiency and **15–25-fold** higher Km (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3, mcandrew2008molecularbasisof pages 6-8) | **H109R** present in ExAC **58/118,656 alleles (0.049%)**, noted as predominantly in individuals of African descent (augustin2016structureandbiochemical pages 1-3) | Biochemical / structural study (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3) |
-| Dimethylglycine dehydrogenase deficiency in choline-related inherited metabolic disease reviews; very rare / likely autosomal recessive disorder (walker2012trimethylaminuriaanddimethylglycine pages 3-5) | **DMGDH** (walker2012trimethylaminuriaanddimethylglycine pages 3-5) | Chapter/review sources summarize that only one case had been reported at that time; disease blocks choline catabolism, causing major DMG accumulation in plasma/urine; suggested practical diagnosis is raised plasma/urine DMG, ideally sampled when odor present. Proton NMR is emphasized as useful; routine liver biopsy would be needed for enzyme confirmation because activity is not normally detectable in blood cells/fibroblasts. Management suggestions included counseling, dietary choline restriction, avoiding excessive sweating; antibiotics to alter gut flora not indicated; riboflavin alone did not help, and folate plus riboflavin was suggested as a trial (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 5-5) | Plasma DMG increase described as ~**100-fold** and urine increase ~**20-fold**; healthy adult plasma reference **1–5 µmol/L**; urine reference **<26 mmol/mol creatinine** after age 2 months, with higher neonatal values up to ~**550 mmol/mol creatinine** in first 2 months (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 4-5) | Homozygous **A326G / H109R** summarized as causative in the known patient (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1) | Review / book chapter (walker2012trimethylaminuriaanddimethylglycine pages 3-5) |
-
-
-*Table: This table condenses the core literature on dimethylglycine dehydrogenase deficiency, including the nomenclature used, the causal gene, the single well-described human case, key quantitative laboratory abnormalities, and the main pathogenic variant with biochemical evidence. It is useful as a quick reference for disease curation and knowledge base population.*
+### Target Disease
+- **Disease name:** Acute lymphoblastic leukemia (ALL)
+- **Category:** Hematologic malignancy; acute leukemia of lymphoid precursors (B‑ or T‑lineage)
+- **MONDO / MeSH / ICD / Orphanet / OMIM identifiers:** Not retrievable from the provided full-text evidence corpus; these codes should be populated from authoritative ontology/coding browsers (e.g., MONDO, MeSH, ICD-10/11, Orphanet) during knowledge-base curation. (shah2024acutelymphoblasticleukemia pages 1-2)
 
 ---
 
-## 1. Disease information
-### 1.1 What is the disease?
-Dimethylglycine dehydrogenase deficiency (also called hyperdimethylglycinemia) is a genetic metabolic disorder in which impaired DMGDH activity blocks the mitochondrial step converting DMG to sarcosine, leading to **marked accumulation of DMG in body fluids** and a **mild clinical phenotype** in the best‑described patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1, moolenaar1999defectindimethylglycine pages 1-2)
+## 1. Disease Information
 
-### 1.2 Common synonyms / alternative names (from primary literature)
-- “Dimethylglycine dehydrogenase deficiency” (walker2012trimethylaminuriaanddimethylglycine pages 3-5, augustin2016structureandbiochemical pages 7-9)
-- “Hyperdimethylglycinemia” (used as a descriptor for DMG elevation in the discovery paper) (moolenaar1999defectindimethylglycine pages 1-1)
-- “Defect in dimethylglycine dehydrogenase” (title/terminology of original case report) (moolenaar1999defectindimethylglycine pages 1-1)
+### 1.1 Concise overview
+Acute lymphoblastic leukemia/lymphoma (ALL) is an aggressive neoplasm of **precursor B‑ or precursor T‑lymphoid cells** (B‑ALL and T‑ALL) that typically arises in the bone marrow but can involve extramedullary sites. (duffield2023internationalconsensusclassification pages 1-3, kansal2023diagnosisandmolecular pages 1-2)
 
-### 1.3 Evidence source type
-The disease description is derived primarily from:
-- **Individual human case report/discovery study** using metabolomics/NMR and molecular genetics (moolenaar1999defectindimethylglycine pages 1-1, moolenaar1999defectindimethylglycine pages 1-2)
-- **Authoritative chapter-level synthesis** describing rarity, diagnostic approach, and management suggestions (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Biochemical/structural functional studies** of the disease-associated variant (mcandrew2008molecularbasisof pages 1-3, augustin2016structureandbiochemical pages 1-3)
+**Modern classification is genetics-forward.** WHO 2022 (WHO‑HAEM5) and the International Consensus Classification (ICC) incorporate molecular/cytogenetic entities and transcriptome-defined subgroups to refine diagnosis and risk stratification. (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3, yoon2024diagnosticandtherapeutic pages 1-2)
+
+### 1.2 Synonyms / alternative names
+- Acute lymphocytic leukemia (older/common)
+- B‑lymphoblastic leukemia/lymphoma (B‑ALL/LBL)
+- T‑lymphoblastic leukemia/lymphoma (T‑ALL/LBL)
+- “Precursor B/T lymphoblastic leukemia/lymphoma” (older WHO terminology) (kansal2023diagnosisandmolecular pages 5-7, kansal2023diagnosisandmolecular pages 4-5)
+
+### 1.3 Evidence provenance
+The report primarily synthesizes **aggregated disease-level resources** (2024 ELN recommendations; 2024 NCCN guideline excerpt; 2023 ICC classification paper; 2024 population studies and clinical trials) plus selected **human cohort/clinical trial primary studies** (SEER analyses; prospective phase 2; JCO trial update). (gokbuget2024managementofall pages 1-2, shah2024acutelymphoblasticleukemia pages 1-2, duffield2023internationalconsensusclassification pages 1-3, liu2024epidemiologicalcharacteristicsand pages 1-3, lu2024reduceddosechemotherapyand pages 1-2, kantarjian2024resultsofthe pages 1-3)
 
 ---
 
 ## 2. Etiology
-### 2.1 Disease causal factors
-- **Genetic cause:** Biallelic pathogenic variants in **DMGDH**. The index patient was **homozygous for A326G**, encoding **p.His109Arg (H109R)**. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3)
-- **Mechanistic cause:** Loss of DMGDH enzymatic function causing failure of DMG demethylation and consequent accumulation of DMG in blood/urine. (augustin2016structureandbiochemical pages 1-3, moolenaar1999defectindimethylglycine pages 1-1)
+
+### 2.1 Disease causal factors (current understanding)
+ALL is initiated and driven by **acquired genetic lesions** in lymphoid precursors (e.g., chromosomal rearrangements creating oncogenic fusions; aneuploidy; activating kinase lesions), with additional cooperating mutations and epigenetic remodeling. WHO‑HAEM5/ICC increasingly define ALL entities by such genomic features, including transcriptome-defined classes for previously “B‑other” cases. (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3)
 
 ### 2.2 Risk factors
-- **Genetic:** Having biallelic loss‑of‑function or severely hypomorphic variants in DMGDH (autosomal recessive inferred). A chapter review states the disorder is “likely autosomal recessive” and notes “only one case” had been reported at that time. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Environmental:** No validated environmental risk factors were identified; symptoms (odor) were reported to worsen with **stress/exertion** in the index patient (not a cause, but a trigger/modifier of symptom expression). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
 
-### 2.3 Protective factors / gene–environment interactions
-No protective genetic variants or gene–environment interactions specific to disease penetrance were reported in the retrieved literature. Given the extremely limited case count, these remain unknown.
+#### Genetic susceptibility / predisposition
+A 2023 pediatric-focused review summarizes that germline susceptibility includes common loci (e.g., **ARID5B, CEBPE, BMI1, CDKN2A/2B**) and rare inherited mutations in hematopoietic genes (**ETV6, PAX5, IKZF1**). It reports **~4.4%** of children/adolescents with ALL carry pathogenic germline mutations in known cancer genes, and that **Down syndrome confers ~20‑fold increased risk**. (ekpa2023areviewof pages 2-3)
+
+#### Environmental and demographic risk factors
+- **Ionizing radiation, male sex, high birth weight** are cited as recognized/established risk factors in a 2024 SEER-based ecological analysis context. (little2024solarultravioletradiation pages 1-2)
+- **Ambient solar ultraviolet radiation (UVR):** A 2024 SEER-based population study reported a statistically significant association between higher ambient UVR irradiance and childhood ALL incidence (**RR = 1.200 per mW/cm²; p = 0.004**), and a borderline trend for cumulative radiant exposure (**RR = 1.444 per MJ/cm²; p = 0.0865**), with stronger effects in ages **0–3** and among **Hispanic** children. The authors conclude the finding “is not clear-cut, and in need of replication.” (little2024solarultravioletradiation pages 1-2, little2024solarultravioletradiation pages 8-9)
+
+**Visual evidence (RR vs UVR):** Figure showing the RR relationship used in this analysis is provided in (little2024solarultravioletradiation media 5ae23b8e).
+
+- **Obesity (prognostic/biologic determinant in adults):** A 2024 adult cohort study found higher BMI at diagnosis was independently associated with worse overall survival (OS) (HR **10.3**, 95% CI 2.56–41.5), and was associated with higher frequency of BCR::ABL1 (Ph+) (OR **7.64**, 95% CI 1.17–49.9). (johnston2024socioeconomicdeterminantsof pages 1-2)
+
+### 2.3 Protective factors
+No specific protective genetic variants or protective exposures were directly extractable from the retrieved evidence set. The UVR literature is mixed (some prior work suggests protection with higher solar exposure, but the 2024 US SEER ecological study reported the opposite direction for ALL). (little2024solarultravioletradiation pages 8-9)
+
+### 2.4 Gene–environment interactions
+Direct GxE analyses were not present in the retrieved corpus. However, a 2023 pediatric review highlights **maternal exposures (tobacco smoke, air pollution, BMI)** being associated with neonatal DNA methylation changes, suggesting a plausible epigenetic mediation pathway for environmental effects on leukemia risk. (ekpa2023areviewof pages 2-3)
 
 ---
 
 ## 3. Phenotypes
-### 3.1 Reported human phenotypes (best-described index case)
-**Clinical signs/symptoms**
-- Fish‑like body odor beginning in childhood (age 5) and persisting into adulthood. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-- Unusual muscle fatigue and/or mild muscle weakness. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3, moolenaar1999defectindimethylglycine pages 1-2)
-- Normal intelligence and generally good health otherwise reported in the original case. (moolenaar1999defectindimethylglycine pages 1-2)
 
-**Laboratory abnormalities**
-- Markedly increased DMG in serum and urine (quantified in Table 1 of discovery report). (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine media 773767bc)
-- Persistently increased serum/plasma creatine kinase (~4× upper limit of normal). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+### 3.1 Common presenting symptoms/signs (human clinical)
+A 223-case pediatric clinicopathological series provides concrete presentation frequencies:
+- **Pallor/anemia:** 93.3% (208/223)
+- **Fever:** 89.7% (200/223)
+- **Hepatomegaly:** 89.2% (199/223)
+- **Splenomegaly:** 74.9% (167/223)
+- **Lymphadenopathy:** 63.7% (142/223)
+- **Bony tenderness/bone pain:** 50.7% (113/223)
+- **Bleeding manifestations:** 35.9%
+- **Joint involvement/arthritis-like:** 25.6%
+- **CNS involvement at diagnosis:** ~1.3%
+- **Testicular enlargement:** ~0.44% (karim2023diagnosticclueof pages 2-4)
 
-**Phenotype timing and severity**
-- **Age of onset:** childhood for odor complaint (age ~5). (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
-- **Course:** chronic/lifelong in the index patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Severity:** described as mild/non‑fatal in later mechanistic literature. (augustin2016structureandbiochemical pages 7-9)
+A 2024 musculoskeletal-mimic report/review context also emphasizes that **15–30%** of ALL cases may present with isolated, persistent osteo‑articular complaints that can delay diagnosis and can be masked by corticosteroids. (talukder2024acutelymphoblasticleukemia pages 1-3, karim2023diagnosticclueof pages 5-6)
 
-### 3.2 Suggested HPO terms (mapping based on described features)
-(These are ontology suggestions for curation; HPO IDs not retrieved in this run.)
-- Fishy body odor / abnormal body odor: **Abnormal body odor**
-- Fatigue: **Fatigue**
-- Muscle weakness: **Muscle weakness**
-- Elevated creatine kinase: **Elevated circulating creatine kinase concentration**
-- Increased dimethylglycine: **Abnormal circulating metabolite concentration** (specific metabolite annotation may require custom term)
+### 3.2 Laboratory abnormalities (human clinical)
+From the same 223-case series:
+- **Leukocytosis:** 49.4% (including WBC >50,000/µL in 24.2%; WBC >100,000/µL in 15.2%)
+- **Leukopenia:** 18.8%
+- **Pancytopenia at diagnosis:** 18.8%
+- **Decreased age-adjusted neutrophil percentage:** 93.7% (karim2023diagnosticclueof pages 2-4, karim2023diagnosticclueof pages 1-2)
 
-### 3.3 Quantitative phenotype-associated data
-Table 1 in the original Clinical Chemistry report provides the key quantitative biochemical phenotype:
-- **Serum DMG:** **221** (reported as mmol/L in excerpt) vs reference **1–5** (moolenaar1999defectindimethylglycine pages 4-5)
-- **Urine DMG:** **457** and **441 mmol/mol creatinine** vs reference **1–26** (for age >2 months) (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine media 773767bc)
-- **Creatine kinase:** **1066 U/L** (ref 30–270 U/L) (moolenaar1999defectindimethylglycine pages 1-2)
-
-**Visual evidence:** Table 1/Figure 5 showing these abnormalities and age-related urine DMG reference distribution are captured as cropped images. (moolenaar1999defectindimethylglycine media 773767bc, moolenaar1999defectindimethylglycine media 214a655b)
+### 3.3 Suggested HPO terms (examples)
+(Provide as starting points; exact mapping may be adjusted during ontology curation.)
+- Fever **HP:0001945**
+- Pallor **HP:0000980**
+- Anemia **HP:0001903**
+- Thrombocytopenia **HP:0001873**; Bleeding tendency **HP:0001892**
+- Neutropenia **HP:0001875**; Leukocytosis **HP:0001974**; Leukopenia **HP:0001882**; Pancytopenia **HP:0001876**
+- Hepatomegaly **HP:0002240**; Splenomegaly **HP:0001744**
+- Lymphadenopathy **HP:0002716**
+- Bone pain **HP:0002653**; Bone tenderness **HP:0030830**
+- Arthritis/Joint pain **HP:0001369**
+- CNS involvement can manifest as headache **HP:0002315**, cranial nerve palsy **HP:0001291** (clinical term selection depends on documentation). (karim2023diagnosticclueof pages 2-4)
 
 ### 3.4 Quality of life impact
-The index case reported severe psychosocial impact from persistent odor (qualitative description in follow-on NMR paper). (moolenaar2001invivoand pages 94-98)
+While the retrieved evidence set did not include formal QoL instrument outcomes, the phenotype spectrum above implies substantial functional impact via fatigue, pain, infection risk, and bleeding risk, and treatment is associated with significant toxicity; ELN 2024 explicitly includes supportive care and late effects in its scope. (gokbuget2024managementofall pages 1-2)
 
 ---
 
-## 4. Genetic / molecular information
-### 4.1 Causal gene
-- **DMGDH** encodes mitochondrial dimethylglycine dehydrogenase, a covalently flavinylated enzyme requiring THF. (augustin2016structureandbiochemical pages 1-3, moolenaar1999defectindimethylglycine pages 1-2)
+## 4. Genetic / Molecular Information
 
-### 4.2 Pathogenic variant(s)
-- **Index disease variant:** **c.326A>G; p.His109Arg (H109R)**, homozygous in the reported patient. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, mcandrew2008molecularbasisof pages 1-3)
+### 4.1 Core disease genes and recurrent abnormalities (somatic)
+WHO‑HAEM5/ICC classify many ALL entities by recurrent genetic lesions. Examples explicitly discussed in the retrieved evidence include:
+- **BCR::ABL1 (Philadelphia chromosome) / Ph+ ALL** and BCR::ABL1‑like (“Ph‑like”) (yoon2024diagnosticandtherapeutic pages 1-2, kansal2023diagnosisandmolecular pages 5-7)
+- **ETV6::RUNX1**, **TCF3::PBX1**, **KMT2A (MLL) rearrangements**, aneuploidy classes (**high hyperdiploidy**, **hypodiploidy**), and newer entities derived from genomic/transcriptome profiling previously within “B‑other”. (kansal2023diagnosisandmolecular pages 5-7, kansal2023diagnosisandmolecular pages 4-5)
 
-### 4.3 Functional consequences (variant-level)
-Two independent functional analyses support pathogenicity:
-- H109R shows reduced flavin incorporation/cofactor saturation, markedly impaired substrate affinity and/or catalytic efficiency, and reduced stability—mechanistic routes to decreased enzymatic flux and DMG accumulation. (mcandrew2008molecularbasisof pages 4-6, augustin2016structureandbiochemical pages 7-9, augustin2016structureandbiochemical pages 1-3)
-- Quantitatively, one study reports the H109R mutant as having a **~65‑fold increase in Km** and **~27‑fold decrease in activity**, with overall **~1800‑fold loss in catalytic efficiency** (after accounting for flavination), consistent with a severe hypomorphic/LOF allele. (mcandrew2008molecularbasisof pages 4-6)
+The ICC 2022 framework further subdivides BCR::ABL1+ cases (lymphoid-only vs multilineage) and introduces multiple new genetic categories and provisional gene-expression-defined entities. (duffield2023internationalconsensusclassification pages 1-3)
 
-### 4.4 Population frequency context
-The H109R allele was observed in ExAC at **58/118,656 alleles (0.049%)**, predominantly in individuals of African descent, highlighting that population presence does not exclude pathogenicity for autosomal recessive disease when homozygosity is rare. (augustin2016structureandbiochemical pages 1-3)
+### 4.2 Germline predisposition genes (examples)
+- **ETV6, PAX5, IKZF1** (rare inherited mutations) and common susceptibility loci (e.g., **ARID5B**) are summarized in the 2023 pediatric review. (ekpa2023areviewof pages 2-3)
 
-### 4.5 Modifier genes / epigenetics / chromosomal abnormalities
-No modifier genes, epigenetic findings, or chromosomal abnormalities were reported for DMGDH deficiency in the retrieved sources.
+### 4.3 Epigenetics
+The 2023 pediatric review highlights epigenome-wide associations of maternal exposures (e.g., smoking) with neonatal methylation changes (e.g., AHRR CpG cg05575921), consistent with epigenetic mediation hypotheses for leukemia risk. (ekpa2023areviewof pages 2-3)
 
 ---
 
-## 5. Environmental information
-No established environmental toxins, lifestyle factors, or infectious triggers are reported as causal. Symptom fluctuation with stress/exertion (odor worsening) is noted in the index case. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+## 5. Environmental Information
+
+### 5.1 Environmental factors
+- **Ionizing radiation** is cited as a recognized risk factor in recent epidemiology context. (little2024solarultravioletradiation pages 1-2)
+- **Ambient UVR** is under active investigation; a large 2024 ecological analysis suggests increased childhood ALL risk with higher ambient UVR (RR effect sizes above). (little2024solarultravioletradiation pages 1-2, little2024solarultravioletradiation media 5ae23b8e)
+
+### 5.2 Lifestyle factors
+- **Obesity** emerges as a prognostic/biologic determinant of adverse OS in adults with ALL in a 2024 center cohort. (johnston2024socioeconomicdeterminantsof pages 1-2)
+
+### 5.3 Infectious agents
+Direct pathogen causation is not established for ALL in general; infection-related hypotheses (population mixing/delayed infection) are discussed as etiologic theories in pediatric literature. (ekpa2023areviewof pages 2-3, little2024solarultravioletradiation pages 11-11)
 
 ---
 
-## 6. Mechanism / pathophysiology
-### 6.1 Molecular pathway and causal chain
-**Upstream:** Dietary choline → betaine → DMG (as part of choline catabolism / methyl group metabolism).
+## 6. Mechanism / Pathophysiology
 
-**Core defect:** DMGDH is a mitochondrial **FAD- and THF-dependent** enzyme that demethylates DMG to sarcosine; THF accepts the methyl group (preventing release of formaldehyde). (augustin2016structureandbiochemical pages 1-3)
+### 6.1 Causal chain (high-level)
+1) **Initiating lesions** (chromosomal rearrangements/aneuploidy/kinase activation) occur in developing lymphoid precursors. (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3)
+2) **Differentiation arrest** and **uncontrolled proliferation** yield expanding lymphoblast clones in marrow and/or extramedullary sites. A 2024 adult review describes ALL as “marked by abnormal clones with arrested differentiation and uncontrolled proliferation in bone marrow and extramedullary sites.” (yoon2024diagnosticandtherapeutic pages 1-2)
+3) **Marrow failure** causes cytopenias (anemia → pallor/fatigue; thrombocytopenia → bleeding; neutropenia → infection/fever) and may coexist with leukocytosis and circulating blasts. (karim2023diagnosticclueof pages 2-4)
+4) **Tissue infiltration** produces hepatosplenomegaly, lymphadenopathy, bone pain/periosteal involvement, and less commonly CNS/testicular disease. (karim2023diagnosticclueof pages 2-4)
 
-**Downstream biochemical consequence:** DMGDH deficiency results in **marked accumulation of DMG** in serum and urine, and **absent/undetectable sarcosine** in the original biochemical profile. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 1-2)
+### 6.2 Pathway-level themes (from subtype concepts)
+The retrieved WHO‑HAEM5/ICC sources emphasize that subtypes are increasingly organized around:
+- **Kinase signaling activation** (e.g., BCR::ABL1 and Ph‑like lesions), affecting therapy selection (TKIs; immunotherapy-based regimens) and risk. (yoon2024diagnosticandtherapeutic pages 1-2, kantarjian2024ponatinib‐reviewofhistorical pages 10-11)
+- **Transcription factor and developmental programs** identified by gene-expression clustering (ICC) that refine biologic taxonomy beyond classical cytogenetics. (duffield2023internationalconsensusclassification pages 1-3)
 
-**Clinical consequence (known):** fish‑like odor (likely from volatile DMG), fatigue/weakness, and elevated CK. However, because the phenotype is based on very few individuals, links beyond metabolite accumulation remain uncertain. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 5-5)
-
-### 6.2 Suggested GO biological process / cellular component terms
-(ontology suggestions)
-- **GO: one‑carbon metabolic process**
-- **GO: choline metabolic process / betaine metabolic process**
-- **GO: glycine metabolic process**
-- **GO cellular component:** mitochondrial matrix (DMGDH is mitochondrial) (augustin2016structureandbiochemical pages 1-3)
-
-### 6.3 Suggested cell types (Cell Ontology)
-No specific cell type pathology is described; enzyme is liver‑relevant in catabolism. For curation, consider:
-- Hepatocyte (primary site of choline metabolism; inferred, not directly evidenced here)
-- Skeletal muscle cell (given CK and fatigue; speculative)
+### 6.3 Suggested GO / CL terms (examples)
+- GO biological processes: 
+  - **GO:0007049** cell cycle; **GO:0008283** cell population proliferation; **GO:0006915** apoptotic process; **GO:0042127** regulation of cell population proliferation.
+- CL cell types:
+  - **CL:0000816** B cell; **CL:0000542** lymphocyte; **CL:0000792** T cell.
+  - For leukemia blasts: “lymphoblast” is not always a CL term; practical annotation may use precursor B/T cell terms plus “neoplastic cell”.
 
 ---
 
-## 7. Anatomical structures affected
-### 7.1 Organ/system level (evidence-based)
-- **Muscle involvement:** suggested by fatigue/weakness and persistently elevated CK. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-2)
+## 7. Anatomical Structures Affected
 
-### 7.2 Suggested UBERON terms
-- Skeletal muscle tissue (UBERON suggestion)
-- Liver (UBERON suggestion; diagnostic enzyme assay discussion implies liver relevance) (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 7.1 Organ/tissue level
+Primary site is the **bone marrow** with systemic hematopoietic involvement; common secondary involvement includes **liver, spleen, lymph nodes**, and **bone** (pain/tenderness). Less commonly at diagnosis: **CNS** and **testis**. (karim2023diagnosticclueof pages 2-4)
 
-### 7.3 Subcellular localization
-- **Mitochondrial enzyme** (matrix-associated) consistent with biochemical characterization. (augustin2016structureandbiochemical pages 1-3)
-
----
-
-## 8. Temporal development
-- **Onset:** childhood for odor (age ~5). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Course:** chronic/lifelong; no defined staging described. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 7.2 Suggested UBERON terms (examples)
+- Bone marrow **UBERON:0002371**
+- Liver **UBERON:0002107**
+- Spleen **UBERON:0002106**
+- Lymph node **UBERON:0000029**
+- Central nervous system **UBERON:0001016**
+- Testis **UBERON:0000473** (karim2023diagnosticclueof pages 2-4)
 
 ---
 
-## 9. Inheritance and population
-### 9.1 Inheritance
-- Inferred **autosomal recessive** (chapter source: “likely autosomal recessive”; index patient homozygous). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+## 8. Temporal Development
 
-### 9.2 Epidemiology
-- Extremely rare; as of the chapter publication, “only one case has been reported.” (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- No robust incidence/prevalence estimates were identified in the retrieved sources.
+### 8.1 Onset
+ALL has a strong pediatric incidence peak but occurs across the lifespan. Median age at diagnosis in the US is **17 years**, with **53.5%** diagnosed before age 20. (shah2024acutelymphoblasticleukemia pages 1-2)
 
-### 9.3 Population/ancestry
-- Index case: described as a man of **African ancestry**. (moolenaar1999defectindimethylglycine pages 1-2)
-- H109R allele: enriched in ExAC African ancestry subset. (augustin2016structureandbiochemical pages 1-3)
+### 8.2 Progression and course
+Clinically acute presentation is typical; untreated disease progresses rapidly with complications from cytopenias and infiltration. Response and relapse risk are strongly influenced by molecular subtype and depth of remission measured by MRD. (gokbuget2024managementofall pages 6-6)
+
+---
+
+## 9. Inheritance and Population
+
+### 9.1 Epidemiology (recent statistics)
+- **US incidence:** age-adjusted incidence **1.8 per 100,000 per year**; estimated **6,550** new cases and **1,330** deaths in 2024 (NCCN excerpt). (shah2024acutelymphoblasticleukemia pages 1-2)
+- **Age distribution:** 53.5% diagnosed <20; 29.6% ≥45; 13.7% ≥65. (shah2024acutelymphoblasticleukemia pages 1-2)
+- **SEER trend analysis:** From 2000–2016, childhood/adolescent ALL incidence APC **1.5%** (95% CI 1.1–1.8); adult ALL incidence APC **2.5%** (95% CI 2.0–3.1). (liu2024epidemiologicalcharacteristicsand pages 1-3)
+
+### 9.2 Heritability/inheritance
+Most ALL is sporadic (somatic). A minority reflects germline predisposition syndromes/variants (e.g., Down syndrome and inherited variants in ETV6/PAX5/IKZF1). (ekpa2023areviewof pages 2-3)
 
 ---
 
 ## 10. Diagnostics
-### 10.1 Core diagnostic biomarker
-- **Elevated DMG in plasma/serum and urine** is the defining biochemical abnormality. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 4-5)
 
-### 10.2 Laboratory methods (real-world implementations)
-- **^1H NMR spectroscopy** of urine and serum was a key diagnostic approach in the discovery study; DMG displayed characteristic singlets (2.93 and 3.80 ppm) and was confirmed by spiking experiments. (moolenaar1999defectindimethylglycine pages 4-5)
-- **GC‑MS** confirmation can be performed, but the discovery paper notes DMG can be missed by routine organic-acid workflows using solvent extraction (lost during ethyl acetate extraction). (moolenaar1999defectindimethylglycine pages 3-4, walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Fish‑challenge testing** and urinary trimethylamine measures were used to exclude trimethylaminuria in the presenting “fish odor” complaint. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 3-4)
+### 10.1 Core diagnostic modalities
+- **Morphology plus immunophenotyping** (flow cytometry or immunohistochemistry) to establish lymphoblastic lineage. (kansal2023diagnosisandmolecular pages 4-5)
+- **Cytogenetic and molecular profiling** to assign WHO‑HAEM5/ICC genetic subtype (e.g., BCR::ABL1, aneuploidy classes, fusion-defined entities; transcriptome-defined subtypes). (kansal2023diagnosisandmolecular pages 5-7, duffield2023internationalconsensusclassification pages 1-3)
 
-### 10.3 Enzyme assay
-A chapter notes DMGDH activity is not normally detectable in blood cells/fibroblasts, so confirmatory enzyme testing would require **liver tissue (biopsy)**—a major practical limitation. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 10.2 MRD (measurable/minimal residual disease): methods, thresholds, timing
+MRD is central to prognosis and therapeutic decision-making in adult ALL.
+- **Threshold commonly used:** **0.01% (10−4)**, aligned to typical assay sensitivity; ELN notes each log increase in MRD shortens time to hematologic relapse. (gokbuget2024managementofall pages 6-6)
+- **Method performance:** 
+  - Expert review: RQ‑PCR sensitivity ~10−5; multiparametric flow cytometry ~10−4; PCR/HTS may reach ~10−6 depending on input. (sebastian2024howitreat pages 1-2, yoon2024diagnosticandtherapeutic pages 6-8)
+- **Timing:** ELN emphasizes early vs later MRD timepoints (often ~2–3 months) to guide escalation/de‑escalation. (gokbuget2024managementofall pages 6-6)
 
-### 10.4 Genetic testing
-Confirmatory diagnosis is via **DMGDH sequencing** to identify biallelic pathogenic variants (e.g., A326G/H109R). (moolenaar1999defectindimethylglycine pages 1-1, walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-
-### 10.5 Differential diagnosis
-Given the presenting symptom of fish-like odor, differential considerations include trimethylaminuria; DMGDH deficiency can be distinguished by **massively elevated DMG** and low trimethylamine after fish challenge. (moolenaar1999defectindimethylglycine pages 4-5, moolenaar1999defectindimethylglycine pages 3-4)
+### 10.3 Guideline risk criteria examples
+NCCN excerpt includes traditional high-risk features in one trial framework: age ≥35 years, time to CR >4 weeks, or high WBC (>30×10^9/L for B-lineage; >100×10^9/L for T-lineage). (shah2024acutelymphoblasticleukemia pages 3-5)
 
 ---
 
-## 11. Outcome / prognosis
-- Later biochemical/structural literature describes the disorder as **non‑fatal** and typically **mild**. (augustin2016structureandbiochemical pages 7-9)
-- No survival statistics, long-term organ outcomes, or standardized quality-of-life metrics were identified, due to limited case ascertainment.
+## 11. Outcome / Prognosis
+
+### 11.1 Survival highlights (recent/referenced)
+- Pediatric outcomes are substantially better than adult outcomes overall. A 2024 SEER-based analysis states pediatric survival is ~90% while older adult survival (55–70 years) is ~30–40% (contextual summary). (ghosh2024incidenceandsurvivability pages 1-3)
+- ELN/MRD: MRD-positive status is associated with markedly higher relapse risk; one 2024 review reports 5‑year hematologic relapse 56–100% if MRD+ vs 18–33% if MRD−. (stelljes2024ph−allimmunotherapy pages 1-2)
+
+### 11.2 Prognostic factors (examples)
+- **MRD level and kinetics** are among the strongest predictors and guide allo-HCT selection. (gokbuget2024managementofall pages 6-6)
+- **Age and obesity** are independent adverse predictors of OS in an adult cohort; higher BMI also associated with BCR::ABL1 positivity. (johnston2024socioeconomicdeterminantsof pages 1-2)
 
 ---
 
 ## 12. Treatment
-### 12.1 Evidence-based interventions (limited)
-No established disease-modifying therapy exists.
 
-**Riboflavin trial (index case):** The original report states the patient received **riboflavin 10 mg/day for 3 months without clinical improvement**. (moolenaar1999defectindimethylglycine pages 3-4)
+### 12.1 Current applications and real-world implementation (2024 consensus)
+The 2024 European LeukemiaNet (ELN) recommendations emphasize **risk-adapted adult ALL management** driven by baseline prognostic factors and **MRD** to determine intensity, incorporation of immunotherapies, and transplant indications. (gokbuget2024managementofall pages 1-2)
 
-**Supportive/empiric measures (expert opinion from authoritative chapter):**
-- Counseling
-- Dietary **choline restriction** and avoidance of excessive sweating (odor management)
-- Antibiotics to alter intestinal microflora “not indicated”
-- Suggested trial of folate with riboflavin (hypothesis-driven, not proven)
-(walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+### 12.2 Key modalities, evidence, and 2024 trial statistics
 
-### 12.2 Suggested MAXO terms
-(ontology suggestions)
-- Dietary modification / dietary choline restriction
-- Vitamin supplementation (riboflavin; folate)
-- Genetic counseling
+| Modality/agent | Target or mechanism | Key use-case | Selected 2024 efficacy/statistics | Key toxicities / implementation notes | Key 2024 sources with URL and pub month/year |
+|---|---|---|---|---|---|
+| Pediatric-inspired multi-agent chemotherapy (adult AYA/fit adults); e.g., pediatric-inspired regimens, Hyper-CVAD variants | Multi-agent cytotoxic therapy targeting proliferating lymphoblasts; often includes asparaginase, vincristine, steroids, anthracycline, methotrexate/6-MP phases | Standard frontline backbone for Ph-negative ALL in younger/fit adults; adapted intensity by age/fitness | ELN 2024: pediatric-based regimens are standard up to ~45–55 years and adult Ph-negative ALL CR rates are ~90% in many groups; expert review notes ~20% 5-year OS benefit in AYA with pediatric-inspired regimens vs traditional adult regimens (gokbuget2024managementofall pages 1-2, sebastian2024howitreat pages 1-2) | Age/fitness constrained; asparaginase toxicity, infections, hepatic/pancreatic toxicity, thrombosis; obesity adversely affects OS in adults and may shape supportive-care intensity (sebastian2024howitreat pages 1-2, johnston2024socioeconomicdeterminantsof pages 1-2) | Gökbuget et al., *Blood* (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 1-2); Sebastian, *Clin Hematol Int* (May 2024) https://doi.org/10.46989/001c.117026 (sebastian2024howitreat pages 1-2); Johnston et al., *Blood Adv* (Dec 2024) https://doi.org/10.1182/bloodadvances.2023011862 (johnston2024socioeconomicdeterminantsof pages 1-2) |
+| TKIs for Ph+ ALL (imatinib, dasatinib, ponatinib) | Inhibit BCR::ABL1 kinase signaling; ponatinib active against T315I and other resistant mutants | Frontline Ph+ ALL; often with reduced-intensity chemo or with blinatumomab; salvage/bridge contexts also used | Ponatinib review: PONALFIL post-induction CMR 47% rising to 71% in consolidation; 3-year OS 97%, EFS 70%; PhALLCON MRD-negative CR 34.4% with ponatinib vs 16.7% imatinib, and in age ≥60 years 40.0% vs 10.3%, median PFS 22.5 vs 8.3 months (kantarjian2024ponatinib‐reviewofhistorical pages 10-11) | Cardiovascular/arterial occlusive risk with ponatinib; pancreatitis reported; TKI selection depends on mutation profile, age, comorbidities, CNS strategy, transplant plan (kantarjian2024ponatinib‐reviewofhistorical pages 10-11, sebastian2024howitreat pages 5-7) | Kantarjian et al., *Am J Hematol* (May 2024) https://doi.org/10.1002/ajh.27355 (kantarjian2024ponatinib‐reviewofhistorical pages 10-11); Sebastian, *Clin Hematol Int* (May 2024) https://doi.org/10.46989/001c.117026 (sebastian2024howitreat pages 5-7) |
+| Blinatumomab | CD19xCD3 bispecific T-cell engager; redirects T cells to lyse CD19+ B-ALL cells | MRD-positive B-ALL; R/R B-ALL; increasingly frontline consolidation/low-intensity induction component in Ph-negative and Ph+ disease | Frontline Ph-negative phase 2 (reduced-dose chemo → blinatumomab): CRc 94% after 2 weeks blina, MRD-negative 86%; with up to 4 weeks, CR 100% and MRD-negative 89%; 1-year OS 97.1%, PFS 82.2% (NCT05557110) (lu2024reduceddosechemotherapyand pages 1-2). Review/guideline: MRD response ~80% and hematologic relapse-free survival 61% in MRD-directed setting; survival benefit also emerging in MRD-negative frontline consolidation (stelljes2024ph−allimmunotherapy pages 1-2) | Continuous IV infusion standard; CRS and neurotoxicity/ICANS require monitoring; in Lu 2024 ICANS 14% (all grade 1), grade ≥3 CRS 9% (lu2024reduceddosechemotherapyand pages 1-2) | Lu et al., *J Hematol Oncol* (Sep 2024) https://doi.org/10.1186/s13045-024-01597-8 (lu2024reduceddosechemotherapyand pages 1-2); Stelljes, *Hematology* (Dec 2024) https://doi.org/10.1182/hematology.2024000531 (stelljes2024ph−allimmunotherapy pages 1-2); Gökbuget et al., *Blood* (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 1-2) |
+| Inotuzumab ozogamicin | Anti-CD22 antibody-drug conjugate delivering calicheamicin | Approved for R/R CD22+ B-ALL; increasingly used in frontline low-intensity regimens in older/unfit adults; MRD eradication / bridge to HSCT / sequencing with CAR-T | 2024 reviews summarize strong efficacy in R/R disease and promising frontline combinations with low-intensity chemotherapy or blinatumomab; used to eliminate MRD and bridge to HSCT/CAR-T, but article excerpt does not provide one uniform 2024 pooled ORR/OS estimate across settings (kantarjian2024inotuzumabozogamicinin pages 15-17, gokbuget2024managementofall pages 21-22) | Key risk is veno-occlusive disease/sinusoidal obstruction syndrome, especially pre-HSCT; fractionated dosing and transplant timing matter (kantarjian2024inotuzumabozogamicinin pages 15-17) | Kantarjian et al., *Cancer* (Aug 2024) https://doi.org/10.1002/cncr.35505 (kantarjian2024inotuzumabozogamicinin pages 15-17); Gökbuget et al., *Blood* (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 21-22) |
+| Chemo-free / near chemo-free TKI + blinatumomab for Ph+ ALL (e.g., ponatinib + blinatumomab; dasatinib + blinatumomab) | Dual targeting of BCR::ABL1 signaling plus CD19-directed T-cell cytotoxicity | Frontline Ph+ ALL; increasingly used to reduce/avoid conventional chemotherapy and sometimes HSCT | Ponatinib + blinatumomab (JCO 2024): CMR 83% overall (67% after course 1), NGS-MRD negativity 98%, only 2/60 underwent HSCT, 3-year OS 91%, EFS 77%, median follow-up 24 months (kantarjian2024resultsofthe pages 1-3, kantarjian2024resultsofthe pages 3-4). D-ALBA long-term: 4-year/approximately 53-month DFS 75.8%, OS 80.7%, early molecular responders had no events (kantarjian2024ponatinib‐reviewofhistorical pages 10-11) | CNS relapse remains an issue in chemo-free Ph+ regimens; ponatinib vascular toxicities; blinatumomab CRS/neurotoxicity; transplant role becoming more selective (kantarjian2024resultsofthe pages 3-4, kantarjian2024ponatinib‐reviewofhistorical pages 10-11) | Kantarjian et al., *J Clin Oncol* (Dec 2024) https://doi.org/10.1200/jco.24.00272 (kantarjian2024resultsofthe pages 1-3); Foà et al., *J Clin Oncol* (Mar 2024) https://doi.org/10.1200/jco.23.01075 (kantarjian2024ponatinib‐reviewofhistorical pages 10-11) |
+| CAR-T cell therapy (CD19-directed; pediatric and adult B-ALL) | Autologous engineered T cells targeting CD19 on B lymphoblasts | Standard for selected R/R B-ALL; bridge or alternative to HSCT; pediatric/young adult use especially established | 2024 treatment reviews state CAR-T is standard in R/R BCP-ALL and has demonstrated major efficacy, but the provided contexts here do not include a single 2024 trial with reportable ORR/OS figures for inclusion (stelljes2024ph−allimmunotherapy pages 1-2, kantarjian2024inotuzumabozogamicinin pages 15-17) | CRS, ICANS, prolonged cytopenias, hypogammaglobulinemia; manufacturing/access/logistics and disease burden at infusion are major real-world constraints; often sequenced with blinatumomab/inotuzumab/HSCT (kantarjian2024inotuzumabozogamicinin pages 15-17, stelljes2024ph−allimmunotherapy pages 1-2) | Stelljes, *Hematology* (Dec 2024) https://doi.org/10.1182/hematology.2024000531 (stelljes2024ph−allimmunotherapy pages 1-2); Kantarjian et al., *Cancer* (Aug 2024) https://doi.org/10.1002/cncr.35505 (kantarjian2024inotuzumabozogamicinin pages 15-17) |
+| Allogeneic hematopoietic cell transplantation (allo-HCT) | Graft-versus-leukemia effect after myeloablative or reduced-intensity conditioning | Consolidation for high-risk disease, persistent/recurrent MRD, poor-risk genomics, or selected R/R patients in remission | ELN/expert reviews: MRD is central to transplant selection; poor MRD response supports SCT, whereas deeper MRD responses with TKI/blinatumomab regimens are reducing HSCT use in some Ph+ patients. In ponatinib+blinatumomab 2024 study, only 2 patients underwent HSCT despite 3-year OS 91% (gokbuget2024managementofall pages 6-6, kantarjian2024resultsofthe pages 3-4, gokbuget2024managementofall pages 1-2) | Transplant-related mortality, GVHD, infection, conditioning toxicity; pre-HSCT MRD level strongly predicts relapse; post-inotuzumab VOD/SOS risk requires mitigation (gokbuget2024managementofall pages 6-6, kantarjian2024inotuzumabozogamicinin pages 15-17) | Gökbuget et al., *Blood* (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 6-6); Kantarjian et al., *J Clin Oncol* (Dec 2024) https://doi.org/10.1200/jco.24.00272 (kantarjian2024resultsofthe pages 3-4) |
+| MRD-directed therapy / response-adapted management | Uses highly sensitive residual leukemia detection (MFC, PCR, NGS) to escalate/de-escalate therapy and determine HSCT need | Cross-cutting strategy in frontline, MRD+, pre-/post-HSCT, and salvage settings | ELN 2024: threshold commonly 0.01% (10^-4); each log MRD increase worsens relapse risk; persistent/recurrent MRD should trigger therapy change; blinatumomab is the pivotal MRD-clearing agent. Review: MFC sensitivity ~10^-5; PCR/HTS up to 10^-6; key timepoints often 6–8 and 10–12 weeks (gokbuget2024managementofall pages 6-6, yoon2024diagnosticandtherapeutic pages 6-8) | Requires experienced reference labs; assay choice affects classification; marrow regeneration can confound flow; MRD does not capture extramedullary disease; low-level MRD may be intermediate-risk and still actionable (gokbuget2024managementofall pages 6-6, yoon2024diagnosticandtherapeutic pages 6-8) | Gökbuget et al., *Blood* (May 2024) https://doi.org/10.1182/blood.2023023568 (gokbuget2024managementofall pages 6-6); Yoon & Lee, *Korean J Intern Med* (Jan 2024) https://doi.org/10.3904/kjim.2023.407 (yoon2024diagnosticandtherapeutic pages 6-8) |
 
-### 12.3 Clinical trials
-No DMGDH deficiency–specific trials were retrieved.
+
+*Table: This table summarizes major modern treatment modalities for acute lymphoblastic leukemia, including frontline, MRD-directed, relapsed/refractory, and transplant strategies. It highlights 2024 efficacy data, implementation considerations, and key sources for rapid evidence-based comparison.*
+
+#### Chemo-free Ph+ ALL: ponatinib + blinatumomab (JCO 2024)
+A 2024 JCO trial update reports deep molecular responses with minimal HSCT use:
+- CMR by RT‑PCR **83%** overall; MRD negativity by clono‑sequencing **98%** overall; **3‑year OS 91%** and EFS **77%**; only **2** patients underwent HSCT; median follow-up **24 months**. (kantarjian2024resultsofthe pages 1-3, kantarjian2024resultsofthe pages 3-4)
+
+**Direct abstract quote:** “At a median follow-up of 24 months, the complete molecular response rate … was 83% … and the rate of measurable residual disease negativity … was 98% … The estimated 3-year overall survival rate was 91% and event-free survival rate was 77%.” (kantarjian2024resultsofthe pages 3-4)
+
+#### Reduced-intensity induction for Ph-negative BCP‑ALL: reduced-dose chemotherapy + blinatumomab (J Hematol Oncol 2024)
+Prospective multicenter phase 2 (NCT05557110) results:
+- After 2 weeks of blinatumomab: CRc **94%**, MRD-negative **86%**.
+- With up to 4 weeks: CR **100%**, MRD-negative **89%**.
+- 1‑year OS **97.1%**, 1‑year PFS **82.2%**; follow-up 11.5 months. (lu2024reduceddosechemotherapyand pages 1-2)
+
+**Direct abstract quote:** “From September 2022 to December 2023, we conducted … (NCT05557110) … 33 (94%) achieved CRc … 30 (86%) achieving measurable residual disease (MRD) negativity … estimated 1-year overall survival and 1-year progression-free survival rates were 97.1% and 82.2%.” (lu2024reduceddosechemotherapyand pages 1-2)
+
+### 12.3 MRD-directed therapy
+ELN 2024 notes persistent/recurrent MRD should prompt therapy change; **blinatumomab** is highlighted as the pivotal agent tested in a major MRD trial, often converting to molecular remission; many groups use MRD to decide on allo‑HCT. (gokbuget2024managementofall pages 6-6)
+
+### 12.4 Pharmacogenomics (implementation-relevant)
+A 2024 pharmacogenetics review lists key genotype-toxicity associations:
+- For **6‑mercaptopurine (6‑MP)**: TPMT (e.g., **TPMT*2 238G>C; TPMT*3B 460G>A; TPMT*3C 719A>G**), **NUDT15 c.415C>T**, and **ITPA** (94C>A; IVS2+21A>C). (graiqevciuka2024implementationofpharmacogenetics pages 5-7, graiqevciuka2024implementationofpharmacogenetics pages 1-3)
+- For **methotrexate (MTX)**: **MTHFR C677T** and **A1298C** variants are discussed, though the review notes evidence for some MTX markers is inconsistent and highlights **SLCO1B1** as a more reliable MTX handling gene in cited literature. (graiqevciuka2024implementationofpharmacogenetics pages 5-7)
+
+### 12.5 Suggested MAXO terms (examples)
+- Antineoplastic chemotherapy **MAXO:0000746** (approximate; verify exact MAXO ID)
+- Allogeneic hematopoietic stem cell transplantation **MAXO:0000748** (verify)
+- CAR T-cell therapy **MAXO:0001097** (verify)
+- Targeted therapy / tyrosine kinase inhibitor therapy (verify appropriate MAXO term)
+- MRD monitoring (diagnostic procedure; may map better to OBI rather than MAXO). (gokbuget2024managementofall pages 6-6)
 
 ---
 
 ## 13. Prevention
-- **Primary prevention:** not applicable in the usual sense for an autosomal recessive condition.
-- **Secondary prevention:** early biochemical/genetic diagnosis may reduce psychosocial morbidity by explaining odor and guiding supportive measures. (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- **Genetic counseling:** indicated for families once a causative DMGDH genotype is identified (inferred from AR inheritance and chapter guidance). (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
+
+### 13.1 Primary prevention
+Because most ALL risk is not attributable to modifiable exposures, there is no established population-level primary prevention strategy. Nevertheless, risk literature motivates research into prenatal/early-life exposures and broader public health reduction of known hazards (e.g., ionizing radiation). (little2024solarultravioletradiation pages 1-2, ekpa2023areviewof pages 2-3)
+
+### 13.2 Secondary prevention
+No general population screening is established. High-risk groups (e.g., strong germline predisposition syndromes) may benefit from specialist surveillance in genetic counseling frameworks; specifics require syndrome-level guidelines (not present in retrieved corpus). (ekpa2023areviewof pages 2-3)
 
 ---
 
-## 14. Other species / natural disease
-No naturally occurring veterinary disease analogs were identified in the retrieved sources.
+## 14. Other Species / Natural Disease
+Not assessed in the retrieved evidence set.
 
 ---
 
-## 15. Model organisms / experimental systems
-### 15.1 Human protein functional models
-Functional evidence is largely derived from recombinant enzyme studies and structural biology (including a reported PDB structure for human DMGDH in one study). (augustin2016structureandbiochemical pages 1-3)
-
-### 15.2 Need for in vivo models
-The molecular basis paper notes that additional DMGDH‑deficient humans or an appropriate mouse model would be needed to resolve genotype–phenotype questions. (mcandrew2008molecularbasisof pages 8-8)
+## 15. Model Organisms
+Not assessed in the retrieved evidence set.
 
 ---
 
-## Recent developments (prioritizing 2023–2024)
-Direct 2023–2024 primary case expansions were not available in the retrievable corpus for this run. As a proxy for “latest research” relevant to real‑world implementation, the most concrete near‑term development is the continued mainstreaming of **broad metabolomics and sequencing** for rare disease diagnosis (with older but still relevant metabolomics evidence in this run). For example, DI‑HRMS metabolomics has been evaluated for inborn errors using dried blood spots and plasma; one limitation noted is that some workflows may fail to recognize DMGDH deficiency depending on feature detection/annotation. (moolenaar2001invivoand pages 98-101)
+## Recent developments and expert analysis (2023–2024)
+
+1) **Classification shift to genomics/transcriptomics:** ICC and WHO‑HAEM5 explicitly expand genetically and expression-defined entities (including formerly “B‑other”) to improve risk stratification and treatment selection. (duffield2023internationalconsensusclassification pages 1-3, kansal2023diagnosisandmolecular pages 5-7)
+
+2) **MRD as a decision engine:** ELN 2024 formalizes MRD timing and threshold concepts (commonly 10−4) and embeds MRD into transplant and immunotherapy decisions. (gokbuget2024managementofall pages 6-6, gokbuget2024managementofall pages 1-2)
+
+3) **Frontline immunotherapy integration and chemotherapy de-escalation:** 2024 trials and reviews show movement of blinatumomab into upfront settings and successful chemo-free Ph+ strategies with high molecular response rates and reduced HSCT utilization. (lu2024reduceddosechemotherapyand pages 1-2, kantarjian2024resultsofthe pages 1-3, sebastian2024howitreat pages 1-2)
 
 ---
 
-## Key primary sources (URLs and publication dates)
-- Moolenaar SH et al. **“Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: NMR spectroscopy study.”** *Clinical Chemistry* (Apr **1999**). https://doi.org/10.1093/clinchem/45.4.459 (moolenaar1999defectindimethylglycine pages 1-1)
-- McAndrew R et al. **“Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant H109R.”** *Journal of Inherited Metabolic Disease* (Oct **2008**). https://doi.org/10.1007/s10545-008-0999-2 (mcandrew2008molecularbasisof pages 1-3)
-- Walker V, Wevers RA. **“Trimethylaminuria and Dimethylglycine Dehydrogenase Deficiency.”** In *Inborn Metabolic Diseases* (Jan **2012**). https://doi.org/10.1007/978-3-540-28785-8_31 (walker2012trimethylaminuriaanddimethylglycine pages 3-5)
-- Augustin P et al. **“Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease-related H109R variant.”** *FEBS Journal* (Oct **2016**). https://doi.org/10.1111/febs.13828 (augustin2016structureandbiochemical pages 1-3)
-
----
-
-## Clinical trials / registries relevant to real-world implementation
-- **CoRDS (Coordination of Rare Diseases at Sanford)** observational registry / natural history infrastructure: **NCT01793168** (first posted Feb **2013**, recruiting; last update posted May **2025**). https://clinicaltrials.gov/study/NCT01793168 (NCT01793168 chunk 2, NCT01793168 chunk 1)
-
----
-
-## Limitations of the current evidence base
-1. The human phenotype and natural history remain weakly defined because the core evidence is dominated by a single well-described individual and secondary summaries. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 1-1)
-2. Standard disease identifiers beyond OMIM (e.g., MONDO, Orphanet, ICD, MeSH) were not found in the retrieved set and must be added via direct ontology database queries.
-3. Therapeutic guidance is largely expert opinion and hypothesis-driven supplementation trials rather than controlled clinical evidence. (walker2012trimethylaminuriaanddimethylglycine pages 3-5, moolenaar1999defectindimethylglycine pages 3-4)
+## Key figure supporting environmental-risk discussion
+The relationship between UVR and ALL incidence reported in the 2024 British Journal of Cancer SEER ecological analysis is visually summarized in the retrieved figure. (little2024solarultravioletradiation media 5ae23b8e)
 
 
 References
 
-1. (augustin2016structureandbiochemical pages 7-9): Peter Augustin, Altijana Hromic, Tea Pavkov‐Keller, Karl Gruber, and Peter Macheroux. Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related h109r variant. The Febs Journal, 283:3587-3603, Oct 2016. URL: https://doi.org/10.1111/febs.13828, doi:10.1111/febs.13828. This article has 27 citations.
+1. (shah2024acutelymphoblasticleukemia pages 1-2): Bijal Shah, Ryan J. Mattison, Ramzi Abboud, Peter Abdelmessieh, Ibrahim Aldoss, Patrick W. Burke, Daniel J. DeAngelo, Shira Dinner, Amir T. Fathi, Jordan Gauthier, Michael Haddadin, Nitin Jain, Brian Jonas, Suzanne Kirby, Michaela Liedtke, Mark Litzow, Aaron Logan, Meixiao Long, Selina Luger, James K. Mangan, Stephanie Massaro, William May, Olalekan Oluwole, Jae Park, Amanda Przespolewski, Sravanti Rangaraju, Caner Saygin, Marc Schwartz, Paul Shami, Benjamin Tomlinson, Jonathan Webster, Ajibola Awotiwon, and Katie Stehman. Acute lymphoblastic leukemia, version 2.2024, nccn clinical practice guidelines in oncology. Journal of the National Comprehensive Cancer Network : JNCCN, 22 8:563-576, Oct 2024. URL: https://doi.org/10.6004/jnccn.2024.0051, doi:10.6004/jnccn.2024.0051. This article has 75 citations.
 
-2. (augustin2016structureandbiochemical pages 1-3): Peter Augustin, Altijana Hromic, Tea Pavkov‐Keller, Karl Gruber, and Peter Macheroux. Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related h109r variant. The Febs Journal, 283:3587-3603, Oct 2016. URL: https://doi.org/10.1111/febs.13828, doi:10.1111/febs.13828. This article has 27 citations.
+2. (duffield2023internationalconsensusclassification pages 1-3): Amy S. Duffield, Charles G. Mullighan, and Michael J. Borowitz. International consensus classification of acute lymphoblastic leukemia/lymphoma. Virchows Archiv, 482:11-26, Nov 2023. URL: https://doi.org/10.1007/s00428-022-03448-8, doi:10.1007/s00428-022-03448-8. This article has 226 citations and is from a peer-reviewed journal.
 
-3. (walker2012trimethylaminuriaanddimethylglycine pages 3-5): Valerie Walker and Ron A. Wevers. Trimethylaminuria and dimethylglycine dehydrogenase deficiency. Inborn Metabolic Diseases, pages 381-385, Jan 2012. URL: https://doi.org/10.1007/978-3-540-28785-8\_31, doi:10.1007/978-3-540-28785-8\_31. This article has 3 citations.
+3. (kansal2023diagnosisandmolecular pages 1-2): Rina Kansal. Diagnosis and molecular pathology of lymphoblastic leukemias and lymphomas in the era of genomics and precision medicine: historical evolution and current concepts—part 2: b-/t-cell acute lymphoblastic leukemias. Lymphatics, 1:118-154, Jul 2023. URL: https://doi.org/10.3390/lymphatics1020011, doi:10.3390/lymphatics1020011. This article has 12 citations.
 
-4. (mcandrew2008molecularbasisof pages 1-3): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+4. (kansal2023diagnosisandmolecular pages 5-7): Rina Kansal. Diagnosis and molecular pathology of lymphoblastic leukemias and lymphomas in the era of genomics and precision medicine: historical evolution and current concepts—part 2: b-/t-cell acute lymphoblastic leukemias. Lymphatics, 1:118-154, Jul 2023. URL: https://doi.org/10.3390/lymphatics1020011, doi:10.3390/lymphatics1020011. This article has 12 citations.
 
-5. (moolenaar1999defectindimethylglycine pages 4-5): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+5. (yoon2024diagnosticandtherapeutic pages 1-2): Jae-Ho Yoon and Seok Lee. Diagnostic and therapeutic advances in adults with acute lymphoblastic leukemia in the era of gene analysis and targeted immunotherapy. The Korean Journal of Internal Medicine, 39:34-56, Jan 2024. URL: https://doi.org/10.3904/kjim.2023.407, doi:10.3904/kjim.2023.407. This article has 12 citations and is from a peer-reviewed journal.
 
-6. (moolenaar1999defectindimethylglycine pages 1-1): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+6. (kansal2023diagnosisandmolecular pages 4-5): Rina Kansal. Diagnosis and molecular pathology of lymphoblastic leukemias and lymphomas in the era of genomics and precision medicine: historical evolution and current concepts—part 2: b-/t-cell acute lymphoblastic leukemias. Lymphatics, 1:118-154, Jul 2023. URL: https://doi.org/10.3390/lymphatics1020011, doi:10.3390/lymphatics1020011. This article has 12 citations.
 
-7. (moolenaar2001invivoand pages 89-94): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+7. (gokbuget2024managementofall pages 1-2): Nicola Gökbuget, Nicolas Boissel, Sabina Chiaretti, Hervé Dombret, Michael Doubek, Adele Fielding, Robin Foà, Sebastian Giebel, Dieter Hoelzer, Mathilde Hunault, David I. Marks, Giovanni Martinelli, Oliver Ottmann, Anita Rijneveld, Philippe Rousselot, Josep Ribera, and Renato Bassan. Management of all in adults: 2024 eln recommendations from a european expert panel. Blood, 143:1903-1930, May 2024. URL: https://doi.org/10.1182/blood.2023023568, doi:10.1182/blood.2023023568. This article has 133 citations and is from a highest quality peer-reviewed journal.
 
-8. (moolenaar2001invivoand pages 94-98): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+8. (liu2024epidemiologicalcharacteristicsand pages 1-3): Shuojie Liu, Bin Hu, and Jiaqin Zhang. Epidemiological characteristics and influencing factors of acute leukemia in children and adolescents and adults: a large population-based study. Hematology, Apr 2024. URL: https://doi.org/10.1080/16078454.2024.2327916, doi:10.1080/16078454.2024.2327916. This article has 19 citations and is from a peer-reviewed journal.
 
-9. (moolenaar1999defectindimethylglycine pages 1-2): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+9. (lu2024reduceddosechemotherapyand pages 1-2): Jing Lu, Huiying Qiu, Ying Wang, Xin Zhou, Haiping Dai, Xuzhang Lu, Xiaofei Yang, Bin Gu, Ming Hong, Miao Miao, Ruinan Lu, Jun Wang, Qian Wu, Mengxing Xue, Yun Wang, Ailing Deng, Yaoyao Shen, Yin Liu, Xueqing Dou, Yutian Lei, Depei Wu, Yu Zhu, and Suning Chen. Reduced-dose chemotherapy and blinatumomab as induction treatment for newly diagnosed ph-negative b-cell precursor acute lymphoblastic leukemia: a phase 2 trial. Journal of Hematology & Oncology, Sep 2024. URL: https://doi.org/10.1186/s13045-024-01597-8, doi:10.1186/s13045-024-01597-8. This article has 17 citations and is from a domain leading peer-reviewed journal.
 
-10. (moolenaar1999defectindimethylglycine pages 3-4): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+10. (kantarjian2024resultsofthe pages 1-3): Hagop Kantarjian, Nicholas J. Short, Fadi G. Haddad, Nitin Jain, Xuelin Huang, Guillermo Montalban-Bravo, Rashmi Kanagal-Shamanna, Tapan M. Kadia, Naval Daver, Kelly Chien, Yesid Alvarado, Guillermo Garcia-Manero, Ghayas C. Issa, Rebecca Garris, Cedric Nasnas, Lewis Nasr, Farhad Ravandi, and Elias Jabbour. Results of the simultaneous combination of ponatinib and blinatumomab in philadelphia chromosome-positive all. Journal of Clinical Oncology, 42:4246-4251, Dec 2024. URL: https://doi.org/10.1200/jco.24.00272, doi:10.1200/jco.24.00272. This article has 80 citations and is from a highest quality peer-reviewed journal.
 
-11. (moolenaar1999defectindimethylglycine pages 5-5): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+11. (ekpa2023areviewof pages 2-3): Queen L Ekpa, Prince C Akahara, Alexis M Anderson, Omowunmi O Adekoya, Olamide O Ajayi, Peace O Alabi, Okelue E Okobi, Oluwadamilola Jaiyeola, and Medara S Ekanem. A review of acute lymphocytic leukemia (all) in the pediatric population: evaluating current trends and changes in guidelines in the past decade. Cureus, Dec 2023. URL: https://doi.org/10.7759/cureus.49930, doi:10.7759/cureus.49930. This article has 49 citations.
 
-12. (moolenaar2001invivoand pages 98-101): Sytske H. Moolenaar, Marjo S. van der Knaap, Udo F. H. Engelke, Petra J. W. Pouwels, Fokje S. M. Janssen‐Zijlstra, Nanda M. Verhoeven, Cornelis Jakobs, and Ron A. Wevers. In vivo and in vitro nmr spectroscopy reveal a putative novel inborn error involving polyol metabolism. NMR in Biomedicine, 14:167-176, May 2001. URL: https://doi.org/10.1002/nbm.690, doi:10.1002/nbm.690. This article has 58 citations and is from a peer-reviewed journal.
+12. (little2024solarultravioletradiation pages 1-2): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.
 
-13. (moolenaar1999defectindimethylglycine media 773767bc): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+13. (little2024solarultravioletradiation pages 8-9): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.
 
-14. (mcandrew2008molecularbasisof pages 4-6): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+14. (little2024solarultravioletradiation media 5ae23b8e): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.
 
-15. (mcandrew2008molecularbasisof pages 6-8): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+15. (johnston2024socioeconomicdeterminantsof pages 1-2): Hannah Johnston, Hamed Rahmani Youshanlouei, Clinton Osei, Anand A. Patel, Adam DuVall, Peng Wang, Pankhuri Wanjari, Jeremy Segal, Girish Venkataraman, Jason X. Cheng, Sandeep Gurbuxani, Angela Lager, Carrie Fitzpatrick, Michael Thirman, Mariam Nawas, Hongtao Liu, Michael Drazer, Olatoyosi Odenike, Richard Larson, Wendy Stock, and Caner Saygin. Socioeconomic determinants of the biology and outcomes of acute lymphoblastic leukemia in adults. Blood Advances, 8:164-171, Dec 2024. URL: https://doi.org/10.1182/bloodadvances.2023011862, doi:10.1182/bloodadvances.2023011862. This article has 11 citations and is from a peer-reviewed journal.
 
-16. (moolenaar1999defectindimethylglycine media 214a655b): Sytske H Moolenaar, Jo Poggi-Bach, Udo FH Engelke, Jacqueline MB Corstiaensen, Arend Heerschap, Jan GN de Jong, Barbara A Binzak, Jerry Vockley, and Ron A Wevers. Defect in dimethylglycine dehydrogenase, a new inborn error of metabolism: nmr spectroscopy study. Clinical chemistry, 45 4:459-64, Apr 1999. URL: https://doi.org/10.1093/clinchem/45.4.459, doi:10.1093/clinchem/45.4.459. This article has 100 citations and is from a highest quality peer-reviewed journal.
+16. (karim2023diagnosticclueof pages 2-4): MA Karim, N Yesmin, and M Begum. Diagnostic clue of acute lymphoblastic leukemia for frontline clinicians from clinicopathological features: study of 223 cases of in a tertiary care hospital from …. Unknown journal, 2023.
 
-17. (mcandrew2008molecularbasisof pages 8-8): Ryan McAndrew, Jerry Vockley, and Jung-Ja P. Kim. Molecular basis of dimethylglycine dehydrogenase deficiency associated with pathogenic variant h109r. Journal of Inherited Metabolic Disease, 31:761-768, Oct 2008. URL: https://doi.org/10.1007/s10545-008-0999-2, doi:10.1007/s10545-008-0999-2. This article has 14 citations and is from a peer-reviewed journal.
+17. (talukder2024acutelymphoblasticleukemia pages 1-3): Manik Kumar Talukder, Kamrul Laila, Md. Arif Hossain, Md. Shafiqul Islam, Md. Zahidul Islam, Kalyan Benjamin Gomes, Mujammel Haque, Md. Mahbubul Islam, and Md. Imnul Islam. Acute lymphoblastic leukemia presenting as systemic juvenile idiopathic arthritis: experience from bangladesh. Open Journal of Rheumatology and Autoimmune Diseases, 14:1-12, Jan 2024. URL: https://doi.org/10.4236/ojra.2024.141001, doi:10.4236/ojra.2024.141001. This article has 1 citations.
 
-18. (NCT01793168 chunk 2):  Rare Disease Patient Registry & Natural History Study - Coordination of Rare Diseases at Sanford. Sanford Health. 2010. ClinicalTrials.gov Identifier: NCT01793168
+18. (karim2023diagnosticclueof pages 5-6): MA Karim, N Yesmin, and M Begum. Diagnostic clue of acute lymphoblastic leukemia for frontline clinicians from clinicopathological features: study of 223 cases of in a tertiary care hospital from …. Unknown journal, 2023.
 
-19. (NCT01793168 chunk 1):  Rare Disease Patient Registry & Natural History Study - Coordination of Rare Diseases at Sanford. Sanford Health. 2010. ClinicalTrials.gov Identifier: NCT01793168
+19. (karim2023diagnosticclueof pages 1-2): MA Karim, N Yesmin, and M Begum. Diagnostic clue of acute lymphoblastic leukemia for frontline clinicians from clinicopathological features: study of 223 cases of in a tertiary care hospital from …. Unknown journal, 2023.
+
+20. (little2024solarultravioletradiation pages 11-11): Mark P. Little, Jim Z. Mai, Michelle Fang, Pavel Chernyavskiy, Victoria Kennerley, Elizabeth K. Cahoon, Myles G. Cockburn, Gerald M. Kendall, and Michael G. Kimlin. Solar ultraviolet radiation exposure, and incidence of childhood acute lymphocytic leukaemia and non-hodgkin lymphoma in a us population-based dataset. British Journal of Cancer, 130:1441-1452, Feb 2024. URL: https://doi.org/10.1038/s41416-024-02629-3, doi:10.1038/s41416-024-02629-3. This article has 15 citations and is from a domain leading peer-reviewed journal.
+
+21. (kantarjian2024ponatinib‐reviewofhistorical pages 10-11): Hagop M. Kantarjian, Helen T. Chifotides, Fadi G. Haddad, Nicholas J. Short, Sanam Loghavi, and Elias Jabbour. Ponatinib‐review of historical development, current status, and future research. American Journal of Hematology, 99:1576-1585, May 2024. URL: https://doi.org/10.1002/ajh.27355, doi:10.1002/ajh.27355. This article has 25 citations and is from a domain leading peer-reviewed journal.
+
+22. (gokbuget2024managementofall pages 6-6): Nicola Gökbuget, Nicolas Boissel, Sabina Chiaretti, Hervé Dombret, Michael Doubek, Adele Fielding, Robin Foà, Sebastian Giebel, Dieter Hoelzer, Mathilde Hunault, David I. Marks, Giovanni Martinelli, Oliver Ottmann, Anita Rijneveld, Philippe Rousselot, Josep Ribera, and Renato Bassan. Management of all in adults: 2024 eln recommendations from a european expert panel. Blood, 143:1903-1930, May 2024. URL: https://doi.org/10.1182/blood.2023023568, doi:10.1182/blood.2023023568. This article has 133 citations and is from a highest quality peer-reviewed journal.
+
+23. (sebastian2024howitreat pages 1-2): Giebel Sebastian. How i treat newly diagnosed acute lymphoblastic leukemia. Clinical Hematology International, 6:51-61, May 2024. URL: https://doi.org/10.46989/001c.117026, doi:10.46989/001c.117026. This article has 8 citations.
+
+24. (yoon2024diagnosticandtherapeutic pages 6-8): Jae-Ho Yoon and Seok Lee. Diagnostic and therapeutic advances in adults with acute lymphoblastic leukemia in the era of gene analysis and targeted immunotherapy. The Korean Journal of Internal Medicine, 39:34-56, Jan 2024. URL: https://doi.org/10.3904/kjim.2023.407, doi:10.3904/kjim.2023.407. This article has 12 citations and is from a peer-reviewed journal.
+
+25. (shah2024acutelymphoblasticleukemia pages 3-5): Bijal Shah, Ryan J. Mattison, Ramzi Abboud, Peter Abdelmessieh, Ibrahim Aldoss, Patrick W. Burke, Daniel J. DeAngelo, Shira Dinner, Amir T. Fathi, Jordan Gauthier, Michael Haddadin, Nitin Jain, Brian Jonas, Suzanne Kirby, Michaela Liedtke, Mark Litzow, Aaron Logan, Meixiao Long, Selina Luger, James K. Mangan, Stephanie Massaro, William May, Olalekan Oluwole, Jae Park, Amanda Przespolewski, Sravanti Rangaraju, Caner Saygin, Marc Schwartz, Paul Shami, Benjamin Tomlinson, Jonathan Webster, Ajibola Awotiwon, and Katie Stehman. Acute lymphoblastic leukemia, version 2.2024, nccn clinical practice guidelines in oncology. Journal of the National Comprehensive Cancer Network : JNCCN, 22 8:563-576, Oct 2024. URL: https://doi.org/10.6004/jnccn.2024.0051, doi:10.6004/jnccn.2024.0051. This article has 75 citations.
+
+26. (ghosh2024incidenceandsurvivability pages 1-3): Ishan Ghosh and Sudipto Mukherjee. Incidence and survivability of acute lymphocytic leukemia patients in the united states: analysis of seer data set from 2000-2019. Journal of Cancer Therapy, 15:141-163, Jan 2024. URL: https://doi.org/10.4236/jct.2024.154014, doi:10.4236/jct.2024.154014. This article has 0 citations.
+
+27. (stelljes2024ph−allimmunotherapy pages 1-2): Matthias Stelljes. Ph− all: immunotherapy in upfront treatment. Hematology, 2024:86-92, Dec 2024. URL: https://doi.org/10.1182/hematology.2024000531, doi:10.1182/hematology.2024000531. This article has 1 citations and is from a peer-reviewed journal.
+
+28. (sebastian2024howitreat pages 5-7): Giebel Sebastian. How i treat newly diagnosed acute lymphoblastic leukemia. Clinical Hematology International, 6:51-61, May 2024. URL: https://doi.org/10.46989/001c.117026, doi:10.46989/001c.117026. This article has 8 citations.
+
+29. (kantarjian2024inotuzumabozogamicinin pages 15-17): Hagop M. Kantarjian, Nicolas Boissel, Cristina Papayannidis, Marlise R. Luskin, Matthias Stelljes, Anjali S. Advani, Elias J. Jabbour, Josep‐Maria Ribera, and David I. Marks. Inotuzumab ozogamicin in adult acute lymphoblastic leukemia: development, current status, and future directions. Cancer, 130:3631-3646, Aug 2024. URL: https://doi.org/10.1002/cncr.35505, doi:10.1002/cncr.35505. This article has 16 citations and is from a domain leading peer-reviewed journal.
+
+30. (gokbuget2024managementofall pages 21-22): Nicola Gökbuget, Nicolas Boissel, Sabina Chiaretti, Hervé Dombret, Michael Doubek, Adele Fielding, Robin Foà, Sebastian Giebel, Dieter Hoelzer, Mathilde Hunault, David I. Marks, Giovanni Martinelli, Oliver Ottmann, Anita Rijneveld, Philippe Rousselot, Josep Ribera, and Renato Bassan. Management of all in adults: 2024 eln recommendations from a european expert panel. Blood, 143:1903-1930, May 2024. URL: https://doi.org/10.1182/blood.2023023568, doi:10.1182/blood.2023023568. This article has 133 citations and is from a highest quality peer-reviewed journal.
+
+31. (kantarjian2024resultsofthe pages 3-4): Hagop Kantarjian, Nicholas J. Short, Fadi G. Haddad, Nitin Jain, Xuelin Huang, Guillermo Montalban-Bravo, Rashmi Kanagal-Shamanna, Tapan M. Kadia, Naval Daver, Kelly Chien, Yesid Alvarado, Guillermo Garcia-Manero, Ghayas C. Issa, Rebecca Garris, Cedric Nasnas, Lewis Nasr, Farhad Ravandi, and Elias Jabbour. Results of the simultaneous combination of ponatinib and blinatumomab in philadelphia chromosome-positive all. Journal of Clinical Oncology, 42:4246-4251, Dec 2024. URL: https://doi.org/10.1200/jco.24.00272, doi:10.1200/jco.24.00272. This article has 80 citations and is from a highest quality peer-reviewed journal.
+
+32. (graiqevciuka2024implementationofpharmacogenetics pages 5-7): Violeta Graiqevci-Uka, Emir Behluli, Rifat Hadziselimovic, Thomas Liehr, and Gazmend Temaj. Implementation of pharmacogenetics for treatment of patients with acute lymphoblastic leukemia. Research Results in Pharmacology, 10:27-39, Jun 2024. URL: https://doi.org/10.18413/rrpharmacology.10.382, doi:10.18413/rrpharmacology.10.382. This article has 2 citations.
+
+33. (graiqevciuka2024implementationofpharmacogenetics pages 1-3): Violeta Graiqevci-Uka, Emir Behluli, Rifat Hadziselimovic, Thomas Liehr, and Gazmend Temaj. Implementation of pharmacogenetics for treatment of patients with acute lymphoblastic leukemia. Research Results in Pharmacology, 10:27-39, Jun 2024. URL: https://doi.org/10.18413/rrpharmacology.10.382, doi:10.18413/rrpharmacology.10.382. This article has 2 citations.
+
+## Artifacts
+
+- [Edison artifact artifact-00](Acute_Lymphoblastic_Leukemia-deep-research-falcon_artifacts/artifact-00.md)
