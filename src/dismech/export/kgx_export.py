@@ -387,7 +387,23 @@ _PROTECTIVE_EFFECT_PATTERNS = (
 
 
 def _exposure_predicate(effect: str | None) -> str:
-    """Map an environmental `effect` free-text field to a Biolink predicate."""
+    """Map an environmental `effect` free-text field to a Biolink predicate.
+
+    Returns `biolink:associated_with_decreased_likelihood_of` when the curated
+    `effect` text matches one of the protective phrasings below (case-insensitive,
+    word-boundary matched):
+
+      - `reduces? risk`
+      - `decreased? (odds|risk|chance|incidence|likelihood)`
+      - `protect(s|ive|ion)? against`
+      - `lower(s|ed)? (odds|risk|chance|incidence|likelihood)`
+
+    Any other `effect` value (including `None`, causal phrasings such as
+    "TRIGGERS" / "Increases risk", or text that mentions reduction of a
+    non-risk noun like "reduced HDL") falls through to the default
+    `biolink:contributes_to`. Curators adding new protective environmental
+    entries should phrase the `effect` text to match one of the patterns
+    above; see #2098 for context."""
     if effect and any(p.search(effect) for p in _PROTECTIVE_EFFECT_PATTERNS):
         return "biolink:associated_with_decreased_likelihood_of"
     return "biolink:contributes_to"
