@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3620,7 +3773,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Acute decompensation management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency supportive care with reversal of catabolism via high glucose infusion, cessation of protein intake, and correction of metabolic acidosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ammonia-lowering therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate or sodium phenylbutyrate for pharmacologic ammonia reduction during hyperammonemic episodes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autism spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder occurs in approximately 39% of PA patients. ASD was associated with increased serum erythropoietin and decreased plasma glutamine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Basal ganglia necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral basal ganglia necrosis, particularly of the caudate and putamen, is a recognized neurological complication of PA during metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012128\"}}, {\"id\": \"Cardiac multi-mechanism pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac complications in PA involve multiple cellular pathways including impaired substrate delivery to TCA cycle, secondary mitochondrial electron transport chain dysfunction, oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, and carnitine deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac oxidative stress via circulating propionate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PA, accumulated propionyl-CoA and diminished hepatic propionate clearance lead to elevated circulating propionate. Gut microbiome-derived propionate is the primary cardiac propionyl-CoA source, and prolonged exposure induces significant oxidative stress in cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard cardiac therapies including ACE inhibitors, beta-blockers, and coenzyme Q10 supplementation for management of cardiomyopathy and QTc prolongation. Multicenter approaches are needed to strengthen efficacy data.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Carglumic acid (CGA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid is a synthetic structural analog of N-acetylglutamate (NAG) approved for treatment of hyperammonemia in PA. Chronic CGA use is associated with reduction in hyperammonemic decompensation episodes and hospital admissions.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive therapy to support organic acid detoxification and excretion via formation of propionylcarnitine.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive renal dysfunction is a long-term complication of PA. In mouse models, CKD involves mitochondrial quality control impairment with disturbances in fission/mitophagy balance.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy is one of the most serious long-term complications of PA. In a cohort study, DCM was observed in 17 of 23 PA patients with cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"FGF21 and GDF15\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth due to recurrent catabolic crises and feeding difficulties.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay risk in severe or recurrent disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is reported as a late-onset complication of PA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia, especially in acute illness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is common in PA. In a dedicated natural history study, 61% of participants received an ID diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness during acute metabolic decompensation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for severe recurrent decompensation and poor metabolic control. LT improves metabolic stability but does not fully correct the biochemical defect since PCC is expressed in extrahepatic tissues.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy has been reported as a long-term neurological complication of PA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"PCCA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCCA\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCCB\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute pancreatitis is a recognized complication of PA, occurring during or independent of metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"QTc prolongation is a recognized arrhythmia risk in PA, associated with metabolic decompensation and chronic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001657\"}}, {\"id\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA carboxylase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"PCCA\", \"PCCB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Propionylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of propiogenic amino acids (valine, isoleucine, threonine, methionine) with specialized formula support is the cornerstone of PA management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal mitochondrial quality control impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a PA mouse model, kidneys show altered mitochondrial ultrastructure, shifted mitochondrial networks towards fission, marked reduction of mitophagy, and steep reduction of PGC-1-alpha. These disturbances in mitochondrial homeostasis and quality control are involved in chronic kidney disease development.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitochondrial fission\", \"mitophagy\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis can occur in PA, typically during severe metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Secondary NAG deficiency and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia in PA is related to secondary deficiency of N-acetylglutamate (NAG), the allosteric activator of carbamoyl phosphate synthetase 1 (CPS1), which is an irreversible rate-limiting enzyme in the urea cycle. CPS1 inhibition by accumulated propionyl-CoA metabolites impairs ureagenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur in PA, particularly in the context of metabolic decompensation and basal ganglia injury.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Toxic metabolite burden and mitochondrial stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of propionyl-CoA related metabolites contributes to metabolic acidosis, secondary hyperammonemia, and cellular energy stress in liver, brain, and myocardium.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Various PCCA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA can result from biallelic pathogenic variants in PCCA, encoding the alpha subunit of propionyl-CoA carboxylase. PCCA variants reduce PCC holoenzyme function and cause the PCCA complementation form of propionic acidemia.\\n\"}, {\"id\": \"Various PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA can result from biallelic pathogenic variants in PCCB, encoding the beta subunit of propionyl-CoA carboxylase. PCCB variants reduce PCC holoenzyme function and cause the PCCB complementation form of propionic acidemia.\\n\"}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting with poor intake during metabolic instability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Cardiac oxidative stress via circulating propionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Renal mitochondrial quality control impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Basal ganglia necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"2-Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Propionylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"FGF21 and GDF15\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary NAG deficiency and hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac oxidative stress via circulating propionate\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial quality control impairment\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac multi-mechanism pathogenesis\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac multi-mechanism pathogenesis\", \"target\": \"Prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (CGA)\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ammonia-lowering therapy\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac pharmacotherapy\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PCCA pathogenic variants\", \"target\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCCB pathogenic variants\", \"target\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Various PCCA pathogenic variants\", \"target\": \"PCCA pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various PCCB pathogenic variants\", \"target\": \"PCCB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Acute decompensation management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency supportive care with reversal of catabolism via high glucose infusion, cessation of protein intake, and correction of metabolic acidosis.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ammonia-lowering therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium benzoate or sodium phenylbutyrate for pharmacologic ammonia reduction during hyperammonemic episodes.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Autism spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autism spectrum disorder occurs in approximately 39% of PA patients. ASD was associated with increased serum erythropoietin and decreased plasma glutamine.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000717\"}}, {\"id\": \"Basal ganglia necrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral basal ganglia necrosis, particularly of the caudate and putamen, is a recognized neurological complication of PA during metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012128\"}}, {\"id\": \"Cardiac multi-mechanism pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cardiac complications in PA involve multiple cellular pathways including impaired substrate delivery to TCA cycle, secondary mitochondrial electron transport chain dysfunction, oxidative stress, coenzyme Q10 deficiency, metabolic reprogramming, and carnitine deficiency.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac oxidative stress via circulating propionate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In PA, accumulated propionyl-CoA and diminished hepatic propionate clearance lead to elevated circulating propionate. Gut microbiome-derived propionate is the primary cardiac propionyl-CoA source, and prolonged exposure induces significant oxidative stress in cardiomyocytes.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"heart\"]}}, {\"id\": \"Cardiac pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard cardiac therapies including ACE inhibitors, beta-blockers, and coenzyme Q10 supplementation for management of cardiomyopathy and QTc prolongation. Multicenter approaches are needed to strengthen efficacy data.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Carglumic acid (CGA)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid is a synthetic structural analog of N-acetylglutamate (NAG) approved for treatment of hyperammonemia in PA. Chronic CGA use is associated with reduction in hyperammonemic decompensation episodes and hospital admissions.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive therapy to support organic acid detoxification and excretion via formation of propionylcarnitine.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive renal dysfunction is a long-term complication of PA. In mouse models, CKD involves mitochondrial quality control impairment with disturbances in fission/mitophagy balance.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy is one of the most serious long-term complications of PA. In a cohort study, DCM was observed in 17 of 23 PA patients with cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001644\"}}, {\"id\": \"FGF21 and GDF15\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor growth due to recurrent catabolic crises and feeding difficulties.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay risk in severe or recurrent disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is reported as a late-onset complication of PA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia, especially in acute illness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001987\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is common in PA. In a dedicated natural history study, 61% of participants received an ID diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased alertness during acute metabolic decompensation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Liver transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Considered for severe recurrent decompensation and poor metabolic control. LT improves metabolic stability but does not fully correct the biochemical defect since PCC is expressed in extrahepatic tissues.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic atrophy has been reported as a long-term neurological complication of PA.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000648\"}}, {\"id\": \"PCCA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCCA\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCCB\"], \"association\": \"Pathogenic Variants\", \"variant_count\": 1}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute pancreatitis is a recognized complication of PA, occurring during or independent of metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"QTc prolongation is a recognized arrhythmia risk in PA, associated with metabolic decompensation and chronic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001657\"}}, {\"id\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in PCCA or PCCB reduce propionyl-CoA carboxylase catalytic activity in mitochondria.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"PCCA\", \"PCCB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Propionylglycine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Protein-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of propiogenic amino acids (valine, isoleucine, threonine, methionine) with specialized formula support is the cornerstone of PA management.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Renal mitochondrial quality control impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a PA mouse model, kidneys show altered mitochondrial ultrastructure, shifted mitochondrial networks towards fission, marked reduction of mitophagy, and steep reduction of PGC-1-alpha. These disturbances in mitochondrial homeostasis and quality control are involved in chronic kidney disease development.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitochondrial fission\", \"mitophagy\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis can occur in PA, typically during severe metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Secondary NAG deficiency and hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperammonemia in PA is related to secondary deficiency of N-acetylglutamate (NAG), the allosteric activator of carbamoyl phosphate synthetase 1 (CPS1), which is an irreversible rate-limiting enzyme in the urea cycle. CPS1 inhibition by accumulated propionyl-CoA metabolites impairs ureagenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"urea cycle\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur in PA, particularly in the context of metabolic decompensation and basal ganglia injury.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Toxic metabolite burden and mitochondrial stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of propionyl-CoA related metabolites contributes to metabolic acidosis, secondary hyperammonemia, and cellular energy stress in liver, brain, and myocardium.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tricarboxylic acid cycle\"]}}, {\"id\": \"Various PCCA pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA can result from biallelic pathogenic variants in PCCA, encoding the alpha subunit of propionyl-CoA carboxylase. PCCA variants reduce PCC holoenzyme function and cause the PCCA complementation form of propionic acidemia.\\n\"}, {\"id\": \"Various PCCB pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"PA can result from biallelic pathogenic variants in PCCB, encoding the beta subunit of propionyl-CoA carboxylase. PCCB variants reduce PCC holoenzyme function and cause the PCCB complementation form of propionic acidemia.\\n\"}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting with poor intake during metabolic instability.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Cardiac oxidative stress via circulating propionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Renal mitochondrial quality control impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Autism spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Basal ganglia necrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"2-Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Glycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"Propionylglycine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Toxic metabolite burden and mitochondrial stress\", \"target\": \"FGF21 and GDF15\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary NAG deficiency and hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac oxidative stress via circulating propionate\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial quality control impairment\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac multi-mechanism pathogenesis\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac multi-mechanism pathogenesis\", \"target\": \"Prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein-restricted diet\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carnitine supplementation\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid (CGA)\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ammonia-lowering therapy\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Secondary NAG deficiency and hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation\", \"target\": \"Toxic metabolite burden and mitochondrial stress\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac pharmacotherapy\", \"target\": \"Cardiac multi-mechanism pathogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PCCA pathogenic variants\", \"target\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCCB pathogenic variants\", \"target\": \"Propionyl-CoA carboxylase molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Various PCCA pathogenic variants\", \"target\": \"PCCA pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Various PCCB pathogenic variants\", \"target\": \"PCCB pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6069,6 +6222,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6115,6 +6269,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6159,6 +6314,7 @@
                 
                 <div class="item-desc">Context: Elevated glycine is a classical feature of PA. Notably, plasma glycine was not meaningfully associated with intellectual disability or ASD severity.
 </div>
+                
                 
                 
     
@@ -6227,6 +6383,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6273,6 +6430,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6317,6 +6475,7 @@
                 
                 <div class="item-desc">Context: Mitochondrial biomarkers FGF21 and GDF15 are elevated in PA and associated with more severe intellectual disability profile, suggesting their potential as surrogate endpoints.
 </div>
+                
                 
                 
     
