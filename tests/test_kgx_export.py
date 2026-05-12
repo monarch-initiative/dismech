@@ -209,30 +209,30 @@ class TestGeneToEdge:
     """Tests for gene_to_edge function."""
 
     def test_valid_gene(self):
-        """Test with a complete gene entry."""
-        gene = {"name": "IL4", "association": "Associated"}
+        """Test with a complete gene entry (gene_term.term.id is required)."""
+        gene = {
+            "name": "IL4",
+            "gene_term": {"term": {"id": "hgnc:6014", "label": "IL4"}},
+            "association": "Associated",
+        }
         edge = gene_to_edge("MONDO:0004979", gene)
         assert isinstance(edge, GeneToDiseaseAssociation)
-        assert edge.subject == "HGNC.SYMBOL:IL4"
+        assert edge.subject == "hgnc:6014"
         assert edge.predicate == "biolink:contributes_to"
         assert edge.object == "MONDO:0004979"
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
         assert edge.primary_knowledge_source == KNOWLEDGE_SOURCE
 
-    def test_missing_name(self):
-        """Test with missing gene name."""
-        gene = {"association": "Associated"}
+    def test_missing_gene_term(self):
+        """Without gene_term.term.id we now skip (see #2099 — no more
+        HGNC.SYMBOL:{name} fallback that produced malformed CURIEs)."""
+        gene = {"name": "IL4", "association": "Associated"}
         assert gene_to_edge("MONDO:0004979", gene) is None
 
     def test_none_gene(self):
         """Test with None gene."""
         assert gene_to_edge("MONDO:0004979", None) is None
-
-    def test_empty_name(self):
-        """Test with empty gene name."""
-        gene = {"name": "", "association": "Associated"}
-        assert gene_to_edge("MONDO:0004979", gene) is None
 
 
 class TestExposureToEdge:
@@ -591,12 +591,17 @@ class TestGeneToEdgeWithGeneTerm:
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
 
-    def test_falls_back_to_name(self):
-        """Test fallback to HGNC.SYMBOL:name when gene_term is missing."""
+    def test_skips_without_gene_term(self):
+        """Without gene_term.term.id we skip — no HGNC.SYMBOL:{name}
+        fallback that produced malformed CURIEs (see #2099)."""
         gene = {"name": "IL4", "association": "Associated"}
-        edge = gene_to_edge("MONDO:0004979", gene)
-        assert isinstance(edge, GeneToDiseaseAssociation)
-        assert edge.subject == "HGNC.SYMBOL:IL4"
+        assert gene_to_edge("MONDO:0004979", gene) is None
+
+    def test_skips_aneuploidy_or_disease_class(self):
+        """Multi-word names that aren't real gene symbols are skipped (#2099)."""
+        for name in ["Trisomy 21", "Cat Eye Syndrome (chr22 duplication)",
+                     "EDS-Related Connective Tissue Disorder"]:
+            assert gene_to_edge("MONDO:0018484", {"name": name}) is None
 
     def test_no_gene_term_no_name(self):
         """Test that None is returned when neither gene_term nor name is present."""
@@ -674,7 +679,11 @@ class TestTransform:
                 },
             ],
             "genetic": [
-                {"name": "GENE1", "association": "Associated"},
+                {
+                    "name": "GENE1",
+                    "gene_term": {"term": {"id": "hgnc:00001", "label": "GENE1"}},
+                    "association": "Associated",
+                },
             ],
             "inheritance": [
                 {
@@ -850,7 +859,11 @@ class TestExtractNodes:
                 },
             ],
             "genetic": [
-                {"name": "GENE1", "association": "Associated"},
+                {
+                    "name": "GENE1",
+                    "gene_term": {"term": {"id": "hgnc:00001", "label": "GENE1"}},
+                    "association": "Associated",
+                },
             ],
             "environmental": [
                 {
@@ -923,7 +936,7 @@ class TestExtractNodes:
         assert isinstance(node_by_id["MAXO:0000001"], Treatment)
         assert isinstance(node_by_id["NCIT:C00001"], ChemicalEntity)
         assert isinstance(node_by_id["HP:0000003"], PhenotypicFeature)
-        assert isinstance(node_by_id["HGNC.SYMBOL:GENE1"], Gene)
+        assert isinstance(node_by_id["hgnc:00001"], Gene)
         assert isinstance(node_by_id["ECTO:0000001"], ExposureEvent)
         assert isinstance(node_by_id["HP:0000006"], GeneticInheritance)
         assert isinstance(node_by_id["NCBITaxon:813"], OrganismTaxon)
@@ -945,7 +958,7 @@ class TestExtractNodes:
         # treatments[].name — see issue #1932.
         assert node_by_id["MAXO:0000001"].name == "treatment a"
         # Gene uses gene name
-        assert node_by_id["HGNC.SYMBOL:GENE1"].name == "GENE1"
+        assert node_by_id["hgnc:00001"].name == "GENE1"
 
     def test_node_provided_by(self, sample_disorder):
         """Test that all nodes have provided_by set."""
@@ -961,7 +974,7 @@ class TestExtractNodes:
         assert "biolink:Disease" in node_by_id["MONDO:0000001"].category
         assert "biolink:PhenotypicFeature" in node_by_id["HP:0000001"].category
         assert "biolink:Cell" in node_by_id["CL:0000001"].category
-        assert "biolink:Gene" in node_by_id["HGNC.SYMBOL:GENE1"].category
+        assert "biolink:Gene" in node_by_id["hgnc:00001"].category
 
     def test_deduplicates_nodes(self):
         """Test that duplicate term IDs only produce one node."""

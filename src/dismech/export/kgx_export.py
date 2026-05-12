@@ -333,8 +333,8 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     """
     Convert a genetic association entry to a KGX edge.
 
-    Prefers gene_term.term.id (proper HGNC CURIE) when available,
-    falls back to constructing HGNC.SYMBOL:{name} from the name field.
+    Requires a curated gene_term.term.id (proper HGNC CURIE). Entries
+    without one are skipped — see #2099.
 
     Args:
         disease_id: The disease term ID
@@ -346,13 +346,12 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     if not gene:
         return None
 
-    # Prefer proper HGNC CURIE from gene_term, fall back to symbol from name
+    # Require a curated gene_term.term.id; without it we can't safely emit a
+    # Gene edge (the prior HGNC.SYMBOL:{name} fallback produced malformed
+    # CURIEs for aneuploidies, disease classes, etc. — see #2099).
     gene_id = _get_term_id(gene, ["gene_term", "term", "id"])
     if not gene_id:
-        gene_name = gene.get("name")
-        if not gene_name:
-            return None
-        gene_id = f"HGNC.SYMBOL:{gene_name}"
+        return None
 
     predicate = "biolink:contributes_to"
 
@@ -991,19 +990,13 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
             if node:
                 yield node
 
-    # Gene nodes
+    # Gene nodes — only emit when a curated gene_term.term.id exists (see #2099).
     for gene in record.get("genetic") or []:
         gene_id = _get_term_id(gene, ["gene_term", "term", "id"])
-        if gene_id:
-            label = _get_term_id(gene, ["gene_term", "term", "label"])
-            node = _emit(gene_id, gene.get("name") or label, "biolink:Gene")
-        else:
-            gene_name = gene.get("name") if gene else None
-            if gene_name:
-                gene_id = f"HGNC.SYMBOL:{gene_name}"
-                node = _emit(gene_id, gene_name, "biolink:Gene")
-            else:
-                node = None
+        if not gene_id:
+            continue
+        label = _get_term_id(gene, ["gene_term", "term", "label"])
+        node = _emit(gene_id, gene.get("name") or label, "biolink:Gene")
         if node:
             yield node
 
