@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2417,7 +2570,7 @@
                 </span>
                 
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
                 
                 
                 <span class="badge badge-category" style="background: rgba(255,255,255,0.1);">Hematological Disease</span>
@@ -2574,7 +2727,7 @@
             
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
-                <div class="stat-value">6</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3728,7 +3881,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Globin Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess unpaired alpha-globin chains precipitate as insoluble aggregates in erythroid precursors, causing oxidative membrane damage, apoptosis of erythroblasts (ineffective erythropoiesis), and shortened survival of mature red blood cells (hemolysis). This is the central pathogenic mechanism distinguishing beta-thalassemia from alpha-thalassemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"response to oxidative stress\", \"apoptotic process\"], \"genes\": [\"HBA1\", \"HBA2\"]}}, {\"id\": \"Chronic Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral destruction of abnormal erythrocytes with membrane damage from precipitated alpha-globin chains. Leads to anemia, jaundice, splenomegaly, and gallstones.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\", \"macrophage\"], \"biological_processes\": [\"erythrocyte homeostasis\", \"positive regulation of erythrocyte clearance\"]}}, {\"id\": \"Defective Beta-Globin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"hemoglobin biosynthetic process\"], \"genes\": [\"HBB\"]}}, {\"id\": \"HBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"Ineffective Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive expansion of erythroid precursors in bone marrow and extramedullary sites, but most cells undergo apoptosis before maturing. This drives erythroid hyperplasia, skeletal deformities (marrow expansion), and inappropriately low reticulocyte output relative to the degree of erythroid expansion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid progenitor cell\"], \"biological_processes\": [\"erythrocyte differentiation\", \"erythrocyte homeostasis\"]}}, {\"id\": \"Iron Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iron accumulation from transfusional hemosiderosis and increased intestinal absorption (due to hepcidin suppression from ineffective erythropoiesis). Iron deposits in heart, liver, and endocrine organs cause cardiomyopathy, liver fibrosis, diabetes, and hypogonadism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intracellular iron ion homeostasis\", \"iron ion transport\"], \"genes\": [\"HAMP\"]}}], \"edges\": [{\"source\": \"Defective Beta-Globin Synthesis\", \"target\": \"Alpha-Globin Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Ineffective Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Chronic Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ineffective Erythropoiesis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HBB\", \"target\": \"Defective Beta-Globin Synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Globin Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess unpaired alpha-globin chains precipitate as insoluble aggregates in erythroid precursors, causing oxidative membrane damage, apoptosis of erythroblasts (ineffective erythropoiesis), and shortened survival of mature red blood cells (hemolysis). This is the central pathogenic mechanism distinguishing beta-thalassemia from alpha-thalassemia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"response to oxidative stress\", \"apoptotic process\"], \"genes\": [\"HBA1\", \"HBA2\"]}}, {\"id\": \"Chronic Hemolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Peripheral destruction of abnormal erythrocytes with membrane damage from precipitated alpha-globin chains. Leads to anemia, jaundice, splenomegaly, and gallstones.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\", \"macrophage\"], \"biological_processes\": [\"erythrocyte homeostasis\", \"positive regulation of erythrocyte clearance\"]}}, {\"id\": \"Defective Beta-Globin Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in the HBB gene reduce or abolish beta-globin chain production. Beta-zero (beta0) mutations produce no beta-globin; beta-plus (beta+) mutations produce reduced amounts. Over 300 mutations have been identified, including point mutations, small deletions, and rarely large deletions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroblast\"], \"biological_processes\": [\"hemoglobin biosynthetic process\"], \"genes\": [\"HBB\"]}}, {\"id\": \"Fetal Hemoglobin Modulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic modifiers that increase fetal hemoglobin (HbF) production ameliorate disease severity by compensating for deficient adult hemoglobin (HbA) and reducing free alpha-globin chains. Key modifiers include BCL11A, HBS1L-MYB locus, and KLF1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid progenitor cell\"], \"biological_processes\": [\"regulation of hemoglobin biosynthetic process\"], \"genes\": [\"BCL11A\", \"KLF1\", \"MYB\", \"HBS1L\"]}}, {\"id\": \"HBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Causative\"}}, {\"id\": \"HbA2\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C92259\", \"term_label\": \"Hemoglobin A2 Measurement\", \"readouts\": [{\"target\": \"Defective Beta-Globin Synthesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated HbA2 is a diagnostic readout of altered globin-chain production caused by beta-globin synthesis defects.\"}]}}, {\"id\": \"HbF\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C92262\", \"term_label\": \"Hemoglobin F Measurement\", \"readouts\": [{\"target\": \"Fetal Hemoglobin Modulation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"HbF level reports fetal-hemoglobin persistence or induction and modifies the clinical impact of beta-globin deficiency.\"}]}}, {\"id\": \"Hemoglobin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"term_id\": \"NCIT:C64848\", \"term_label\": \"Hemoglobin Measurement\", \"readouts\": [{\"target\": \"Ineffective Erythropoiesis\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Lower hemoglobin reflects the net anemia produced by ineffective erythropoiesis and hemolysis.\"}]}}, {\"id\": \"Indirect Bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C64483\", \"term_label\": \"Indirect Bilirubin Measurement\", \"readouts\": [{\"target\": \"Chronic Hemolysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Indirect bilirubin elevation reflects heme catabolism from chronic red-cell destruction.\"}]}}, {\"id\": \"Ineffective Erythropoiesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Massive expansion of erythroid precursors in bone marrow and extramedullary sites, but most cells undergo apoptosis before maturing. This drives erythroid hyperplasia, skeletal deformities (marrow expansion), and inappropriately low reticulocyte output relative to the degree of erythroid expansion.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythroid progenitor cell\"], \"biological_processes\": [\"erythrocyte differentiation\", \"erythrocyte homeostasis\"]}}, {\"id\": \"Iron Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Iron accumulation from transfusional hemosiderosis and increased intestinal absorption (due to hepcidin suppression from ineffective erythropoiesis). Iron deposits in heart, liver, and endocrine organs cause cardiomyopathy, liver fibrosis, diabetes, and hypogonadism.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"intracellular iron ion homeostasis\", \"iron ion transport\"], \"genes\": [\"HAMP\"]}}, {\"id\": \"Liver Iron Concentration\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C124065\", \"term_label\": \"Liver Iron Concentration\", \"readouts\": [{\"target\": \"Iron Overload\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-073\", \"FDA-SE-pediatric-noncancer-051\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-073\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Nonmalignant hematology\", \"patient_population\": \"Patients with chronic iron overload or non-transfusion-dependent thalassemia syndromes\", \"surrogate_endpoint\": \"Serum ferritin and liver iron concentration\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Iron chelator\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Nonmalignant hematology; population: Patients with chronic iron overload or non-transfusion-dependent thalassemia syndromes; endpoint: Serum ferritin and liver iron concentration; approval context: traditional; drug mechanism: Iron chelator.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}, {\"row_id\": \"FDA-SE-pediatric-noncancer-051\", \"source_table\": \"PEDIATRIC_NONCANCER\", \"disease_or_use\": \"Nonmalignant hematology\", \"patient_population\": \"2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes\", \"surrogate_endpoint\": \"Serum ferritin and liver iron concentration\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Iron chelator\", \"age_range\": \"2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Nonmalignant hematology; population: 2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes; endpoint: Serum ferritin and liver iron concentration; approval context: traditional; drug mechanism: Iron chelator; age range: 2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Liver iron concentration is a tissue-level readout of iron overload and complements serum ferritin for chelation monitoring.\"}]}}, {\"id\": \"Reticulocytes\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Variable\", \"term_id\": \"NCIT:C51947\", \"term_label\": \"Reticulocyte Count\", \"readouts\": [{\"target\": \"Ineffective Erythropoiesis\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Reticulocyte counts reflect marrow output but are interpreted relative to the severity of anemia and ineffective erythropoiesis.\"}]}}, {\"id\": \"Serum Ferritin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"NCIT:C224202\", \"term_label\": \"Serum Ferritin\", \"readouts\": [{\"target\": \"Iron Overload\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"regulatory_endpoint_refs\": [\"FDA-SE-adult-noncancer-073\", \"FDA-SE-pediatric-noncancer-051\"], \"_regulatory_endpoints\": [{\"row_id\": \"FDA-SE-adult-noncancer-073\", \"source_table\": \"ADULT_NONCANCER\", \"disease_or_use\": \"Nonmalignant hematology\", \"patient_population\": \"Patients with chronic iron overload or non-transfusion-dependent thalassemia syndromes\", \"surrogate_endpoint\": \"Serum ferritin and liver iron concentration\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Iron chelator\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Nonmalignant hematology; population: Patients with chronic iron overload or non-transfusion-dependent thalassemia syndromes; endpoint: Serum ferritin and liver iron concentration; approval context: traditional; drug mechanism: Iron chelator.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}, {\"row_id\": \"FDA-SE-pediatric-noncancer-051\", \"source_table\": \"PEDIATRIC_NONCANCER\", \"disease_or_use\": \"Nonmalignant hematology\", \"patient_population\": \"2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes\", \"surrogate_endpoint\": \"Serum ferritin and liver iron concentration\", \"approval_type\": \"TRADITIONAL\", \"drug_mechanism_of_action\": \"Iron chelator\", \"age_range\": \"2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes\", \"endpoint_validation_level\": \"VALIDATED_SURROGATE_ENDPOINT\", \"clinical_benefit_linkage\": \"KNOWN_TO_PREDICT_CLINICAL_BENEFIT\", \"context_of_use\": \"Disease/use: Nonmalignant hematology; population: 2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes; endpoint: Serum ferritin and liver iron concentration; approval context: traditional; drug mechanism: Iron chelator; age range: 2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes.\", \"source_url\": \"https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure\"}], \"interpretation\": \"Higher serum ferritin is a blood readout of systemic iron burden, though inflammation and liver injury can affect interpretation.\"}]}}], \"edges\": [{\"source\": \"Defective Beta-Globin Synthesis\", \"target\": \"Alpha-Globin Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Ineffective Erythropoiesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Globin Chain Excess\", \"target\": \"Chronic Hemolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ineffective Erythropoiesis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Iron Overload\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ineffective Erythropoiesis\", \"target\": \"Hemoglobin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower hemoglobin reflects the net anemia produced by ineffective erythropoiesis and hemolysis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Defective Beta-Globin Synthesis\", \"target\": \"HbA2\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated HbA2 is a diagnostic readout of altered globin-chain production caused by beta-globin synthesis defects.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Fetal Hemoglobin Modulation\", \"target\": \"HbF\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"HbF level reports fetal-hemoglobin persistence or induction and modifies the clinical impact of beta-globin deficiency.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Iron Overload\", \"target\": \"Serum Ferritin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher serum ferritin is a blood readout of systemic iron burden, though inflammation and liver injury can affect interpretation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Chronic Hemolysis\", \"target\": \"Indirect Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Indirect bilirubin elevation reflects heme catabolism from chronic red-cell destruction.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Ineffective Erythropoiesis\", \"target\": \"Reticulocytes\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Reticulocyte counts reflect marrow output but are interpreted relative to the severity of anemia and ineffective erythropoiesis.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"THRESHOLD_DEPENDENT\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"Iron Overload\", \"target\": \"Liver Iron Concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Liver iron concentration is a tissue-level readout of iron overload and complements serum ferritin for chelation monitoring.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"HBB\", \"target\": \"Defective Beta-Globin Synthesis\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4988,7 +5141,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="item-box biochemical-box">
@@ -5002,6 +5155,67 @@
                 <div class="item-desc">Context: Hemoglobin 3-7 g/dL in untreated thalassemia major</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Ineffective Erythropoiesis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Negative
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Lower hemoglobin reflects the net anemia produced by ineffective erythropoiesis and hemolysis.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20492708" target="_blank">PMID:20492708</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Individuals with thalassemia major usually present within the first two years of life with severe anemia, requiring regular red blood cell (RBC) transfusions."</div>
+                
+                
+                <div class="evidence-explanation">This clinical review supports decreased hemoglobin/severe anemia as a key biochemical finding in beta-thalassemia major.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5017,6 +5231,67 @@
                 <div class="item-desc">Context: Elevated to 3.5-7% in beta-thalassemia trait; diagnostic marker</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Defective Beta-Globin Synthesis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Diagnostic
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Elevated HbA2 is a diagnostic readout of altered globin-chain production caused by beta-globin synthesis defects.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7653059" target="_blank">PMID:7653059</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The increased level of HbA2 is a reliable marker of heterozygous beta-thalassaemia."</div>
+                
+                
+                <div class="evidence-explanation">This diagnostic study supports elevated HbA2 as a marker for beta-thalassemia heterozygosity.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5032,6 +5307,67 @@
                 <div class="item-desc">Context: Variably elevated depending on genotype and modifiers</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Fetal Hemoglobin Modulation</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">HbF level reports fetal-hemoglobin persistence or induction and modifies the clinical impact of beta-globin deficiency.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15163316" target="_blank">PMID:15163316</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The results indicated that F-RBC were more numerous in beta-thalassemic (both transfused and nontransfused) patients than in normal donors, but, in most cases, their HbF content was comparable, suggesting that increased HbF in thalassemia is mainly due to higher %F-cells rather than an increased..."</div>
+                
+                
+                <div class="evidence-explanation">This flow-cytometry study supports elevated HbF-containing red cells as a beta-thalassemia biochemical finding.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5047,6 +5383,121 @@
                 <div class="item-desc">Context: Reflects iron overload from transfusions and increased absorption</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Iron Overload</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Higher serum ferritin is a blood readout of systemic iron burden, though inflammation and liver injury can affect interpretation.</div>
+                        
+                        
+                        <div class="regulatory-endpoints">
+                            
+                            <div class="regulatory-endpoint">
+                                <div>
+                                    
+                                    <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-adult-noncancer-073</a>
+                                    
+                                    <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
+                                </div>
+                                <div class="regulatory-endpoint-title">Serum ferritin and liver iron concentration</div>
+                                <div class="regulatory-endpoint-meta">
+                                    
+                                    <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
+                                        Traditional
+                                    </span>
+                                    
+                                    
+                                    <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
+                                        Validated Surrogate Endpoint
+                                    </span>
+                                    
+                                </div>
+                                
+                                <div style="margin-top: 5px; color: #4f46e5;">Patients with chronic iron overload or non-transfusion-dependent thalassemia syndromes</div>
+                                
+                            </div>
+                            
+                            <div class="regulatory-endpoint">
+                                <div>
+                                    
+                                    <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-pediatric-noncancer-051</a>
+                                    
+                                    <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
+                                </div>
+                                <div class="regulatory-endpoint-title">Serum ferritin and liver iron concentration</div>
+                                <div class="regulatory-endpoint-meta">
+                                    
+                                    <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
+                                        Traditional
+                                    </span>
+                                    
+                                    
+                                    <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
+                                        Validated Surrogate Endpoint
+                                    </span>
+                                    
+                                </div>
+                                
+                                <div style="margin-top: 5px; color: #4f46e5;">2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes</div>
+                                
+                            </div>
+                            
+                        </div>
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24790662" target="_blank">PMID:24790662</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Iron overload can be determined by serum ferritin measurement."</div>
+                
+                
+                <div class="evidence-explanation">This beta-thalassemia major/intermedia study supports serum ferritin as a biochemical marker of iron overload.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5062,6 +5513,67 @@
                 <div class="item-desc">Context: From chronic hemolysis</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Chronic Hemolysis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Indirect bilirubin elevation reflects heme catabolism from chronic red-cell destruction.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20492708" target="_blank">PMID:20492708</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Findings in untreated or poorly transfused individuals with thalassemia major, as seen in some developing countries, are growth retardation, pallor, jaundice, poor musculature, hepatosplenomegaly, leg ulcers, development of masses from extramedullary hematopoiesis, and skeletal changes that..."</div>
+                
+                
+                <div class="evidence-explanation">The review supports jaundice in untreated/poorly transfused thalassemia major, which is consistent with bilirubin elevation but does not directly measure indirect bilirubin.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5077,6 +5589,197 @@
                 <div class="item-desc">Context: Elevated but inappropriately low for degree of anemia</div>
                 
                 
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Correlates With
+                        </span>
+                        <span class="readout-target">Ineffective Erythropoiesis</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Threshold Dependent
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Reticulocyte counts reflect marrow output but are interpreted relative to the severity of anemia and ineffective erythropoiesis.</div>
+                        
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15163316" target="_blank">PMID:15163316</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Using flow cytometry, we studied the percentage of HbF-containing cells and their HbF content in RBC, reticulocytes (retics) and normoblasts (NRBC) present in the peripheral blood of patients with beta-thalassemia."</div>
+                
+                
+                <div class="evidence-explanation">This study supports reticulocytes as a measured peripheral-blood cell population in beta-thalassemia biomarker assessment.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
+    
+    
+            </div>
+            
+            <div class="item-box biochemical-box">
+                <div class="item-name">
+                    Liver Iron Concentration
+                    
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
+                    
+                </div>
+                
+                <div class="item-desc">Context: MRI- or biopsy-derived tissue iron burden, especially relevant in transfusion-dependent or iron-overloaded beta-thalassemia.</div>
+                
+                
+                <div class="biomarker-readouts">
+                    <div class="biomarker-readouts-title">Pathograph Readouts</div>
+                    
+                    <div class="biomarker-readout">
+                        <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
+                            Readout Of
+                        </span>
+                        <span class="readout-target">Iron Overload</span>
+                        
+                        <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
+                            Positive
+                        </span>
+                        
+                        
+                        <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
+                            Monitoring
+                        </span>
+                        
+                        
+                        <div class="readout-interpretation">Liver iron concentration is a tissue-level readout of iron overload and complements serum ferritin for chelation monitoring.</div>
+                        
+                        
+                        <div class="regulatory-endpoints">
+                            
+                            <div class="regulatory-endpoint">
+                                <div>
+                                    
+                                    <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-adult-noncancer-073</a>
+                                    
+                                    <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
+                                </div>
+                                <div class="regulatory-endpoint-title">Serum ferritin and liver iron concentration</div>
+                                <div class="regulatory-endpoint-meta">
+                                    
+                                    <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
+                                        Traditional
+                                    </span>
+                                    
+                                    
+                                    <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
+                                        Validated Surrogate Endpoint
+                                    </span>
+                                    
+                                </div>
+                                
+                                <div style="margin-top: 5px; color: #4f46e5;">Patients with chronic iron overload or non-transfusion-dependent thalassemia syndromes</div>
+                                
+                            </div>
+                            
+                            <div class="regulatory-endpoint">
+                                <div>
+                                    
+                                    <a class="regulatory-endpoint-id" href="https://www.fda.gov/drugs/development-resources/table-surrogate-endpoints-were-basis-drug-approval-or-licensure" target="_blank" rel="noopener">FDA-SE-pediatric-noncancer-051</a>
+                                    
+                                    <span class="tag" style="background: #dbeafe; color: #1d4ed8; font-size: 0.72rem;">FDA</span>
+                                </div>
+                                <div class="regulatory-endpoint-title">Serum ferritin and liver iron concentration</div>
+                                <div class="regulatory-endpoint-meta">
+                                    
+                                    <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
+                                        Traditional
+                                    </span>
+                                    
+                                    
+                                    <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
+                                        Validated Surrogate Endpoint
+                                    </span>
+                                    
+                                </div>
+                                
+                                <div style="margin-top: 5px; color: #4f46e5;">2 years or older for chronic iron overload and 10 years older for non-transfusion-dependent thalassemia syndromes</div>
+                                
+                            </div>
+                            
+                        </div>
+                        
+                        
+                        
+    
+    
+                    </div>
+                    
+                </div>
+                
+                
+    
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30588469" target="_blank">PMID:30588469</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Correlations of LIC, as determined by R2-MRI, with SF and ALT levels, were assessed in all participants."</div>
+                
+                
+                <div class="evidence-explanation">This thalassemia intermedia study supports R2-MRI liver iron concentration as a measured tissue biomarker for iron overload.</div>
+                
+            </div>
+            
+            
+        </div>
+    </details>
     
     
             </div>
@@ -5594,21 +6297,210 @@ biochemical:
 - name: Hemoglobin
   presence: Decreased
   context: Hemoglobin 3-7 g/dL in untreated thalassemia major
+  readouts:
+  - target: Ineffective Erythropoiesis
+    relationship: READOUT_OF
+    direction: NEGATIVE
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      Lower hemoglobin reflects the net anemia produced by ineffective
+      erythropoiesis and hemolysis.
+  biomarker_term:
+    preferred_term: hemoglobin measurement
+    term:
+      id: NCIT:C64848
+      label: Hemoglobin Measurement
+  evidence:
+  - reference: PMID:20492708
+    reference_title: &#34;Beta-thalassemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Individuals with thalassemia major usually present within the first two
+      years of life with severe anemia, requiring regular red blood cell (RBC)
+      transfusions.
+    explanation: &gt;-
+      This clinical review supports decreased hemoglobin/severe anemia as a key
+      biochemical finding in beta-thalassemia major.
 - name: HbA2
   presence: Elevated
   context: Elevated to 3.5-7% in beta-thalassemia trait; diagnostic marker
+  readouts:
+  - target: Defective Beta-Globin Synthesis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: DIAGNOSTIC
+    interpretation: &gt;-
+      Elevated HbA2 is a diagnostic readout of altered globin-chain production
+      caused by beta-globin synthesis defects.
+  biomarker_term:
+    preferred_term: hemoglobin A2 measurement
+    term:
+      id: NCIT:C92259
+      label: Hemoglobin A2 Measurement
+  evidence:
+  - reference: PMID:7653059
+    reference_title: &#34;[Diagnosis of beta-thalassemia on the basis of HbA2 determination].&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The increased level of HbA2 is a reliable marker of heterozygous
+      beta-thalassaemia.
+    explanation: &gt;-
+      This diagnostic study supports elevated HbA2 as a marker for
+      beta-thalassemia heterozygosity.
 - name: HbF
   presence: Elevated
   context: Variably elevated depending on genotype and modifiers
+  readouts:
+  - target: Fetal Hemoglobin Modulation
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      HbF level reports fetal-hemoglobin persistence or induction and modifies
+      the clinical impact of beta-globin deficiency.
+  biomarker_term:
+    preferred_term: hemoglobin F measurement
+    term:
+      id: NCIT:C92262
+      label: Hemoglobin F Measurement
+  evidence:
+  - reference: PMID:15163316
+    reference_title: &#34;Flow cytometric analysis of fetal hemoglobin in erythroid precursors of beta-thalassemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The results indicated that F-RBC were more numerous in beta-thalassemic
+      (both transfused and nontransfused) patients than in normal donors, but,
+      in most cases, their HbF content was comparable, suggesting that increased
+      HbF in thalassemia is mainly due to higher %F-cells rather than an
+      increased HbF per cell.
+    explanation: &gt;-
+      This flow-cytometry study supports elevated HbF-containing red cells as a
+      beta-thalassemia biochemical finding.
 - name: Serum Ferritin
   presence: Elevated
   context: Reflects iron overload from transfusions and increased absorption
+  readouts:
+  - target: Iron Overload
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: MONITORING
+    regulatory_endpoint_refs:
+    - FDA-SE-adult-noncancer-073
+    - FDA-SE-pediatric-noncancer-051
+    interpretation: &gt;-
+      Higher serum ferritin is a blood readout of systemic iron burden, though
+      inflammation and liver injury can affect interpretation.
+  biomarker_term:
+    preferred_term: serum ferritin
+    term:
+      id: NCIT:C224202
+      label: Serum Ferritin
+  evidence:
+  - reference: PMID:24790662
+    reference_title: &#34;Iron overload in Beta thalassaemia major and intermedia patients.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Iron overload can be determined by serum ferritin measurement.
+    explanation: &gt;-
+      This beta-thalassemia major/intermedia study supports serum ferritin as a
+      biochemical marker of iron overload.
 - name: Indirect Bilirubin
   presence: Elevated
   context: From chronic hemolysis
+  readouts:
+  - target: Chronic Hemolysis
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      Indirect bilirubin elevation reflects heme catabolism from chronic
+      red-cell destruction.
+  biomarker_term:
+    preferred_term: indirect bilirubin measurement
+    term:
+      id: NCIT:C64483
+      label: Indirect Bilirubin Measurement
+  evidence:
+  - reference: PMID:20492708
+    reference_title: &#34;Beta-thalassemia.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Findings in untreated or poorly transfused individuals with thalassemia
+      major, as seen in some developing countries, are growth retardation,
+      pallor, jaundice, poor musculature, hepatosplenomegaly, leg ulcers,
+      development of masses from extramedullary hematopoiesis, and skeletal
+      changes that result from expansion of the bone marrow.
+    explanation: &gt;-
+      The review supports jaundice in untreated/poorly transfused thalassemia
+      major, which is consistent with bilirubin elevation but does not directly
+      measure indirect bilirubin.
 - name: Reticulocytes
   presence: Variable
   context: Elevated but inappropriately low for degree of anemia
+  readouts:
+  - target: Ineffective Erythropoiesis
+    relationship: CORRELATES_WITH
+    direction: THRESHOLD_DEPENDENT
+    endpoint_context: MONITORING
+    interpretation: &gt;-
+      Reticulocyte counts reflect marrow output but are interpreted relative to
+      the severity of anemia and ineffective erythropoiesis.
+  biomarker_term:
+    preferred_term: reticulocyte count
+    term:
+      id: NCIT:C51947
+      label: Reticulocyte Count
+  evidence:
+  - reference: PMID:15163316
+    reference_title: &#34;Flow cytometric analysis of fetal hemoglobin in erythroid precursors of beta-thalassemia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Using flow cytometry, we studied the percentage of HbF-containing cells
+      and their HbF content in RBC, reticulocytes (retics) and normoblasts
+      (NRBC) present in the peripheral blood of patients with beta-thalassemia.
+    explanation: &gt;-
+      This study supports reticulocytes as a measured peripheral-blood cell
+      population in beta-thalassemia biomarker assessment.
+- name: Liver Iron Concentration
+  presence: Elevated
+  context: &gt;-
+    MRI- or biopsy-derived tissue iron burden, especially relevant in
+    transfusion-dependent or iron-overloaded beta-thalassemia.
+  readouts:
+  - target: Iron Overload
+    relationship: READOUT_OF
+    direction: POSITIVE
+    endpoint_context: MONITORING
+    regulatory_endpoint_refs:
+    - FDA-SE-adult-noncancer-073
+    - FDA-SE-pediatric-noncancer-051
+    interpretation: &gt;-
+      Liver iron concentration is a tissue-level readout of iron overload and
+      complements serum ferritin for chelation monitoring.
+  biomarker_term:
+    preferred_term: liver iron concentration
+    term:
+      id: NCIT:C124065
+      label: Liver Iron Concentration
+  synonyms:
+  - LIC
+  evidence:
+  - reference: PMID:30588469
+    reference_title: &#34;Relationship between liver iron concentration determined by R2-MRI, serum ferritin, and liver enzymes in patients with thalassemia intermedia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Correlations of LIC, as determined by R2-MRI, with SF and ALT levels,
+      were assessed in all participants.
+    explanation: &gt;-
+      This thalassemia intermedia study supports R2-MRI liver iron
+      concentration as a measured tissue biomarker for iron overload.
 genetic:
 - name: HBB
   association: Causative
@@ -5791,7 +6683,7 @@ references:
 - reference: DOI:10.3390/thalassrep14040010
   title: &#39;Thalassemia: Pathophysiology, Diagnosis, and Advances in Treatment&#39;
   findings: []
-updated_date: &#39;2026-04-28T16:00:00Z&#39;
+updated_date: &#39;2026-05-10T22:52:07Z&#39;
 </pre>
             </div>
         </div>
@@ -6499,7 +7391,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Beta Thalassemia", "mondoId": "MONDO:0019402", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Beta_Thalassemia", "yamlRevision": "ac25293819d0"};
+        const OS_CONFIG = {"diseaseName": "Beta Thalassemia", "mondoId": "MONDO:0019402", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Beta_Thalassemia", "yamlRevision": "0f9ea16d4d76"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
