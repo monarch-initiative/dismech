@@ -941,8 +941,9 @@ class TestExtractNodes:
         assert node_by_id["HP:0000001"].name == "Phenotype A"
         # Cell type uses preferred_term
         assert node_by_id["CL:0000001"].name == "Cell A"
-        # Treatment uses treatment name
-        assert node_by_id["MAXO:0000001"].name == "Treatment A"
+        # Treatment uses the canonical MAXO term label, not the free-text
+        # treatments[].name — see issue #1932.
+        assert node_by_id["MAXO:0000001"].name == "treatment a"
         # Gene uses gene name
         assert node_by_id["HGNC.SYMBOL:GENE1"].name == "GENE1"
 
@@ -1006,6 +1007,27 @@ class TestExtractNodes:
         assert "MONDO:0000001" in ids
         assert "HP:0000001" in ids
         assert len(nodes) == 2  # disease + 1 valid phenotype
+
+    def test_treatment_node_uses_canonical_maxo_label(self):
+        """Treatment node `name` must come from treatment_term.term.label,
+        not the free-text treatments[].name (issue #1932). Different disorders
+        share one MAXO CURIE under different free-text names; dedup must collapse
+        on the canonical ontology label."""
+        disorder = {
+            "name": "Test Disorder",
+            "disease_term": {"term": {"id": "MONDO:0000001"}},
+            "treatments": [
+                {
+                    "name": "Alpelisib (BYL719)",
+                    "treatment_term": {
+                        "term": {"id": "MAXO:0000648", "label": "enzyme inhibitor agent therapy"},
+                    },
+                },
+            ],
+        }
+        nodes = list(extract_nodes(disorder))
+        node_by_id = {n.id: n for n in nodes}
+        assert node_by_id["MAXO:0000648"].name == "enzyme inhibitor agent therapy"
 
     def test_gene_prefers_gene_term_id(self):
         """Test that gene nodes prefer gene_term.term.id over HGNC.SYMBOL."""
