@@ -186,6 +186,53 @@ The `just fetch-reference` command can accept multiple identifiers of different 
 
 You can also find additional references relevant to individual assertions, on top of what is in the deep research.
 
+#### Including Images from Deep Research Artifacts
+
+When an Edison (falcon) run produces artifacts, check whether any images in the
+artifact directory directly support a specific evidence claim you are curating.
+If so, include the image path in the `images` slot on the evidence item.
+
+**CRITICAL relevance rule:** Only include an image if it **directly illustrates
+the specific claim** made in that evidence item.  Do NOT include images for
+general background, unrelated figures, or mere "this might be interesting"
+reasons.  Every listed image must be clearly connected to the snippet or
+explanation it accompanies.
+
+To check available artifacts for a falcon report:
+```bash
+ls research/DISORDER_NAME-deep-research-falcon_artifacts/
+```
+
+The `images` slot is a list of paths **relative to the `research/` directory**:
+
+```yaml
+evidence:
+  - reference: PMID:35533128
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: "Exactly quoted text from the abstract..."
+    explanation: "Why this supports the claim."
+    images:
+      - Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon_artifacts/figure-01.png
+```
+
+Multiple images per evidence item are allowed when each is distinctly relevant:
+
+```yaml
+evidence:
+  - reference: PMID:35533128
+    supports: SUPPORT
+    snippet: "..."
+    images:
+      - MyDisorder-deep-research-falcon_artifacts/pathway-diagram.png
+      - MyDisorder-deep-research-falcon_artifacts/clinical-data-table.png
+```
+
+**Do not invent image paths.** Only reference files that actually exist in the
+artifact directory and have been committed to the repository.  Non-image
+artifacts (e.g., `.md` tables, `.json` data) should generally not be listed
+under `images`; they are already linked in the report's `## Artifacts` section.
+
 #### Finding Additional References
 
 Use PubMed first whenever possible. Use Semantic Scholar as a backup discovery
