@@ -18,6 +18,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
+pytest.importorskip("deep_research_client", reason="deep-research-client not installed")
+pytest.importorskip("edison_client", reason="edison_client not installed")
+
 # Import the helpers under test directly so tests don't depend on __main__ entry
 import sys
 

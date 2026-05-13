@@ -7,7 +7,7 @@ frontmatter, and produces research/artifact_index.yaml with:
 
   - A list of ALL reports (with or without artifacts)
   - A lookup table keyed by trajectory_id for reports that have one
-  - A collision report flagging artifact filenames shared by multiple reports
+    - A collision report flagging reused artifact paths shared by multiple reports
 
 Usage:
     python scripts/index_research_artifacts.py [--research-dir research/]
@@ -77,8 +77,8 @@ def build_index(research_dir: Path) -> dict:
     all_reports: list[dict] = []
     index_by_id: dict[str, dict] = {}
 
-    # Track artifact filenames (basename only) → list of report names, for collision check
-    filename_map: dict[str, list[str]] = defaultdict(list)
+    # Track artifact paths → list of report names, for collision check
+    path_map: dict[str, list[str]] = defaultdict(list)
 
     for report_path in report_files:
         try:
@@ -109,9 +109,9 @@ def build_index(research_dir: Path) -> dict:
             }
             entry["artifacts"].append(art_info)
 
-            # Track basename for collision detection
-            if art_info["filename"]:
-                filename_map[art_info["filename"]].append(report_name)
+            # Track full relative path for collision detection
+            if art_info["path"]:
+                path_map[art_info["path"]].append(report_name)
 
         all_reports.append(entry)
 
@@ -138,12 +138,12 @@ def build_index(research_dir: Path) -> dict:
                     ],
                 }
 
-    # Detect filename collisions: same basename, different artifact directories
+    # Detect path collisions: same relative artifact path referenced by multiple reports
     collisions = []
-    for basename, report_list in sorted(filename_map.items()):
+    for artifact_path, report_list in sorted(path_map.items()):
         unique_reports = list(dict.fromkeys(report_list))
         if len(unique_reports) > 1:
-            collisions.append({"filename": basename, "reports": unique_reports})
+            collisions.append({"path": artifact_path, "reports": unique_reports})
 
     reports_with_artifacts = [r for r in all_reports if r["artifact_count"] > 0]
 
@@ -204,9 +204,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if index["collisions"]:
-        print(f"\nWARNING: {index['collision_count']} artifact filename collision(s):")
+        print(f"\nWARNING: {index['collision_count']} artifact path collision(s):")
         for c in index["collisions"]:
-            print(f"  {c['filename']!r} appears in: {', '.join(c['reports'])}")
+            print(f"  {c['path']!r} appears in: {', '.join(c['reports'])}")
         if args.check:
             return 1
 
