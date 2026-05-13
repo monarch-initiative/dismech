@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3696,7 +3849,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxy-3-methylglutaric acid (HMG)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"3-Methylglutaconic acid (3-MGC)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"3-Methylglutaric acid (3-MGL)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Acetyl-CoA\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Acute decompensation management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency treatment includes rapid glucose provision (IV dextrose and/or frequent oral carbohydrate), cessation of protein intake, and correction of metabolic acidosis and hyperammonemia. Prompt intervention is essential to prevent death.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Acute liver failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fulminant liver failure is an atypical but documented presentation of HMGCLD. One patient in an Australian cohort presented with isolated liver failure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0006554\"}}, {\"id\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HMGCL deficiency and acute crises each produce distinct abnormal hepatic acyl-CoA patterns. Leucine metabolite loading increases leucine-related acyl-CoAs while depleting acetyl-CoA. Acetyl-CoA depletion impairs N-acetylglutamate synthesis, which is required for urea cycle activation via carbamoyl phosphate synthetase 1, producing secondary hyperammonemia. This mechanism was confirmed by carglumate rescue of hyperammonemia in a liver-specific HMGCL knockout mouse model.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\", \"mitochondrial matrix\"]}}, {\"id\": \"Avoidance of fasting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prevention of prolonged fasting is critical because ketogenesis failure means the patient cannot generate alternative energy substrates during fasting. Emergency carbohydrate plans are used during illness.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is a rare but potentially fatal complication of HMGCLD, mechanistically related to the dependence of cardiac tissue on ketone bodies as an energy source during stress.\\n\", \"meta\": {\"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carglumic acid for hyperammonemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid (N-carbamyl-L-glutamic acid) is a synthetic analog of N-acetylglutamate that can rescue hyperammonemia by activating carbamoyl phosphate synthetase 1 in the urea cycle, bypassing the acetyl-CoA-dependent NAG synthesis that is impaired in HMGCLD. Demonstrated effective in a mouse model of HMGCLD.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carglumic acid\"]}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral atrophy was found in 1/62 (1.6%) in a Saudi cohort, representing severe neurological sequelae.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Dietary protein and leucine restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of leucine and total protein intake is the cornerstone of long-term management. All patients in contemporary cohorts receive protein-restricted diets, with some also receiving fat restriction. Dietary management is well tolerated and helps prevent metabolic crises.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exogenous ketone therapy (sodium D,L-3-hydroxybutyrate)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Exogenous ketone supplementation (sodium D,L-3-hydroxybutyrate, up to 900 mg/kg/day) bypasses impaired endogenous ketogenesis to provide alternative energy substrates for brain and heart. Used in both acute management and chronic adjunct therapy. Reported as well tolerated and effective in clinical case series.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"3-hydroxybutyrate\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay occurs in a subset of patients, with 62.6% achieving normal development in a systematic review. Learning disability was reported in 24% and developmental delay in 9.7% of a Saudi cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"HMG-mediated neurotoxicity via mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The major accumulating metabolite 3-hydroxy-3-methylglutaric acid (HMG) directly disrupts brain mitochondrial function. In neonatal rat brain, HMG exposure reduces succinate dehydrogenase and respiratory chain complex II-III and IV activity in the cerebral cortex and striatum, impairs antioxidant defenses, and increases DRP1 levels indicating mitochondrial fission. These mechanisms connect metabolite accumulation to the neurological vulnerability observed early in life.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"electron transport chain\", \"response to oxidative stress\", \"mitochondrial fission\"], \"locations\": [\"cerebral cortex\", \"striatum\"]}}, {\"id\": \"HMGCL molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in HMGCL reduce mitochondrial 3-hydroxy-3-methylglutaryl-CoA lyase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"HMGCL\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"HMGCL pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HMGCL\"], \"variant_count\": 1}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly has been reported during acute metabolic crises, reflecting hepatic injury and metabolic stress.\\n\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia occurs during metabolic crises, sometimes exceeding 1000 umol/L. Mechanism involves acetyl-CoA depletion impairing N-acetylglutamate-dependent urea cycle activation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoketotic or non-ketotic hypoglycemia is a cardinal feature, resulting from failure of ketogenesis during fasting. Reported in 61% of patients at initial diagnosis in a large cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Ketogenesis failure and energy crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HMGCL-mediated HMG-CoA cleavage abolishes ketogenesis, depriving brain and heart of essential energy substrates during fasting and catabolic stress. This produces hypoketotic hypoglycemia and metabolic acidosis during acute crises.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ketone body metabolic process\", \"fatty acid beta-oxidation\"], \"locations\": [\"liver\"]}}, {\"id\": \"Ketone bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"L-carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine is commonly prescribed in long-term management to support detoxification and excretion of accumulating organic acids as acylcarnitine conjugates. Used in most patients across contemporary cohorts.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carnitine\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced arousal and lethargy during decompensation events, often progressing to encephalopathy or coma in severe crises.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Leucine catabolic block and organic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HMGCL is also required for leucine degradation. Blockade causes upstream accumulation of leucine-derived metabolites including 3-hydroxy-3-methylglutaric acid, 3-methylglutaconic acid, 3-methylglutaric acid, and 3-hydroxyisovaleric acid. Illness-driven leucine flux increases toxic metabolite excretion, implying leucine-derived toxicity is particularly prominent under inflammatory and catabolic stress.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"leucine catabolic process\", \"branched-chain amino acid catabolic process\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI white matter hyperintensities were observed in 25.8% of patients in a Saudi cohort, reflecting periventricular and deep white matter injury from metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during metabolic decompensation, reported in 79% of patients in a 62-patient Saudi cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was reported in approximately 5% of a Saudi cohort as a neurological finding.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurologic injury and neurodevelopmental sequelae\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute metabolic crises and accumulating organic acids injure vulnerable neural tissue, producing seizures, developmental and speech delay, hypotonia, and MRI abnormalities including leukoencephalopathy and rare cerebral atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tandem mass spectrometry screening using elevated C5-OH (3-hydroxyisovalerylcarnitine) enables presymptomatic diagnosis. Confirmation follows with urine organic acid analysis and molecular testing of HMGCL. Early detection allows initiation of dietary management before metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in approximately 27% of patients, typically during metabolic decompensation or as a result of neurological injury.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay was present in 11.3% of patients in a Saudi cohort, reflecting neurodevelopmental vulnerability.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting during metabolic crises, often the presenting symptom triggering evaluation and emergency management.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"c.122G\u003eA (p.Arg41Gln) founder variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A Saudi Arabian founder variant accounting for 77.4% of affected individuals in a 62-patient cohort. This illustrates strong population structure and genotype clustering.\\n\"}], \"edges\": [{\"source\": \"HMGCL molecular function deficiency\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HMGCL molecular function deficiency\", \"target\": \"Leucine catabolic block and organic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Ketone bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Acute liver failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"HMG-mediated neurotoxicity via mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Hydroxy-3-methylglutaric acid (HMG)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Methylglutaconic acid (3-MGC)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Methylglutaric acid (3-MGL)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"target\": \"Acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HMG-mediated neurotoxicity via mitochondrial dysfunction\", \"target\": \"Neurologic injury and neurodevelopmental sequelae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Speech delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dietary protein and leucine restriction\", \"target\": \"Leucine catabolic block and organic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of fasting\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-carnitine supplementation\", \"target\": \"Leucine catabolic block and organic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exogenous ketone therapy (sodium D,L-3-hydroxybutyrate)\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Metabolic acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Metabolic acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carglumic acid for hyperammonemia\", \"target\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid for hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HMGCL pathogenic variants\", \"target\": \"HMGCL molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.122G\u003eA (p.Arg41Gln) founder variant\", \"target\": \"HMGCL pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"3-Hydroxy-3-methylglutaric acid (HMG)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\"}}, {\"id\": \"3-Methylglutaconic acid (3-MGC)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\"}}, {\"id\": \"3-Methylglutaric acid (3-MGL)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\"}}, {\"id\": \"Acetyl-CoA\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Acute decompensation management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Emergency treatment includes rapid glucose provision (IV dextrose and/or frequent oral carbohydrate), cessation of protein intake, and correction of metabolic acidosis and hyperammonemia. Prompt intervention is essential to prevent death.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Acute liver failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fulminant liver failure is an atypical but documented presentation of HMGCLD. One patient in an Australian cohort presented with isolated liver failure.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0006554\"}}, {\"id\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic HMGCL deficiency and acute crises each produce distinct abnormal hepatic acyl-CoA patterns. Leucine metabolite loading increases leucine-related acyl-CoAs while depleting acetyl-CoA. Acetyl-CoA depletion impairs N-acetylglutamate synthesis, which is required for urea cycle activation via carbamoyl phosphate synthetase 1, producing secondary hyperammonemia. This mechanism was confirmed by carglumate rescue of hyperammonemia in a liver-specific HMGCL knockout mouse model.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"urea cycle\"], \"locations\": [\"liver\", \"mitochondrial matrix\"]}}, {\"id\": \"Avoidance of fasting\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prevention of prolonged fasting is critical because ketogenesis failure means the patient cannot generate alternative energy substrates during fasting. Emergency carbohydrate plans are used during illness.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiomyopathy is a rare but potentially fatal complication of HMGCLD, mechanistically related to the dependence of cardiac tissue on ketone bodies as an energy source during stress.\\n\", \"meta\": {\"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carglumic acid for hyperammonemia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Carglumic acid (N-carbamyl-L-glutamic acid) is a synthetic analog of N-acetylglutamate that can rescue hyperammonemia by activating carbamoyl phosphate synthetase 1 in the urea cycle, bypassing the acetyl-CoA-dependent NAG synthesis that is impaired in HMGCLD. Demonstrated effective in a mouse model of HMGCLD.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carglumic acid\"]}}, {\"id\": \"Cerebral atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebral atrophy was found in 1/62 (1.6%) in a Saudi cohort, representing severe neurological sequelae.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002059\"}}, {\"id\": \"Dietary protein and leucine restriction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of leucine and total protein intake is the cornerstone of long-term management. All patients in contemporary cohorts receive protein-restricted diets, with some also receiving fat restriction. Dietary management is well tolerated and helps prevent metabolic crises.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Exogenous ketone therapy (sodium D,L-3-hydroxybutyrate)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Exogenous ketone supplementation (sodium D,L-3-hydroxybutyrate, up to 900 mg/kg/day) bypasses impaired endogenous ketogenesis to provide alternative energy substrates for brain and heart. Used in both acute management and chronic adjunct therapy. Reported as well tolerated and effective in clinical case series.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"3-hydroxybutyrate\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay occurs in a subset of patients, with 62.6% achieving normal development in a systematic review. Learning disability was reported in 24% and developmental delay in 9.7% of a Saudi cohort.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"HMG-mediated neurotoxicity via mitochondrial dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The major accumulating metabolite 3-hydroxy-3-methylglutaric acid (HMG) directly disrupts brain mitochondrial function. In neonatal rat brain, HMG exposure reduces succinate dehydrogenase and respiratory chain complex II-III and IV activity in the cerebral cortex and striatum, impairs antioxidant defenses, and increases DRP1 levels indicating mitochondrial fission. These mechanisms connect metabolite accumulation to the neurological vulnerability observed early in life.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"electron transport chain\", \"response to oxidative stress\", \"mitochondrial fission\"], \"locations\": [\"cerebral cortex\", \"striatum\"]}}, {\"id\": \"HMGCL molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in HMGCL reduce mitochondrial 3-hydroxy-3-methylglutaryl-CoA lyase catalytic activity.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"genes\": [\"HMGCL\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"HMGCL pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HMGCL\"], \"variant_count\": 1}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly has been reported during acute metabolic crises, reflecting hepatic injury and metabolic stress.\\n\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia occurs during metabolic crises, sometimes exceeding 1000 umol/L. Mechanism involves acetyl-CoA depletion impairing N-acetylglutamate-dependent urea cycle activation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoketotic or non-ketotic hypoglycemia is a cardinal feature, resulting from failure of ketogenesis during fasting. Reported in 61% of patients at initial diagnosis in a large cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001943\"}}, {\"id\": \"Ketogenesis failure and energy crisis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of HMGCL-mediated HMG-CoA cleavage abolishes ketogenesis, depriving brain and heart of essential energy substrates during fasting and catabolic stress. This produces hypoketotic hypoglycemia and metabolic acidosis during acute crises.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"ketone body metabolic process\", \"fatty acid beta-oxidation\"], \"locations\": [\"liver\"]}}, {\"id\": \"Ketone bodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"L-carnitine supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"L-carnitine is commonly prescribed in long-term management to support detoxification and excretion of accumulating organic acids as acylcarnitine conjugates. Used in most patients across contemporary cohorts.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carnitine\"]}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced arousal and lethargy during decompensation events, often progressing to encephalopathy or coma in severe crises.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Leucine catabolic block and organic acid accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HMGCL is also required for leucine degradation. Blockade causes upstream accumulation of leucine-derived metabolites including 3-hydroxy-3-methylglutaric acid, 3-methylglutaconic acid, 3-methylglutaric acid, and 3-hydroxyisovaleric acid. Illness-driven leucine flux increases toxic metabolite excretion, implying leucine-derived toxicity is particularly prominent under inflammatory and catabolic stress.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"leucine catabolic process\", \"branched-chain amino acid catabolic process\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Leukoencephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"MRI white matter hyperintensities were observed in 25.8% of patients in a Saudi cohort, reflecting periventricular and deep white matter injury from metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002352\"}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High-anion-gap metabolic acidosis during metabolic decompensation, reported in 79% of patients in a 62-patient Saudi cohort.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Muscular hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia was reported in approximately 5% of a Saudi cohort as a neurological finding.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Neurologic injury and neurodevelopmental sequelae\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute metabolic crises and accumulating organic acids injure vulnerable neural tissue, producing seizures, developmental and speech delay, hypotonia, and MRI abnormalities including leukoencephalopathy and rare cerebral atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"locations\": [\"brain\"]}}, {\"id\": \"Newborn screening\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tandem mass spectrometry screening using elevated C5-OH (3-hydroxyisovalerylcarnitine) enables presymptomatic diagnosis. Confirmation follows with urine organic acid analysis and molecular testing of HMGCL. Early detection allows initiation of dietary management before metabolic decompensation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur in approximately 27% of patients, typically during metabolic decompensation or as a result of neurological injury.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Speech delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Speech delay was present in 11.3% of patients in a Saudi cohort, reflecting neurodevelopmental vulnerability.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent vomiting during metabolic crises, often the presenting symptom triggering evaluation and emergency management.\\n\", \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}, {\"id\": \"c.122G\u003eA (p.Arg41Gln) founder variant\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A Saudi Arabian founder variant accounting for 77.4% of affected individuals in a 62-patient cohort. This illustrates strong population structure and genotype clustering.\\n\"}], \"edges\": [{\"source\": \"HMGCL molecular function deficiency\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HMGCL molecular function deficiency\", \"target\": \"Leucine catabolic block and organic acid accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Ketone bodies\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Acute liver failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ketogenesis failure and energy crisis\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"HMG-mediated neurotoxicity via mitochondrial dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Hydroxy-3-methylglutaric acid (HMG)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Methylglutaconic acid (3-MGC)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Methylglutaric acid (3-MGL)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine catabolic block and organic acid accumulation\", \"target\": \"3-Hydroxyisovalerylcarnitine (C5-OH)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"target\": \"Acetyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"target\": \"Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"HMG-mediated neurotoxicity via mitochondrial dysfunction\", \"target\": \"Neurologic injury and neurodevelopmental sequelae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Speech delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Muscular hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Leukoencephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurologic injury and neurodevelopmental sequelae\", \"target\": \"Cerebral atrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dietary protein and leucine restriction\", \"target\": \"Leucine catabolic block and organic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of fasting\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"L-carnitine supplementation\", \"target\": \"Leucine catabolic block and organic acid accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exogenous ketone therapy (sodium D,L-3-hydroxybutyrate)\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Ketogenesis failure and energy crisis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Metabolic acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Acute decompensation management\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Metabolic acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hypoglycemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Newborn screening\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Carglumic acid for hyperammonemia\", \"target\": \"Acyl-CoA disequilibrium and secondary hyperammonemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Carglumic acid for hyperammonemia\", \"target\": \"Hyperammonemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HMGCL pathogenic variants\", \"target\": \"HMGCL molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.122G\u003eA (p.Arg41Gln) founder variant\", \"target\": \"HMGCL pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5532,6 +5685,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5578,6 +5732,7 @@
 </div>
                 
                 
+                
     
     
             </div>
@@ -5592,6 +5747,7 @@
                 
                 <div class="item-desc">Context: Elevated C5-OH acylcarnitine in plasma is the primary newborn screening marker for HMGCLD, detectable by tandem mass spectrometry.
 </div>
+                
                 
                 
     
@@ -5610,6 +5766,7 @@
 </div>
                 
                 
+                
     
     
             </div>
@@ -5624,6 +5781,7 @@
                 
                 <div class="item-desc">Context: Absent or inappropriately low ketones during fasting and illness is a hallmark biochemical finding. Non-ketotic or hypoketotic hypoglycemia distinguishes HMGCLD from other organic acidemias.
 </div>
+                
                 
                 
     
@@ -5670,6 +5828,7 @@
                 
                 <div class="item-desc">Context: Hepatic acetyl-CoA levels are reduced during leucine metabolite loading in HMGCL-deficient liver, contributing to impaired gluconeogenesis and urea cycle activation.
 </div>
+                
                 
                 
     

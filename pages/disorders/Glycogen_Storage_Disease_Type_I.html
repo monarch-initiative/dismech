@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3886,7 +4039,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allopurinol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Xanthine oxidase inhibitor used to prevent and treat hyperuricemia and gout.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"allopurinol\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Blood glucose\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Blood lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Delayed puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Empagliflozin for GSD Ib neutropenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The SGLT2 inhibitor empagliflozin has emerged as a mechanism-based treatment for symptoms caused by neutropenia and neutrophil dysfunction in GSD Ib, including mucosal lesions and inflammatory bowel disease. International consensus recommends a starting dose of 0.3-0.4 mg/kg/day.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"empagliflozin\"]}}, {\"id\": \"Epistaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000421\"}}, {\"id\": \"Fasting hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003162\"}}, {\"id\": \"G6PC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"G6PC1\"], \"subtypes\": [\"GSD Ia (glucose-6-phosphatase deficiency)\"], \"association\": \"Causative\"}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adeno-associated virus (AAV)-based gene therapy is under investigation for both GSD Ia and GSD Ib. Preclinical studies in mouse models demonstrate that liver-directed gene transfer corrects metabolic abnormalities and prevents hepatocellular adenoma development.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Glucose-6-phosphatase enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Gout\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001997\"}}, {\"id\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human G-CSF is used to treat neutropenia, recurrent infections, enterocolitis, and bowel ulcers in GSD Ib. G-CSF stimulates neutrophil production and improves neutrophil function.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatocellular adenoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012028\"}}, {\"id\": \"Hepatocellular adenoma development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatocellular adenomas are a major long-term complication of GSD I, occurring in 22-75% of affected adults. The adenomas develop typically in post-pubertal patients and carry an approximately 10% risk of malignant transformation to hepatocellular carcinoma. The pathogenesis is multifactorial and may involve chronic metabolic stress, altered hepatocyte growth signaling, and hormonal influences. Better dietary management and metabolic control appear to reduce adenoma incidence.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperlipidemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003077\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002155\"}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002149\"}}, {\"id\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of the glucose-6-phosphatase system blocks the final step of both glycogenolysis and gluconeogenesis, preventing the liver and kidneys from releasing free glucose into the bloodstream during fasting. Glucose-6-phosphate accumulates in the cytoplasm of hepatocytes and renal tubular cells, driving excessive glycogen and fat synthesis. The inability to maintain blood glucose between meals causes severe fasting hypoglycemia, which is the hallmark metabolic derangement of GSD I.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\", \"Glycogen catabolic process\", \"Glucose homeostasis\"], \"molecular_functions\": [\"glucose-6-phosphatase activity\", \"glucose-6-phosphate transmembrane transporter activity\"], \"genes\": [\"G6PC1\", \"SLC37A4\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lipid-lowering medications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Statins or fibrates for management of persistent hyperlipidemia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Menorrhagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000132\"}}, {\"id\": \"Nephromegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000105\"}}, {\"id\": \"Neutropenia (GSD Ib)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001875\"}}, {\"id\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In GSD Ib, deficiency of the ubiquitously expressed glucose-6-phosphate transporter (G6PT) impairs neutrophil energy homeostasis. Neutrophils express the G6PT/G6Pase-beta complex, which produces endogenous glucose for neutrophil function. Loss of G6PT activity leads to enhanced endoplasmic reticulum stress, oxidative stress, and apoptosis, underlying the neutropenia and neutrophil dysfunction characteristic of GSD Ib. This manifests as recurrent bacterial infections, oral and intestinal ulcers, and inflammatory bowel disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"Glucose homeostasis\"], \"molecular_functions\": [\"glucose-6-phosphate transmembrane transporter activity\"], \"genes\": [\"SLC37A4\"]}}, {\"id\": \"Oral ulcers (GSD Ib)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000155\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Platelet and von Willebrand factor dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GSD I can include impaired platelet function and reduced or dysfunctional von Willebrand factor, producing a bleeding tendency that manifests as epistaxis and menorrhagia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\", \"blood coagulation\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Pulmonary hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Recurrent infections (GSD Ib)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"SLC37A4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC37A4\"], \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"association\": \"Causative\"}}, {\"id\": \"Secondary metabolic derangements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The block in glucose-6-phosphate hydrolysis leads to accumulation of metabolic intermediates, resulting in several secondary biochemical abnormalities. Excess glucose-6-phosphate is shunted into glycolysis, producing excess pyruvate and lactate (lactic acidosis). Increased acetyl-CoA flux drives de novo lipogenesis, causing hypertriglyceridemia and hypercholesterolemia. Accelerated purine degradation from excess glucose-6-phosphate metabolism, combined with decreased renal urate clearance due to competitive inhibition by lactate, leads to hyperuricemia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serum cholesterol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Serum triglycerides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Serum uric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Systemic hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Uncooked cornstarch therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary management with frequent meals of uncooked cornstarch (a slow-release glucose polymer) is the cornerstone of GSD I treatment. Cornstarch provides a sustained source of glucose to prevent fasting hypoglycemia. Patients require multiple doses per day including overnight. Combined with avoidance of fructose, galactose, and sucrose. Optimal metabolic control reduces long-term complications.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xanthomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000991\"}}], \"edges\": [{\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Secondary metabolic derangements\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Blood glucose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Glucose-6-phosphatase enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Fasting hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Nephromegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Platelet and von Willebrand factor dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Blood lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Serum triglycerides\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Serum cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hyperlipidemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Xanthomas\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Serum uric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hyperuricemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Gout\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hepatocellular adenoma development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Delayed puberty\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Systemic hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"target\": \"Neutropenia (GSD Ib)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"target\": \"Recurrent infections (GSD Ib)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"target\": \"Oral ulcers (GSD Ib)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocellular adenoma development\", \"target\": \"Hepatocellular adenoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Platelet and von Willebrand factor dysfunction\", \"target\": \"Epistaxis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Platelet and von Willebrand factor dysfunction\", \"target\": \"Menorrhagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncooked cornstarch therapy\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Empagliflozin for GSD Ib neutropenia\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allopurinol\", \"target\": \"Secondary metabolic derangements\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lipid-lowering medications\", \"target\": \"Secondary metabolic derangements\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"Hepatocellular adenoma development\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"G6PC1\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC37A4\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC37A4\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allopurinol\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Xanthine oxidase inhibitor used to prevent and treat hyperuricemia and gout.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"allopurinol\"]}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Blood glucose\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\"}}, {\"id\": \"Blood lactate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\"}}, {\"id\": \"Delayed puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Empagliflozin for GSD Ib neutropenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The SGLT2 inhibitor empagliflozin has emerged as a mechanism-based treatment for symptoms caused by neutropenia and neutrophil dysfunction in GSD Ib, including mucosal lesions and inflammatory bowel disease. International consensus recommends a starting dose of 0.3-0.4 mg/kg/day.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"empagliflozin\"]}}, {\"id\": \"Epistaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000421\"}}, {\"id\": \"Fasting hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003162\"}}, {\"id\": \"G6PC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"G6PC1\"], \"subtypes\": [\"GSD Ia (glucose-6-phosphatase deficiency)\"], \"association\": \"Causative\"}}, {\"id\": \"Gene therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adeno-associated virus (AAV)-based gene therapy is under investigation for both GSD Ia and GSD Ib. Preclinical studies in mouse models demonstrate that liver-directed gene transfer corrects metabolic abnormalities and prevents hepatocellular adenoma development.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Glucose-6-phosphatase enzyme activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Decreased\"}}, {\"id\": \"Gout\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001997\"}}, {\"id\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant human G-CSF is used to treat neutropenia, recurrent infections, enterocolitis, and bowel ulcers in GSD Ib. G-CSF stimulates neutrophil production and improves neutrophil function.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatocellular adenoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012028\"}}, {\"id\": \"Hepatocellular adenoma development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hepatocellular adenomas are a major long-term complication of GSD I, occurring in 22-75% of affected adults. The adenomas develop typically in post-pubertal patients and carry an approximately 10% risk of malignant transformation to hepatocellular carcinoma. The pathogenesis is multifactorial and may involve chronic metabolic stress, altered hepatocyte growth signaling, and hormonal influences. Better dietary management and metabolic control appear to reduce adenoma incidence.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"]}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperlipidemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003077\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002155\"}}, {\"id\": \"Hyperuricemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002149\"}}, {\"id\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficiency of the glucose-6-phosphatase system blocks the final step of both glycogenolysis and gluconeogenesis, preventing the liver and kidneys from releasing free glucose into the bloodstream during fasting. Glucose-6-phosphate accumulates in the cytoplasm of hepatocytes and renal tubular cells, driving excessive glycogen and fat synthesis. The inability to maintain blood glucose between meals causes severe fasting hypoglycemia, which is the hallmark metabolic derangement of GSD I.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\", \"Glycogen catabolic process\", \"Glucose homeostasis\"], \"molecular_functions\": [\"glucose-6-phosphatase activity\", \"glucose-6-phosphate transmembrane transporter activity\"], \"genes\": [\"G6PC1\", \"SLC37A4\"]}}, {\"id\": \"Lactic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003128\"}}, {\"id\": \"Lipid-lowering medications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Statins or fibrates for management of persistent hyperlipidemia.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Menorrhagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000132\"}}, {\"id\": \"Nephromegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000105\"}}, {\"id\": \"Neutropenia (GSD Ib)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001875\"}}, {\"id\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In GSD Ib, deficiency of the ubiquitously expressed glucose-6-phosphate transporter (G6PT) impairs neutrophil energy homeostasis. Neutrophils express the G6PT/G6Pase-beta complex, which produces endogenous glucose for neutrophil function. Loss of G6PT activity leads to enhanced endoplasmic reticulum stress, oxidative stress, and apoptosis, underlying the neutropenia and neutrophil dysfunction characteristic of GSD Ib. This manifests as recurrent bacterial infections, oral and intestinal ulcers, and inflammatory bowel disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\"], \"biological_processes\": [\"Glucose homeostasis\"], \"molecular_functions\": [\"glucose-6-phosphate transmembrane transporter activity\"], \"genes\": [\"SLC37A4\"]}}, {\"id\": \"Oral ulcers (GSD Ib)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000155\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001733\"}}, {\"id\": \"Platelet and von Willebrand factor dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GSD I can include impaired platelet function and reduced or dysfunctional von Willebrand factor, producing a bleeding tendency that manifests as epistaxis and menorrhagia.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\", \"blood coagulation\"]}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"Pulmonary hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002092\"}}, {\"id\": \"Recurrent infections (GSD Ib)\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"SLC37A4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SLC37A4\"], \"subtypes\": [\"GSD Ib (glucose-6-phosphate transporter deficiency)\"], \"association\": \"Causative\"}}, {\"id\": \"Secondary metabolic derangements\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The block in glucose-6-phosphate hydrolysis leads to accumulation of metabolic intermediates, resulting in several secondary biochemical abnormalities. Excess glucose-6-phosphate is shunted into glycolysis, producing excess pyruvate and lactate (lactic acidosis). Increased acetyl-CoA flux drives de novo lipogenesis, causing hypertriglyceridemia and hypercholesterolemia. Accelerated purine degradation from excess glucose-6-phosphate metabolism, combined with decreased renal urate clearance due to competitive inhibition by lactate, leads to hyperuricemia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"Gluconeogenesis\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Serum cholesterol\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\"}}, {\"id\": \"Serum triglycerides\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\"}}, {\"id\": \"Serum uric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"Elevated\"}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Systemic hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000822\"}}, {\"id\": \"Uncooked cornstarch therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary management with frequent meals of uncooked cornstarch (a slow-release glucose polymer) is the cornerstone of GSD I treatment. Cornstarch provides a sustained source of glucose to prevent fasting hypoglycemia. Patients require multiple doses per day including overnight. Combined with avoidance of fructose, galactose, and sucrose. Optimal metabolic control reduces long-term complications.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xanthomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000991\"}}], \"edges\": [{\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Secondary metabolic derangements\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Blood glucose\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Glucose-6-phosphatase enzyme activity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Fasting hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Nephromegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"target\": \"Platelet and von Willebrand factor dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Blood lactate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Lactic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Serum triglycerides\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Serum cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hyperlipidemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Xanthomas\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Serum uric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hyperuricemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Gout\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Hepatocellular adenoma development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Delayed puberty\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Systemic hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Secondary metabolic derangements\", \"target\": \"Pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"target\": \"Neutropenia (GSD Ib)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"target\": \"Recurrent infections (GSD Ib)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"target\": \"Oral ulcers (GSD Ib)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hepatocellular adenoma development\", \"target\": \"Hepatocellular adenoma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Platelet and von Willebrand factor dysfunction\", \"target\": \"Epistaxis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Platelet and von Willebrand factor dysfunction\", \"target\": \"Menorrhagia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Uncooked cornstarch therapy\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Granulocyte colony-stimulating factor (G-CSF)\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Empagliflozin for GSD Ib neutropenia\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allopurinol\", \"target\": \"Secondary metabolic derangements\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lipid-lowering medications\", \"target\": \"Secondary metabolic derangements\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene therapy (investigational)\", \"target\": \"Hepatocellular adenoma development\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"G6PC1\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC37A4\", \"target\": \"Impaired glucose-6-phosphate hydrolysis and fasting hypoglycemia\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC37A4\", \"target\": \"Neutropenia and neutrophil dysfunction in GSD Ib\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7107,6 +7260,7 @@
                 <div class="item-desc">Context: Fasting hypoglycemia; unable to maintain blood glucose between meals.</div>
                 
                 
+                
     
     
             </div>
@@ -7120,6 +7274,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated due to shunting of glucose-6-phosphate through glycolysis.</div>
+                
                 
                 
     
@@ -7137,6 +7292,7 @@
                 <div class="item-desc">Context: Markedly elevated due to increased de novo lipogenesis.</div>
                 
                 
+                
     
     
             </div>
@@ -7150,6 +7306,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated due to increased purine degradation and decreased renal clearance.</div>
+                
                 
                 
     
@@ -7167,6 +7324,7 @@
                 <div class="item-desc">Context: Hypercholesterolemia due to increased lipid synthesis.</div>
                 
                 
+                
     
     
             </div>
@@ -7180,6 +7338,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Measured in liver biopsy tissue; deficient in GSD Ia. Not directly measurable for GSD Ib without fresh tissue.</div>
+                
                 
                 
     
