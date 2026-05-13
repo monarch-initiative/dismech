@@ -908,6 +908,49 @@ research-disorder-cyberian-codex disorder *args="":
 research-providers:
     uv run deep-research-client providers
 
+# Rehydrate an existing Edison trajectory into a full research report with its
+# recovered artifacts and a separate citations file using deep-research-client.
+#
+# Example:
+#   just rehydrate-edison-trajectory 784d73d5-da42-402e-9701-6c5b44beab14 \
+#       research/Alcoholic_Liver_Disease-deep-research-falcon.md
+[group('Research')]
+rehydrate-edison-trajectory trajectory_id output_file:
+    #!/usr/bin/env bash
+    set -e
+    export EDISON_API_KEY="${EDISON_API_KEY:-$(cat edison_tok 2>/dev/null || true)}"
+    if [ -z "$EDISON_API_KEY" ]; then
+        echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
+        exit 1
+    fi
+    uv run deep-research-client edison-trajectory "{{trajectory_id}}" \
+        --output "{{output_file}}" \
+        --separate-citations "{{output_file}}.citations.md"
+
+# Legacy helper to backfill artifacts into an existing report file while keeping
+# the current report body intact.
+#
+# Examples:
+#   just fetch-research-artifacts 0ab9e2d2-7601-4bbe-ba01-e26bfce94cfd \
+#       research/Dimethylglycine_Dehydrogenase_Deficiency-deep-research-falcon.md
+#   just fetch-research-artifacts <trajectory_id> research/<Disorder>-deep-research-falcon.md
+[group('Research')]
+fetch-research-artifacts trajectory_id research_file:
+    #!/usr/bin/env bash
+    set -e
+    export EDISON_API_KEY="${EDISON_API_KEY:-$(cat edison_tok 2>/dev/null || true)}"
+    if [ -z "$EDISON_API_KEY" ]; then
+        echo "Error: EDISON_API_KEY is not set and no edison_tok file found." >&2
+        exit 1
+    fi
+    uv run python scripts/fetch_edison_artifacts.py "{{trajectory_id}}" "{{research_file}}"
+
+# Build an index of all deep-research artifact files across the research/ directory.
+# Produces research/artifact_index.yaml and warns about any filename collisions.
+[group('Research')]
+index-research-artifacts:
+    uv run python scripts/index_research_artifacts.py
+
 # Fetch and cache a reference by ID
 # This may be a PMID, DOI, or other supported identifier
 [group('Research')]

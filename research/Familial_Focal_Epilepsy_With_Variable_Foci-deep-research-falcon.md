@@ -1,25 +1,46 @@
 ---
 provider: falcon
-model: Edison Scientific Literature
+model: null
 cached: false
-start_time: '2026-05-10T14:46:17.111047'
-end_time: '2026-05-10T14:56:20.848178'
-duration_seconds: 603.74
-template_file: templates/disease_pathophysiology_research.md
-template_variables:
-  disease_name: Familial Focal Epilepsy With Variable Foci
-  mondo_id: ''
-  category: Mendelian
 provider_config:
-  timeout: null
-  max_retries: 3
-  parameters:
-    allowed_domains: []
-    temperature: 0.1
+  trajectory_id: 2292f905-cff8-4301-a7fd-f9b35db5e6c7
+  retrieval_mode: edison_trajectory
+trajectory_id: 2292f905-cff8-4301-a7fd-f9b35db5e6c7
 citation_count: 42
+artifact_count: 2
+artifact_sources:
+  edison_answer_artifacts: 1
+  edison_message_content: 1
+artifacts:
+- filename: artifact-00.md
+  path: Familial_Focal_Epilepsy_With_Variable_Foci-deep-research-falcon_artifacts/artifact-00.md
+  media_type: text/markdown
+  source: edison_answer_artifacts
+  data_storage_id: null
+  description: Edison artifact artifact-00
+- filename: image-1.png
+  path: Familial_Focal_Epilepsy_With_Variable_Foci-deep-research-falcon_artifacts/image-1.png
+  media_type: image/png
+  source: edison_message_content
+  data_storage_id: null
+  description: '## Context ID: pqac-00000018 I have extracted Figure 1 (DEPDC5 families
+    and genetic findings) and the clinical features table. - **Figure 1 Panel A**:
+    Flowchart'
 ---
 
 ## Question
+
+You are an expert researcher providing comprehensive, well-cited information.
+
+Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies
+
+Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.
 
 # Disease Characteristics Research Template
 
@@ -1214,3 +1235,8 @@ References
 17. (anders2024exomesequencingof pages 1-2): Siwei Bassel W. Zaid Quratulain Zulfiqar Elisabetta Alis Chen Abou-Khalil Afawi Ali Amadori Anderson Anders, Siwei Chen, B. Abou-Khalil, Z. Afawi, Q. Z. Ali, Elisabetta Amadori, A. Anderson, Joseph Anderson, Danielle M. Andrade, G. Annesi, M. Arslan, P. Auce, Melanie Bahlo, Mark D. Baker, G. Balagura, S. Balestrini, E. Banks, Carmen Barba, Karen Barboza, F. Bartolomei, N. Bass, L. Baum, Tobias H. Baumgartner, B. Baykan, N. Bebek, F. Becker, C. A. Bennett, A. Beydoun, C. Bianchini, F. Bisulli, D. Blackwood, Ilan Blatt, Ingo Borggräfe, C. Boßelmann, V. Braatz, Harrison Brand, K. Brockmann, Russell J Buono, R. M. Busch, S. Caglayan, L. Canafoglia, Christina Canavati, B. Castellotti, G. Cavalleri, Felecia Cerrato, F. Chassoux, Christina Cherian, S. Cherny, Ching-Lung Cheung, I. Chou, S. Chung, C. Churchhouse, V. Ciullo, Peggy O. Clark, Andrew J. Cole, M. Cosico, P. Cossette, C. Cotsapas, C. Cusick, M. Daly, Lea K. Davis, P. Jonghe, N. Delanty, D. Dennig, C. Depondt, Philippe Derambure, Orrin Devinsky, Lidia Di Vito, Faith B Dickerson, Dennis J. Dlugos, Viola Doccini, Colin P. Doherty, Hany El-Naggar, Colin A. Ellis, Leon Epstein, Meghan Evans, Annika B. Faucon, Yen-Chen Anne Feng, Lisa Ferguson, Thomas N. Ferraro, Izabela Ferreira Da Silva, Lorenzo Ferri, Martha Feucht, M. Fields, Mark Fitzgerald, B. Fonferko-Shadrach, Francesco Fortunato, S. Franceschetti, Jacqueline A. French, E. Freri, Jack M. Fu, Stacey B. Gabriel, M. Gagliardi, A. Gambardella, L. Gauthier, T. Giangregorio, T. Gili, Tracy A. Glauser, Ethan Goldberg, A. Goldman, David B. Goldstein, Tiziana Granata, R. Grant, David A. Greenberg, Renzo Guerrini, Aslı Gundogdu-Eken, Namrata Gupta, Kevin Haas, H. Hakonarson, Garen Haryanyan, Martin Häusler, Manu Hegde, E. Heinzen, Ingo Helbig, Christian Hengsbach, H. Heyne, Shinichi Hirose, Edouard Hirsch, Chen-Jui Ho, Olivia Hoeper, D. Howrigan, Donald Hucks, Po-Chen Hung, M. Iacomino, Yushi Inoue, L. M. Inuzuka, A. Ishii, L. Jehi, Michael R. Johnson, M. Johnstone, Reetta Kälviäinen, Moien Kanaan, Bulent Kara, S. Kariuki, J. Kegele, Y. Kesim, Nathalie Khoueiry-Zgheib, Jean Khoury, Chontelle King, K. M. Klein, G. Kluger, S. Knake, Fernando Kok, Amos D. Korczyn, Rudolf Korinthenberg, Andreas Koupparis, I. Kousiappa, Roland Krause, M. Krenn, H. Krestel, Ilona Krey, W. Kunz, Gerhard Kurlemann, R. Kuzniecky, Patrick Kwan, Maite La Vega-Talbott, A. Labate, Austin Lacey, Dennis Lal, P. Laššuthová, S. Lauxmann, Charlotte Lawthom, Stephanie L. Leech, A. Lehesjoki, J. Lemke, Holger Lerche, G. Lesca, C. Leu, Naomi Lewin, D. Lewis-Smith, Gloria H.-Y. Li, Calwing Liao, L. Licchetta, Chih-Hsiang Lin, Kuang-Lin Lin, T. Linnankivi, Warren Lo, D. Lowenstein, Chelsea Lowther, Laura S. Lubbers, C. Lui, Lúcia I Macedo-Souza, R. Madeleyn, F. Madia, S. Magri, Louis Maillard, L. Marcuse, Paula Marques, A. G. Marson, Abigail G Matthews, Patrick May, Thomas Mayer, W. McArdle, Steven McCarroll, P. McGoldrick, C. McGraw, A. McIntosh, A. McQuillan, K. Meador, D. Mei, V. Michel, J. Millichap, R. Minardi, Martino Montomoli, B. Mostacci, L. Muccioli, H. Muhle, K. Müller-Schlüter, I. Najm, W. Nasreddine, S. Neaves, Bernd A. Neubauer, C. R. Newton, J. Noebels, K. Northstone, Sam Novod, Terence J. O’Brien, Seth Owusu-Agyei, Ç. Özkara, A. Palotie, S. Papacostas, E. Parrini, C. Pato, M. Pato, M. Pendziwiat, P. Pennell, S. Petrovski, W. O. Pickrell, Rebecca Pinsky, D. Pinto, T. Pippucci, F. Piras, F. Piras, A. Poduri, Federica Pondrelli, Danielle Posthuma, R. Powell, Michael D Privitera, Annika Rademacher, F. Ragona, Byron Ramirez-Hamouz, S. Rau, Hillary R. Raynes, M. I. Rees, Brigid M. Regan, A. Reif, E. Reinthaler, S. Rheims, Susan M. Ring, Antonella Riva, E. Rojas, Felix Rosenow, Philippe Ryvlin, Anni Saarela, L. Sadleir, Barış Salman, Andrea Salmon, Vincenzo Salpietro, I. Sammarra, Marcello Scala, Steven C. Schachter, André Schaller, C. Schankin, I. Scheffer, Natascha Schneider, S. Schubert-Bast, A. Schulze-Bonhage, P. Scudieri, L. Sedláčková, Catherine Shain, P. C. Sham, Beth R. Shiedley, S. Siena, G. Sills, S. Sisodiya, J. Smoller, M. Solomonson, G. Spalletta, K. Sparks, Michael R. Sperling, H. Stamberger, Bernhard J. Steinhoff, U. Stephani, K. Sterbova, W. Stewart, Carlotta Stipa, P. Striano, A. Strzelczyk, Rainer Surges, Toshimitsu Suzuki, Mariagrazia Talarico, M. Talkowski, Randip S. Taneja, G. Tanteles, Oskari Timonen, N. Timpson, P. Tinuper, M. Todaro, P. Topaloğlu, Meng-Han Tsai, Birutė Tumienė, D. Turkdoğan, Sibel Uğur-İşeri, A. Utkus, Priya Vaidiswaran, L. Valton, A. van Baalen, M. Vari, Annalisa Vetro, M. Vlčková, Sophie von Brauchitsch, Sarah von Spiczak, Ryan G. Wagner, Nick Watts, Y. Weber, S. Weckhuysen, P. Widdess-Walsh, S. Wiebe, S. Wolf, M. Wolff, S. Wolking, Isaac Wong, R. von Wrede, David Wu, Kazuhiro Yamakawa, Z. Yapıcı, U. Yiş, R. Yolken, Emrah Yücesan, S. Zagaglia, F. Zahnert, Federico Zara, F. Zimprich, Milena Zizovic, G. Zsurka, B. Neale, and S. Berkovic. Exome sequencing of 20,979 individuals with epilepsy reveals shared and distinct ultra-rare genetic risk across disorder subtypes. Nature Neuroscience, 27:1864-1879, Oct 2024. URL: https://doi.org/10.1038/s41593-024-01747-8, doi:10.1038/s41593-024-01747-8. This article has 52 citations and is from a highest quality peer-reviewed journal.
 
 18. (NCT05450822 chunk 1): Gitte Moos Knudsen. Precision Medicine in the Treatment of Epilepsy. Gitte Moos Knudsen. 2022. ClinicalTrials.gov Identifier: NCT05450822
+
+## Artifacts
+
+- [Edison artifact artifact-00](Familial_Focal_Epilepsy_With_Variable_Foci-deep-research-falcon_artifacts/artifact-00.md)
+![## Context ID: pqac-00000018 I have extracted Figure 1 (DEPDC5 families and genetic findings) and the clinical features table. - **Figure 1 Panel A**: Flowchart](Familial_Focal_Epilepsy_With_Variable_Foci-deep-research-falcon_artifacts/image-1.png)

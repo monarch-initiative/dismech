@@ -1,0 +1,13 @@
+| Item | Details | Key citations (pqac ids) | URL | Publication year |
+|---|---|---|---|---|
+| Disease name | Familial focal epilepsy with variable foci (FFEVF) is an autosomal dominant familial focal epilepsy characterized by focal seizures arising from different cortical regions in different affected relatives. | (pqac-00000017, pqac-00000007, pqac-00000003) | https://doi.org/10.1038/ng.2599 | 2013 |
+| Synonyms | Familial focal epilepsy with variable foci; focal epilepsy with variable foci; FFEVF; FFEVF3 (for NPRL3-related subtype); earlier literature also refers to the same syndrome as FPEVF/partial epilepsy with variable foci. | (pqac-00000017, pqac-00000012, pqac-00000003) | https://doi.org/10.3389/fgene.2022.1054567 | 2023 |
+| OMIM / MIM phenotype numbers | MIM 604364 is explicitly cited for FFEVF; OMIM 617118 is explicitly cited for FFEVF3 / NPRL3-associated disease. | (pqac-00000007, pqac-00000012) | https://doi.org/10.1111/cge.12239 | 2013 |
+| Inheritance | Autosomal dominant inheritance with incomplete penetrance and variable expressivity are recurrently reported across DEPDC5-, NPRL2-, and NPRL3-related families. | (pqac-00000007, pqac-00000010, pqac-00000003) | https://doi.org/10.1371/journal.pone.0284924 | 2023 |
+| Key gene | **DEPDC5**; identified as a common cause of familial focal epilepsies/FFEVF, including large linked families; many variants are truncating and support haploinsufficiency. | (pqac-00000017, pqac-00000001, pqac-00000004) | https://doi.org/10.1038/ng.2599 | 2013 |
+| Key gene | **NPRL2**; GATOR1 component implicated in FFEVF, including splice-site variants causing aberrant splicing and exon skipping. | (pqac-00000000, pqac-00000008) | https://doi.org/10.1038/s10038-021-00969-z | 2022 |
+| Key gene | **NPRL3**; GATOR1 component implicated in FFEVF3, with nonsense, frameshift, splice, deletion, and other loss-of-function variants reported. | (pqac-00000012, pqac-00000010, pqac-00000016) | https://doi.org/10.3389/fgene.2022.1054567 | 2023 |
+| Brief mechanistic note | DEPDC5, NPRL2, and NPRL3 form the **GATOR1** complex, a negative regulator of the amino-acid sensing branch of **mTORC1** signaling; pathogenic variants generally reduce GATOR1 function, leading to mTORC1 hyperactivation. | (pqac-00000008, pqac-00000012, pqac-00000003) | https://doi.org/10.3390/ijms25042068 | 2024 |
+
+
+*Table: This table summarizes the core disease identity, identifiers, inheritance, major genes, and shared GATOR1–mTORC1 mechanism for familial focal epilepsy with variable foci. It is useful as a compact reference for knowledge-base curation grounded only in the cited evidence.*
