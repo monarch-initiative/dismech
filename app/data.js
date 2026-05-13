@@ -12924,6 +12924,113 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autoimmune Polyendocrinopathy",
+    "disease_id": "MONDO:0017278",
+    "category": "Complex",
+    "parents": [
+      "Autoimmune disorder of endocrine system",
+      "Polyendocrinopathy"
+    ],
+    "creation_date": "2026-05-12T18:00:00Z",
+    "updated_date": "2026-05-12T22:30:00Z",
+    "subtypes": [
+      "Type 1",
+      "Type 2",
+      "Type 3",
+      "Type 4"
+    ],
+    "description": "Autoimmune polyendocrinopathy encompasses a group of disorders characterized by autoimmune-mediated destruction of multiple endocrine glands, often in combination with non-endocrine autoimmune manifestations. The syndromes are classified into four types based on component diseases and genetic etiology. Type 1 (APECED) is a monogenic autosomal recessive disorder caused by AIRE gene mutations affecting central immune tolerance. Types 2-4 are polygenic, HLA-associated conditions with complex inheritance. Type 2 (Schmidt syndrome) features adrenal insufficiency with autoimmune thyroid disease and/or type 1 diabetes. Type 3 involves autoimmune thyroid disease with other autoimmune conditions excluding adrenal insufficiency and hypoparathyroidism. Type 4 comprises combinations not fitting types 1-3. Shared pathogenic mechanisms include loss of immune tolerance to endocrine self-antigens, T cell-mediated organ destruction, and autoantibody production against tissue-specific antigens.\n",
+    "pathophysiology": [
+      "AIRE-Mediated Central Tolerance Failure",
+      "HLA-Associated Susceptibility to Tolerance Breakdown",
+      "Autoantibody-Mediated Endocrine Destruction",
+      "T Cell-Mediated Organ Destruction"
+    ],
+    "cell_types": [
+      "medullary thymic epithelial cell",
+      "professional antigen presenting cell",
+      "CD8-positive cytotoxic T cell",
+      "CD4-positive helper T cell",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002365",
+      "CL:0000145",
+      "CL:0000794",
+      "CL:0000492",
+      "CL:0000815"
+    ],
+    "biological_processes": [
+      "central T cell tolerance induction",
+      "negative thymic T cell selection",
+      "antigen processing and presentation via MHC class II",
+      "peripheral T cell tolerance induction",
+      "B cell activation",
+      "complement activation, classical pathway",
+      "T cell-mediated cytotoxicity"
+    ],
+    "phenotypes": [
+      "Adrenal Insufficiency",
+      "Hashimoto Thyroiditis",
+      "Type 1 Diabetes Mellitus",
+      "Hypoparathyroidism",
+      "Chronic Mucocutaneous Candidiasis",
+      "Vitiligo",
+      "Atrophic Gastritis",
+      "Alopecia",
+      "Premature Ovarian Insufficiency"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000846",
+      "HP:0000872",
+      "HP:0100651",
+      "HP:0000829",
+      "HP:0002728",
+      "HP:0001045",
+      "HP:0002582",
+      "HP:0001596",
+      "HP:0008209"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "AIRE",
+      "HLA-DRB1",
+      "CTLA4",
+      "PTPN22"
+    ],
+    "treatments": [
+      "Hormone Replacement Therapy",
+      "Adrenal Hormone Replacement",
+      "Thyroid Hormone Therapy",
+      "Immunosuppressive Therapy",
+      "Antifungal Therapy",
+      "Autoantibody Screening"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autoimmune_Polyendocrinopathy.yaml",
+    "page_url": "../pages/disorders/Autoimmune_Polyendocrinopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 4,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "1"
+  },
+  {
     "name": "Autosomal Dominant Cerebellar Ataxia Type III",
     "disease_id": "MONDO:0019793",
     "category": "Mendelian",
@@ -15002,7 +15109,7 @@ window.searchData = [
       "Bacterial Infection"
     ],
     "creation_date": "2025-12-04T16:57:31Z",
-    "updated_date": "2026-02-16T20:19:38Z",
+    "updated_date": "2026-05-13T18:00:00Z",
     "subtypes": [],
     "description": "Bacterial meningitis is a severe infection of the meninges caused by invasive bacteria that overcome neurovascular barriers and replicate in the cerebrospinal fluid. The disease is characterized by robust neuroinflammation that damages brain tissue and raises intracranial pressure. Major causative bacteria include Streptococcus pneumoniae, Neisseria meningitidis, Haemophilus influenzae type b, and Listeria monocytogenes. Pathogenesis involves bacterial entry through the blood-brain barrier or blood-CSF barrier via receptor-mediated transcytosis or paracellular disruption, followed by activation of pattern recognition receptors (TLR2/TLR4), inflammasome activation, and breakdown of tight junctions. Clinical manifestations include headache, fever, neck stiffness, altered mental status, and in severe cases, seizures and focal neurological deficits. Without prompt antibiotic treatment, the case fatality rate approaches 70-100%.",
     "pathophysiology": [
@@ -23627,14 +23734,17 @@ window.searchData = [
       "Iatrogenic condition"
     ],
     "creation_date": "2026-04-02T01:07:38Z",
-    "updated_date": "2026-05-08T18:54:20Z",
+    "updated_date": "2026-05-13T16:25:49Z",
     "subtypes": [],
     "description": "Chemotherapy-induced diarrhea is a treatment-related gastrointestinal toxicity caused by antineoplastic agents, especially fluoropyrimidines and irinotecan, that injure the rapidly renewing intestinal mucosa. The syndrome reflects epithelial and crypt injury, barrier dysfunction, mucosal inflammation, dysbiosis, and impaired absorptive function, and can lead to treatment delay, dose reduction, hospitalization, and infectious complications when severe.",
     "pathophysiology": [
-      "Chemotherapy-induced crypt and epithelial injury",
+      "Cytotoxic chemotherapy exposure and intestinal drug delivery",
+      "Crypt stem/progenitor apoptosis and epithelial injury",
       "MLCK/actomyosin-mediated tight-junction remodeling",
       "Paracellular barrier leak and mucosal break formation",
-      "Dysbiosis and inflammatory amplification",
+      "Chemotherapy-associated gut microbial dysbiosis",
+      "Microbial beta-glucuronidase reactivation of irinotecan metabolites",
+      "Dysbiosis-associated inflammatory amplification",
       "Enterocyte apoptosis, villus blunting, and surface loss",
       "Reduced fluid absorption and diarrheal output"
     ],
@@ -23649,21 +23759,34 @@ window.searchData = [
     "biological_processes": [
       "apoptotic process",
       "tight junction assembly",
+      "xenobiotic metabolic process",
       "inflammatory response",
+      "symbiont-mediated perturbation of host process",
       "intestinal absorption"
     ],
     "phenotypes": [
-      "Diarrhea"
+      "Diarrhea",
+      "Dehydration",
+      "Abdominal pain",
+      "Electrolyte imbalance"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
-      "Digestive"
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
     ],
     "phenotype_ids": [
-      "HP:0002014"
+      "HP:0002014",
+      "HP:0001944",
+      "HP:0002027",
+      "HP:0002900"
     ],
     "frequencies": [],
-    "genes": [],
+    "genes": [
+      "DPYD pharmacogenomic susceptibility",
+      "UGT1A1 pharmacogenomic susceptibility"
+    ],
     "treatments": [
       "Loperamide",
       "Fluid resuscitation and supportive care",
@@ -23676,12 +23799,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Chemotherapy_Induced_Diarrhea.yaml",
     "page_url": "../pages/disorders/Chemotherapy-Induced_Diarrhea.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 6,
-    "num_genes": 0,
+    "num_phenotypes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Chemotherapy-Induced Nausea and Vomiting",
@@ -105019,11 +105142,11 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1066,
-  "total_unique_evidence_sources": 19259,
+  "total_disorder_pages": 1067,
+  "total_unique_evidence_sources": 19270,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 188,
-  "total_pathographs": 1059,
-  "total_unique_pathological_events": 5036
+  "total_pathographs": 1060,
+  "total_unique_pathological_events": 5043
 };
 window.dispatchEvent(new Event('searchDataReady'));
