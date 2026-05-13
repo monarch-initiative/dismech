@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01842659
+reference_id: "clinicaltrials:NCT01842659"
 title: Prenatal Screening for Imprinting Anomalies Implicated in Beckwith Wiedemann and Silver Russell Syndromes
 content_type: summary
 ---

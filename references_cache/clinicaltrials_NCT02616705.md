@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02616705
+reference_id: "clinicaltrials:NCT02616705"
 title: Bile Usefulness for Detecting IgG4-related Sclerosing Cholangitis
 content_type: summary
 ---

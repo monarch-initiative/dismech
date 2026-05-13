@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01741532
+reference_id: "clinicaltrials:NCT01741532"
 title: "A Randomized, Double-blind, Placebo-controlled Trial of Deferiprone in Patients With Pantothenate Kinase-associated Neurodegeneration (PKAN)"
 content_type: summary
 ---

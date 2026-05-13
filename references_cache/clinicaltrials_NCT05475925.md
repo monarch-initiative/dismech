@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05475925
+reference_id: "clinicaltrials:NCT05475925"
 title: "A Multicenter, Open-Label, First-In-Human, Multiple Expansion Cohort, Phase 1/2 Study to Evaluate the Safety and Efficacy of DR-01 in Adult Subjects With Large Granular Lymphocytic Leukemia or Cytotoxic Lymphomas"
 content_type: summary
 ---

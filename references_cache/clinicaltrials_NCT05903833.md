@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05903833
+reference_id: "clinicaltrials:NCT05903833"
 title: "Pembrolizumab in Combination With Lenvatinib in Pts With Recurrent, Persistent, Metastatic or Locally Advanced Vulvar Cancer Not Amenable to Curative Surgery or Radiotherapy"
 content_type: summary
 ---

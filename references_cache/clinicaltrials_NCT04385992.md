@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04385992
+reference_id: "clinicaltrials:NCT04385992"
 title: A Prospective Phase II Single-Arm Trial on Neoadjuvant Peptide Receptor Radionuclide Therapy With 177Lu-DOTATATE Followed by Surgery for Resectable Pancreatic Neuroendocrine Tumors
 content_type: summary
 ---

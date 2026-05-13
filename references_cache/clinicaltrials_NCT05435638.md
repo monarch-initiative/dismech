@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05435638
+reference_id: "clinicaltrials:NCT05435638"
 title: "Phase I, Open Label Study Designed to Evaluate the Safety and Efficacy of a 1% Topical Formulation of KM-001 in the Treatment of Type I Punctate Palmoplantar Keratoderma or Pachyonychia Congenital Diseases"
 content_type: summary
 ---
