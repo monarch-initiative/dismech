@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4167,7 +4320,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"C-reactive protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cardiac serositis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericardial and myocardial inflammation can complicate the disease, ranging from sterile pericarditis with effusion to chronic pericardio-myocarditis progressing to refractory heart failure in rare cases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Erythrocyte sedimentation rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exanthem\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000054\"}}, {\"id\": \"Hyperferritinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"IL-1 inhibitor (anakinra / canakinumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IL-1 pathway blockade (anakinra, the recombinant IL-1 receptor antagonist, or canakinumab, an anti-IL-1\\u03b2 monoclonal antibody) targets the inflammasome\\u2013IL-1\\u03b2 axis that drives the Still\u0027s disease spectrum to which Wissler-Fanconi syndrome is now ascribed. EULAR/PReS recommends early use of IL-1 (or IL-6) inhibitors in Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\", \"canakinumab\"]}}, {\"id\": \"IL-6 inhibitor (tocilizumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IL-6 receptor blockade with tocilizumab targets the IL-6-driven acute phase response (fever, CRP, ferritin) and is recommended alongside IL-1 inhibitors as a first-line biologic for Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"Innate immune activation by PAMPs/DAMPs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An infectious or sterile inflammatory trigger engages pattern-recognition receptors (PRRs) on monocytes and tissue macrophages, initiating the monocyte/macrophage hyperactivation characteristic of the Still\u0027s disease spectrum to which Wissler-Fanconi syndrome is now considered to belong.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"pattern recognition receptor signaling pathway\", \"inflammatory response\", \"cytokine-mediated signaling pathway\"]}}, {\"id\": \"Leukocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001974\"}}, {\"id\": \"Microscopic hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002907\"}}, {\"id\": \"Myocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0012819\"}}, {\"id\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAMP/DAMP signalling in monocytes and macrophages assembles the NLRP3 inflammasome, activating caspase-1 and converting pro-IL-1\\u03b2 and pro-IL-18 into their mature, secreted forms \\u2014 a core innate-immune mechanism shared across the Still\u0027s disease spectrum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\", \"interleukin-1 beta production\", \"interleukin-18 production\"]}}, {\"id\": \"Neutrophil hyperactivation and NET formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pro-inflammatory cytokines drive marked neutrophilia with neutrophil predominance and release of neutrophil extracellular traps (NETs), which feed back to amplify monocyte/macrophage activation and contribute to cutaneous and small-vessel inflammation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil migration\", \"neutrophil extracellular trap formation\"]}}, {\"id\": \"Pericardial effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001698\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Recurrent high fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"High\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Synovial inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytokine- and Th17-driven inflammation of synovial tissue produces the characteristic migratory polyarthralgia and arthritis of the disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"synovial cell\", \"macrophage\"], \"biological_processes\": [\"chronic inflammatory response\"]}}, {\"id\": \"Systemic pro-inflammatory cytokine cascade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mature IL-1\\u03b2, IL-18, and downstream IL-6 produced by activated monocytes/macrophages drive a systemic acute-phase response with fever, leukocyte mobilisation, and synthesis of acute-phase reactants (CRP, serum amyloid A, ferritin) in the liver. This cascade underlies the validated efficacy of IL-1 and IL-6 pathway inhibitors in Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"hepatocyte\"], \"biological_processes\": [\"interleukin-1-mediated signaling pathway\", \"interleukin-6 production\", \"positive regulation of inflammatory response\"]}}, {\"id\": \"Th1/Th17 adaptive immune hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In addition to innate immune drive, hyperactivation of Th1 and Th17 effector populations and a relative deficit of regulatory T cells contribute to chronic auto-inflammation and synovial involvement.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"T-helper 17 cell\"], \"biological_processes\": [\"T-helper 1 type immune response\", \"positive regulation of interleukin-17 production\", \"adaptive immune response\"]}}, {\"id\": \"Vascular endothelial activation and cutaneous vasculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytokine-driven endothelial activation produces a polymorphous exanthem that can show histologic urticarial / leukocytoclastic vasculitis on skin biopsy. Renal microvascular involvement with intravascular coagulation can manifest as transient microscopic hematuria.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"neutrophil\"], \"biological_processes\": [\"positive regulation of inflammatory response\", \"leukocyte migration\"]}}, {\"id\": \"Vasculitis in the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200029\"}}], \"edges\": [{\"source\": \"Innate immune activation by PAMPs/DAMPs\", \"target\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"target\": \"Systemic pro-inflammatory cytokine cascade\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Neutrophil hyperactivation and NET formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Th1/Th17 adaptive immune hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Vascular endothelial activation and cutaneous vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Cardiac serositis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Recurrent high fever\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Erythrocyte sedimentation rate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"C-reactive protein\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Hyperferritinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophil hyperactivation and NET formation\", \"target\": \"Leukocytosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophil hyperactivation and NET formation\", \"target\": \"Vascular endothelial activation and cutaneous vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophil hyperactivation and NET formation\", \"target\": \"Vasculitis in the skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Th1/Th17 adaptive immune hyperactivation\", \"target\": \"Synovial inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synovial inflammation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synovial inflammation\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular endothelial activation and cutaneous vasculitis\", \"target\": \"Exanthem\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular endothelial activation and cutaneous vasculitis\", \"target\": \"Vasculitis in the skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular endothelial activation and cutaneous vasculitis\", \"target\": \"Microscopic hematuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Pericardial effusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Myocarditis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibitor (anakinra / canakinumab)\", \"target\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibitor (anakinra / canakinumab)\", \"target\": \"Systemic pro-inflammatory cytokine cascade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-6 inhibitor (tocilizumab)\", \"target\": \"Systemic pro-inflammatory cytokine cascade\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001369\"}}, {\"id\": \"C-reactive protein\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0011227\", \"term_label\": \"Elevated circulating C-reactive protein concentration\"}}, {\"id\": \"Cardiac serositis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pericardial and myocardial inflammation can complicate the disease, ranging from sterile pericarditis with effusion to chronic pericardio-myocarditis progressing to refractory heart failure in rare cases.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001635\"}}, {\"id\": \"Erythrocyte sedimentation rate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"term_id\": \"HP:0003565\", \"term_label\": \"Elevated erythrocyte sedimentation rate\"}}, {\"id\": \"Exanthem\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000054\"}}, {\"id\": \"Hyperferritinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"Elevated\", \"term_id\": \"HP:0003281\", \"term_label\": \"Increased circulating ferritin concentration\"}}, {\"id\": \"IL-1 inhibitor (anakinra / canakinumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IL-1 pathway blockade (anakinra, the recombinant IL-1 receptor antagonist, or canakinumab, an anti-IL-1\\u03b2 monoclonal antibody) targets the inflammasome\\u2013IL-1\\u03b2 axis that drives the Still\u0027s disease spectrum to which Wissler-Fanconi syndrome is now ascribed. EULAR/PReS recommends early use of IL-1 (or IL-6) inhibitors in Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"anakinra\", \"canakinumab\"]}}, {\"id\": \"IL-6 inhibitor (tocilizumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IL-6 receptor blockade with tocilizumab targets the IL-6-driven acute phase response (fever, CRP, ferritin) and is recommended alongside IL-1 inhibitors as a first-line biologic for Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"tocilizumab\"]}}, {\"id\": \"Innate immune activation by PAMPs/DAMPs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An infectious or sterile inflammatory trigger engages pattern-recognition receptors (PRRs) on monocytes and tissue macrophages, initiating the monocyte/macrophage hyperactivation characteristic of the Still\u0027s disease spectrum to which Wissler-Fanconi syndrome is now considered to belong.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"pattern recognition receptor signaling pathway\", \"inflammatory response\", \"cytokine-mediated signaling pathway\"]}}, {\"id\": \"Leukocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001974\"}}, {\"id\": \"Microscopic hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002907\"}}, {\"id\": \"Myocarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0012819\"}}, {\"id\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAMP/DAMP signalling in monocytes and macrophages assembles the NLRP3 inflammasome, activating caspase-1 and converting pro-IL-1\\u03b2 and pro-IL-18 into their mature, secreted forms \\u2014 a core innate-immune mechanism shared across the Still\u0027s disease spectrum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\", \"macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\", \"interleukin-1 beta production\", \"interleukin-18 production\"]}}, {\"id\": \"Neutrophil hyperactivation and NET formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pro-inflammatory cytokines drive marked neutrophilia with neutrophil predominance and release of neutrophil extracellular traps (NETs), which feed back to amplify monocyte/macrophage activation and contribute to cutaneous and small-vessel inflammation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil migration\", \"neutrophil extracellular trap formation\"]}}, {\"id\": \"Pericardial effusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001698\"}}, {\"id\": \"Pericarditis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0001701\"}}, {\"id\": \"Recurrent high fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"severity\": \"High\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Synovial inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytokine- and Th17-driven inflammation of synovial tissue produces the characteristic migratory polyarthralgia and arthritis of the disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"synovial cell\", \"macrophage\"], \"biological_processes\": [\"chronic inflammatory response\"]}}, {\"id\": \"Systemic pro-inflammatory cytokine cascade\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mature IL-1\\u03b2, IL-18, and downstream IL-6 produced by activated monocytes/macrophages drive a systemic acute-phase response with fever, leukocyte mobilisation, and synthesis of acute-phase reactants (CRP, serum amyloid A, ferritin) in the liver. This cascade underlies the validated efficacy of IL-1 and IL-6 pathway inhibitors in Still\u0027s disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"hepatocyte\"], \"biological_processes\": [\"interleukin-1-mediated signaling pathway\", \"interleukin-6 production\", \"positive regulation of inflammatory response\"]}}, {\"id\": \"Th1/Th17 adaptive immune hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In addition to innate immune drive, hyperactivation of Th1 and Th17 effector populations and a relative deficit of regulatory T cells contribute to chronic auto-inflammation and synovial involvement.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"T-helper 17 cell\"], \"biological_processes\": [\"T-helper 1 type immune response\", \"positive regulation of interleukin-17 production\", \"adaptive immune response\"]}}, {\"id\": \"Vascular endothelial activation and cutaneous vasculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytokine-driven endothelial activation produces a polymorphous exanthem that can show histologic urticarial / leukocytoclastic vasculitis on skin biopsy. Renal microvascular involvement with intravascular coagulation can manifest as transient microscopic hematuria.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"neutrophil\"], \"biological_processes\": [\"positive regulation of inflammatory response\", \"leukocyte migration\"]}}, {\"id\": \"Vasculitis in the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0200029\"}}], \"edges\": [{\"source\": \"Innate immune activation by PAMPs/DAMPs\", \"target\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"target\": \"Systemic pro-inflammatory cytokine cascade\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Neutrophil hyperactivation and NET formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Th1/Th17 adaptive immune hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Vascular endothelial activation and cutaneous vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Cardiac serositis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Recurrent high fever\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Erythrocyte sedimentation rate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"C-reactive protein\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic pro-inflammatory cytokine cascade\", \"target\": \"Hyperferritinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophil hyperactivation and NET formation\", \"target\": \"Leukocytosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophil hyperactivation and NET formation\", \"target\": \"Vascular endothelial activation and cutaneous vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophil hyperactivation and NET formation\", \"target\": \"Vasculitis in the skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Th1/Th17 adaptive immune hyperactivation\", \"target\": \"Synovial inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synovial inflammation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synovial inflammation\", \"target\": \"Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular endothelial activation and cutaneous vasculitis\", \"target\": \"Exanthem\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular endothelial activation and cutaneous vasculitis\", \"target\": \"Vasculitis in the skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Vascular endothelial activation and cutaneous vasculitis\", \"target\": \"Microscopic hematuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Pericardial effusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Pericarditis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Myocarditis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cardiac serositis\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibitor (anakinra / canakinumab)\", \"target\": \"NLRP3 inflammasome activation and IL-1\\u03b2/IL-18 maturation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-1 inhibitor (anakinra / canakinumab)\", \"target\": \"Systemic pro-inflammatory cytokine cascade\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IL-6 inhibitor (tocilizumab)\", \"target\": \"Systemic pro-inflammatory cytokine cascade\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5721,6 +5874,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5762,6 +5916,7 @@
                 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5801,6 +5956,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
@@ -5864,6 +6020,7 @@
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Elevated)</span>
                     
                 </div>
+                
                 
                 
     
