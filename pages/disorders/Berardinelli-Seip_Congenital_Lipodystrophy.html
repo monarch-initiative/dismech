@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4389,7 +4542,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGPAT2 acylglycerol synthesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AGPAT2 pathogenic variants impair lysophosphatidic-acid acylation to phosphatidic acid, a key step in triacylglycerol and glycerophospholipid synthesis. In adipocytes this limits normal triglyceride synthesis and storage.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"triglyceride biosynthetic process\"], \"genes\": [\"AGPAT2\"]}}, {\"id\": \"AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGPAT2\"], \"subtypes\": [\"CGL1\"], \"association\": \"Causative biallelic pathogenic variants\", \"variant_count\": 1}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acanthosis nigricans is a cutaneous manifestation of severe insulin resistance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000956\"}}, {\"id\": \"Adipose tissue loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-total adipose tissue loss begins at birth or early infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008887\"}}, {\"id\": \"BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"subtypes\": [\"CGL2\"], \"association\": \"Causative biallelic pathogenic variants\", \"variant_count\": 1}}, {\"id\": \"BSCL2 seipin lipid-droplet dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BSCL2 encodes seipin, an endoplasmic-reticulum protein that participates in lipid-droplet assembly and terminal adipocyte differentiation. Loss of seipin disrupts regulated lipid-droplet biology and adipogenesis.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"fat cell differentiation\", \"lipid droplet organization\"], \"genes\": [\"BSCL2\"], \"locations\": [\"lipid droplet\"]}}, {\"id\": \"Biallelic AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense AGPAT2 variants can reduce or abolish lysophosphatidic acid acyltransferase activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGPAT2\"], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Biallelic BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense BSCL2 variants disrupt seipin-dependent lipid-droplet regulation and adipocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CAV1 caveola and lipid-droplet defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAV1 encodes caveolin 1, a major caveola component. CAV1 deficiency disrupts caveola-dependent fatty-acid and cholesterol handling and reduces the ability of adipocytes to expand lipid droplets.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\", \"lipid droplet organization\"], \"genes\": [\"CAV1\"]}}, {\"id\": \"CAV1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CAV1\"], \"subtypes\": [\"CGL3\"], \"association\": \"Causative biallelic pathogenic variants\"}}, {\"id\": \"CAVIN1 caveola biogenesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAVIN1, historically named PTRF, is required for caveola biogenesis and caveola stabilization. Biallelic pathogenic variants cause type 4 CGL with progressive lipodystrophy and additional muscle and cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\"], \"genes\": [\"CAVIN1\"]}}, {\"id\": \"CAVIN1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CAVIN1\"], \"subtypes\": [\"CGL4\"], \"association\": \"Causative biallelic pathogenic variants\"}}, {\"id\": \"CGL4 beta-blocker and anti-arrhythmic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients with CAVIN1/PTRF-associated type 4 disease may need avoidance of strenuous exercise plus beta-adrenergic blockers or other anti-arrhythmic medications to prevent catecholaminergic polymorphic ventricular tachycardia.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"beta-adrenergic antagonist\"]}}, {\"id\": \"CGL4 cardiac arrhythmia risk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CAVIN1/PTRF-associated type 4 disease has a serious arrhythmia risk that can include catecholaminergic polymorphic ventricular tachycardia and long QT interval.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0011675\"}}, {\"id\": \"Conventional diabetes and hyperlipidemia therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional pharmacotherapy for diabetes mellitus and hyperlipidemia is used to manage metabolic complications alongside disease-specific leptin replacement where appropriate.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes often develops after severe insulin resistance and metabolic dysregulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Ectopic triglyceride accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because adipose tissue cannot efficiently store circulating triglycerides, excess lipid accumulates in liver and skeletal muscle, causing steatosis, hepatomegaly, hypertriglyceridemia, and downstream insulin resistance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"locations\": [\"liver\", \"skeletal muscle tissue\"]}}, {\"id\": \"Generalized adipose tissue loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared cellular outcome is near-total loss of adipose tissue and inability to maintain normal triglyceride-storing adipocyte depots.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"locations\": [\"adipose tissue\"]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic triglyceride deposition produces fatty liver and may contribute to hepatomegaly.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is common and reflects hepatic lipid accumulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoleptinemia-driven metabolic dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-total adipose tissue loss markedly lowers leptin levels. Severe leptin deficiency can increase appetite and worsen diabetes, hypertriglyceridemia, and hepatic steatosis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe insulin resistance is a core metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is especially enriched in BSCL2-associated CGL.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The disorder is a generalized lipodystrophy with abnormal adipose tissue morphology and distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009125\"}}, {\"id\": \"Low-fat diet and exercise\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary management with a low-fat diet, adequate growth calories for children, and regular physical activity is part of supportive metabolic management, although controlled-trial evidence is limited.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metreleptin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metreleptin, a recombinant leptin analogue, is used with dietary changes to improve metabolic complications in generalized lipodystrophy, including diabetes, hypertriglyceridemia, and hepatic steatosis.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metreleptin\"]}}, {\"id\": \"Severe insulin resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic lipid accumulation and leptin deficiency produce extreme insulin resistance. This drives hyperinsulinemia, acanthosis nigricans, glucose intolerance, and diabetes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"insulin receptor signaling pathway\"]}}], \"edges\": [{\"source\": \"AGPAT2 acylglycerol synthesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CAV1 caveola and lipid-droplet defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Hypoleptinemia-driven metabolic dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Severe insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia-driven metabolic dysregulation\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia-driven metabolic dysregulation\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia-driven metabolic dysregulation\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metreleptin replacement therapy\", \"target\": \"Hypoleptinemia-driven metabolic dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-fat diet and exercise\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conventional diabetes and hyperlipidemia therapy\", \"target\": \"Severe insulin resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conventional diabetes and hyperlipidemia therapy\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CGL4 beta-blocker and anti-arrhythmic therapy\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CGL4 beta-blocker and anti-arrhythmic therapy\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 acylglycerol synthesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BSCL2 pathogenic variants\", \"target\": \"BSCL2 seipin lipid-droplet dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAV1 pathogenic variants\", \"target\": \"CAV1 caveola and lipid-droplet defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAVIN1 pathogenic variants\", \"target\": \"CAVIN1 caveola biogenesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Biallelic BSCL2 pathogenic variants\", \"target\": \"BSCL2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AGPAT2 acylglycerol synthesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AGPAT2 pathogenic variants impair lysophosphatidic-acid acylation to phosphatidic acid, a key step in triacylglycerol and glycerophospholipid synthesis. In adipocytes this limits normal triglyceride synthesis and storage.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"triglyceride biosynthetic process\"], \"genes\": [\"AGPAT2\"]}}, {\"id\": \"AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGPAT2\"], \"subtypes\": [\"CGL1\"], \"association\": \"Causative biallelic pathogenic variants\", \"variant_count\": 1}}, {\"id\": \"Acanthosis nigricans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acanthosis nigricans is a cutaneous manifestation of severe insulin resistance.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000956\"}}, {\"id\": \"Adipose tissue loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Near-total adipose tissue loss begins at birth or early infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008887\"}}, {\"id\": \"BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"subtypes\": [\"CGL2\"], \"association\": \"Causative biallelic pathogenic variants\", \"variant_count\": 1}}, {\"id\": \"BSCL2 seipin lipid-droplet dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BSCL2 encodes seipin, an endoplasmic-reticulum protein that participates in lipid-droplet assembly and terminal adipocyte differentiation. Loss of seipin disrupts regulated lipid-droplet biology and adipogenesis.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"fat cell differentiation\", \"lipid droplet organization\"], \"genes\": [\"BSCL2\"], \"locations\": [\"lipid droplet\"]}}, {\"id\": \"Biallelic AGPAT2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense AGPAT2 variants can reduce or abolish lysophosphatidic acid acyltransferase activity.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AGPAT2\"], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Biallelic BSCL2 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Null and missense BSCL2 variants disrupt seipin-dependent lipid-droplet regulation and adipocyte differentiation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"BSCL2\"], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CAV1 caveola and lipid-droplet defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAV1 encodes caveolin 1, a major caveola component. CAV1 deficiency disrupts caveola-dependent fatty-acid and cholesterol handling and reduces the ability of adipocytes to expand lipid droplets.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\", \"lipid droplet organization\"], \"genes\": [\"CAV1\"]}}, {\"id\": \"CAV1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CAV1\"], \"subtypes\": [\"CGL3\"], \"association\": \"Causative biallelic pathogenic variants\"}}, {\"id\": \"CAVIN1 caveola biogenesis defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CAVIN1, historically named PTRF, is required for caveola biogenesis and caveola stabilization. Biallelic pathogenic variants cause type 4 CGL with progressive lipodystrophy and additional muscle and cardiac involvement.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"biological_processes\": [\"caveola assembly\"], \"genes\": [\"CAVIN1\"]}}, {\"id\": \"CAVIN1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CAVIN1\"], \"subtypes\": [\"CGL4\"], \"association\": \"Causative biallelic pathogenic variants\"}}, {\"id\": \"CGL4 beta-blocker and anti-arrhythmic therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients with CAVIN1/PTRF-associated type 4 disease may need avoidance of strenuous exercise plus beta-adrenergic blockers or other anti-arrhythmic medications to prevent catecholaminergic polymorphic ventricular tachycardia.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"beta-adrenergic antagonist\"]}}, {\"id\": \"CGL4 cardiac arrhythmia risk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CAVIN1/PTRF-associated type 4 disease has a serious arrhythmia risk that can include catecholaminergic polymorphic ventricular tachycardia and long QT interval.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"CGL4\"], \"term_id\": \"HP:0011675\"}}, {\"id\": \"Conventional diabetes and hyperlipidemia therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Conventional pharmacotherapy for diabetes mellitus and hyperlipidemia is used to manage metabolic complications alongside disease-specific leptin replacement where appropriate.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diabetes often develops after severe insulin resistance and metabolic dysregulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000819\"}}, {\"id\": \"Ectopic triglyceride accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because adipose tissue cannot efficiently store circulating triglycerides, excess lipid accumulates in liver and skeletal muscle, causing steatosis, hepatomegaly, hypertriglyceridemia, and downstream insulin resistance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"cell of skeletal muscle\"], \"locations\": [\"liver\", \"skeletal muscle tissue\"]}}, {\"id\": \"Generalized adipose tissue loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared cellular outcome is near-total loss of adipose tissue and inability to maintain normal triglyceride-storing adipocyte depots.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\"], \"locations\": [\"adipose tissue\"]}}, {\"id\": \"Hepatic steatosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic triglyceride deposition produces fatty liver and may contribute to hepatomegaly.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001397\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement is common and reflects hepatic lipid accumulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Hypertriglyceridemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Hypoleptinemia-driven metabolic dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-total adipose tissue loss markedly lowers leptin levels. Severe leptin deficiency can increase appetite and worsen diabetes, hypertriglyceridemia, and hepatic steatosis.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe insulin resistance is a core metabolic manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000855\"}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is especially enriched in BSCL2-associated CGL.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The disorder is a generalized lipodystrophy with abnormal adipose tissue morphology and distribution.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009125\"}}, {\"id\": \"Low-fat diet and exercise\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary management with a low-fat diet, adequate growth calories for children, and regular physical activity is part of supportive metabolic management, although controlled-trial evidence is limited.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metreleptin replacement therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Metreleptin, a recombinant leptin analogue, is used with dietary changes to improve metabolic complications in generalized lipodystrophy, including diabetes, hypertriglyceridemia, and hepatic steatosis.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metreleptin\"]}}, {\"id\": \"Severe insulin resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ectopic lipid accumulation and leptin deficiency produce extreme insulin resistance. This drives hyperinsulinemia, acanthosis nigricans, glucose intolerance, and diabetes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"insulin receptor signaling pathway\"]}}], \"edges\": [{\"source\": \"AGPAT2 acylglycerol synthesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BSCL2 seipin lipid-droplet dysregulation\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CAV1 caveola and lipid-droplet defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CAVIN1 caveola biogenesis defect\", \"target\": \"Generalized adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Adipose tissue loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generalized adipose tissue loss\", \"target\": \"Hypoleptinemia-driven metabolic dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatic steatosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Ectopic triglyceride accumulation\", \"target\": \"Severe insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia-driven metabolic dysregulation\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia-driven metabolic dysregulation\", \"target\": \"Hypertriglyceridemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Hypoleptinemia-driven metabolic dysregulation\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Severe insulin resistance\", \"target\": \"Acanthosis nigricans\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metreleptin replacement therapy\", \"target\": \"Hypoleptinemia-driven metabolic dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-fat diet and exercise\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conventional diabetes and hyperlipidemia therapy\", \"target\": \"Severe insulin resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Conventional diabetes and hyperlipidemia therapy\", \"target\": \"Ectopic triglyceride accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CGL4 beta-blocker and anti-arrhythmic therapy\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CGL4 beta-blocker and anti-arrhythmic therapy\", \"target\": \"CGL4 cardiac arrhythmia risk\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 acylglycerol synthesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BSCL2 pathogenic variants\", \"target\": \"BSCL2 seipin lipid-droplet dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAV1 pathogenic variants\", \"target\": \"CAV1 caveola and lipid-droplet defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CAVIN1 pathogenic variants\", \"target\": \"CAVIN1 caveola biogenesis defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic AGPAT2 pathogenic variants\", \"target\": \"AGPAT2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Biallelic BSCL2 pathogenic variants\", \"target\": \"BSCL2 pathogenic variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6399,6 +6552,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6445,6 +6599,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6489,6 +6644,7 @@
                 
                 <div class="item-desc">Context: Hyperinsulinemia is a compensatory biochemical feature of severe insulin resistance.
 </div>
+                
                 
                 
     

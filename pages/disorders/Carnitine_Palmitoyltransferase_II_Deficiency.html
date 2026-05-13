@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -3459,7 +3612,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal failure secondary to massive rhabdomyolysis and myoglobin nephrotoxicity. Managed with aggressive fluid resuscitation and occasionally hemodialysis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001919\"}}, {\"id\": \"CPT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CPT2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CPT2 - Various private mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"More than 60 mostly private mutations have been described in CPT2 beyond the common S113L variant. Novel variants include p.F352L, p.R498L, p.F434S, p.A515P, and c.153-2A\u003eG reported in a Chinese pediatric cohort.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous CPT2 variants identified by whole-genome sequencing in a patient with recurrent rhabdomyolysis and normal inter-episode acylcarnitine profiles.\\n\"}, {\"id\": \"CPT2 - p.Ser113Leu (S113L)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant, found in approximately 90% of myopathic CPT II patients with an allele frequency of 60-70%. Produces a thermolabile enzyme with abnormal sensitivity to malonyl-CoA inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CPT2 gene variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CPT2\"], \"variant_count\": 3}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement in severe early-onset forms, also reported as a complication in the adult myopathic form. One case report documented left ventricular ejection fraction of 40% during acute crisis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carnitine shuttle disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CPT-II is the final enzyme of the three-component carnitine shuttle that transports long-chain fatty acids into the mitochondrial matrix. CPT-I on the outer mitochondrial membrane converts acyl-CoA to acylcarnitine, CACT translocates acylcarnitine across the inner membrane, and CPT-II regenerates acyl-CoA inside the mitochondrion. Loss of CPT-II activity blocks this shuttle at its terminal step.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"carnitine shuttle\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Creatine kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated serum creatine kinase during rhabdomyolysis episodes, reflecting skeletal muscle damage. CK levels normalize between episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Episodic muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle stiffness and cramps occurring during or after exercise or illness episodes, often preceding frank rhabdomyolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008967\"}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia, characteristic of severe infantile and neonatal forms due to impaired hepatic fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CPT-II function impairs mitochondrial beta-oxidation of long-chain fatty acids, resulting in accumulation of long-chain acylcarnitines and disruption of energy homeostasis, especially during fasting, illness, fever, or prolonged exercise when reliance on fatty acid oxidation increases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\", \"hepatocyte\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"long-chain fatty acid metabolic process\"], \"genes\": [\"CPT2\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In CPT2-deficient muscle, accumulation of long-chain acylcarnitines (LCACs), particularly palmitoyl-carnitine, directly inhibits sarcoplasmic reticulum calcium uptake, disrupts excitation-contraction coupling structures, and increases mitochondrial calcium stress and permeability transition pore susceptibility. This leads to contractile dysfunction and myofiber injury beyond simple energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"calcium ion homeostasis\"], \"locations\": [\"sarcoplasmic reticulum\"]}}, {\"id\": \"Liver dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased liver function and liver failure occur in severe neonatal and infantile CPT2 deficiency as part of the hepatocardiomuscular presentation, reflecting impaired hepatic long-chain fatty acid oxidation during metabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001410\"}}, {\"id\": \"Long-chain acylcarnitines (C16, C18:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic myofiber injury and rhabdomyolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During metabolic stress, CPT2-deficient skeletal muscle cannot meet energy demands from long-chain fatty acid oxidation and accumulates lipid intermediates. The resulting ATP stress, calcium dyshomeostasis, and contractile structure disruption lead to episodic myofiber injury, rhabdomyolysis, leakage of creatine kinase and myoglobin, and secondary renal risk.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"muscle contraction\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic muscle weakness during attacks, reported in 76% of patients. Unlike carnitine deficiency, persistent muscle weakness is not characteristic between episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent attacks of muscle pain are the most common symptom, reported in 94% of patients with muscle CPT II deficiency. Typically triggered by exercise, infection, or fasting.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Myoglobinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark urine due to myoglobin release from damaged skeletal muscle, occurring with rhabdomyolysis episodes. Reported in 86% of patients with the myopathic form.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002913\"}}, {\"id\": \"Palmitoyl-carnitine in muscle\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of skeletal muscle breakdown triggered by prolonged exercise, fasting, fever, or cold exposure. This is the hallmark manifestation of the myopathic form. In a cohort of 50 patients, myoglobinuria was observed in 86%.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Thermolability of mutant CPT-II enzyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common myopathic variant p.Ser113Leu produces an enzyme with near-normal baseline activity but marked thermolability at elevated temperatures (40-45 degrees C) and abnormal sensitivity to inhibition by malonyl-CoA. This provides a mechanistic rationale for fever- and exertion-triggered metabolic crises, as the mutant enzyme loses activity precisely when fatty acid oxidation demand is greatest.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"]}}], \"edges\": [{\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Long-chain acylcarnitines (C16, C18:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Palmitoyl-carnitine in muscle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Liver dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thermolability of mutant CPT-II enzyme\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Episodic muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myoglobinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carnitine shuttle disruption\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CPT2 gene variants\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2 - p.Ser113Leu (S113L)\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - Various private mutations\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal failure secondary to massive rhabdomyolysis and myoglobin nephrotoxicity. Managed with aggressive fluid resuscitation and occasionally hemodialysis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001919\"}}, {\"id\": \"CPT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CPT2\"], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"CPT2 - Various private mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"More than 60 mostly private mutations have been described in CPT2 beyond the common S113L variant. Novel variants include p.F352L, p.R498L, p.F434S, p.A515P, and c.153-2A\u003eG reported in a Chinese pediatric cohort.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Compound heterozygous CPT2 variants identified by whole-genome sequencing in a patient with recurrent rhabdomyolysis and normal inter-episode acylcarnitine profiles.\\n\"}, {\"id\": \"CPT2 - p.Ser113Leu (S113L)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common pathogenic variant, found in approximately 90% of myopathic CPT II patients with an allele frequency of 60-70%. Produces a thermolabile enzyme with abnormal sensitivity to malonyl-CoA inhibition.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CPT2 gene variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CPT2\"], \"variant_count\": 3}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement in severe early-onset forms, also reported as a complication in the adult myopathic form. One case report documented left ventricular ejection fraction of 40% during acute crisis.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Carnitine shuttle disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CPT-II is the final enzyme of the three-component carnitine shuttle that transports long-chain fatty acids into the mitochondrial matrix. CPT-I on the outer mitochondrial membrane converts acyl-CoA to acylcarnitine, CACT translocates acylcarnitine across the inner membrane, and CPT-II regenerates acyl-CoA inside the mitochondrion. Loss of CPT-II activity blocks this shuttle at its terminal step.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"carnitine shuttle\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Creatine kinase\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Elevated creatine kinase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly elevated serum creatine kinase during rhabdomyolysis episodes, reflecting skeletal muscle damage. CK levels normalize between episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003236\"}}, {\"id\": \"Episodic muscle stiffness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle stiffness and cramps occurring during or after exercise or illness episodes, often preceding frank rhabdomyolysis.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0008967\"}}, {\"id\": \"Free carnitine (C0)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DECREASED\"}}, {\"id\": \"Hypoketotic hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fasting intolerance with low ketone production and hypoglycemia, characteristic of severe infantile and neonatal forms due to impaired hepatic fatty acid oxidation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CPT-II function impairs mitochondrial beta-oxidation of long-chain fatty acids, resulting in accumulation of long-chain acylcarnitines and disruption of energy homeostasis, especially during fasting, illness, fever, or prolonged exercise when reliance on fatty acid oxidation increases.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\", \"hepatocyte\"], \"biological_processes\": [\"fatty acid beta-oxidation\", \"long-chain fatty acid metabolic process\"], \"genes\": [\"CPT2\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In CPT2-deficient muscle, accumulation of long-chain acylcarnitines (LCACs), particularly palmitoyl-carnitine, directly inhibits sarcoplasmic reticulum calcium uptake, disrupts excitation-contraction coupling structures, and increases mitochondrial calcium stress and permeability transition pore susceptibility. This leads to contractile dysfunction and myofiber injury beyond simple energy failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"calcium ion homeostasis\"], \"locations\": [\"sarcoplasmic reticulum\"]}}, {\"id\": \"Liver dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased liver function and liver failure occur in severe neonatal and infantile CPT2 deficiency as part of the hepatocardiomuscular presentation, reflecting impaired hepatic long-chain fatty acid oxidation during metabolic stress.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001410\"}}, {\"id\": \"Long-chain acylcarnitines (C16, C18:1)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Metabolic myofiber injury and rhabdomyolysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During metabolic stress, CPT2-deficient skeletal muscle cannot meet energy demands from long-chain fatty acid oxidation and accumulates lipid intermediates. The resulting ATP stress, calcium dyshomeostasis, and contractile structure disruption lead to episodic myofiber injury, rhabdomyolysis, leakage of creatine kinase and myoglobin, and secondary renal risk.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"muscle contraction\"]}}, {\"id\": \"Muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Episodic muscle weakness during attacks, reported in 76% of patients. Unlike carnitine deficiency, persistent muscle weakness is not characteristic between episodes.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001324\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent attacks of muscle pain are the most common symptom, reported in 94% of patients with muscle CPT II deficiency. Typically triggered by exercise, infection, or fasting.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Myoglobinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dark urine due to myoglobin release from damaged skeletal muscle, occurring with rhabdomyolysis episodes. Reported in 86% of patients with the myopathic form.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002913\"}}, {\"id\": \"Palmitoyl-carnitine in muscle\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent episodes of skeletal muscle breakdown triggered by prolonged exercise, fasting, fever, or cold exposure. This is the hallmark manifestation of the myopathic form. In a cohort of 50 patients, myoglobinuria was observed in 86%.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"Thermolability of mutant CPT-II enzyme\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common myopathic variant p.Ser113Leu produces an enzyme with near-normal baseline activity but marked thermolability at elevated temperatures (40-45 degrees C) and abnormal sensitivity to inhibition by malonyl-CoA. This provides a mechanistic rationale for fever- and exertion-triggered metabolic crises, as the mutant enzyme loses activity precisely when fatty acid oxidation demand is greatest.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein folding\"]}}], \"edges\": [{\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Long-chain acylcarnitines (C16, C18:1)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Free carnitine (C0)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Palmitoyl-carnitine in muscle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Hypoketotic hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Liver dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Thermolability of mutant CPT-II enzyme\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LCAC-mediated calcium dyshomeostasis in skeletal muscle\", \"target\": \"Metabolic myofiber injury and rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Episodic muscle stiffness\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Myoglobinuria\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Elevated creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Creatine kinase\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic myofiber injury and rhabdomyolysis\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Carnitine shuttle disruption\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"CPT2 gene variants\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2\", \"target\": \"Impaired mitochondrial long-chain fatty acid oxidation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CPT2 - p.Ser113Leu (S113L)\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - c.338C\u003eT and c.482G\u003eA compound heterozygote\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CPT2 - Various private mutations\", \"target\": \"CPT2 gene variants\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5263,6 +5416,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5307,6 +5461,7 @@
                 
                 <div class="item-desc">Context: Free carnitine levels may be decreased or low-normal, reflecting sequestration as long-chain acylcarnitines that cannot be metabolized due to CPT-II dysfunction.
 </div>
+                
                 
                 
     
@@ -5355,6 +5510,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -5399,6 +5555,7 @@
                 
                 <div class="item-desc">Context: Palmitoyl-carnitine (C16:0) accumulates preferentially in oxidative muscle fibers in CPT2 deficiency and directly inhibits sarcoplasmic reticulum calcium uptake, linking it to the pathogenesis of muscle contractile dysfunction.
 </div>
+                
                 
                 
     

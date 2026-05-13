@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4511,7 +4664,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Urinary Odor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012088\"}}, {\"id\": \"Acute Crisis Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IV glucose, insulin, and lipids to promote anabolism and reduce protein catabolism during metabolic crises.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alloisoleucine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alpha-Keto-beta-Methylvaleric Acid (KMV)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alpha-Ketoisocaproic Acid (KIC)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alpha-Ketoisovaleric Acid (KIV)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCAA-Restricted Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong dietary restriction of leucine, isoleucine, and valine intake, mainstay of treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCKDHA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDHA\"], \"subtypes\": [\"Type IA\"], \"association\": \"Causative\"}}, {\"id\": \"BCKDHB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDHB\"], \"subtypes\": [\"Type IB\"], \"association\": \"Causative\"}}, {\"id\": \"BCKDK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDK\"], \"association\": \"Regulatory\"}}, {\"id\": \"Blood-Brain Barrier Transport Competition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated plasma leucine competes for transport across the blood-brain barrier via the L-type amino acid transporter (LAT1), which is shared by other large neutral amino acids (LNAAs). This competition limits entry of essential amino acids including tyrosine, tryptophan, phenylalanine, methionine, and threonine into the brain, depleting their availability for neurotransmitter synthesis and protein metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"neutral amino acid transport\"], \"locations\": [\"blood-brain barrier\"]}}, {\"id\": \"Brain Neurotransmitter Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leucine and KIC entry into the brain via LAT1 and monocarboxylate transporters drives reversed branched-chain aminotransferase flux, consuming alpha-ketoglutarate and depleting glutamate. This cascade reduces glutamate, glutamine, GABA, and N-acetylaspartate (NAA) concentrations in brain tissue. Depleted glutamate and GABA impair both excitatory and inhibitory neurotransmission, while low NAA reflects compromised neuronal integrity and energy metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"glutamate metabolic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding subunits of the branched-chain alpha-ketoacid dehydrogenase complex (BCKDH) cause deficient catabolism of branched-chain amino acids (leucine, isoleucine, valine). The BCKDH complex catalyzes the first irreversible step in BCAA catabolism within the mitochondrial matrix. Pathogenic variants in BCKDHA (E1-alpha), BCKDHB (E1-beta), and DBT (E2) account for most cases; deficiency in the shared E3 subunit (DLD) produces an MSUD phenotype with broader mitochondrial dysfunction. BCKDH activity is regulated by phosphorylation via BCKDK (kinase, inactivating) and PPM1K (phosphatase, activating).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"branched-chain amino acid catabolic process\"], \"genes\": [\"BCKDHA\", \"BCKDHB\", \"DBT\", \"DLD\", \"BCKDK\", \"PPM1K\"], \"locations\": [\"liver\"]}}, {\"id\": \"Cerebral Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Cerebral Energy Failure and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KIC-mediated inhibition of mitochondrial dehydrogenases and electron transport chain function leads to cerebral energy failure with reduced ATP and N-acetylaspartate. Concurrently, reactive oxygen and nitrogen species accumulate, further damaging mitochondrial enzymes including lipoate-containing E2/E3 modules. This combination of energy depletion and oxidative stress results in cerebral edema with diffuse gray matter swelling affecting the cerebral cortex, basal ganglia, hippocampus, and brainstem.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"generation of precursor metabolites and energy\"], \"locations\": [\"cerebral cortex\", \"basal ganglion\", \"hippocampal formation\", \"brainstem\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"DBT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DBT\"], \"subtypes\": [\"Type II\"], \"association\": \"Causative\"}}, {\"id\": \"DLD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DLD\"], \"subtypes\": [\"Type III\"], \"association\": \"Causative\"}}, {\"id\": \"Elevated Branched Chain Amino Acids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008344\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006846\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Gene Therapy (Preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed AAV8 gene therapy delivering BCKDHA has rescued lethal MSUD phenotype in Bckdha-knockout mice. Ubiquitous promoter fully rescues the disease; liver-specific expression provides partial but sustained rescue, highlighting both hepatic and extrahepatic requirements for complete correction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intravenous BCAA-Free Solution\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IV amino acid solution without branched-chain amino acids for acute crisis management when enteral feeding is not possible.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Leucine and Ketoacid Neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated leucine and its metabolite alpha-ketoisocaproic acid (KIC) are particularly neurotoxic. KIC inhibits key mitochondrial enzymes including alpha-ketoglutarate dehydrogenase and pyruvate dehydrogenase, disrupting brain energy metabolism. At disease-relevant concentrations, KIC impairs mitochondrial respiration and cellular energy charge in neural cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Curative treatment providing sufficient BCKD enzyme activity from donor hepatocytes, allowing unrestricted protein diet.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Medical Formula\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BCAA-free amino acid supplements to provide protein needs while restricting toxic amino acids.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Potential adjunctive therapy that reduces KIC production by downregulating mitochondrial BCAT; shown to improve metabolic homeostasis in preclinical models.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Neural Cell Death via Apoptosis and Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained exposure to elevated BCAAs and BCKAs triggers both apoptotic and autophagic cell death programs in neural tissue. KIC induces apoptosis in glial and neuronal cells through a cytochrome c-independent pathway, without canonical mitochondrial membrane depolarization. Chronic BCAA exposure also increases autophagy markers across brain regions including cerebral cortex, hippocampus, and brainstem, consistent with stress-induced autophagic programs that can progress to cell death.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"oligodendrocyte\"], \"biological_processes\": [\"apoptotic process\", \"autophagy\"]}}, {\"id\": \"PPM1K\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPM1K\"], \"association\": \"Regulatory\"}}, {\"id\": \"Phenylbutyrate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BCKDK inhibitor that increases BCKDH enzyme activity by preventing phosphorylation, may benefit subset of patients with residual enzyme activity.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sodium phenylbutyrate\"]}}, {\"id\": \"Plasma Isoleucine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma Leucine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Plasma Valine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Poor Feeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skeletal Muscle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal muscle is a major site of BCAA transamination via mitochondrial branched-chain aminotransferase (BCAT2) and accumulates toxic ketoacids. KIC disrupts mitochondrial metabolism in myocytes, causing reduced TCA cycle flux and ATP depletion. MSUD patients and mouse models display skeletal muscle fiber abnormalities including reduced fiber diameter and muscle atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"branched-chain amino acid catabolic process\"], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Systemic BCAA and BCKA Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCKDH deficiency causes systemic accumulation of leucine, isoleucine, valine and their corresponding branched-chain ketoacids: alpha-ketoisocaproic acid (KIC) from leucine, alpha-ketoisovaleric acid (KIV) from valine, and alpha-keto-beta-methylvaleric acid (KMV) from isoleucine. The pathognomonic marker alloisoleucine also accumulates. Leucine and BCAA concentrations in blood range from approximately 1 to 5 mM in MSUD patients compared to 90-250 micromol/L in unaffected subjects.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Thiamine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose thiamine for thiamine-responsive variant patients who have specific mutations affecting cofactor binding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Leucine and Ketoacid Neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Blood-Brain Barrier Transport Competition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Skeletal Muscle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Elevated Branched Chain Amino Acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Plasma Leucine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Plasma Isoleucine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Plasma Valine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alloisoleucine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alpha-Ketoisocaproic Acid (KIC)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alpha-Ketoisovaleric Acid (KIV)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alpha-Keto-beta-Methylvaleric Acid (KMV)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Abnormal Urinary Odor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Metabolic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-Brain Barrier Transport Competition\", \"target\": \"Brain Neurotransmitter Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Neurotransmitter Depletion\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Neurotransmitter Depletion\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Cerebral Energy Failure and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Poor Feeding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Neural Cell Death via Apoptosis and Autophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Cerebral Edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural Cell Death via Apoptosis and Autophagy\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Muscle Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BCAA-Restricted Diet\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Medical Formula\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiamine Supplementation\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous BCAA-Free Solution\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute Crisis Management\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenylbutyrate\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene Therapy (Preclinical)\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BCKDHA\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BCKDHB\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DBT\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLD\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BCKDK\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPM1K\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Urinary Odor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012088\"}}, {\"id\": \"Acute Crisis Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IV glucose, insulin, and lipids to promote anabolism and reduce protein catabolism during metabolic crises.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alloisoleucine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Alpha-Keto-beta-Methylvaleric Acid (KMV)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Alpha-Ketoisocaproic Acid (KIC)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Alpha-Ketoisovaleric Acid (KIV)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"BCAA-Restricted Diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong dietary restriction of leucine, isoleucine, and valine intake, mainstay of treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"BCKDHA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDHA\"], \"subtypes\": [\"Type IA\"], \"association\": \"Causative\"}}, {\"id\": \"BCKDHB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDHB\"], \"subtypes\": [\"Type IB\"], \"association\": \"Causative\"}}, {\"id\": \"BCKDK\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BCKDK\"], \"association\": \"Regulatory\"}}, {\"id\": \"Blood-Brain Barrier Transport Competition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated plasma leucine competes for transport across the blood-brain barrier via the L-type amino acid transporter (LAT1), which is shared by other large neutral amino acids (LNAAs). This competition limits entry of essential amino acids including tyrosine, tryptophan, phenylalanine, methionine, and threonine into the brain, depleting their availability for neurotransmitter synthesis and protein metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"neutral amino acid transport\"], \"locations\": [\"blood-brain barrier\"]}}, {\"id\": \"Brain Neurotransmitter Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leucine and KIC entry into the brain via LAT1 and monocarboxylate transporters drives reversed branched-chain aminotransferase flux, consuming alpha-ketoglutarate and depleting glutamate. This cascade reduces glutamate, glutamine, GABA, and N-acetylaspartate (NAA) concentrations in brain tissue. Depleted glutamate and GABA impair both excitatory and inhibitory neurotransmission, while low NAA reflects compromised neuronal integrity and energy metabolism.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"glutamate metabolic process\"], \"locations\": [\"brain\"]}}, {\"id\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding subunits of the branched-chain alpha-ketoacid dehydrogenase complex (BCKDH) cause deficient catabolism of branched-chain amino acids (leucine, isoleucine, valine). The BCKDH complex catalyzes the first irreversible step in BCAA catabolism within the mitochondrial matrix. Pathogenic variants in BCKDHA (E1-alpha), BCKDHB (E1-beta), and DBT (E2) account for most cases; deficiency in the shared E3 subunit (DLD) produces an MSUD phenotype with broader mitochondrial dysfunction. BCKDH activity is regulated by phosphorylation via BCKDK (kinase, inactivating) and PPM1K (phosphatase, activating).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"branched-chain amino acid catabolic process\"], \"genes\": [\"BCKDHA\", \"BCKDHB\", \"DBT\", \"DLD\", \"BCKDK\", \"PPM1K\"], \"locations\": [\"liver\"]}}, {\"id\": \"Cerebral Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002181\"}}, {\"id\": \"Cerebral Energy Failure and Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KIC-mediated inhibition of mitochondrial dehydrogenases and electron transport chain function leads to cerebral energy failure with reduced ATP and N-acetylaspartate. Concurrently, reactive oxygen and nitrogen species accumulate, further damaging mitochondrial enzymes including lipoate-containing E2/E3 modules. This combination of energy depletion and oxidative stress results in cerebral edema with diffuse gray matter swelling affecting the cerebral cortex, basal ganglia, hippocampus, and brainstem.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"response to oxidative stress\", \"generation of precursor metabolites and energy\"], \"locations\": [\"cerebral cortex\", \"basal ganglion\", \"hippocampal formation\", \"brainstem\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"DBT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DBT\"], \"subtypes\": [\"Type II\"], \"association\": \"Causative\"}}, {\"id\": \"DLD\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DLD\"], \"subtypes\": [\"Type III\"], \"association\": \"Causative\"}}, {\"id\": \"Elevated Branched Chain Amino Acids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0008344\"}}, {\"id\": \"Encephalopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006846\"}}, {\"id\": \"Failure to Thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Gene Therapy (Preclinical)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver-directed AAV8 gene therapy delivering BCKDHA has rescued lethal MSUD phenotype in Bckdha-knockout mice. Ubiquitous promoter fully rescues the disease; liver-specific expression provides partial but sustained rescue, highlighting both hepatic and extrahepatic requirements for complete correction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Intravenous BCAA-Free Solution\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"IV amino acid solution without branched-chain amino acids for acute crisis management when enteral feeding is not possible.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001254\"}}, {\"id\": \"Leucine and Ketoacid Neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated leucine and its metabolite alpha-ketoisocaproic acid (KIC) are particularly neurotoxic. KIC inhibits key mitochondrial enzymes including alpha-ketoglutarate dehydrogenase and pyruvate dehydrogenase, disrupting brain energy metabolism. At disease-relevant concentrations, KIC impairs mitochondrial respiration and cellular energy charge in neural cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\", \"astrocyte\"], \"biological_processes\": [\"oxidative phosphorylation\"], \"locations\": [\"brain\"]}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Curative treatment providing sufficient BCKD enzyme activity from donor hepatocytes, allowing unrestricted protein diet.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Medical Formula\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BCAA-free amino acid supplements to provide protein needs while restricting toxic amino acids.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Metabolic Acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001942\"}}, {\"id\": \"Metformin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Potential adjunctive therapy that reduces KIC production by downregulating mitochondrial BCAT; shown to improve metabolic homeostasis in preclinical models.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"metformin\"]}}, {\"id\": \"Neural Cell Death via Apoptosis and Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained exposure to elevated BCAAs and BCKAs triggers both apoptotic and autophagic cell death programs in neural tissue. KIC induces apoptosis in glial and neuronal cells through a cytochrome c-independent pathway, without canonical mitochondrial membrane depolarization. Chronic BCAA exposure also increases autophagy markers across brain regions including cerebral cortex, hippocampus, and brainstem, consistent with stress-induced autophagic programs that can progress to cell death.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\", \"oligodendrocyte\"], \"biological_processes\": [\"apoptotic process\", \"autophagy\"]}}, {\"id\": \"PPM1K\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPM1K\"], \"association\": \"Regulatory\"}}, {\"id\": \"Phenylbutyrate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"BCKDK inhibitor that increases BCKDH enzyme activity by preventing phosphorylation, may benefit subset of patients with residual enzyme activity.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sodium phenylbutyrate\"]}}, {\"id\": \"Plasma Isoleucine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Plasma Leucine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Plasma Valine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\"}}, {\"id\": \"Poor Feeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008872\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Skeletal Muscle Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Skeletal muscle is a major site of BCAA transamination via mitochondrial branched-chain aminotransferase (BCAT2) and accumulates toxic ketoacids. KIC disrupts mitochondrial metabolism in myocytes, causing reduced TCA cycle flux and ATP depletion. MSUD patients and mouse models display skeletal muscle fiber abnormalities including reduced fiber diameter and muscle atrophy.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"branched-chain amino acid catabolic process\"], \"locations\": [\"skeletal muscle tissue\"]}}, {\"id\": \"Systemic BCAA and BCKA Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCKDH deficiency causes systemic accumulation of leucine, isoleucine, valine and their corresponding branched-chain ketoacids: alpha-ketoisocaproic acid (KIC) from leucine, alpha-ketoisovaleric acid (KIV) from valine, and alpha-keto-beta-methylvaleric acid (KMV) from isoleucine. The pathognomonic marker alloisoleucine also accumulates. Leucine and BCAA concentrations in blood range from approximately 1 to 5 mM in MSUD patients compared to 90-250 micromol/L in unaffected subjects.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"branched-chain amino acid catabolic process\"]}}, {\"id\": \"Thiamine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose thiamine for thiamine-responsive variant patients who have specific mutations affecting cofactor binding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002013\"}}], \"edges\": [{\"source\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Leucine and Ketoacid Neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Blood-Brain Barrier Transport Competition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Skeletal Muscle Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Elevated Branched Chain Amino Acids\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Plasma Leucine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Plasma Isoleucine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Plasma Valine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alloisoleucine\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alpha-Ketoisocaproic Acid (KIC)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alpha-Ketoisovaleric Acid (KIV)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Alpha-Keto-beta-Methylvaleric Acid (KMV)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Abnormal Urinary Odor\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Metabolic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic BCAA and BCKA Accumulation\", \"target\": \"Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-Brain Barrier Transport Competition\", \"target\": \"Brain Neurotransmitter Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Neurotransmitter Depletion\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Brain Neurotransmitter Depletion\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Cerebral Energy Failure and Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Encephalopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Poor Feeding\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Leucine and Ketoacid Neurotoxicity\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Neural Cell Death via Apoptosis and Autophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Cerebral Edema\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Cerebral Energy Failure and Oxidative Stress\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neural Cell Death via Apoptosis and Autophagy\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Muscle Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"BCAA-Restricted Diet\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Medical Formula\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thiamine Supplementation\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous BCAA-Free Solution\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acute Crisis Management\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenylbutyrate\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Metformin\", \"target\": \"Systemic BCAA and BCKA Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gene Therapy (Preclinical)\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BCKDHA\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BCKDHB\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DBT\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DLD\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BCKDK\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPM1K\", \"target\": \"Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7061,6 +7214,7 @@
                 <div class="item-desc">Context: Markedly elevated, often greater than 2000 micromol/L in classic form; normal is 90-250 micromol/L</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7102,6 +7256,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Elevated above normal range along with other branched-chain amino acids</div>
+                
                 
                 
     
@@ -7147,6 +7302,7 @@
                 <div class="item-desc">Context: Elevated above normal range along with other branched-chain amino acids</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7188,6 +7344,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Pathognomonic marker for MSUD, not normally present in plasma</div>
+                
                 
                 
     
@@ -7233,6 +7390,7 @@
                 <div class="item-desc">Context: Leucine-derived ketoacid, primary neurotoxic metabolite</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7276,6 +7434,7 @@
                 <div class="item-desc">Context: Valine-derived ketoacid</div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -7317,6 +7476,7 @@
                 </div>
                 
                 <div class="item-desc">Context: Isoleucine-derived ketoacid</div>
+                
                 
                 
     

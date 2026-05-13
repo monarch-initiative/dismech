@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4822,7 +4975,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"APOB\"], \"frequency\": \"~5-10%\", \"association\": \"Pathogenic Mutations\", \"variant_count\": 2}}, {\"id\": \"APOB-LDLR Binding Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic APOB variants leave the receptor pathway present but impair binding of apoB-containing LDL particles to LDLR, creating a ligand-side failure of hepatic LDL uptake.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\"], \"genes\": [\"APOB\"], \"locations\": [\"liver\"]}}, {\"id\": \"Aortic Valve Lipid Deposition and Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe, especially biallelic FH, chronic lipid deposition in the aortic root and valve contributes to early calcific aortic valve disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atherosclerotic Plaque Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intimal lipid retention and inflammation result in atherosclerotic plaque formation as a major arterial consequence of lifelong LDL excess in FH.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"Class 1 - Null mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"No LDLR protein synthesized. Most severe class. Large deletions, frameshift, and nonsense mutations. Homozygous null patients have minimal response to statins since there is no residual receptor to upregulate.\\n\", \"meta\": {\"variant_type\": \"null\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 2 - Transport-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR protein synthesized but fails to properly fold or transport from ER to Golgi. Receptor is retained intracellularly and degraded.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 3 - Binding-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR reaches cell surface but cannot bind LDL particles normally. Mutations affect the ligand-binding domain (repeats 2-7).\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 4 - Internalization-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR binds LDL but fails to cluster in clathrin-coated pits for endocytosis. Mutations typically affect the cytoplasmic NPXY motif.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 5 - Recycling-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR internalizes LDL but fails to release it in the endosome and does not recycle back to the cell surface. Receptor is degraded along with the ligand.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Corneal Cholesterol Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipid deposition at the peripheral cornea produces premature corneal arcus, especially when LDL exposure begins early in life.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"D374Y (p.Asp374Tyr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One of the most severe PCSK9 gain-of-function mutations. Increases PCSK9 affinity for LDLR, leading to enhanced receptor degradation and severe hypercholesterolemia. Excellent response to PCSK9 inhibitor therapy.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Elevated Circulating LDL Cholesterol\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lifelong LDL-C excess is the central biochemical phenotype of FH and the immediate driver of arterial and extra-arterial cholesterol deposition.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cholesterol homeostasis\"]}}, {\"id\": \"Extra-arterial Cholesterol Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic LDL excess also drives cholesterol deposition outside the arterial wall, creating the visible stigmata of FH and contributing to valvular disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"F216L (p.Phe216Leu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Gain-of-function variant associated with FH. Enhances PCSK9-mediated LDLR degradation.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"LDLR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LDLR\"], \"frequency\": \"~85-90%\", \"association\": \"Pathogenic Mutations\", \"variant_count\": 5}}, {\"id\": \"LDLR Functional Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic LDLR variants reduce receptor synthesis, trafficking, ligand binding, internalization, or recycling, lowering functional LDL receptor abundance on hepatocytes and weakening the core LDL clearance pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\", \"receptor-mediated endocytosis\"], \"genes\": [\"LDLR\"], \"locations\": [\"liver\"]}}, {\"id\": \"LDLRAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LDLRAP1\"], \"frequency\": \"\u003c1%\", \"association\": \"Loss-of-Function Mutations\"}}, {\"id\": \"LDLRAP1-Related LDL Uptake Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic LDLRAP1 variants define a rarer recessive route into the same LDLR pathway failure, showing that FH can also start at a genetically disrupted LDL uptake step without a primary LDLR coding defect.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\"], \"genes\": [\"LDLRAP1\"], \"locations\": [\"liver\"]}}, {\"id\": \"Macrophage Recruitment to Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory signaling within the lipid-rich intima recruits macrophages to early arterial lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\", \"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"Macrophage-Derived Foam Cell Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages in lipid-rich intima accumulate oxidized lipoproteins and differentiate into foam cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage-derived foam cell\", \"macrophage\"], \"biological_processes\": [\"macrophage-derived foam cell differentiation\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"Oxidized LDL Infiltration of Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized LDL infiltrates and accumulates in the arterial intima, establishing the initiating lipid milieu for FH-associated atherogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"PCSK9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCSK9\"], \"frequency\": \"\u003c5%\", \"association\": \"Gain-of-Function Mutations\", \"variant_count\": 3}}, {\"id\": \"PCSK9 Gain-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function PCSK9 variants create a dominant mechanism of FH by increasing the rate at which LDLR is removed from the hepatocyte surface.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"genes\": [\"PCSK9\"], \"locations\": [\"liver\"]}}, {\"id\": \"PCSK9-Mediated LDLR Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PCSK9 activity accelerates degradation of mature LDL receptors after endocytosis, leaving fewer receptors available on hepatocytes to clear LDL from the circulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Premature Atherosclerotic Cardiovascular Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arterial branch culminates in premature coronary artery disease, angina, myocardial infarction, stroke, and peripheral arterial disease, with earlier and more severe presentations in biallelic disease.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"R3500Q (p.Arg3527Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common APOB mutation causing FH. Missense variant in exon 26 that reduces apoB-100 binding to LDLR by approximately 90%. Generally produces a milder phenotype than most LDLR mutations.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"R3500W (p.Arg3527Trp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Less common APOB variant affecting the same residue as R3500Q. Also impairs LDL binding to LDLR.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Reduced Hepatic LDL Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite different causal genes, monogenic FH converges on impaired hepatic uptake and lysosomal processing of LDL particles, so plasma LDL remains elevated from birth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\", \"receptor-mediated endocytosis\"], \"locations\": [\"liver\"]}}, {\"id\": \"S127R (p.Ser127Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"French Canadian founder mutation. Gain-of-function variant producing a moderately severe FH phenotype.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Tendon and Cutaneous Cholesterol Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesterol-rich deposits accumulate in the Achilles and hand tendons and in the skin and eyelids, producing tendon xanthomas, cutaneous xanthomas, and xanthelasma.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"LDLR Functional Defect\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"APOB-LDLR Binding Defect\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PCSK9 Gain-of-Function\", \"target\": \"PCSK9-Mediated LDLR Degradation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LDLRAP1-Related LDL Uptake Defect\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PCSK9-Mediated LDLR Degradation\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Hepatic LDL Clearance\", \"target\": \"Elevated Circulating LDL Cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Elevated Circulating LDL Cholesterol\", \"target\": \"Oxidized LDL Infiltration of Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Elevated Circulating LDL Cholesterol\", \"target\": \"Extra-arterial Cholesterol Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidized LDL Infiltration of Arterial Intima\", \"target\": \"Macrophage Recruitment to Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Recruitment to Arterial Intima\", \"target\": \"Macrophage-Derived Foam Cell Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage-Derived Foam Cell Formation\", \"target\": \"Atherosclerotic Plaque Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Atherosclerotic Plaque Development\", \"target\": \"Premature Atherosclerotic Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extra-arterial Cholesterol Deposition\", \"target\": \"Tendon and Cutaneous Cholesterol Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extra-arterial Cholesterol Deposition\", \"target\": \"Corneal Cholesterol Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extra-arterial Cholesterol Deposition\", \"target\": \"Aortic Valve Lipid Deposition and Calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LDLR\", \"target\": \"LDLR Functional Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB\", \"target\": \"APOB-LDLR Binding Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCSK9\", \"target\": \"PCSK9 Gain-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LDLRAP1\", \"target\": \"LDLRAP1-Related LDL Uptake Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Class 1 - Null mutations\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 2 - Transport-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 3 - Binding-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 4 - Internalization-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 5 - Recycling-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R3500Q (p.Arg3527Gln)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R3500W (p.Arg3527Trp)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"D374Y (p.Asp374Tyr)\", \"target\": \"PCSK9\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"S127R (p.Ser127Arg)\", \"target\": \"PCSK9\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"F216L (p.Phe216Leu)\", \"target\": \"PCSK9\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"APOB\"], \"frequency\": \"~5-10%\", \"presence\": \"Positive\", \"association\": \"Pathogenic Mutations\", \"variant_count\": 2}}, {\"id\": \"APOB-LDLR Binding Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic APOB variants leave the receptor pathway present but impair binding of apoB-containing LDL particles to LDLR, creating a ligand-side failure of hepatic LDL uptake.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\"], \"genes\": [\"APOB\"], \"locations\": [\"liver\"]}}, {\"id\": \"Aortic Valve Lipid Deposition and Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In severe, especially biallelic FH, chronic lipid deposition in the aortic root and valve contributes to early calcific aortic valve disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atherosclerotic Plaque Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic intimal lipid retention and inflammation result in atherosclerotic plaque formation as a major arterial consequence of lifelong LDL excess in FH.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"Class 1 - Null mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"No LDLR protein synthesized. Most severe class. Large deletions, frameshift, and nonsense mutations. Homozygous null patients have minimal response to statins since there is no residual receptor to upregulate.\\n\", \"meta\": {\"variant_type\": \"null\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 2 - Transport-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR protein synthesized but fails to properly fold or transport from ER to Golgi. Receptor is retained intracellularly and degraded.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 3 - Binding-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR reaches cell surface but cannot bind LDL particles normally. Mutations affect the ligand-binding domain (repeats 2-7).\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 4 - Internalization-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR binds LDL but fails to cluster in clathrin-coated pits for endocytosis. Mutations typically affect the cytoplasmic NPXY motif.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Class 5 - Recycling-defective\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"LDLR internalizes LDL but fails to release it in the endosome and does not recycle back to the cell surface. Receptor is degraded along with the ligand.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Corneal Cholesterol Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lipid deposition at the peripheral cornea produces premature corneal arcus, especially when LDL exposure begins early in life.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"D374Y (p.Asp374Tyr)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"One of the most severe PCSK9 gain-of-function mutations. Increases PCSK9 affinity for LDLR, leading to enhanced receptor degradation and severe hypercholesterolemia. Excellent response to PCSK9 inhibitor therapy.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Elevated Circulating LDL Cholesterol\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lifelong LDL-C excess is the central biochemical phenotype of FH and the immediate driver of arterial and extra-arterial cholesterol deposition.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cholesterol homeostasis\"]}}, {\"id\": \"Extra-arterial Cholesterol Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic LDL excess also drives cholesterol deposition outside the arterial wall, creating the visible stigmata of FH and contributing to valvular disease.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"F216L (p.Phe216Leu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Gain-of-function variant associated with FH. Enhances PCSK9-mediated LDLR degradation.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"LDLR\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LDLR\"], \"frequency\": \"~85-90%\", \"presence\": \"Positive\", \"association\": \"Pathogenic Mutations\", \"variant_count\": 5}}, {\"id\": \"LDLR Functional Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic LDLR variants reduce receptor synthesis, trafficking, ligand binding, internalization, or recycling, lowering functional LDL receptor abundance on hepatocytes and weakening the core LDL clearance pathway.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\", \"receptor-mediated endocytosis\"], \"genes\": [\"LDLR\"], \"locations\": [\"liver\"]}}, {\"id\": \"LDLRAP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LDLRAP1\"], \"frequency\": \"\u003c1%\", \"presence\": \"Positive\", \"association\": \"Loss-of-Function Mutations\"}}, {\"id\": \"LDLRAP1-Related LDL Uptake Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic LDLRAP1 variants define a rarer recessive route into the same LDLR pathway failure, showing that FH can also start at a genetically disrupted LDL uptake step without a primary LDLR coding defect.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\"], \"genes\": [\"LDLRAP1\"], \"locations\": [\"liver\"]}}, {\"id\": \"Macrophage Recruitment to Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory signaling within the lipid-rich intima recruits macrophages to early arterial lesions.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\", \"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"Macrophage-Derived Foam Cell Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Macrophages in lipid-rich intima accumulate oxidized lipoproteins and differentiate into foam cells.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage-derived foam cell\", \"macrophage\"], \"biological_processes\": [\"macrophage-derived foam cell differentiation\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"Oxidized LDL Infiltration of Arterial Intima\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Oxidized LDL infiltrates and accumulates in the arterial intima, establishing the initiating lipid milieu for FH-associated atherogenesis.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"tunica intima\"]}}, {\"id\": \"PCSK9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PCSK9\"], \"frequency\": \"\u003c5%\", \"presence\": \"Positive\", \"association\": \"Gain-of-Function Mutations\", \"variant_count\": 3}}, {\"id\": \"PCSK9 Gain-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gain-of-function PCSK9 variants create a dominant mechanism of FH by increasing the rate at which LDLR is removed from the hepatocyte surface.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"genes\": [\"PCSK9\"], \"locations\": [\"liver\"]}}, {\"id\": \"PCSK9-Mediated LDLR Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess PCSK9 activity accelerates degradation of mature LDL receptors after endocytosis, leaving fewer receptors available on hepatocytes to clear LDL from the circulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Premature Atherosclerotic Cardiovascular Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The arterial branch culminates in premature coronary artery disease, angina, myocardial infarction, stroke, and peripheral arterial disease, with earlier and more severe presentations in biallelic disease.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"R3500Q (p.Arg3527Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The most common APOB mutation causing FH. Missense variant in exon 26 that reduces apoB-100 binding to LDLR by approximately 90%. Generally produces a milder phenotype than most LDLR mutations.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"R3500W (p.Arg3527Trp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Less common APOB variant affecting the same residue as R3500Q. Also impairs LDL binding to LDLR.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Reduced Hepatic LDL Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite different causal genes, monogenic FH converges on impaired hepatic uptake and lysosomal processing of LDL particles, so plasma LDL remains elevated from birth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\", \"receptor-mediated endocytosis\"], \"locations\": [\"liver\"]}}, {\"id\": \"S127R (p.Ser127Arg)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"French Canadian founder mutation. Gain-of-function variant producing a moderately severe FH phenotype.\\n\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Tendon and Cutaneous Cholesterol Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cholesterol-rich deposits accumulate in the Achilles and hand tendons and in the skin and eyelids, producing tendon xanthomas, cutaneous xanthomas, and xanthelasma.\\n\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"LDLR Functional Defect\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"APOB-LDLR Binding Defect\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PCSK9 Gain-of-Function\", \"target\": \"PCSK9-Mediated LDLR Degradation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LDLRAP1-Related LDL Uptake Defect\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PCSK9-Mediated LDLR Degradation\", \"target\": \"Reduced Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reduced Hepatic LDL Clearance\", \"target\": \"Elevated Circulating LDL Cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Elevated Circulating LDL Cholesterol\", \"target\": \"Oxidized LDL Infiltration of Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Elevated Circulating LDL Cholesterol\", \"target\": \"Extra-arterial Cholesterol Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidized LDL Infiltration of Arterial Intima\", \"target\": \"Macrophage Recruitment to Arterial Intima\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Recruitment to Arterial Intima\", \"target\": \"Macrophage-Derived Foam Cell Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage-Derived Foam Cell Formation\", \"target\": \"Atherosclerotic Plaque Development\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Atherosclerotic Plaque Development\", \"target\": \"Premature Atherosclerotic Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extra-arterial Cholesterol Deposition\", \"target\": \"Tendon and Cutaneous Cholesterol Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extra-arterial Cholesterol Deposition\", \"target\": \"Corneal Cholesterol Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extra-arterial Cholesterol Deposition\", \"target\": \"Aortic Valve Lipid Deposition and Calcification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LDLR\", \"target\": \"LDLR Functional Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB\", \"target\": \"APOB-LDLR Binding Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PCSK9\", \"target\": \"PCSK9 Gain-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LDLRAP1\", \"target\": \"LDLRAP1-Related LDL Uptake Defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Class 1 - Null mutations\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 2 - Transport-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 3 - Binding-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 4 - Internalization-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Class 5 - Recycling-defective\", \"target\": \"LDLR\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R3500Q (p.Arg3527Gln)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"R3500W (p.Arg3527Trp)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"D374Y (p.Asp374Tyr)\", \"target\": \"PCSK9\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"S127R (p.Ser127Arg)\", \"target\": \"PCSK9\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"F216L (p.Phe216Leu)\", \"target\": \"PCSK9\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
