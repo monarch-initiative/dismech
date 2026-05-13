@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05286788
+reference_id: "clinicaltrials:NCT05286788"
 title: Phase 2 Study of the MEK Inhibitor MEKTOVI® (Binimetinib) for the Treatment of Pediatric Adamantinomatous Craniopharyngioma
 content_type: summary
 ---

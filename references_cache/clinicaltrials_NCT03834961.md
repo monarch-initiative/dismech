@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03834961
+reference_id: "clinicaltrials:NCT03834961"
 title: "Larotrectinib (LOXO-101, NSC# 788607) for Previously Untreated TRK Fusion Pediatric Solid Tumors and TRK Fusion Relapsed Pediatric Acute Leukemias"
 content_type: summary
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01421407
+reference_id: "clinicaltrials:NCT01421407"
 title: Efficacy and Safety of High Intensity Focused Ultrasound (HIFU) Device to Treat Uncontrolled Secondary Hyperparathyroidism in Chronic Haemodialysis Patients
 content_type: summary
 ---

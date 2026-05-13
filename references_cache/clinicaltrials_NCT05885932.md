@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05885932
+reference_id: "clinicaltrials:NCT05885932"
 title: "Drug-eluting Stenting Versus Medical Treatment Alone for Patients With Extracranial Vertebral Artery Stenosis: The VISTA Trial"
 content_type: summary
 ---

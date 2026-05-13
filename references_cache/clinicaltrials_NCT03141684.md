@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03141684
+reference_id: "clinicaltrials:NCT03141684"
 title: A Phase 2 Study of Anti-PD-L1 Antibody (Atezolizumab) in Alveolar Soft Part Sarcoma
 content_type: summary
 ---

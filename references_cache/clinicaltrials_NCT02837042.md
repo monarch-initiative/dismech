@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02837042
+reference_id: "clinicaltrials:NCT02837042"
 title: Phase II Trial of Pembrolizumab for Advanced Penile Squamous Cell Carcinoma Following Previous Chemotherapy
 content_type: summary
 ---

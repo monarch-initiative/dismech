@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02587858
+reference_id: "clinicaltrials:NCT02587858"
 title: "NBIAready: Online Collection of Natural History Patient-reported Outcome Measures"
 content_type: summary
 ---

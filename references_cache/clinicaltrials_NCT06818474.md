@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06818474
+reference_id: "clinicaltrials:NCT06818474"
 title: Lanadelumab in Long-term Prophylaxis of Acquired Angioedema
 content_type: summary
 ---

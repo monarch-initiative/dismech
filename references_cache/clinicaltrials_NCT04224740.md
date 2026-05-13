@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04224740
+reference_id: "clinicaltrials:NCT04224740"
 title: A Phase II Trial of Pembrolizumab Combined With Cisplatin-based Chemotherapy as First-line Systemic Therapy in Advanced Penile Cancer
 content_type: summary
 ---

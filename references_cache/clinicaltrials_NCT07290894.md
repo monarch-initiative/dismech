@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07290894
+reference_id: "clinicaltrials:NCT07290894"
 title: "Pembrolizumab Plus Lenvatinib in Vulvar Cancer Patients: MITO VULVA-01 Study."
 content_type: summary
 ---
