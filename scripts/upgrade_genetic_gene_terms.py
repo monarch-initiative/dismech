@@ -120,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             targets.append(p)
 
-    print(f"Loading HGNC adapter (sqlite:obo:hgnc)...", file=sys.stderr)
+    print("Loading HGNC adapter (sqlite:obo:hgnc)...", file=sys.stderr)
     adapter = get_adapter("sqlite:obo:hgnc")
 
     total_upgraded = 0
