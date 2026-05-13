@@ -1,27 +1,15 @@
 # Citations for Research Query
 
-**Query:** You are an expert researcher providing comprehensive, well-cited information.
-
-Provide detailed information focusing on:
-1. Key concepts and definitions with current understanding
-2. Recent developments and latest research (prioritize 2023-2024 sources)
-3. Current applications and real-world implementations
-4. Expert opinions and analysis from authoritative sources
-5. Relevant statistics and data from recent studies
-
-Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
-Always prioritize recent, authoritative sources and provide specific citations for all major claims.
-
-# Disease Characteristics Research Template
+**Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Familial Focal Epilepsy With Variable Foci
+- **Disease Name:** Alcoholic Liver Disease
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** Complex
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Familial Focal Epilepsy With Variable Foci** covering all of the
+Please provide a comprehensive research report on **Alcoholic Liver Disease** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -459,47 +447,51 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** N/A
+**Generated:** 2026-05-12T15:45:02.476081
 
-1. hu2023identificationoftwo pages 1-2
-2. baulac2015familialfocalepilepsy pages 1-4
-3. wang2023theclinicalfeatures pages 1-2
-4. zhang2022asplicingvariation pages 1-2
-5. meletti2024ictalandpostictal pages 1-3
-6. baulac2014geneticsadvancesin pages 6-9
-7. yang2024phenotypicandgenotypic pages 1-2
-8. nouri2024fromalphathalassemiatrait pages 1-2
-9. anders2024exomesequencingof pages 1-2
-10. mcginley2024seizurecontroloutcomes pages 1-2
-11. zhang2021phenotypicandgenotypic pages 1-2
-12. https://doi.org/10.1038/ng.2599
-13. https://doi.org/10.3389/fgene.2022.1054567
-14. https://doi.org/10.1111/cge.12239
-15. https://doi.org/10.1371/journal.pone.0284924
-16. https://doi.org/10.1038/s10038-021-00969-z
-17. https://doi.org/10.3390/ijms25042068
-18. https://doi.org/10.1002/ana.24368
-19. https://doi.org/10.1186/s40478-023-01675-x
-20. https://doi.org/10.1212/nxg.0000000000200183
-21. https://doi.org/10.1016/b978-0-444-63326-2.00007-7
-22. https://doi.org/10.1002/epi4.12856
-23. https://doi.org/10.1186/s13023-022-02600-6
-24. https://doi.org/10.1038/s41593-024-01747-8
-25. https://doi.org/10.1055/a-2213-8584
-26. https://doi.org/10.3390/genes15070836
-27. https://clinicaltrials.gov/study/NCT05450822
-28. https://doi.org/10.1111/cge.12239,
-29. https://doi.org/10.1038/ng.2599,
-30. https://doi.org/10.3390/ijms25042068,
-31. https://doi.org/10.1002/ana.24368,
-32. https://doi.org/10.1212/nxg.0000000000200183,
-33. https://doi.org/10.1055/a-2213-8584,
-34. https://doi.org/10.3389/fgene.2022.1054567,
-35. https://doi.org/10.1186/s40478-023-01675-x,
-36. https://doi.org/10.1371/journal.pone.0284924,
-37. https://doi.org/10.1002/epi4.12856,
-38. https://doi.org/10.1016/b978-0-444-63326-2.00007-7,
-39. https://doi.org/10.3389/fneur.2021.641019,
-40. https://doi.org/10.1038/s10038-021-00969-z,
-41. https://doi.org/10.3390/genes15070836,
-42. https://doi.org/10.1038/s41593-024-01747-8,
+1. alvaradotapias2024alcoholassociatedliverdisease pages 1-3
+2. lee2024designingclinicaltrials pages 3-5
+3. manthey2025identifyinglevelsof pages 1-2
+4. lee2024nationalprevalenceestimates pages 1-2
+5. lee2024designingclinicaltrials pages 1-2
+6. bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11
+7. mackowiak2024alcoholassociatedliverdisease pages 8-9
+8. pan2025alcoholassociatedliverdisease pages 1-2
+9. wang2025geneticinsightsinto pages 1-2
+10. kasuga2025currentinsightsinto pages 1-2
+11. hong2024alcoholrelatedliverdisease pages 1-2
+12. rama2026novelbiomarkersfor pages 14-15
+13. mackowiak2024alcoholassociatedliverdisease pages 1-2
+14. kumar2026emergingtherapeuticregimens pages 5-6
+15. rama2026novelbiomarkersfor pages 5-6
+16. rama2026novelbiomarkersfor pages 6-8
+17. rama2026novelbiomarkersfor pages 17-18
+18. danpanichkul2025globalepidemiologyof pages 1-5
+19. adekunle2023therapeutictargetsin pages 1-2
+20. hardesty2024currentpharmacotherapyand pages 4-6
+21. alvaradotapias2024alcoholassociatedliverdisease pages 3-4
+22. rama2026novelbiomarkersfor pages 1-3
+23. rama2026novelbiomarkersfor pages 8-9
+24. GBD
+25. https://doi.org/10.3350/cmh.2024.0709
+26. https://doi.org/10.1038/s41575-024-00936-x
+27. https://doi.org/10.1097/hep.0000000000000604
+28. https://doi.org/10.1186/s13011-025-00670-w
+29. https://doi.org/10.1097/hc9.0000000000000386
+30. https://doi.org/10.3350/cmh.2024.0709,
+31. https://doi.org/10.1172/jci176345,
+32. https://doi.org/10.3389/fphar.2024.1432480,
+33. https://doi.org/10.1186/s13011-025-00670-w,
+34. https://doi.org/10.1111/apt.70256,
+35. https://doi.org/10.1038/s41575-024-00936-x,
+36. https://doi.org/10.1097/hep.0000000000000604,
+37. https://doi.org/10.3350/cmh.2024.0835,
+38. https://doi.org/10.3390/ijms26041589,
+39. https://doi.org/10.3390/antiox15040493,
+40. https://doi.org/10.1001/jamanetworkopen.2025.14857,
+41. https://doi.org/10.3389/fmed.2025.1623367,
+42. https://doi.org/10.1111/hepr.14206,
+43. https://doi.org/10.3350/cmh.2025.0921,
+44. https://doi.org/10.3350/cmh.2025.1163,
+45. https://doi.org/10.1177/17562848231170946,
+46. https://doi.org/10.1016/j.cld.2024.06.018,

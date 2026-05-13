@@ -1,6 +1,18 @@
 # Citations for Research Query
 
-**Query:** # Disease Characteristics Research Template
+**Query:** You are an expert researcher providing comprehensive, well-cited information.
+
+Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies
+
+Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.
+
+# Disease Characteristics Research Template
 
 ## Target Disease
 - **Disease Name:** Feingold Syndrome
@@ -447,36 +459,39 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-05-11T09:13:04.500406
+**Generated:** N/A
 
-1. klaniewska2021occurrenceofesophageal pages 1-2
-2. zeka2022anewvariant pages 5-5
-3. nishio2024mycninhuman pages 1-2
-4. zeka2022anewvariant pages 2-2
-5. muriello2019growthhormonedeficiency pages 2-4
-6. klaniewska2021occurrenceofesophageal pages 2-4
-7. zeka2022anewvariant pages 1-2
-8. tokunaga2023emergingconceptsinvolving pages 1-2
-9. mirzamohammadi2018distinctmolecularpathways pages 6-7
-10. muriello2019growthhormonedeficiency pages 5-6
-11. muriello2019growthhormonedeficiency pages 1-2
-12. low2015tetralogyoffallot pages 1-2
-13. mirzamohammadi2018distinctmolecularpathways pages 1-2
-14. zeka2022anewvariant pages 3-4
-15. mirzamohammadi2018distinctmolecularpathways pages 2-3
-16. hg19
-17. https://doi.org/10.3389/fonc.2024.1417607
-18. https://doi.org/10.3389/fped.2021.783553
-19. https://doi.org/10.1002/humu.20750
-20. https://doi.org/10.1002/ccr3.5886
-21. https://doi.org/10.1002/ajmg.a.61037
-22. https://doi.org/10.3389/fcell.2023.1168072
-23. https://doi.org/10.1038/s41467-018-03788-7
-24. https://doi.org/10.3389/fped.2021.783553,
-25. https://doi.org/10.3389/fonc.2024.1417607,
-26. https://doi.org/10.1002/ccr3.5886,
-27. https://doi.org/10.1002/humu.20750,
-28. https://doi.org/10.1038/s41467-018-03788-7,
-29. https://doi.org/10.1002/ajmg.a.61037,
-30. https://doi.org/10.1097/mcd.0000000000000069,
-31. https://doi.org/10.3389/fcell.2023.1168072,
+1. cognet2011dissectionofthe pages 1-2
+2. klaniewska2021occurrenceofesophageal pages 1-2
+3. low2015tetralogyoffallot pages 1-2
+4. grote2015expandingthephenotype pages 1-2
+5. torre2026expandingthemycn pages 2-5
+6. nishio2024mycninhuman pages 1-2
+7. tedesco2021clinicalandmolecular pages 1-2
+8. nishio2024mycninhuman pages 7-8
+9. lim2023transcriptionfactorsin pages 10-11
+10. laymanpleet2007feingoldsyndomea pages 1-3
+11. huynh2023geneticscornerfamilial pages 2-4
+12. samara2026prenataldiagnosisof pages 2-5
+13. laymanpleet2007feingoldsyndomea pages 3-3
+14. miscia2021esophagealatresiaand pages 1-2
+15. huynh2023geneticscornerfamilial pages 1-2
+16. samara2026prenataldiagnosisof pages 5-6
+17. muriello2019growthhormonedeficiency pages 5-6
+18. huynh2023geneticscornerfamiliala pages 1-2
+19. grote2015expandingthephenotype pages 6-7
+20. pontual2011germlinedeletionof pages 3-6
+21. https://doi.org/10.1002/humu.20750,
+22. https://doi.org/10.3389/fonc.2024.1417607,
+23. https://doi.org/10.1002/ajmg.a.37368,
+24. https://doi.org/10.1038/ejhg.2010.225,
+25. https://doi.org/10.3389/fped.2021.783553,
+26. https://doi.org/10.1097/mcd.0000000000000069,
+27. https://doi.org/10.3390/genes17010054,
+28. https://doi.org/10.1016/j.jpedsurg.2007.06.005,
+29. https://doi.org/10.3390/genes17050552,
+30. https://doi.org/10.1002/ajmg.a.62068,
+31. https://doi.org/10.3389/fnins.2023.1302033,
+32. https://doi.org/10.1055/s-0040-1716884,
+33. https://doi.org/10.1038/ng.915,
+34. https://doi.org/10.1002/ajmg.a.61037,

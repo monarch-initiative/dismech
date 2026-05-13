@@ -1,6 +1,18 @@
 # Citations for Research Query
 
-**Query:** # Disease Characteristics Research Template
+**Query:** You are an expert researcher providing comprehensive, well-cited information.
+
+Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies
+
+Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.
+
+# Disease Characteristics Research Template
 
 ## Target Disease
 - **Disease Name:** Tooth and Nail Syndrome
@@ -447,29 +459,30 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-05-11T09:08:35.542852
+**Generated:** N/A
 
-1. mcmillan2023surgicalandprosthetic pages 1-2
-2. castilho2023oligodontiainthe pages 13-15
-3. cammaratascalisi2024maingeneticentities pages 8-9
-4. jumlongras2001anonsensemutation pages 1-2
-5. bergqvist2017geneticsofsyndromic pages 4-4
-6. memarpour2011witkoptoothand pages 1-3
-7. memarpour2011witkoptoothand pages 5-5
-8. devadas2005witkoptoothand pages 1-3
-9. jumlongras2001anonsensemutation pages 4-7
-10. memarpour2011witkoptoothand pages 3-5
-11. altugatac2008witkoptoothand pages 1-2
-12. MIM 189500
-13. https://doi.org/10.1007/s10006-022-01107-5
-14. https://doi.org/10.3390/dj11120279
-15. https://doi.org/10.1007/s00784-024-05941-7
+1. cammaratascalisi2024maingeneticentities pages 1-2
+2. altugatac2008witkoptoothand pages 1-2
+3. memarpour2011witkoptoothand pages 1-3
+4. devadas2005witkoptoothand pages 1-3
+5. jumlongras2001anonsensemutation pages 2-4
+6. arora2016witkopssyndromea pages 1-3
+7. jumlongras2001anonsensemutation pages 1-2
+8. devadas2005witkoptoothand pages 5-6
+9. bhardwaj2023toothandnail pages 2-3
+10. jumlongras2001anonsensemutation pages 4-7
+11. jumlongras2001anonsensemutation pages 7-8
+12. bhardwaj2023toothandnail pages 1-2
+13. memarpour2011witkoptoothand pages 5-5
+14. https://doi.org/10.2319/100406-403.1
+15. https://doi.org/10.1111/j.1525-1470.2010.01198.x
 16. https://doi.org/10.1086/321271
-17. https://doi.org/10.1007/s10006-022-01107-5,
-18. https://doi.org/10.3390/dj11120279,
-19. https://doi.org/10.1007/s00784-024-05941-7,
+17. https://doi.org/10.1007/s00784-024-05941-7
+18. https://doi.org/10.1111/j.1365-263x.2005.00647.x
+19. https://doi.org/10.1016/j.jobcr.2015.07.003
 20. https://doi.org/10.1086/321271,
-21. https://doi.org/10.1111/j.1525-1470.2010.01198.x,
-22. https://doi.org/10.1111/j.1365-263x.2005.00647.x,
-23. https://doi.org/10.1111/cge.12852,
-24. https://doi.org/10.2319/100406-403.1,
+21. https://doi.org/10.1007/s00784-024-05941-7,
+22. https://doi.org/10.2319/100406-403.1,
+23. https://doi.org/10.1111/j.1525-1470.2010.01198.x,
+24. https://doi.org/10.1111/j.1365-263x.2005.00647.x,
+25. https://doi.org/10.1016/j.jobcr.2015.07.003,

@@ -1,0 +1,15 @@
+| Identifier system | ID/value | Notes | Source (include URL/publication year if present) |
+|---|---|---|---|
+| Disease name | Achromatopsia | Rare congenital cone photoreceptor disorder; commonly presents at birth or early infancy with poor visual acuity, nystagmus, photophobia, and loss of color vision; autosomal recessive | Baxter & Borchert 2024, Int J Mol Sci, https://doi.org/10.3390/ijms25179739 (2024) (pqac-00000003) |
+| MONDO | MONDO:0018852 | OpenTargets lists achromatopsia under MONDO_0018852 | OpenTargets disease-target association context (pqac-00000000) |
+| Synonym | Rod monochromacy | Explicitly listed as an alternative name for achromatopsia | Andersen et al. 2023, Genes, https://doi.org/10.3390/genes14030690 (2023); Michalakis et al. 2022, Mol Diagn Ther, https://doi.org/10.1007/s40291-021-00565-z (2022) (pqac-00000002, pqac-00000004) |
+| Synonym | Total color blindness | Used as an alternative disease name/descriptor | Michalakis et al. 2022, Mol Diagn Ther, https://doi.org/10.1007/s40291-021-00565-z (2022) (pqac-00000004) |
+| Inheritance | Autosomal recessive | Consistently reported across reviews and clinical studies | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (pqac-00000003, pqac-00000004) |
+| Prevalence estimate | ~1 in 30,000 | Commonly cited point estimate | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (pqac-00000003, pqac-00000004) |
+| Prevalence estimate | 1 in 30,000–50,000 | Range reported in natural-history/clinical review sources | Andersen et al. 2023, https://doi.org/10.3390/genes14030690 (2023); Asensio-Sánchez 2020 (pqac-00000002, pqac-00000005) |
+| Major causal genes | CNGA3; CNGB3 | Together account for up to ~90% of cases in recent reviews | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (pqac-00000003, pqac-00000004) |
+| Other established causal genes | GNAT2; PDE6C; PDE6H; ATF6 | Recurrently listed as rarer achromatopsia genes | Baxter & Borchert 2024, https://doi.org/10.3390/ijms25179739 (2024); Michalakis et al. 2022, https://doi.org/10.1007/s40291-021-00565-z (2022) (pqac-00000003, pqac-00000004) |
+| OpenTargets associated targets | CNGA3; CNGB3; PDE6C; GNAT2; ATF6; PDE6H | Disease-target evidence also lists OPN1MW, OPN1LW, and CABP4, but the core Mendelian achromatopsia genes in retrieved review/clinical sources are CNGA3, CNGB3, GNAT2, PDE6C, PDE6H, and ATF6 | OpenTargets disease-target association context; corroborated by recent reviews (pqac-00000000, pqac-00000003, pqac-00000004) |
+
+
+*Table: This table summarizes key disease identifiers, synonyms, inheritance, prevalence, and causal genes for achromatopsia using only retrieved evidence. It is useful as a compact normalization reference for a disease knowledge base entry.*

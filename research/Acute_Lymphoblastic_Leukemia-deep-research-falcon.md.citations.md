@@ -1,27 +1,15 @@
 # Citations for Research Query
 
-**Query:** You are an expert researcher providing comprehensive, well-cited information.
-
-Provide detailed information focusing on:
-1. Key concepts and definitions with current understanding
-2. Recent developments and latest research (prioritize 2023-2024 sources)
-3. Current applications and real-world implementations
-4. Expert opinions and analysis from authoritative sources
-5. Relevant statistics and data from recent studies
-
-Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
-Always prioritize recent, authoritative sources and provide specific citations for all major claims.
-
-# Disease Characteristics Research Template
+**Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Familial Focal Epilepsy With Variable Foci
+- **Disease Name:** Acute Lymphoblastic Leukemia
 - **MONDO ID:**  (if available)
-- **Category:** Mendelian
+- **Category:** 
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Familial Focal Epilepsy With Variable Foci** covering all of the
+Please provide a comprehensive research report on **Acute Lymphoblastic Leukemia** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -459,47 +447,63 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** N/A
+**Generated:** 2026-05-12T14:54:12.027090
 
-1. hu2023identificationoftwo pages 1-2
-2. baulac2015familialfocalepilepsy pages 1-4
-3. wang2023theclinicalfeatures pages 1-2
-4. zhang2022asplicingvariation pages 1-2
-5. meletti2024ictalandpostictal pages 1-3
-6. baulac2014geneticsadvancesin pages 6-9
-7. yang2024phenotypicandgenotypic pages 1-2
-8. nouri2024fromalphathalassemiatrait pages 1-2
-9. anders2024exomesequencingof pages 1-2
-10. mcginley2024seizurecontroloutcomes pages 1-2
-11. zhang2021phenotypicandgenotypic pages 1-2
-12. https://doi.org/10.1038/ng.2599
-13. https://doi.org/10.3389/fgene.2022.1054567
-14. https://doi.org/10.1111/cge.12239
-15. https://doi.org/10.1371/journal.pone.0284924
-16. https://doi.org/10.1038/s10038-021-00969-z
-17. https://doi.org/10.3390/ijms25042068
-18. https://doi.org/10.1002/ana.24368
-19. https://doi.org/10.1186/s40478-023-01675-x
-20. https://doi.org/10.1212/nxg.0000000000200183
-21. https://doi.org/10.1016/b978-0-444-63326-2.00007-7
-22. https://doi.org/10.1002/epi4.12856
-23. https://doi.org/10.1186/s13023-022-02600-6
-24. https://doi.org/10.1038/s41593-024-01747-8
-25. https://doi.org/10.1055/a-2213-8584
-26. https://doi.org/10.3390/genes15070836
-27. https://clinicaltrials.gov/study/NCT05450822
-28. https://doi.org/10.1111/cge.12239,
-29. https://doi.org/10.1038/ng.2599,
-30. https://doi.org/10.3390/ijms25042068,
-31. https://doi.org/10.1002/ana.24368,
-32. https://doi.org/10.1212/nxg.0000000000200183,
-33. https://doi.org/10.1055/a-2213-8584,
-34. https://doi.org/10.3389/fgene.2022.1054567,
-35. https://doi.org/10.1186/s40478-023-01675-x,
-36. https://doi.org/10.1371/journal.pone.0284924,
-37. https://doi.org/10.1002/epi4.12856,
-38. https://doi.org/10.1016/b978-0-444-63326-2.00007-7,
-39. https://doi.org/10.3389/fneur.2021.641019,
-40. https://doi.org/10.1038/s10038-021-00969-z,
-41. https://doi.org/10.3390/genes15070836,
-42. https://doi.org/10.1038/s41593-024-01747-8,
+1. shah2024acutelymphoblasticleukemia pages 1-2
+2. ekpa2023areviewof pages 2-3
+3. little2024solarultravioletradiation pages 1-2
+4. johnston2024socioeconomicdeterminantsof pages 1-2
+5. little2024solarultravioletradiation pages 8-9
+6. karim2023diagnosticclueof pages 2-4
+7. gokbuget2024managementofall pages 1-2
+8. duffield2023internationalconsensusclassification pages 1-3
+9. yoon2024diagnosticandtherapeutic pages 1-2
+10. gokbuget2024managementofall pages 6-6
+11. liu2024epidemiologicalcharacteristicsand pages 1-3
+12. kansal2023diagnosisandmolecular pages 4-5
+13. shah2024acutelymphoblasticleukemia pages 3-5
+14. ghosh2024incidenceandsurvivability pages 1-3
+15. sebastian2024howitreat pages 1-2
+16. sebastian2024howitreat pages 5-7
+17. lu2024reduceddosechemotherapyand pages 1-2
+18. kantarjian2024inotuzumabozogamicinin pages 15-17
+19. gokbuget2024managementofall pages 21-22
+20. kantarjian2024resultsofthe pages 1-3
+21. kantarjian2024resultsofthe pages 3-4
+22. yoon2024diagnosticandtherapeutic pages 6-8
+23. graiqevciuka2024implementationofpharmacogenetics pages 5-7
+24. kansal2023diagnosisandmolecular pages 1-2
+25. kansal2023diagnosisandmolecular pages 5-7
+26. talukder2024acutelymphoblasticleukemia pages 1-3
+27. karim2023diagnosticclueof pages 5-6
+28. karim2023diagnosticclueof pages 1-2
+29. little2024solarultravioletradiation pages 11-11
+30. graiqevciuka2024implementationofpharmacogenetics pages 1-3
+31. https://doi.org/10.1182/blood.2023023568
+32. https://doi.org/10.46989/001c.117026
+33. https://doi.org/10.1182/bloodadvances.2023011862
+34. https://doi.org/10.1002/ajh.27355
+35. https://doi.org/10.1186/s13045-024-01597-8
+36. https://doi.org/10.1182/hematology.2024000531
+37. https://doi.org/10.1002/cncr.35505
+38. https://doi.org/10.1200/jco.24.00272
+39. https://doi.org/10.1200/jco.23.01075
+40. https://doi.org/10.3904/kjim.2023.407
+41. https://doi.org/10.6004/jnccn.2024.0051,
+42. https://doi.org/10.1007/s00428-022-03448-8,
+43. https://doi.org/10.3390/lymphatics1020011,
+44. https://doi.org/10.3904/kjim.2023.407,
+45. https://doi.org/10.1182/blood.2023023568,
+46. https://doi.org/10.1080/16078454.2024.2327916,
+47. https://doi.org/10.1186/s13045-024-01597-8,
+48. https://doi.org/10.1200/jco.24.00272,
+49. https://doi.org/10.7759/cureus.49930,
+50. https://doi.org/10.1038/s41416-024-02629-3,
+51. https://doi.org/10.1182/bloodadvances.2023011862,
+52. https://doi.org/10.4236/ojra.2024.141001,
+53. https://doi.org/10.1002/ajh.27355,
+54. https://doi.org/10.46989/001c.117026,
+55. https://doi.org/10.4236/jct.2024.154014,
+56. https://doi.org/10.1182/hematology.2024000531,
+57. https://doi.org/10.1002/cncr.35505,
+58. https://doi.org/10.18413/rrpharmacology.10.382,

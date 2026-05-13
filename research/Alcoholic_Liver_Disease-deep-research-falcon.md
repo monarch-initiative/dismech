@@ -1,57 +1,44 @@
 ---
 provider: falcon
-model: null
+model: Edison Scientific Literature
 cached: false
+start_time: '2026-05-12T15:22:37.681743'
+end_time: '2026-05-12T15:45:02.476081'
+duration_seconds: 1344.79
+template_file: templates/disease_pathophysiology_research.md
+template_variables:
+  disease_name: Alcoholic Liver Disease
+  mondo_id: ''
+  category: Complex
 provider_config:
-  trajectory_id: 83ca03df-b275-4f8b-81ce-c05678d5e217
-  retrieval_mode: edison_trajectory
-trajectory_id: 83ca03df-b275-4f8b-81ce-c05678d5e217
-citation_count: 25
-artifact_count: 2
-artifact_sources:
-  edison_answer_artifacts: 1
-  edison_message_content: 1
+  timeout: null
+  max_retries: 3
+  parameters:
+    allowed_domains: []
+    temperature: 0.1
+citation_count: 46
+artifact_count: 1
 artifacts:
 - filename: artifact-00.md
-  path: Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/artifact-00.md
+  path: Alcoholic_Liver_Disease-deep-research-falcon_artifacts/artifact-00.md
   media_type: text/markdown
   source: edison_answer_artifacts
   data_storage_id: null
   description: Edison artifact artifact-00
-- filename: image-1.png
-  path: Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/image-1.png
-  media_type: image/png
-  source: edison_message_content
-  data_storage_id: null
-  description: '## Context ID: pqac-00000016 The pedigree figure and the table summarizing
-    clinical features for the family with the MSX1 S202X mutation (causing Witkop
-    syndrom'
 ---
 
 ## Question
 
-You are an expert researcher providing comprehensive, well-cited information.
-
-Provide detailed information focusing on:
-1. Key concepts and definitions with current understanding
-2. Recent developments and latest research (prioritize 2023-2024 sources)
-3. Current applications and real-world implementations
-4. Expert opinions and analysis from authoritative sources
-5. Relevant statistics and data from recent studies
-
-Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
-Always prioritize recent, authoritative sources and provide specific citations for all major claims.
-
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Tooth and Nail Syndrome
+- **Disease Name:** Alcoholic Liver Disease
 - **MONDO ID:**  (if available)
-- **Category:** Genetic
+- **Category:** Complex
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Tooth and Nail Syndrome** covering all of the
+Please provide a comprehensive research report on **Alcoholic Liver Disease** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -506,13 +493,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Tooth and Nail Syndrome
+- **Disease Name:** Alcoholic Liver Disease
 - **MONDO ID:**  (if available)
-- **Category:** Genetic
+- **Category:** Complex
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Tooth and Nail Syndrome** covering all of the
+Please provide a comprehensive research report on **Alcoholic Liver Disease** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -950,245 +937,303 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Tooth and Nail Syndrome (Witkop Syndrome; Hypodontia–Nail Dysplasia) — Disease Characteristics Research Report
+# Comprehensive Research Report: Alcoholic Liver Disease (Alcohol-Associated Liver Disease)
 
-## Executive summary
-Tooth and Nail Syndrome (TNS), also called **Witkop syndrome**, is a rare, primarily **autosomal dominant** ectodermal dysplasia characterized by **congenital tooth agenesis (hypodontia/oligodontia)** and **nail dysplasia**, with typically **normal sweating** and minimal hair involvement. The strongest primary molecular evidence links TNS to **heterozygous loss-of-function variants in MSX1**, including a canonical nonsense variant **MSX1 c.605C>A (p.Ser202Ter; “S202X”)** that cosegregates with disease in a multigeneration pedigree and is supported by developmental biology and mouse model parallels. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f)
+## Target disease
+- **Disease name (preferred in recent literature):** Alcohol-associated liver disease (**ALD**) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- **Legacy/related terms:** alcoholic liver disease; alcohol-related liver disease; ArLD (hong2024alcoholrelatedliverdisease pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3)
+- **Disease category:** complex / multifactorial exposure-related disease (alcohol plus modifiers) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, israelsenUnknownyearmetaldfromconcept pages 7-10)
+- **MONDO ID:** Not identified in the retrieved evidence set (knowledge-base crosswalk needed).
 
-A 2024 narrative review of tooth agenesis reiterates **MSX1** as a principal gene and explicitly maps **Witkop-type ectodermal dysplasia (OMIM 189500)** to **autosomal dominant MSX1**. (cammaratascalisi2024maingeneticentities pages 1-2)
+## 1. Disease information (concepts, identifiers, synonyms)
 
-| Topic | Key facts | Suggested ontology terms | Key references / evidence |
-|---|---|---|---|
-| Disease definition & synonyms | Rare hereditary ectodermal dysplasia primarily affecting teeth and nails; characterized by congenital tooth agenesis/hypodontia or oligodontia plus nail dysplasia. Common synonyms: **Witkop syndrome**, **tooth-and-nail syndrome (TNS)**, **hypodontia–nail dysplasia syndrome**, **Witkop tooth-and-nail syndrome**. Disease-level information is derived mainly from aggregated case reports/families and review resources, not EHR-scale datasets. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3) | MONDO: not confidently identified from available context; HPO candidates include **Hypodontia** HP:0000677, **Oligodontia** HP:0000676, **Abnormality of nails** HP:0001597 | Altug-Atac & Iseri 2008, *Angle Orthod* 78:370-380, DOI: 10.2319/100406-403.1, https://doi.org/10.2319/100406-403.1 (altugatac2008witkoptoothand pages 1-2); Memarpour & Shafiei 2011, *Pediatr Dermatol* 28:281-285, DOI: 10.1111/j.1525-1470.2010.01198.x, https://doi.org/10.1111/j.1525-1470.2010.01198.x (memarpour2011witkoptoothand pages 1-3) |
-| Inheritance | Usually **autosomal dominant** with **variable expressivity**; family pedigrees show vertical transmission across generations. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 1-2, cammaratascalisi2024maingeneticentities pages 1-2, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Autosomal dominant inheritance** HP:0000006; **Variable expressivity** HP:0003828 | Jumlongras et al. 2001, *Am J Hum Genet* 69:67-74, DOI: 10.1086/321271, https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f); Cammarata-Scalisi et al. 2024, *Clin Oral Investig* 29:9, DOI: 10.1007/s00784-024-05941-7, https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 1-2) |
-| Causal gene & key pathogenic variant | Canonical causal gene from primary evidence: **MSX1** (OMIM gene cited in review context as 142983). Landmark family study identified heterozygous **c.605C>A, p.Ser202Ter (S202X)** nonsense variant in exon 2/homeodomain; variant cosegregated with disease and was absent from 132 control chromosomes. Evidence type: **human familial linkage + segregation + sequencing**, supported by **mouse model** phenotype parallels. (jumlongras2001anonsensemutation pages 7-8, jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2, cammaratascalisi2024maingeneticentities pages 1-2) | HGNC gene: **MSX1**; Sequence ontology idea: **nonsense_variant**; HPO: **Abnormality of the dentition** HP:0000164 | Jumlongras et al. 2001, *Am J Hum Genet* 69:67-74, DOI: 10.1086/321271, https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 7-8, jumlongras2001anonsensemutation pages 4-7); 2024 summary review confirms **MSX1 → Witkop type ED3 (AD)** (cammaratascalisi2024maingeneticentities pages 1-2) |
-| Core phenotype: teeth | Congenitally missing primary and/or permanent teeth; reported range in one pedigree **11-28 missing permanent teeth**. Frequently absent teeth reported across case literature include **mandibular incisors, second molars, maxillary canines/incisors**. Remaining teeth may be **small, widely spaced, conical/narrow-crowned**; retained primary teeth are common. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 2-4, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Hypodontia** HP:0000677; **Oligodontia** HP:0000676; **Conical tooth** HP:0000698; **Widely spaced teeth** HP:0000687; **Retained primary teeth** HP:0006335 | Devadas et al. 2005, *Int J Paediatr Dent* 15:364-369, DOI: 10.1111/j.1365-263x.2005.00647.x, https://doi.org/10.1111/j.1365-263x.2005.00647.x (devadas2005witkoptoothand pages 1-3); Memarpour & Shafiei 2011 (memarpour2011witkoptoothand pages 1-3); Jumlongras et al. 2001 (jumlongras2001anonsensemutation pages 2-4) |
-| Core phenotype: nails | Fingernail and toenail dysplasia, often **more severe in toenails**; nails may be **thin, brittle, slow-growing, spoon-shaped (koilonychia), rigid**, with **onychorrhexis/longitudinal ridging**. Nail findings are often most obvious in childhood and may **improve with age**. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, arora2016witkopssyndromea pages 1-3, jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Nail dysplasia** HP:0002164; **Koilonychia** HP:0001802; **Onychorrhexis** HP:0033863; **Slow-growing nails** HP:0008388 | Altug-Atac & Iseri 2008 (altugatac2008witkoptoothand pages 1-2); Arora et al. 2016, *J Oral Biol Craniofac Res* 6:79-81, DOI: 10.1016/j.jobcr.2015.07.003, https://doi.org/10.1016/j.jobcr.2015.07.003 (arora2016witkopssyndromea pages 1-3) |
-| Other ectodermal features | Hair is usually **normal or only mildly affected** (fine/thin hair may occur); **sweat gland function is typically normal**, helping distinguish TNS from hypohidrotic ectodermal dysplasia. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 2-4) | HPO: **Normal sweating** not usually encoded; possible phenotype if present: **Sparse hair** HP:0008070 | Memarpour & Shafiei 2011 (memarpour2011witkoptoothand pages 1-3); Devadas et al. 2005 (devadas2005witkoptoothand pages 1-3) |
-| Onset & course | Congenital/developmental disorder. Nail abnormalities may be noticed at birth or early childhood; diagnosis often becomes clearer around **4-5 years** when missing primary/permanent teeth are recognized radiographically/clinically. Course is **lifelong**, but nail severity may lessen with age; dental agenesis is non-progressive once established. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 1-2) | HPO: **Congenital onset** HP:0003577; **Childhood onset** HP:0011463 | Devadas et al. 2005 (devadas2005witkoptoothand pages 1-3); Jumlongras et al. 2001 (jumlongras2001anonsensemutation pages 1-2) |
-| Prevalence estimates reported | Published estimates in case/review literature vary: commonly cited **~1-2 per 10,000 births/newborns**; one case report cites **~1 in 100,000 live births**. These figures appear to be literature-derived estimates rather than registry-based epidemiology, so precision is uncertain. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3, arora2016witkopssyndromea pages 1-3) | No specific ontology term | Altug-Atac & Iseri 2008 (1-2/10,000) (altugatac2008witkoptoothand pages 1-2); Memarpour & Shafiei 2011 (1-2/10,000) (memarpour2011witkoptoothand pages 1-3); Arora et al. 2016 (1/100,000) (arora2016witkopssyndromea pages 1-3) |
-| Diagnostic approach | Diagnosis is primarily **clinical + dental radiography + family history**, with confirmation by **molecular testing of MSX1** when available. Panoramic radiography/OPG documents tooth agenesis; pedigree analysis supports AD inheritance. Differential diagnosis includes **Fried tooth-and-nail syndrome**, **trichoonychodental syndrome**, and **Clouston syndrome**. (bhardwaj2023toothandnail pages 1-2, altugatac2008witkoptoothand pages 1-2, bhardwaj2023toothandnail pages 2-3, jumlongras2001anonsensemutation media 0569dd8f) | HPO: **Family history** not a phenotype; possible MAXO ideas for downstream curation: genetic counseling/testing terms | Bhardwaj 2023 case report (clinical exam + OPG) (bhardwaj2023toothandnail pages 1-2, bhardwaj2023toothandnail pages 2-3); Altug-Atac & Iseri 2008 (altugatac2008witkoptoothand pages 1-2) |
-| Management / real-world implementation | No disease-specific pharmacotherapy. Real-world care is **multidisciplinary dental rehabilitation**: preventive dental care, space management/orthodontics, prosthodontics, retention of primary teeth when useful to preserve alveolar bone, and implants after growth completion in selected patients; simple nail care and psychosocial support are recommended. A 2023 familial case series reported **surgical/prosthetic rehabilitation using zygomatic implants with up to 15-year follow-up** (identified in search results, full text not retrieved here). (bhardwaj2023toothandnail pages 1-2, devadas2005witkoptoothand pages 5-6, bhardwaj2023toothandnail pages 2-3) | MAXO suggestions for downstream use: dental prosthesis placement, orthodontic treatment, genetic counseling; HPO impact terms may include **Abnormality of dental occlusion** HP:0000689 | Devadas et al. 2005 (preventive/prosthetic strategy) (devadas2005witkoptoothand pages 5-6); Bhardwaj 2023 (multidisciplinary care, nail care, counseling) (bhardwaj2023toothandnail pages 2-3) |
-| Recent developments / latest research | Disease-specific 2023-2024 primary TNS literature appears sparse. A **2024 review on tooth agenesis** reaffirms **MSX1** as the gene for **Witkop-type ectodermal dysplasia (AD)**. Broader mechanistic work remains relevant: MSX1 developmental role and earlier molecular proof remain the main authoritative evidence base. (cammaratascalisi2024maingeneticentities pages 1-2) | HGNC: MSX1; MONDO placeholder pending confirmation | Cammarata-Scalisi et al. 2024, *Clin Oral Investig* 29:9, DOI: 10.1007/s00784-024-05941-7, https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 1-2) |
+### 1.1 Concise overview and spectrum definition
+Alcohol-associated liver disease (ALD) is a spectrum of liver injury caused by chronic harmful alcohol exposure, ranging from **steatosis** to **steatohepatitis**, progressive **fibrosis**, **cirrhosis**, and **hepatocellular carcinoma (HCC)** (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2). Alcohol-associated hepatitis (AH) is an acute, severe inflammatory manifestation within this spectrum, described as presenting with **sudden jaundice and liver failure** (alvaradotapias2024alcoholassociatedliverdisease pages 1-3).
+
+### 1.2 Key identifiers / coding
+- **ICD-10:** Alcoholic liver disease is coded under **K70.*** (examples explicitly listed in retrieved sources: **K70.0–K70.4, K70.9**) (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23).
+- **ICD-11 / MeSH / OMIM / Orphanet:** Not extracted from the retrieved evidence set (additional targeted database lookup required). An expert consensus statement discusses **ICD-11 AUD criteria** (dependence requires “2 or more of 3 symptoms”) but does not provide ICD-11 liver-disease codes (lee2024designingclinicaltrials pages 3-5).
+
+### 1.3 Current nomenclature: ALD within the 2023 “steatotic liver disease (SLD)” framework
+Recent multisociety consensus reframed fatty liver disorders under **SLD** and subclassified into **MASLD**, **MetALD (MASLD + increased alcohol)**, and **ALD** (lee2024nationalprevalenceestimates pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3). A Nature Reviews Gastroenterology & Hepatology expert panel describes Delphi thresholds defining ALD as alcohol consumption exceeding **420 g/week (men)** or **350 g/week (women)** and MetALD as intermediate alcohol exposure ranges (lee2024designingclinicaltrials pages 3-5).
+
+### 1.4 Aggregated resource vs individual patient evidence
+Most disease definitions, staging concepts, and global burden estimates in this report come from **aggregated disease-level resources** (reviews and Global Burden of Disease [GBD] analyses) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, danpanichkul2025globalepidemiologyof pages 1-5). Administrative coding use-cases reflect **EHR-derived** approaches based on ICD-10 codes (manthey2025identifyinglevelsof pages 1-2).
+
+| Concept | Preferred term / definition | Common synonyms / legacy names | ICD-10 / coding | ICD-11 / AUD note | NHANES prevalence under 2023 SLD nomenclature | Notes (URL; publication date) |
+|---|---|---|---|---|---|---|
+| Disease entity | **Alcohol-associated liver disease (ALD)** is the current preferred term in recent hepatology literature; within the 2023 steatotic liver disease (SLD) framework, ALD is a subclass of SLD distinct from MASLD and MetALD (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, lee2024designingclinicaltrials pages 3-5) | Alcoholic liver disease; alcohol-related liver disease; ArLD; ALD (legacy and regional usage varies) (hong2024alcoholrelatedliverdisease pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | ICD-10 alcoholic liver disease code family **K70.***; examples cited in available sources include **K70.0–K70.4, K70.9** (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23) | Expert consensus paper notes ICD-11 criteria for alcohol dependence/AUD require **2 or more of 3 symptoms**; used as clinical context rather than liver-disease code mapping (lee2024designingclinicaltrials pages 3-5) | Not a prevalence row by itself | Alvarado-Tapias et al. 2024: https://doi.org/10.3350/cmh.2024.0709 ; Oct 2024. Lee et al. 2024 consensus statement: https://doi.org/10.1038/s41575-024-00936-x ; Jun 2024. |
+| SLD umbrella term | **Steatotic liver disease (SLD)** is the umbrella nomenclature adopted by multisociety consensus, encompassing MASLD, MetALD, ALD, and etiology-specific/cryptogenic SLD (lee2024nationalprevalenceestimates pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | Fatty liver disease spectrum (legacy framing) (lee2024designingclinicaltrials pages 3-5, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | No specific ICD-10 range provided in available evidence for SLD umbrella term | Delphi consensus on future ICD harmonization for SLD published, but no explicit ICD-11 liver-code mapping provided in available evidence (lee2024designingclinicaltrials pages 3-5) | **34.2%** (95% CI **31.9%–36.5%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. |
+| Metabolic subclass | **Metabolic dysfunction-associated steatotic liver disease (MASLD)** (lee2024designingclinicaltrials pages 3-5, lee2024nationalprevalenceestimates pages 1-2) | NAFLD showed ~99% overlap with MASLD in NHANES analysis (lee2024nationalprevalenceestimates pages 1-2) | No specific ICD-10 range provided in available evidence | In trial-consensus context, alcohol thresholds help distinguish MASLD from MetALD/ALD (lee2024designingclinicaltrials pages 3-5) | **31.3%** (95% CI **29.2%–33.4%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. |
+| Overlap subclass | **MetALD** = MASLD plus increased alcohol intake; consensus thresholds cited as women **140–350 g/week** and men **210–420 g/week** in one expert statement (lee2024designingclinicaltrials pages 3-5) | Metabolic dysfunction- and alcohol-associated liver disease; metabolic and alcohol-associated liver disease (alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | No specific ICD-10 range provided in available evidence | Relevant as a nomenclature and trial-stratification category rather than a distinct ICD-11 code in available evidence (lee2024designingclinicaltrials pages 3-5) | **2.0%** (95% CI **1.6%–2.9%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. Lee et al. 2024 consensus statement: https://doi.org/10.1038/s41575-024-00936-x ; Jun 2024. |
+| Alcohol subclass | **ALD** within SLD nomenclature; Delphi/expert statement defined ALD as alcohol consumption exceeding **420 g/week (men)** or **350 g/week (women)**, with or without cardiometabolic risk factors (lee2024designingclinicaltrials pages 3-5) | Alcohol-associated liver disease; alcoholic liver disease; alcohol-related liver disease (hong2024alcoholrelatedliverdisease pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 1-3) | ICD-10 **K70.*** family applies to alcoholic liver disease diagnoses in administrative coding (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23) | ICD-11 AUD/dependence criteria mentioned in consensus/trial-design paper; no explicit ICD-11 ALD code supplied in available evidence (lee2024designingclinicaltrials pages 3-5) | **0.7%** (95% CI **0.5%–0.9%**) (lee2024nationalprevalenceestimates pages 1-2) | Lee et al. 2024 NHANES analysis: https://doi.org/10.1097/hep.0000000000000604 ; Sep 2024. Manthey et al. 2025 ICD-10 EHR usage: https://doi.org/10.1186/s13011-025-00670-w ; Sep 2025. |
+| Administrative/EHR coding note | In EHR work, severe alcohol-related disease burden category explicitly included alcoholic liver disease diagnoses | Alcoholic liver cirrhosis and related alcohol-specific organ disease codes in EHR severity work (manthey2025identifyinglevelsof pages 1-2) | **K70; K70.0–K70.4; K70.9** specifically listed in available evidence (manthey2025identifyinglevelsof pages 1-2, kubina2025meta‐analysiseffectsof pages 23-23) | ICD-10 was the basis of the cited EHR classification; authors note different jurisdictions may use ICD-11, but mapping not provided here (manthey2025identifyinglevelsof pages 1-2) | Not applicable | Manthey et al. 2025: https://doi.org/10.1186/s13011-025-00670-w ; Sep 2025. Hagström et al. 2024 ICD consensus: https://doi.org/10.1097/hc9.0000000000000386 ; Feb 2024. |
 
 
-*Table: This table compiles the core disease facts for Tooth and Nail Syndrome (Witkop syndrome), including inheritance, MSX1 molecular evidence, key phenotypes, onset, prevalence estimates, and practical diagnostic/management points. It is designed as a compact reference for knowledge-base curation and evidence mapping.*
-
-## 1. Disease information
-### 1.1 Overview (what is the disease?)
-TNS/Witkop syndrome is an ectodermal dysplasia phenotype dominated by two organ systems: (i) **dentition** (congenitally missing teeth, often with microdontia and conical crowns) and (ii) **nails** (thin/brittle/slow-growing and sometimes spoon-shaped). It is typically **non–life-limiting** but has substantial functional, esthetic, and psychosocial impact because oligodontia affects chewing, speech, and facial/dental appearance. (devadas2005witkoptoothand pages 5-6, memarpour2011witkoptoothand pages 1-3)
-
-### 1.2 Key identifiers
-* **OMIM (disease):** Tooth and Nail Syndrome / Witkop syndrome **MIM 189500** (reported in the primary genetics paper context and reiterated in the 2024 review). (jumlongras2001anonsensemutation pages 7-8, cammaratascalisi2024maingeneticentities pages 1-2)
-* **OMIM (gene):** **MSX1** **OMIM 142983** (from 2024 review excerpt). (cammaratascalisi2024maingeneticentities pages 1-2)
-* **MONDO / Orphanet / ICD / MeSH:** Not retrievable from the provided full-text context in this run (should be added via direct OMIM/Orphanet/MONDO lookups in a subsequent curation pass).
-
-### 1.3 Synonyms and alternative names
-* Witkop syndrome; Witkop tooth-and-nail syndrome (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3)
-* Tooth and nail syndrome (TNS) (altugatac2008witkoptoothand pages 1-2, jumlongras2001anonsensemutation pages 1-2)
-* Hypodontia–nail dysplasia / hypodontia with nail dysgenesis (memarpour2011witkoptoothand pages 5-5, devadas2005witkoptoothand pages 1-3)
-
-### 1.4 Evidence type (individual patients vs aggregated)
-Most knowledge is derived from **family studies and case reports**, supplemented by targeted reviews of tooth agenesis genetics. (devadas2005witkoptoothand pages 5-6, memarpour2011witkoptoothand pages 1-3, cammaratascalisi2024maingeneticentities pages 1-2)
+*Table: This table summarizes current naming conventions, coding references, and U.S. NHANES prevalence estimates relevant to Alcoholic Liver Disease / Alcohol-associated liver disease within the 2023 steatotic liver disease framework. It is useful for aligning legacy terminology, ICD coding, and modern subclassification terms in a disease knowledge base.*
 
 ## 2. Etiology
-### 2.1 Disease causal factors
-**Primary causal factor:** germline genetic variants in **MSX1**, a homeobox transcription factor required for normal ectodermal appendage development. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2)
 
-### 2.2 Genetic risk factors (causal variants)
-**MSX1 (HGNC: MSX1)** is the canonical causal gene for dominantly inherited TNS.
+### 2.1 Primary causal factors
+The necessary upstream causal exposure is **harmful alcohol consumption**; however, ALD development and progression are heterogeneous and depend on host susceptibility and co-exposures (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, israelsenUnknownyearmetaldfromconcept pages 7-10).
 
-**Key pathogenic variant (landmark):**
-* **MSX1 c.605C>A (exon 2) → p.Ser202Ter (S202X)**, a **heterozygous nonsense** variant in the MSX1 homeodomain.
-  * Evidence: linkage to the MSX1 locus and cosegregation with the phenotype across a three-generation pedigree; absent in 132 control chromosomes (allele frequency <0.01 in that screen). (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation media 0569dd8f)
+### 2.2 Risk factors
+#### Alcohol exposure intensity and pattern
+Clinical trial consensus emphasizes careful quantification of alcohol exposure (standard drinks converted to grams), as thresholds and definitions vary across studies (lee2024designingclinicaltrials pages 1-2).
 
-**Inheritance:** autosomal dominant with variable expressivity; a large pedigree is shown with molecular cosegregation, and an accompanying table summarizes affected individuals’ missing tooth counts and nail features. (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f, jumlongras2001anonsensemutation media 40a94f6c)
+#### Genetic risk factors (susceptibility/modifier loci)
+Human genetic studies and reviews identify common modifier variants that increase risk of steatosis and/or progressive outcomes (fibrosis/cirrhosis/HCC), especially under metabolic or alcohol stress.
+- **PNPLA3 I148M (rs738409):** Reported to increase liver fat and increase risk of fibrosis/cirrhosis/HCC, with stronger effects under obesity/T2D and alcohol exposure (israelsenUnknownyearmetaldfromconcept pages 7-10). Proposed mechanism: variant accumulates on lipid droplets and impairs triglyceride breakdown by blocking ATGL access (israelsenUnknownyearmetaldfromconcept pages 7-10).
+- **TM6SF2 E167K (rs58542926):** Increases hepatic fat and risk of advanced disease; mechanistically linked to reduced VLDL secretion (israelsenUnknownyearmetaldfromconcept pages 7-10). Quantitative associations reported in an omics review include OR ~1.38 for steatosis/fibrosis and higher ORs for more severe steatosis/fibrosis grades (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **MBOAT7 rs641738 C>T:** A modest-risk variant that reduces phosphatidylinositol remodeling and is associated with higher risk of steatosis/inflammation/fibrosis/HCC; knockout mice show increased hepatic triglycerides and fibrosis (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **HSD17B13 rs72613567 (T>TA):** A loss-of-function splice variant commonly described as **protective** against progressive liver disease outcomes (fibrosis/cirrhosis/HCC) and associated with lower aminotransferases; one review notes ~25% per-allele risk reduction for fibrosis/cirrhosis/HCC (israelsenUnknownyearmetaldfromconcept pages 7-10), and another review summarizes larger reductions reported in some cohorts (e.g., ~30%–49% reductions) (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11). JCI review notes HSD17B13 variants are associated with reduced risk for cirrhosis/HCC in ALD (mackowiak2024alcoholassociatedliverdisease pages 8-9).
+- **Alcohol metabolism genes:** Population variation in **ALDH2** activity is highlighted in East Asian populations (30–40% with inactive ALDH2 polymorphisms), affecting acetaldehyde handling (mackowiak2024alcoholassociatedliverdisease pages 8-9). Another review summarizes that functional variants in **ADH1B** and **ALDH2** can reduce alcohol intake and are associated with substantially lower ALD risk (israelsenUnknownyearmetaldfromconcept pages 7-10).
 
-### 2.3 Environmental risk factors / protective factors
-No environmental risk or protective factors were supported by the retrieved evidence; TNS is treated as a developmental genetic disorder. (jumlongras2001anonsensemutation pages 1-2)
+#### Environmental/clinical risk modifiers
+ALD pathogenesis and progression are influenced by co-factors such as sex, obesity/metabolic dysfunction, and the gut microbiome (d’arcangelo2026oxidativestressand pages 15-16, israelsenUnknownyearmetaldfromconcept pages 7-10). A U.S. mortality study also highlights concurrent societal shifts and obesity as contributors to worsening ALD burden in high-risk subgroups (pan2025alcoholassociatedliverdisease pages 1-2).
 
-### 2.4 Gene–environment interactions
-No gene–environment interaction evidence was identified in the retrieved corpus.
+### 2.3 Protective factors
+- **Genetic:** HSD17B13 loss-of-function variants are repeatedly described as hepatoprotective (israelsenUnknownyearmetaldfromconcept pages 7-10, mackowiak2024alcoholassociatedliverdisease pages 8-9, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **Behavioral:** Alcohol abstinence is the most effective intervention to improve prognosis across ALD stages (alvaradotapias2024alcoholassociatedliverdisease pages 1-3).
 
-## 3. Phenotypes
-### 3.1 Core phenotypes and suggested HPO terms
-**A. Dental phenotypes (symptoms/signs/physical manifestations)**
-* **Hypodontia / oligodontia** (HP:0000677 / HP:0000676): congenitally missing teeth; in one molecularly confirmed family study, affected individuals had **11–28 missing permanent teeth**. (jumlongras2001anonsensemutation pages 2-4, jumlongras2001anonsensemutation media 40a94f6c)
-* **Conical tooth** (HP:0000698) and **microdontia/narrow crowns**: frequently described in clinical case series. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
-* **Widely spaced teeth** (HP:0000687) and **retained primary teeth** (HP:0006335): commonly noted, with retained deciduous teeth often functioning long-term. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 1-3)
-* Teeth most frequently absent in case literature: **mandibular incisors, second molars, and maxillary canines/incisors** (pattern-level statements across case reports). (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
+### 2.4 Gene–environment interaction (GxE)
+The effect of key variants (notably PNPLA3) is reported to be **amplified by obesity, type 2 diabetes, and alcohol** exposure (israelsenUnknownyearmetaldfromconcept pages 7-10). Recent genetics reviews also emphasize that genetic risk “is not fixed” and can be modulated by diet/exercise/alcohol intake (wang2025geneticinsightsinto pages 1-2).
 
-**B. Nail phenotypes (clinical signs)**
-* **Nail dysplasia** (HP:0002164): thin, brittle, slow-growing nails; often more severe in toenails. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
-* **Koilonychia** (HP:0001802): spoon-shaped nails commonly described. (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3)
-* **Onychorrhexis** (HP:0033863) and longitudinal ridging: reported in case literature. (arora2016witkopssyndromea pages 1-3)
+## 3. Phenotypes (clinical spectrum; HPO suggestions)
 
-**C. Other ectodermal features**
-* **Sweating typically normal** and hair often normal or minimally affected; this helps distinguish TNS from hypohidrotic ectodermal dysplasia. (memarpour2011witkoptoothand pages 1-3, jumlongras2001anonsensemutation pages 2-4)
+### 3.1 Core phenotypes across the ALD spectrum
+Key clinical–pathologic phenotypes include:
+- **Hepatic steatosis** (fatty liver) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- **Steatohepatitis** (inflammation plus steatosis) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- **Fibrosis → cirrhosis → portal hypertension/complications** (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, alvaradotapias2024alcoholassociatedliverdisease pages 3-4)
+- **Alcohol-associated hepatitis (AH):** acute jaundice and liver failure; histologic ASH features include steatosis, inflammatory infiltration, hepatocyte ballooning, and Mallory–Denk bodies (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, mackowiak2024alcoholassociatedliverdisease pages 1-2)
 
-### 3.2 Age of onset, progression, frequency
-* **Onset:** congenital/developmental. Nail findings can be noticeable early; dental agenesis becomes clinically evident as dentition develops and is confirmed radiographically. (devadas2005witkoptoothand pages 1-3)
-* **Course:** tooth agenesis is static after development; nail abnormalities may be more evident in childhood and can improve with age. (altugatac2008witkoptoothand pages 1-2, jumlongras2001anonsensemutation pages 1-2)
-* **Frequency:** quantitative phenotype frequencies across cohorts are not available; evidence is case- and pedigree-based. (devadas2005witkoptoothand pages 5-6, memarpour2011witkoptoothand pages 1-3)
+**Frequency:** AH has been described as occurring in ~4–8% of heavy drinkers in one recent review (kasuga2025currentinsightsinto pages 1-2). Progression to cirrhosis is estimated in **8–20%** of patients with fibrosis in a recent ALD natural history review (alvaradotapias2024alcoholassociatedliverdisease pages 1-3).
 
-### 3.3 Quality of life impact
-While no standardized QoL instrument data were found, multiple reports emphasize functional/esthetic and psychosocial burden and the importance of multidisciplinary rehabilitation to improve quality of life. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
+### 3.2 Lab and imaging abnormalities (phenotype-type: laboratory)
+Standard diagnostic/monitoring labs include AST/ALT, bilirubin, GGT, ALP, platelets and indices derived from these (e.g., FIB-4), with AST/ALT ratio patterns often used clinically for suspicion of AH/advanced ALD (rama2026novelbiomarkersfor pages 5-6, rama2026novelbiomarkersfor pages 6-8).
+
+### 3.3 Suggested HPO terms (non-exhaustive; for knowledge-base mapping)
+(These are ontology suggestions; not all are explicitly enumerated in the cited sources.)
+- Jaundice (HP:0000952)
+- Hyperbilirubinemia (HP:0002904)
+- Hepatic steatosis (HP:0001397)
+- Hepatitis (HP:0012115)
+- Elevated hepatic transaminases (HP:0002910)
+- Liver cirrhosis (HP:0001394)
+- Portal hypertension (HP:0000124)
+- Ascites (HP:0001541)
+- Hepatic encephalopathy (HP:0002326)
+- Hepatocellular carcinoma (HP:0001402)
 
 ## 4. Genetic / molecular information
-### 4.1 Causal gene(s)
-* **MSX1** is the primary causal gene for **autosomal dominant** TNS/Witkop syndrome. (jumlongras2001anonsensemutation pages 1-2, cammaratascalisi2024maingeneticentities pages 1-2)
 
-### 4.2 Pathogenic variant(s)
-* **MSX1 c.605C>A (p.Ser202Ter; S202X)** (nonsense; truncating) in exon 2/homeodomain; cosegregation and control-screen absence support pathogenicity. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation media 0569dd8f)
+### 4.1 “Causal genes” vs modifier genes
+ALD is not typically monogenic; instead, **common variants act as modifiers** of susceptibility and progression in the setting of alcohol exposure and other environmental risks (israelsenUnknownyearmetaldfromconcept pages 7-10, israelsenUnknownyearmetaldfromconcept pages 1-7). Key modifier genes supported in the retrieved evidence include **PNPLA3**, **TM6SF2**, **MBOAT7**, and **HSD17B13** (israelsenUnknownyearmetaldfromconcept pages 7-10, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
 
-**Variant class and predicted functional consequence:** loss of function via truncation within the DNA-binding homeodomain; authors interpret the phenotype as consistent with **haploinsufficiency**. (jumlongras2001anonsensemutation pages 7-8, jumlongras2001anonsensemutation pages 4-7)
+### 4.2 Pathogenic / protective variants (selected)
+- **PNPLA3 rs738409 (I148M):** risk modifier for steatosis and progressive outcomes; interacts with metabolic and alcohol exposures (israelsenUnknownyearmetaldfromconcept pages 7-10).
+- **TM6SF2 rs58542926 (E167K):** risk modifier via lipid export/VLDL mechanisms (israelsenUnknownyearmetaldfromconcept pages 7-10, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **MBOAT7 rs641738 (C>T):** modest-risk modifier impacting phospholipid remodeling (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **HSD17B13 rs72613567 (T>TA):** protective loss-of-function splice variant (israelsenUnknownyearmetaldfromconcept pages 7-10, bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11).
+- **ALDH2 functional polymorphisms:** common inactive variants in East Asians (30–40%) affect acetaldehyde handling and may modify toxicity risk (mackowiak2024alcoholassociatedliverdisease pages 8-9).
 
-**Population frequency:** specific population database frequencies (e.g., gnomAD) were not available in the retrieved text; the original study reports absence in 132 control chromosomes. (jumlongras2001anonsensemutation pages 4-7)
-
-### 4.3 Modifier genes, epigenetics, chromosomal abnormalities
-No validated modifier genes or epigenetic findings specific to TNS were identified in the retrieved evidence.
+### 4.3 Epigenetic information
+A 2024 review highlights epigenetic abnormalities as part of ALD pathogenesis (hong2024alcoholrelatedliverdisease pages 1-2), and biomarker reviews discuss exploratory epigenomic profiling (e.g., genome-wide methylation/ChIP-seq) as emerging but not yet clinically standardized (rama2026novelbiomarkersfor pages 14-15).
 
 ## 5. Environmental information
-No supported non-genetic environmental contributors were identified.
 
-## 6. Mechanism / pathophysiology
-### 6.1 Causal chain (current understanding)
-1. **Germline heterozygous MSX1 loss-of-function** (e.g., p.Ser202Ter) reduces functional MSX1 transcription factor dosage. (jumlongras2001anonsensemutation pages 4-7)
-2. MSX1 is a developmental regulator in craniofacial/dental mesenchyme; disruption impairs epithelial–mesenchymal interactions required for **tooth development**, producing **congenital tooth agenesis**. (altugatac2008witkoptoothand pages 1-2, jumlongras2001anonsensemutation pages 1-2)
-3. MSX1 is also implicated in nail unit development; in supporting mouse genetic evidence discussed by the authors, **Msx1 knockout mice** show tooth agenesis and **defective/thinner nail plates**, paralleling the human combined tooth–nail phenotype. (jumlongras2001anonsensemutation pages 1-2)
+### 5.1 Lifestyle/environmental drivers
+- **Alcohol consumption:** primary driver; consensus documents emphasize rigorous quantification in grams and recognition of heterogeneous thresholds across studies (lee2024designingclinicaltrials pages 1-2).
+- **Microbiome and gut permeability:** “leaky gut” and dysbiosis with PAMP/LPS translocation are repeatedly described in AH pathogenesis (alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
+- **Metabolic comorbidity:** overlapping metabolic dysfunction contributes additively/superadditively to fibrosis risk in patients with steatotic liver disease and alcohol exposure (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, israelsenUnknownyearmetaldfromconcept pages 7-10).
 
-### 6.2 Pathways and processes
-Direct pathway-level annotations (e.g., specific signaling cascades) were not provided in the TNS-focused clinical genetics excerpts; the mechanistic evidence in this corpus is primarily developmental-genetic (transcription factor dosage affecting organogenesis). (jumlongras2001anonsensemutation pages 1-2)
+## 6. Mechanism / pathophysiology (current understanding)
 
-**Suggested GO biological process terms (inference-level, not directly asserted in text):** tooth development/odontogenesis; epithelial–mesenchymal signaling.
+### 6.1 High-level causal chain (exposure → cellular injury → clinical disease)
+1) **Alcohol absorption and metabolism** generates toxic intermediates (acetaldehyde) and perturbs mitochondrial lipid oxidation, driving steatosis and hepatocyte stress (kasuga2025currentinsightsinto pages 1-2, mackowiak2024alcoholassociatedliverdisease pages 1-2).
+2) **Oxidative and ER stress** lead to lipid peroxidation, macromolecular damage, and activation of regulated cell death pathways (apoptosis, necroptosis, pyroptosis, ferroptosis) (d’arcangelo2026oxidativestressand pages 1-2, mackowiak2024alcoholassociatedliverdisease pages 1-2).
+3) **Gut barrier dysfunction** increases portal influx of microbial PAMPs (e.g., LPS) and, together with hepatocyte DAMPs, triggers innate immune activation and systemic inflammation (alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
+4) **Inflammation** driven by Kupffer cells/macrophages and neutrophils (including NETosis) amplifies injury; severe AH is characterized by neutrophil predominance and high cytokine signaling (e.g., TNFα, IL-1β) (d’arcangelo2026oxidativestressand pages 1-2, kasuga2025currentinsightsinto pages 1-2).
+5) Persistent injury promotes **hepatic stellate cell activation**, extracellular matrix deposition and fibrosis/cirrhosis, with risk of HCC (d’arcangelo2026oxidativestressand pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 3-4).
 
-**Cell types (suggested CL terms, inference-level):** neural crest–derived craniofacial mesenchyme; dental mesenchyme; nail bed mesenchyme.
+### 6.2 Key pathways/cellular processes (GO suggestions)
+Evidence-supported processes include:
+- Response to oxidative stress; reactive oxygen species metabolic process; lipid peroxidation (d’arcangelo2026oxidativestressand pages 1-2)
+- Toll-like receptor signaling pathway; inflammatory response; cytokine-mediated signaling pathway (d’arcangelo2026oxidativestressand pages 1-2, kasuga2025currentinsightsinto pages 1-2)
+- Regulation of apoptotic process; necroptotic process; pyroptotic process; ferroptosis (d’arcangelo2026oxidativestressand pages 1-2, mackowiak2024alcoholassociatedliverdisease pages 1-2)
+- Extracellular matrix organization / fibrogenesis; wound healing (d’arcangelo2026oxidativestressand pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 3-4)
 
-## 7. Anatomical structures affected
+### 6.3 Cell types involved (CL suggestions)
+- Hepatocyte; Kupffer cell (liver-resident macrophage); neutrophil; monocyte-derived macrophage; hepatic stellate cell; intestinal epithelial cell/enterocyte (d’arcangelo2026oxidativestressand pages 1-2, alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
+
+### 6.4 Recent developments (prioritizing 2023–2024)
+- **Multi-omics emphasis:** A 2024 JCI review notes “new insights… utilizing the study of multiomics and other cutting-edge approaches,” and frames translation toward therapeutic targets (mackowiak2024alcoholassociatedliverdisease pages 1-2).
+- **Consensus trial-design:** A 2024 Nature Reviews Gastroenterology & Hepatology expert panel provides consensus on clinical trial design integrating liver outcomes and alcohol use endpoints, including the updated SLD nomenclature context (lee2024designingclinicaltrials pages 3-5).
+
+## 7. Anatomical structures affected (UBERON/GO-CC suggestions)
+
 ### 7.1 Organ/tissue level
-* **Teeth (dentition; jaw/oral cavity)** and **nails (nail unit of fingers/toes)** are the primary affected structures. (memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
+- **Primary organ:** liver (UBERON:0002107)
+- **Key liver compartments/cell populations:** hepatocytes, hepatic stellate cells, Kupffer cells; involvement of the **gut–liver axis** implicates intestinal epithelium as a contributing site (alvaradotapias2024alcoholassociatedliverdisease pages 3-4, kasuga2025currentinsightsinto pages 1-2).
 
-**Suggested UBERON terms (curation suggestions):** tooth; nail; oral cavity.
+### 7.2 Subcellular compartments (GO-CC suggestions; evidence-supported themes)
+- Mitochondrion; endoplasmic reticulum; lipid droplet (mitochondrial/ER stress and lipid droplet biology are highlighted; lipid-droplet localization is central for PNPLA3/HSD17B13 biology) (israelsenUnknownyearmetaldfromconcept pages 7-10, mackowiak2024alcoholassociatedliverdisease pages 1-2).
 
 ## 8. Temporal development
-* **Onset:** congenital; often recognized in early childhood when dentition anomalies become apparent. (devadas2005witkoptoothand pages 1-3)
-* **Course:** lifelong; nails may improve; dentition anomalies require staged long-term dental management. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
+
+### 8.1 Onset and course
+ALD is typically chronic and insidious, but AH represents an acute decompensating event with severe short-term outcomes (alvaradotapias2024alcoholassociatedliverdisease pages 1-3, kasuga2025currentinsightsinto pages 1-2).
+
+### 8.2 Staging and severity (AH)
+Severe alcohol-associated hepatitis is often defined using **Maddrey’s discriminant function ≥32** or **MELD ≥20** in recent reviews (kumar2026emergingtherapeuticregimens pages 5-6). Short-term mortality in severe AH is repeatedly reported at **~20%–50%** (hong2024alcoholrelatedliverdisease pages 1-2, kasuga2025currentinsightsinto pages 1-2).
 
 ## 9. Inheritance and population
-### 9.1 Inheritance pattern
-* **Autosomal dominant**, variable expressivity; demonstrated in multigeneration pedigrees and supported by the MSX1 S202X family study. (jumlongras2001anonsensemutation pages 1-2, jumlongras2001anonsensemutation media 0569dd8f)
 
-### 9.2 Epidemiology (statistics)
-Robust registry-based prevalence/incidence data were not identified. Available figures are literature estimates from case reports:
-* **~1–2 per 10,000 births/newborns** (reported in multiple case-based sources). (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3, devadas2005witkoptoothand pages 1-3)
-* **~1 per 100,000 live births** (reported in one case report; demonstrates uncertainty/heterogeneity in published estimates). (arora2016witkopssyndromea pages 1-3)
+ALD is a **multifactorial** disease with **polygenic modifier** effects and strong environmental dependence (israelsenUnknownyearmetaldfromconcept pages 7-10). Allele frequencies and population differences are highlighted for alcohol metabolism genes, e.g., inactive ALDH2 variants in East Asian populations (mackowiak2024alcoholassociatedliverdisease pages 8-9).
 
-## 10. Diagnostics
-### 10.1 Clinical tests
-* **Dental clinical exam + panoramic radiography (OPG)** to document agenesis patterns. (bhardwaj2023toothandnail pages 1-2, devadas2005witkoptoothand pages 1-3)
-* Nail physical examination (thin/brittle/koilonychia). (altugatac2008witkoptoothand pages 1-2, memarpour2011witkoptoothand pages 1-3)
+## 10. Diagnostics (current practice and emerging)
 
-### 10.2 Genetic testing
-* **Targeted sequencing of MSX1** (or broader tooth agenesis/ectodermal dysplasia panels; not explicitly enumerated in retrieved texts) can confirm diagnosis in families consistent with AD TNS. Molecular confirmation with segregation is exemplified by MSX1 S202X testing in the landmark pedigree. (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation media 0569dd8f)
+### 10.1 Clinical assessment and routine biomarkers
+Routine labs (AST, ALT, bilirubin, GGT, ALP, platelets) are standard but have limited specificity; AST/ALT ratio patterns are supportive for AH/advanced disease suspicion (rama2026novelbiomarkersfor pages 5-6).
 
-### 10.3 Differential diagnosis
-Reported differentials include:
-* **Fried tooth-and-nail syndrome** (noted as clinically similar in dental literature) (arora2016witkopssyndromea pages 1-3)
-* **Trichoonychodental (TOD) syndrome** and **Clouston syndrome** (distinguished by hair/palmoplantar findings). (altugatac2008witkoptoothand pages 1-2, bhardwaj2023toothandnail pages 2-3)
+### 10.2 Non-invasive fibrosis staging: elastography and serum panels
+A recent biomarker review summarizes validated elastography thresholds and practical caveats:
+- **Vibration-controlled transient elastography (VCTE):** validated cutoffs of **~12.1 kPa for ≥F3** and **~18.6 kPa for F4**, AUROCs ~0.90–0.91; LSM <8–10 kPa helps rule out advanced fibrosis; interpret with AST/bilirubin since inflammation can inflate stiffness and LSM may fall after abstinence (rama2026novelbiomarkersfor pages 6-8).
+- **2D shear-wave elastography** diagnostic performance is also reported (e.g., 88% sensitivity/95% specificity for advanced fibrosis with suggested cutoffs) (rama2026novelbiomarkersfor pages 6-8).
+- **ELF test:** described as having high accuracy for advanced fibrosis and can outperform APRI/FIB-4, with reported AUROC ~0.92–0.94 (rama2026novelbiomarkersfor pages 5-6).
+- **Pro-C3 / ADAPT:** Pro-C3 is highlighted as a predictor of outcomes and used in composite algorithms for advanced fibrosis detection (rama2026novelbiomarkersfor pages 17-18).
+
+### 10.3 Alcohol exposure biomarkers
+**Phosphatidylethanol (PEth)** is emphasized as an objective marker of recent alcohol intake; one review notes ≥200 ng/mL indicates regular high intake and that adding PEth can increase ALD detection “3–4×” compared with self-report alone (rama2026novelbiomarkersfor pages 5-6).
+
+### 10.4 Emerging mechanistic biomarkers and multi-omics
+Reviews highlight emerging biomarkers reflecting cell death (CK-18 fragments), fibrogenesis (Pro-C3), genetic risk (PNPLA3/TM6SF2/HSD17B13 and PRS), and gut dysbiosis signatures/metabolites (SCFAs, bile acids, TMAO; reduced Faecalibacterium prausnitzii and Akkermansia muciniphila) (rama2026novelbiomarkersfor pages 1-3, rama2026novelbiomarkersfor pages 8-9).
 
 ## 11. Outcome / prognosis
-TNS is generally compatible with normal lifespan. The dominant morbidity is dental functional impairment and esthetic/psychosocial burden; hence, long-term outcomes depend on access to coordinated dental and prosthetic care. (devadas2005witkoptoothand pages 5-6, altugatac2008witkoptoothand pages 1-2)
+
+### 11.1 Severe AH prognosis
+Severe alcohol-associated hepatitis has “short-term mortality rate of **20%–50%**” in developed countries in a recent review (quoted from abstract) (kasuga2025currentinsightsinto pages 1-2).
+
+### 11.2 ALD mortality trends (real-world implementation and statistics)
+- **United States (1999–2022):** In a JAMA Network Open analysis of **436,814 ALD-related deaths**, age-adjusted mortality doubled **6.71 → 12.53 per 100,000**, accelerating in 2018–2022 (APC **8.94%**) with disproportionate increases among women, ages 25–44, and American Indian/Alaska Native populations (pan2025alcoholassociatedliverdisease pages 1-2).
+- **Global (GBD 2021; 2000–2021):** A 2025 analysis reports **3.02 million prevalent ALD cases** in 2021 (+38.68% since 2000) and **132,030 prevalent alcohol-attributable primary liver cancer cases** (+94.12%) (danpanichkul2025globalepidemiologyof pages 1-5).
 
 ## 12. Treatment
-### 12.1 Pharmacotherapy
-No disease-modifying pharmacotherapy is supported by the retrieved evidence.
 
-### 12.2 Dental and interventional management (real-world implementation)
-Evidence-supported management principles include:
-* **Preventive dental care** and early care planning. (devadas2005witkoptoothand pages 5-6)
-* **Orthodontic/space management** and staged rehabilitation for function/esthetics. (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
-* **Retention of primary teeth** when permanent successors are absent to preserve alveolar bone height for later rehabilitation. (bhardwaj2023toothandnail pages 1-2, arora2016witkopssyndromea pages 1-3)
-* **Prosthodontics** (e.g., fixed partial dentures) and consideration of **implants after growth completion** to reduce need for bone augmentation. (devadas2005witkoptoothand pages 5-6)
-* **Nail care** (lubrication, trimming/smoothing to reduce breakage/fungal complications) and **genetic counseling**. (bhardwaj2023toothandnail pages 2-3)
+### 12.1 Foundational management (standard of care)
+- **Alcohol abstinence:** described as “the most effective way to improve prognosis across all stages of ALD” (quoted from abstract) (alvaradotapias2024alcoholassociatedliverdisease pages 1-3). Multidisciplinary care integrating AUD treatment is emphasized (adekunle2023therapeutictargetsin pages 1-2).
+- **Corticosteroids (severe AH):** described as “the only evidence-based pharmacologic treatment” in one severe AH review, with limited efficacy and substantial non-response (kasuga2025currentinsightsinto pages 1-2). Another review notes response rates ~50–60% among eligible patients by day-7 Lille score, with many contraindications (ineligibility 40–50%) (adekunle2023therapeutictargetsin pages 1-2).
+- **Nutrition therapy:** enteral nutrition strategies and caloric/protein targets are summarized for severe AH in Clinics in Liver Disease, including associations between inadequate intake and lower survival, and guidance to initiate enteral nutrition early when needed (hardesty2024currentpharmacotherapyand pages 4-6).
+- **Liver transplantation:** ALD is now the leading indication for liver transplant in the U.S.; early LT is discussed as a salvage option for steroid-refractory severe AH but remains limited by selection protocols and donor/ethical constraints (pan2025alcoholassociatedliverdisease pages 1-2, kasuga2025currentinsightsinto pages 1-2).
 
-**MAXO term suggestions (curation):** orthodontic treatment; dental prosthesis placement; dental implant placement; genetic counseling.
+### 12.2 Experimental / targeted therapies and clinical trials (selected)
+A recent ALD natural-history/therapy review tabulates “Emerging treatment options” (Table 2) including anti-inflammatory, apoptosis/cell death, bile-acid signaling, microbiome, and regenerative approaches, with trial identifiers (alvaradotapias2024alcoholassociatedliverdisease media 15159c76).
 
-### 12.3 Clinical trials
-No interventional clinical trials specific to TNS/MSX1 were identified in the retrieved clinical trials search.
+**Selected trials and interventions (with registry IDs when available in retrieved evidence):**
+- **IL-1β inhibition (Canakinumab):** **NCT03775109** (listed in Table 2) (alvaradotapias2024alcoholassociatedliverdisease media 15159c76).
+- **IL-1 receptor antagonist (Anakinra):** **NCT04072822** (listed in Table 2); other clinical evidence indicates anakinra-based approaches have had mixed or unfavorable results in at least one trial (stopped early due to worsening MELD) (alvaradotapias2024alcoholassociatedliverdisease media 15159c76, d’arcangelo2026oxidativestressand pages 12-13).
+- **FXR agonist (Obeticholic acid):** **NCT02039219** (Table 2) (alvaradotapias2024alcoholassociatedliverdisease media 15159c76).
+- **Caspase inhibitor (Emricasan / IDN-6556):** **NCT01912404** (Table 2); the ClinicalTrials.gov record describes a phase 2 trial terminated early with only 5 enrolled due to concerns of high systemic drug levels, precluding meaningful analysis (alvaradotapias2024alcoholassociatedliverdisease media 15159c76, NCT01912404 chunk 1).
+- **Gut–liver axis modulation with IgG-enriched bovine colostrum:** **NCT02473341** phase 3 adjunct trial (NCT02473341 chunk 1).
+
+### 12.3 Suggested MAXO terms (examples)
+(ontology suggestions)
+- Alcohol abstinence counseling (MAXO:0000508)
+- Corticosteroid therapy (MAXO:0000746)
+- Enteral nutrition (MAXO:0000660)
+- Liver transplantation (MAXO:0001175)
+- Elastography (MAXO:0000976)
 
 ## 13. Prevention
-Because TNS is genetic/developmental, prevention is primarily:
-* **Genetic counseling** and family-based risk assessment (implied by management recommendations). (bhardwaj2023toothandnail pages 2-3)
-No environmental primary prevention or vaccination is applicable.
+
+Public-health burden analyses emphasize urgent prevention measures; major preventable levers include reducing harmful alcohol consumption and implementing targeted interventions in high-risk groups (danpanichkul2025globalepidemiologyof pages 1-5, pan2025alcoholassociatedliverdisease pages 1-2). Primary and secondary prevention in practice includes:
+- **Primary prevention:** population alcohol control policies (pricing/availability/marketing restrictions) and AUD prevention/treatment integration (supported as urgent in GBD-based epidemiology work) (danpanichkul2025globalepidemiologyof pages 1-5).
+- **Secondary prevention:** non-invasive fibrosis screening (VCTE/serum panels) in at-risk drinkers and monitoring with objective alcohol biomarkers (PEth) to detect relapse or underreported intake (rama2026novelbiomarkersfor pages 6-8, rama2026novelbiomarkersfor pages 5-6).
 
 ## 14. Other species / natural disease
-No naturally occurring veterinary analogs were identified in the retrieved evidence.
+Not systematically covered in the retrieved evidence set.
 
-## 15. Model organisms
-The TNS molecular genetics paper discusses **mouse Msx1 knockout** phenotypes as supportive evidence for shared tooth and nail developmental requirements (tooth agenesis and thinner/defective nail plates). (jumlongras2001anonsensemutation pages 1-2)
+## 15. Model organisms / experimental models
+A 2024 JCI review notes the importance of preclinical models and describes introduction of **binge ethanol intake into chronically ethanol-fed mice** to model disease features (mackowiak2024alcoholassociatedliverdisease pages 1-2). A 2023 Hepatology paper uses the **NIAAA chronic + binge ethanol feeding model** and demonstrates that adipose lipolysis is important for ethanol-induced hepatic steatosis and lipid peroxidation, providing a mechanistic mouse model example (hong2024alcoholrelatedliverdisease pages 1-2).
 
-## Recent developments (prioritized 2023–2024)
-### 2023: clinical reporting and management emphasis
-A 2023 case report reiterates the clinical picture (tooth agenesis and nail dysplasia, minimal sweating/hair involvement) and emphasizes multidisciplinary management and dental radiographic confirmation; it also reports extreme oligodontia (example: 18 missing permanent teeth) as part of the phenotypic range. (bhardwaj2023toothandnail pages 1-2, bhardwaj2023toothandnail pages 2-3)
+## Key statistics summary (selected)
+- **NHANES (2017–Mar 2020) U.S. prevalence under SLD nomenclature:** SLD 34.2%, MASLD 31.3%, MetALD 2.0%, ALD 0.7% (lee2024nationalprevalenceestimates pages 1-2).
+- **GBD 2021 global counts (2021):** 3.02 million prevalent ALD cases and 132,030 prevalent alcohol-attributable primary liver cancer cases (danpanichkul2025globalepidemiologyof pages 1-5).
+- **U.S. mortality trend (1999–2022):** ALD age-adjusted mortality 6.71 → 12.53 per 100,000; 436,814 ALD deaths (pan2025alcoholassociatedliverdisease pages 1-2).
+- **Severe AH short-term mortality:** 20%–50% (kasuga2025currentinsightsinto pages 1-2).
 
-### 2024: genetics of tooth agenesis review consolidation
-A 2024 review on tooth agenesis genetics explicitly lists **MSX1** as associated with “ED 3, Witkop type” (OMIM 189500) and **autosomal dominant inheritance**, reflecting ongoing consensus in the field regarding the MSX1–Witkop/TNS relationship. (cammaratascalisi2024maingeneticentities pages 1-2)
+## Evidence limitations (in this tool-based evidence set)
+- MONDO and MeSH identifiers, ICD-11 liver-disease code mappings, OMIM/Orphanet IDs, and comprehensive phenotype frequency distributions were not found in the retrieved texts and would require targeted database queries beyond the current evidence set.
+- Several mechanistic and treatment details are best supported by recent reviews; primary mechanistic studies (PMID-first extraction) were not comprehensively retrieved here.
 
-## Expert opinion / analysis (evidence-grounded)
-Across authoritative dental/dermatologic case literature, there is consistent emphasis that TNS care is **not drug-based** but relies on **early, staged, multidisciplinary rehabilitation** to address function, esthetics, and psychosocial outcomes (orthodontics + prosthodontics, with implant timing aligned to growth). (altugatac2008witkoptoothand pages 1-2, devadas2005witkoptoothand pages 5-6)
-
-## Key data extracted from primary study figure/table evidence
-The pedigree and clinical feature table from the landmark MSX1 study provide patient-level structured evidence for:
-* **Autosomal dominant segregation** of tooth agenesis and nail dysplasia with a truncating MSX1 variant (pedigree + restriction analysis). (jumlongras2001anonsensemutation media 0569dd8f)
-* Individual-level counts of congenitally missing permanent teeth and nail involvement across family members (table). (jumlongras2001anonsensemutation media 40a94f6c)
-
-## Notable limitations of this report (due to available full-text evidence)
-* **MONDO/Orphanet/MeSH/ICD identifiers** could not be confirmed from the retrieved full texts.
-* **2023–2024 primary research** specifically on TNS is sparse in the retrieved set; the main 2024 contribution captured here is a genetics review consolidation rather than new variant discovery.
-* No robust population epidemiology (registry-based prevalence/incidence) or standardized QoL metrics were found.
-
-## References (with publication dates and URLs where available)
-* Jumlongras D et al. **Jul 2001**. *American Journal of Human Genetics* 69(1):67–74. “A nonsense mutation in msx1 causes witkop syndrome.” DOI/URL: https://doi.org/10.1086/321271 (jumlongras2001anonsensemutation pages 4-7, jumlongras2001anonsensemutation pages 1-2)
-* Altug-Atac AT, Iseri H. **Mar 2008**. *The Angle Orthodontist* 78(2):370–380. DOI/URL: https://doi.org/10.2319/100406-403.1 (altugatac2008witkoptoothand pages 1-2)
-* Devadas S et al. **Sep 2005**. *International Journal of Paediatric Dentistry* 15(5):364–369. DOI/URL: https://doi.org/10.1111/j.1365-263x.2005.00647.x (devadas2005witkoptoothand pages 5-6, devadas2005witkoptoothand pages 1-3)
-* Memarpour M, Shafiei F. **May 2011**. *Pediatric Dermatology* 28(3):281–285. DOI/URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x (memarpour2011witkoptoothand pages 1-3)
-* Arora V et al. **Jan 2016**. *Journal of Oral Biology and Craniofacial Research* 6(1):79–81. DOI/URL: https://doi.org/10.1016/j.jobcr.2015.07.003 (arora2016witkopssyndromea pages 1-3)
-* Cammarata-Scalisi F et al. **Dec 2024**. *Clinical Oral Investigations* 29(1):9. DOI/URL: https://doi.org/10.1007/s00784-024-05941-7 (cammaratascalisi2024maingeneticentities pages 1-2)
-* Bhardwaj S. **2023**. Tooth and nail syndrome—rare case report (journal metadata incomplete in retrieved text). (bhardwaj2023toothandnail pages 1-2, bhardwaj2023toothandnail pages 2-3)
 
 References
 
-1. (jumlongras2001anonsensemutation pages 4-7): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+1. (alvaradotapias2024alcoholassociatedliverdisease pages 1-3): Edilmar Alvarado-Tapias, Elisa Pose, Jordi Gratacós, Ana Clemente-Sánchez, Hugo Hugo López-Pelayo, and Ramón Bataller. Alcohol-associated liver disease: natural history, management and novel targeted therapies. Clinical and Molecular Hepatology, 31:S112-S133, Oct 2024. URL: https://doi.org/10.3350/cmh.2024.0709, doi:10.3350/cmh.2024.0709. This article has 32 citations.
 
-2. (jumlongras2001anonsensemutation pages 1-2): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+2. (mackowiak2024alcoholassociatedliverdisease pages 1-2): Bryan Mackowiak, Yaojie Fu, Luca Maccioni, and Bin Gao. Alcohol-associated liver disease. The Journal of Clinical Investigation, Feb 2024. URL: https://doi.org/10.1172/jci176345, doi:10.1172/jci176345. This article has 352 citations.
 
-3. (jumlongras2001anonsensemutation media 0569dd8f): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+3. (hong2024alcoholrelatedliverdisease pages 1-2): Xiao Hong, Shuo-Wen Huang, He Jiang, Qing Ma, Jiang Qiu, Qihan Luo, Chunlu Cao, Yiyang Xu, Fuzhe Chen, Yufan Chen, Chunfeng Sun, Haozhe Fu, Yiming Liu, Changyu Li, Fangming Chen, and Ping Qiu. Alcohol-related liver disease (ald): current perspectives on pathogenesis, therapeutic strategies, and animal models. Frontiers in Pharmacology, Nov 2024. URL: https://doi.org/10.3389/fphar.2024.1432480, doi:10.3389/fphar.2024.1432480. This article has 34 citations.
 
-4. (cammaratascalisi2024maingeneticentities pages 1-2): Francisco Cammarata-Scalisi, Colin E. Willoughby, Jinia R. El-Feghaly, Antonio Cárdenas Tadich, Maykol Araya Castillo, Shadi Alkhatib, Marwa Abd Elsalam Elsherif, Rabab K. El-Ghandour, Riccardo Coletta, Antonino Morabito, and Michele Callea. Main genetic entities associated with tooth agenesis. Clinical oral investigations, 29 1:9, Dec 2024. URL: https://doi.org/10.1007/s00784-024-05941-7, doi:10.1007/s00784-024-05941-7. This article has 8 citations and is from a domain leading peer-reviewed journal.
+4. (israelsenUnknownyearmetaldfromconcept pages 7-10): M Israelsen, E Trépo, A Krag, and S Stender. Metald: from concept to clinic, genetic factors and clinical outcomes. Unknown journal, Unknown year.
 
-5. (altugatac2008witkoptoothand pages 1-2): Ayse T. Altug-Atac and Haluk Iseri. Witkop tooth and nail syndrome and orthodontics. The Angle orthodontist, 78 2:370-80, Mar 2008. URL: https://doi.org/10.2319/100406-403.1, doi:10.2319/100406-403.1. This article has 19 citations.
+5. (manthey2025identifyinglevelsof pages 1-2): Jakob Manthey, Carolin Kilian, Ludwig Kraus, Ingo Schäfer, Anna Schranz, and Bernd Schulte. Identifying levels of alcohol use disorder severity in electronic health records. Substance Abuse Treatment, Prevention, and Policy, Sep 2025. URL: https://doi.org/10.1186/s13011-025-00670-w, doi:10.1186/s13011-025-00670-w. This article has 2 citations and is from a peer-reviewed journal.
 
-6. (memarpour2011witkoptoothand pages 1-3): Mahtab Memarpour and Fereshteh Shafiei. Witkop tooth and nail syndrome: a report of three cases in a family. Pediatric Dermatology, 28:281-285, May 2011. URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x, doi:10.1111/j.1525-1470.2010.01198.x. This article has 21 citations and is from a peer-reviewed journal.
+6. (kubina2025meta‐analysiseffectsof pages 23-23): Matthew Kubina, Vitchapong Prasitsumrit, Jarell Tan, Joo Wei Ethan Quek, Dhiraj Peddu, Ankit Mishra, Pojsakorn Danpanichkul, Jake P. Mann, Eric Trépo, Stephan Buch, Daniel Q. Huang, Cheng Han Ng, Mark D. Muthiah, Yu Jun Wong, Karn Wijarnpreecha, and Vincent L. Chen. Meta‐analysis: effects of steatotic liver disease‐associated genetic risk alleles on longitudinal outcomes. Alimentary Pharmacology &amp; Therapeutics, 62:244-276, Jun 2025. URL: https://doi.org/10.1111/apt.70256, doi:10.1111/apt.70256. This article has 11 citations and is from a highest quality peer-reviewed journal.
 
-7. (devadas2005witkoptoothand pages 1-3): S. DEVADAS, B. VARMA, J. MUNGARA, T. JOSEPH, and T. R. SARASWATHI. Witkop tooth and nail syndrome: a case report. International journal of paediatric dentistry, 15 5:364-9, Sep 2005. URL: https://doi.org/10.1111/j.1365-263x.2005.00647.x, doi:10.1111/j.1365-263x.2005.00647.x. This article has 15 citations and is from a domain leading peer-reviewed journal.
+7. (lee2024designingclinicaltrials pages 3-5): Brian P. Lee, Katie Witkiewitz, Jessica Mellinger, Frank A. Anania, Ramon Bataller, Thomas G. Cotter, Brenda Curtis, Srinivasan Dasarathy, Kelly S. DeMartini, Ivan Diamond, Nancy Diazgranados, Andrea F. DiMartini, Daniel E. Falk, Anne C. Fernandez, Margarita N. German, Patrick S. Kamath, Kelley M. Kidwell, Lorenzo Leggio, Raye Litten, Alexandre Louvet, Michael R. Lucey, Mary E. McCaul, Arun J. Sanyal, Ashwani K. Singal, Norman L. Sussman, Norah A. Terrault, Mark R. Thursz, Elizabeth C. Verna, Svetlana Radaeva, Laura E. Nagy, and Mack C. Mitchell. Designing clinical trials to address alcohol use and alcohol-associated liver disease: an expert panel consensus statement. Nature reviews. Gastroenterology & hepatology, 21:626-645, Jun 2024. URL: https://doi.org/10.1038/s41575-024-00936-x, doi:10.1038/s41575-024-00936-x. This article has 52 citations.
 
-8. (jumlongras2001anonsensemutation pages 7-8): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+8. (lee2024nationalprevalenceestimates pages 1-2): Brian P. Lee, Jennifer L. Dodge, and Norah A. Terrault. National prevalence estimates for steatotic liver disease and subclassifications using consensus nomenclature. Hepatology, 79:666-673, Sep 2024. URL: https://doi.org/10.1097/hep.0000000000000604, doi:10.1097/hep.0000000000000604. This article has 207 citations and is from a highest quality peer-reviewed journal.
 
-9. (jumlongras2001anonsensemutation pages 2-4): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+9. (danpanichkul2025globalepidemiologyof pages 1-5): Pojsakorn Danpanichkul, Luis Antonio Díaz, Kanokphong Suparan, Primrose Tothanarungroj, Supapitch Sirimangklanurak, Thanida Auttapracha, Hanna L. Blaney, Banthoon Sukphutanan, Yanfang Pang, Siwanart Kongarin, Francisco Idalsoaga, Eduardo Fuentes-López, Lorenzo Leggio, Mazen Noureddin, Trenton M. White, Alexandre Louvet, Philippe Mathurin, Rohit Loomba, Patrick S. Kamath, Jürgen Rehm, Jeffrey V. Lazarus, Karn Wijarnpreecha, and Juan Pablo Arab. Global epidemiology of alcohol-related liver disease, liver cancer, and alcohol use disorder, 2000–2021. Clinical and Molecular Hepatology, 31:525-547, Jan 2025. URL: https://doi.org/10.3350/cmh.2024.0835, doi:10.3350/cmh.2024.0835. This article has 57 citations.
 
-10. (arora2016witkopssyndromea pages 1-3): Varuni Arora, Kaushal Kishor Agrawal, Apurva Mishra, and Anil Chandra. Witkop's syndrome: a case report. Journal of oral biology and craniofacial research, 6 1:79-81, Jan 2016. URL: https://doi.org/10.1016/j.jobcr.2015.07.003, doi:10.1016/j.jobcr.2015.07.003. This article has 10 citations.
+10. (lee2024designingclinicaltrials pages 1-2): Brian P. Lee, Katie Witkiewitz, Jessica Mellinger, Frank A. Anania, Ramon Bataller, Thomas G. Cotter, Brenda Curtis, Srinivasan Dasarathy, Kelly S. DeMartini, Ivan Diamond, Nancy Diazgranados, Andrea F. DiMartini, Daniel E. Falk, Anne C. Fernandez, Margarita N. German, Patrick S. Kamath, Kelley M. Kidwell, Lorenzo Leggio, Raye Litten, Alexandre Louvet, Michael R. Lucey, Mary E. McCaul, Arun J. Sanyal, Ashwani K. Singal, Norman L. Sussman, Norah A. Terrault, Mark R. Thursz, Elizabeth C. Verna, Svetlana Radaeva, Laura E. Nagy, and Mack C. Mitchell. Designing clinical trials to address alcohol use and alcohol-associated liver disease: an expert panel consensus statement. Nature reviews. Gastroenterology & hepatology, 21:626-645, Jun 2024. URL: https://doi.org/10.1038/s41575-024-00936-x, doi:10.1038/s41575-024-00936-x. This article has 52 citations.
 
-11. (bhardwaj2023toothandnail pages 1-2): S Bhardwaj. Tooth and nail syndrome-a rare case report. Unknown journal, 2023.
+11. (bourganou2025unravelingmetabolicdysfunctionassociated pages 9-11): Maria V. Bourganou, Maria Eleni Chondrogianni, Ioannis Kyrou, Christina-Maria Flessa, Antonios Chatzigeorgiou, Evangelos Oikonomou, Vaia Lambadiari, Harpal S. Randeva, and Eva Kassi. Unraveling metabolic dysfunction-associated steatotic liver disease through the use of omics technologies. International Journal of Molecular Sciences, 26:1589, Feb 2025. URL: https://doi.org/10.3390/ijms26041589, doi:10.3390/ijms26041589. This article has 28 citations.
 
-12. (bhardwaj2023toothandnail pages 2-3): S Bhardwaj. Tooth and nail syndrome-a rare case report. Unknown journal, 2023.
+12. (mackowiak2024alcoholassociatedliverdisease pages 8-9): Bryan Mackowiak, Yaojie Fu, Luca Maccioni, and Bin Gao. Alcohol-associated liver disease. The Journal of Clinical Investigation, Feb 2024. URL: https://doi.org/10.1172/jci176345, doi:10.1172/jci176345. This article has 352 citations.
 
-13. (devadas2005witkoptoothand pages 5-6): S. DEVADAS, B. VARMA, J. MUNGARA, T. JOSEPH, and T. R. SARASWATHI. Witkop tooth and nail syndrome: a case report. International journal of paediatric dentistry, 15 5:364-9, Sep 2005. URL: https://doi.org/10.1111/j.1365-263x.2005.00647.x, doi:10.1111/j.1365-263x.2005.00647.x. This article has 15 citations and is from a domain leading peer-reviewed journal.
+13. (d’arcangelo2026oxidativestressand pages 15-16): Francesca D’Arcangelo, Neil Rajoriya, and Patricia F. Lalor. Oxidative stress and alcohol-related hepatitis: a role for future therapies. Antioxidants, 15:493, Apr 2026. URL: https://doi.org/10.3390/antiox15040493, doi:10.3390/antiox15040493. This article has 0 citations.
 
-14. (memarpour2011witkoptoothand pages 5-5): Mahtab Memarpour and Fereshteh Shafiei. Witkop tooth and nail syndrome: a report of three cases in a family. Pediatric Dermatology, 28:281-285, May 2011. URL: https://doi.org/10.1111/j.1525-1470.2010.01198.x, doi:10.1111/j.1525-1470.2010.01198.x. This article has 21 citations and is from a peer-reviewed journal.
+14. (pan2025alcoholassociatedliverdisease pages 1-2): Chun-Wei Pan, Yazan Abboud, Amit S. Chitnis, Wei Zhang, Ashwani K. Singal, and Robert J Wong. Alcohol-associated liver disease mortality. JAMA Network Open, 8:e2514857, Jun 2025. URL: https://doi.org/10.1001/jamanetworkopen.2025.14857, doi:10.1001/jamanetworkopen.2025.14857. This article has 26 citations and is from a peer-reviewed journal.
 
-15. (jumlongras2001anonsensemutation media 40a94f6c): Dolrudee Jumlongras, Marianna Bei, Jean M. Stimson, Wen-Fang Wang, Steven R. DePalma, Christine E. Seidman, Ute Felbor, Richard Maas, Jonathan G. Seidman, and Bjorn R. Olsen. A nonsense mutation in msx1 causes witkop syndrome. American journal of human genetics, 69 1:67-74, Jul 2001. URL: https://doi.org/10.1086/321271, doi:10.1086/321271. This article has 346 citations and is from a highest quality peer-reviewed journal.
+15. (wang2025geneticinsightsinto pages 1-2): Qianchang Wang, Zhe Wang, Minzhe Hu, Fangfeng Liu, and Zhengjian Wang. Genetic insights into alcohol-associated liver disease: integrative transcriptome-wide analysis identifies novel susceptibility genes. Frontiers in Medicine, Jul 2025. URL: https://doi.org/10.3389/fmed.2025.1623367, doi:10.3389/fmed.2025.1623367. This article has 2 citations.
+
+16. (alvaradotapias2024alcoholassociatedliverdisease pages 3-4): Edilmar Alvarado-Tapias, Elisa Pose, Jordi Gratacós, Ana Clemente-Sánchez, Hugo Hugo López-Pelayo, and Ramón Bataller. Alcohol-associated liver disease: natural history, management and novel targeted therapies. Clinical and Molecular Hepatology, 31:S112-S133, Oct 2024. URL: https://doi.org/10.3350/cmh.2024.0709, doi:10.3350/cmh.2024.0709. This article has 32 citations.
+
+17. (kasuga2025currentinsightsinto pages 1-2): Ryosuke Kasuga, Po‐Sung Chu, Takanori Kanai, and Nobuhiro Nakamoto. Current insights into pathogenesis and anti‐inflammatory treatment strategies for severe alcohol‐associated hepatitis: focus on neutrophil‐targeted therapies. Hepatology Research, 55:785-94, May 2025. URL: https://doi.org/10.1111/hepr.14206, doi:10.1111/hepr.14206. This article has 1 citations and is from a peer-reviewed journal.
+
+18. (rama2026novelbiomarkersfor pages 5-6): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+19. (rama2026novelbiomarkersfor pages 6-8): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+20. (israelsenUnknownyearmetaldfromconcept pages 1-7): M Israelsen, E Trépo, A Krag, and S Stender. Metald: from concept to clinic, genetic factors and clinical outcomes. Unknown journal, Unknown year.
+
+21. (rama2026novelbiomarkersfor pages 14-15): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+22. (d’arcangelo2026oxidativestressand pages 1-2): Francesca D’Arcangelo, Neil Rajoriya, and Patricia F. Lalor. Oxidative stress and alcohol-related hepatitis: a role for future therapies. Antioxidants, 15:493, Apr 2026. URL: https://doi.org/10.3390/antiox15040493, doi:10.3390/antiox15040493. This article has 0 citations.
+
+23. (kumar2026emergingtherapeuticregimens pages 5-6): Rahul Kumar, Sakktivel Elangovan, and Sumeet K. Asrani. Emerging therapeutic regimens as alternatives to glucocorticoids for severe alcohol-associated hepatitis: a comprehensive review. Clinical and Molecular Hepatology, 32:599-619, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.1163, doi:10.3350/cmh.2025.1163. This article has 0 citations.
+
+24. (rama2026novelbiomarkersfor pages 17-18): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+25. (rama2026novelbiomarkersfor pages 1-3): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+26. (rama2026novelbiomarkersfor pages 8-9): Kaanthi Rama, Vinay Jahagirdar, Francisco Idalsoaga, Hanna Blaney, S. Fisher Rhoads, Luis Antonio Díaz, Marco Arrese, and Juan Pablo Arab. Novel biomarkers for alcohol-associated liver disease and their implications across clinical settings. Clinical and Molecular Hepatology, 32:443-463, Apr 2026. URL: https://doi.org/10.3350/cmh.2025.0921, doi:10.3350/cmh.2025.0921. This article has 3 citations.
+
+27. (adekunle2023therapeutictargetsin pages 1-2): Ayooluwatomiwa Deborah Adekunle, Adeyinka Adejumo, and Ashwani K. Singal. Therapeutic targets in alcohol-associated liver disease: progress and challenges. Therapeutic Advances in Gastroenterology, Jan 2023. URL: https://doi.org/10.1177/17562848231170946, doi:10.1177/17562848231170946. This article has 10 citations and is from a peer-reviewed journal.
+
+28. (hardesty2024currentpharmacotherapyand pages 4-6): Josiah E. Hardesty and Craig J. McClain. Current pharmacotherapy and nutrition therapy of alcohol-associated liver disease. Clinics in Liver Disease, 28:731-745, Nov 2024. URL: https://doi.org/10.1016/j.cld.2024.06.018, doi:10.1016/j.cld.2024.06.018. This article has 2 citations and is from a peer-reviewed journal.
+
+29. (alvaradotapias2024alcoholassociatedliverdisease media 15159c76): Edilmar Alvarado-Tapias, Elisa Pose, Jordi Gratacós, Ana Clemente-Sánchez, Hugo Hugo López-Pelayo, and Ramón Bataller. Alcohol-associated liver disease: natural history, management and novel targeted therapies. Clinical and Molecular Hepatology, 31:S112-S133, Oct 2024. URL: https://doi.org/10.3350/cmh.2024.0709, doi:10.3350/cmh.2024.0709. This article has 32 citations.
+
+30. (d’arcangelo2026oxidativestressand pages 12-13): Francesca D’Arcangelo, Neil Rajoriya, and Patricia F. Lalor. Oxidative stress and alcohol-related hepatitis: a role for future therapies. Antioxidants, 15:493, Apr 2026. URL: https://doi.org/10.3390/antiox15040493, doi:10.3390/antiox15040493. This article has 0 citations.
+
+31. (NCT01912404 chunk 1):  Study of IDN-6556 in Patients With Severe Alcoholic Hepatitis and Contraindications to Steroid Therapy. Conatus Pharmaceuticals Inc.. 2013. ClinicalTrials.gov Identifier: NCT01912404
+
+32. (NCT02473341 chunk 1): Prof. Sandeep S Sidhu. Gut-Liver Axis Modulation With IgG-Enriched Immunotherapy in Severe Alcohol-Associated Hepatitis. Dayanand Medical College and Hospital. 2017. ClinicalTrials.gov Identifier: NCT02473341
 
 ## Artifacts
 
-- [Edison artifact artifact-00](Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/artifact-00.md)
-![## Context ID: pqac-00000016 The pedigree figure and the table summarizing clinical features for the family with the MSX1 S202X mutation (causing Witkop syndrom](Tooth_and_Nail_Syndrome-deep-research-falcon_artifacts/image-1.png)
+- [Edison artifact artifact-00](Alcoholic_Liver_Disease-deep-research-falcon_artifacts/artifact-00.md)
