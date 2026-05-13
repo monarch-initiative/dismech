@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -4058,7 +4211,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Aberrant mitochondrial protein methylmalonylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acylation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Acute organic acid decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catabolic stress in MMA precipitates acute metabolic decompensation with organic acid and ketoacid accumulation, metabolic acidosis, secondary hyperammonemia, vomiting, feeding intolerance, and altered mental status.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Basal ganglia injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Basal ganglia injury (metabolic stroke-like injury), particularly involving basal ganglia regions, is a recognized neurological complication during acute metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive chronic kidney disease is a major long-term complication of MMA, mechanistically linked to proximal tubular mitochondrial dysfunction, oxidative stress, and impaired mitophagy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy occurs in a subset of MMA patients. In a 2000-2022 pediatric cohort, cardiac involvement occurred in approximately 38% of PA/MMA patients, with DCM predominant.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"FGF21\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"GDF15\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed developmental trajectory, particularly in severe mut0 forms. Mean IQ for mut0 enzymatic subtype is rarely above 85.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia during acute metabolic decompensation, related to inhibition of N-acetylglutamate synthase by propionyl-CoA.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Impaired methylmalonyl-CoA metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"methylmalonyl-CoA metabolic process\", \"propionate catabolic process\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common in severe MMA subtypes, with processing speed, working memory, language, and attention particularly affected.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced alertness during metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lipocalin-2 (LCN2)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distinct adipose tissue distribution pattern resembling familial multiple lipomatosis, with centripetal obesity, proximal extremity fat deposition, and paucity of visceral fat. Associated with elevated FGF21 and aberrant methylmalonylation in adipose tissue.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009125\"}}, {\"id\": \"Lysosomal-autophagy system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\", \"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"MMAA (cblA complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAA\"]}}, {\"id\": \"MMAB (cblB complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAB\"]}}, {\"id\": \"MMUT (methylmalonyl-CoA mutase)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMUT\"], \"variant_count\": 2}}, {\"id\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"MMUT\", \"MMAA\", \"MMAB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent high-anion-gap metabolic acidosis, often presenting in the neonatal period.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Methylmalonic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Mitochondrial energy metabolism dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating primary and secondary organic acid metabolites plus deficient succinyl-CoA input disrupt the TCA cycle, oxidative phosphorylation, and fatty-acid-derived energy generation, creating energetic vulnerability in high-demand organs.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders can occur as chronic complications and as sequelae of metabolic strokes in MMA/PA.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Neurometabolic brain injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated methylmalonic acid and related metabolites, secondary mitochondrial energy failure, and acute metabolic crises injure brain tissue, particularly basal ganglia circuits, producing developmental delay, cognitive impairment, epilepsy, and metabolic stroke-like injury.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Optic neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic neuropathy has been reported as a long-term complication, attributed to mitochondrial dysfunction in the optic nerve.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001138\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoporosis is reported as a chronic skeletal complication in MMA/PA, requiring bone-density surveillance.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute pancreatitis is a recognized complication, occurring during or independent of metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001733\"}}, {\"id\": \"Poor growth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic growth impairment due to metabolic instability, dietary restrictions, and feeding intolerance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acquired long QT syndrome is a recognized arrhythmia risk in MMA, associated with metabolic decompensation and chronic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001657\"}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteopenia or reduced bone mineral density is a chronic skeletal complication in MMA/PA; the mechanism is not fully established.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Renal mitochondrial stress and impaired mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitophagy\", \"mitochondrial fission\", \"response to oxidative stress\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur particularly in the context of metabolic decompensation and basal ganglia injury.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spastic quadri- or paraparesis is reported as a chronic complication and potential metabolic-stroke sequela in MMA/PA.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent emesis during catabolic stress and metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}, {\"id\": \"mut- (partial deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Partial residual methylmalonyl-CoA mutase activity. Some forms show partial response to hydroxocobalamin.\\n\"}, {\"id\": \"mut0 (complete deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete loss of methylmalonyl-CoA mutase activity. Non-B12 responsive. Associated with the most severe phenotype and worst neuropsychological outcomes.\\n\"}], \"edges\": [{\"source\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"target\": \"Impaired methylmalonyl-CoA metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Methylmalonic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"2-Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Acute organic acid decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Mitochondrial energy metabolism dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Aberrant mitochondrial protein methylmalonylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Lysosomal-autophagy system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Neurometabolic brain injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Poor growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Optic neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"GDF15\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Basal ganglia injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant mitochondrial protein methylmalonylation\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant mitochondrial protein methylmalonylation\", \"target\": \"FGF21\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal-autophagy system dysfunction\", \"target\": \"Renal mitochondrial stress and impaired mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial stress and impaired mitophagy\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial stress and impaired mitophagy\", \"target\": \"Lipocalin-2 (LCN2)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMUT (methylmalonyl-CoA mutase)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAA (cblA complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAB (cblB complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"mut0 (complete deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"mut- (partial deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"2-Methylcitric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"3-Hydroxypropionate\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Aberrant mitochondrial protein methylmalonylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess methylmalonyl-CoA, propionyl-CoA, and malonyl-CoA drive widespread lysine hyperacylation of mitochondrial proteins across TCA cycle, beta-oxidation, amino acid metabolism, urea cycle, and oxidative stress pathways. Reduced levels of mitochondrial sirtuins SIRT3/4/5, particularly SIRT5 which can remove methylmalonylation, amplify dysfunction.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein acylation\"], \"locations\": [\"mitochondrial matrix\"]}}, {\"id\": \"Acute organic acid decompensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catabolic stress in MMA precipitates acute metabolic decompensation with organic acid and ketoacid accumulation, metabolic acidosis, secondary hyperammonemia, vomiting, feeding intolerance, and altered mental status.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Ammonia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Basal ganglia injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Basal ganglia injury (metabolic stroke-like injury), particularly involving basal ganglia regions, is a recognized neurological complication during acute metabolic crises.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002134\"}}, {\"id\": \"Chronic kidney disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive chronic kidney disease is a major long-term complication of MMA, mechanistically linked to proximal tubular mitochondrial dysfunction, oxidative stress, and impaired mitophagy.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012622\"}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy occurs in a subset of MMA patients. In a 2000-2022 pediatric cohort, cardiac involvement occurred in approximately 38% of PA/MMA patients, with DCM predominant.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001644\"}}, {\"id\": \"FGF21\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"GDF15\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed developmental trajectory, particularly in severe mut0 forms. Mean IQ for mut0 enzymatic subtype is rarely above 85.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary hyperammonemia during acute metabolic decompensation, related to inhibition of N-acetylglutamate synthase by propionyl-CoA.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001987\"}}, {\"id\": \"Impaired methylmalonyl-CoA metabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defects in methylmalonyl-CoA mutase or cobalamin-dependent cofactor pathways block conversion of methylmalonyl-CoA to succinyl-CoA, disrupting mitochondrial anaplerosis and the TCA cycle.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"methylmalonyl-CoA metabolic process\", \"propionate catabolic process\", \"tricarboxylic acid cycle\"]}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is common in severe MMA subtypes, with processing speed, working memory, language, and attention particularly affected.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001249\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced alertness during metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lipocalin-2 (LCN2)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\"}}, {\"id\": \"Lipodystrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A distinct adipose tissue distribution pattern resembling familial multiple lipomatosis, with centripetal obesity, proximal extremity fat deposition, and paucity of visceral fat. Associated with elevated FGF21 and aberrant methylmalonylation in adipose tissue.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009125\"}}, {\"id\": \"Lysosomal-autophagy system dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MUT deficiency directly perturbs the lysosome-autophagy system, causing enlarged lysosomes with reduced acidity and degradative capacity, impaired autophagosome-lysosome fusion, and severely reduced autophagic flux. These defects are pharmacologically reversible with anti-propionigenic compounds.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"autophagy\", \"lysosome organization\"], \"locations\": [\"lysosome\"]}}, {\"id\": \"MMAA (cblA complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAA\"]}}, {\"id\": \"MMAB (cblB complementation group)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MMAB\"]}}, {\"id\": \"MMUT (methylmalonyl-CoA mutase)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"MMUT\"], \"variant_count\": 2}}, {\"id\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants affecting MMUT and adenosylcobalamin-handling genes reduce catalytic conversion capacity for methylmalonyl-CoA utilization.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"molecular_functions\": [\"catalytic activity\"], \"genes\": [\"MMUT\", \"MMAA\", \"MMAB\"], \"locations\": [\"mitochondrion\"]}}, {\"id\": \"Metabolic acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent high-anion-gap metabolic acidosis, often presenting in the neonatal period.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001942\"}}, {\"id\": \"Methylmalonic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"INCREASED\"}}, {\"id\": \"Mitochondrial energy metabolism dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulating primary and secondary organic acid metabolites plus deficient succinyl-CoA input disrupt the TCA cycle, oxidative phosphorylation, and fatty-acid-derived energy generation, creating energetic vulnerability in high-demand organs.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial electron transport, NADH to ubiquinone\", \"oxidative phosphorylation\"], \"locations\": [\"mitochondrial inner membrane\"]}}, {\"id\": \"Movement disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders can occur as chronic complications and as sequelae of metabolic strokes in MMA/PA.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Neurometabolic brain injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated methylmalonic acid and related metabolites, secondary mitochondrial energy failure, and acute metabolic crises injure brain tissue, particularly basal ganglia circuits, producing developmental delay, cognitive impairment, epilepsy, and metabolic stroke-like injury.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"brain\"]}}, {\"id\": \"Optic neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic neuropathy has been reported as a long-term complication, attributed to mitochondrial dysfunction in the optic nerve.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001138\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoporosis is reported as a chronic skeletal complication in MMA/PA, requiring bone-density surveillance.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Pancreatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute pancreatitis is a recognized complication, occurring during or independent of metabolic decompensation episodes.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001733\"}}, {\"id\": \"Poor growth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic growth impairment due to metabolic instability, dietary restrictions, and feeding intolerance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Prolonged QT interval\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acquired long QT syndrome is a recognized arrhythmia risk in MMA, associated with metabolic decompensation and chronic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001657\"}}, {\"id\": \"Propionylcarnitine (C3)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"presence\": \"INCREASED\"}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteopenia or reduced bone mineral density is a chronic skeletal complication in MMA/PA; the mechanism is not fully established.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Renal mitochondrial stress and impaired mitophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In renal epithelial cells from MMA patients, metabolic stressors cause impaired mitophagy (reduced PINK1), shifted mitochondrial dynamics toward fission (elevated DRP1, reduced OPA1), compromised antioxidant defenses, and lowered glutathione ratios, contributing to progressive chronic kidney disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epithelial cell of proximal tubule\"], \"biological_processes\": [\"mitophagy\", \"mitochondrial fission\", \"response to oxidative stress\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures may occur particularly in the context of metabolic decompensation and basal ganglia injury.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spastic quadri- or paraparesis is reported as a chronic complication and potential metabolic-stroke sequela in MMA/PA.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001257\"}}, {\"id\": \"Vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent emesis during catabolic stress and metabolic decompensation episodes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002013\"}}, {\"id\": \"mut- (partial deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Partial residual methylmalonyl-CoA mutase activity. Some forms show partial response to hydroxocobalamin.\\n\"}, {\"id\": \"mut0 (complete deficiency)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Complete loss of methylmalonyl-CoA mutase activity. Non-B12 responsive. Associated with the most severe phenotype and worst neuropsychological outcomes.\\n\"}], \"edges\": [{\"source\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"target\": \"Impaired methylmalonyl-CoA metabolism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Methylmalonic acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Propionylcarnitine (C3)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"2-Methylcitric acid\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"3-Hydroxypropionate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Acute organic acid decompensation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Mitochondrial energy metabolism dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Aberrant mitochondrial protein methylmalonylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Lysosomal-autophagy system dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Pancreatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired methylmalonyl-CoA metabolism\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Metabolic acidosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Ammonia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Vomiting\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acute organic acid decompensation\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Neurometabolic brain injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Poor growth\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Prolonged QT interval\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"Optic neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial energy metabolism dysfunction\", \"target\": \"GDF15\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Basal ganglia injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Movement disorder\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neurometabolic brain injury\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant mitochondrial protein methylmalonylation\", \"target\": \"Lipodystrophy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Aberrant mitochondrial protein methylmalonylation\", \"target\": \"FGF21\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Lysosomal-autophagy system dysfunction\", \"target\": \"Renal mitochondrial stress and impaired mitophagy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial stress and impaired mitophagy\", \"target\": \"Chronic kidney disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Renal mitochondrial stress and impaired mitophagy\", \"target\": \"Lipocalin-2 (LCN2)\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"MMUT (methylmalonyl-CoA mutase)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAA (cblA complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MMAB (cblB complementation group)\", \"target\": \"MMUT/AdoCbl pathway molecular function deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"mut0 (complete deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"mut- (partial deficiency)\", \"target\": \"MMUT (methylmalonyl-CoA mutase)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6230,6 +6383,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6294,6 +6448,7 @@
                 
                 <div class="item-desc">Context: Elevated C3-acylcarnitine is the primary newborn screening marker for MMA. Also used for clinical monitoring during follow-up.
 </div>
+                
                 
                 
     
@@ -6382,6 +6537,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6426,6 +6582,7 @@
                 
                 <div class="item-desc">Context: Urinary organic acid marker elevated in MMA, reflecting propionate pathway overflow.
 </div>
+                
                 
                 
     
@@ -6494,6 +6651,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6558,6 +6716,7 @@
                 
                 <div class="item-desc">Context: Growth differentiation factor 15 is a mitochondrial stress biomarker elevated in MMA, used alongside FGF21 to assess disease severity.
 </div>
+                
                 
                 
     
@@ -6626,6 +6785,7 @@
 </div>
                 
                 
+                
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -6670,6 +6830,7 @@
                 
                 <div class="item-desc">Context: Secondary hyperammonemia occurs during acute decompensation due to inhibition of N-acetylglutamate synthase by propionyl-CoA, impairing the urea cycle.
 </div>
+                
                 
                 
     

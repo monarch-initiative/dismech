@@ -1231,6 +1231,72 @@
         .biochemical-box .item-name { color: #92400e; }
         .biochemical-box .item-desc { color: #b45309; }
 
+        .biomarker-readouts {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(245, 158, 11, 0.28);
+        }
+
+        .biomarker-readouts-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .biomarker-readout {
+            margin: 6px 0 6px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .readout-target {
+            color: #5b21b6;
+            font-weight: 700;
+        }
+
+        .readout-interpretation {
+            color: #92400e;
+        }
+
+        .regulatory-endpoints {
+            margin-top: 8px;
+            display: grid;
+            gap: 6px;
+        }
+
+        .regulatory-endpoint {
+            padding: 8px 10px;
+            border: 1px solid #c7d2fe;
+            border-left: 3px solid #6366f1;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 0.82rem;
+        }
+
+        .regulatory-endpoint-id {
+            font-weight: 700;
+            color: #3730a3;
+            text-decoration: none;
+        }
+
+        .regulatory-endpoint-id:hover {
+            text-decoration: underline;
+        }
+
+        .regulatory-endpoint-title {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .regulatory-endpoint-meta {
+            margin-top: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
         /* Differential Diagnoses */
         .differential-box {
             background: #fef2f2;
@@ -1924,6 +1990,38 @@
         return NODE_TYPE_ICONS[(nodeData || {}).node_type] || "";
     }
 
+    function isReadoutEdge(edgeData) {
+        return edgeData && edgeData.predicate === "readout";
+    }
+
+    function edgeStroke(edgeData) {
+        if (edgeData.is_orphan) return "#dc2626";
+        if (isReadoutEdge(edgeData)) return "#4f46e5";
+        return "#9ca3af";
+    }
+
+    function edgeDashArray(edgeData) {
+        if (edgeData.is_orphan) return "6 4";
+        if (isReadoutEdge(edgeData)) return "3 4";
+        return "none";
+    }
+
+    function edgeMarker(edgeData) {
+        if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        return "url(#pg-arrow)";
+    }
+
+    function edgeTitle(edgeData) {
+        var parts = [edgeData.source + " -> " + edgeData.target];
+        if (edgeData.predicate) parts.push(humanizeEnum(edgeData.predicate));
+        if (edgeData.relationship) parts.push(humanizeEnum(edgeData.relationship));
+        if (edgeData.direction) parts.push("direction: " + humanizeEnum(edgeData.direction));
+        if (edgeData.endpoint_context) parts.push("context: " + humanizeEnum(edgeData.endpoint_context));
+        if (edgeData.description) parts.push(edgeData.description);
+        return parts.join("\n");
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -1989,6 +2087,16 @@
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#dc2626");
 
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,0 L10,3 L0,6 Z")
+            .attr("fill", "#4f46e5");
+
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
         data.edges.forEach(function(e) {
@@ -1996,15 +2104,16 @@
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
-            edgesG.append("path")
+            var edgePath = edgesG.append("path")
                 .attr("d", line(pts))
                 .attr("fill", "none")
-                .attr("stroke", e.is_orphan ? "#dc2626" : "#9ca3af")
+                .attr("stroke", edgeStroke(e))
                 .attr("stroke-width", 1.8)
-                .attr("stroke-dasharray", e.is_orphan ? "6 4" : "none")
-                .attr("marker-end", e.is_orphan ? "url(#pg-arrow-orphan)" : "url(#pg-arrow)")
+                .attr("stroke-dasharray", edgeDashArray(e))
+                .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
                 .attr("data-target", e.target);
+            edgePath.append("title").text(edgeTitle(e));
         });
 
         /* -- Shape helpers -- */
@@ -2204,6 +2313,8 @@
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
+            if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
+            if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
             if (meta.severity) metaParts.push('<span>Severity: ' + escapeHtml(meta.severity) + '</span>');
             if (meta.role) metaParts.push('<span>Role: ' + escapeHtml(meta.role) + '</span>');
@@ -2220,6 +2331,7 @@
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
             if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
+            if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
                 metaParts.push(
                     '<span>Histopath: ' + escapeHtml(meta.histopathology_terms.map(formatHistopathologyTerm).join("; ")) + '</span>'
@@ -2269,6 +2381,47 @@
                 });
                 compHtml += '</div>';
                 html.push(compHtml);
+            }
+
+            if (meta.readouts && meta.readouts.length) {
+                var readoutHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                readoutHtml += '<div style="font-size:11px; font-weight:600; color:#4f46e5; margin-bottom:4px;">Biomarker readouts</div>';
+                meta.readouts.forEach(function(readout) {
+                    readoutHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    readoutHtml += '<span style="font-weight:600; color:#312e81;">' + escapeHtml(readout.target) + '</span>';
+                    if (readout.relationship) {
+                        readoutHtml += ' <span style="color:#4f46e5; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.relationship)) + '</span>';
+                    }
+                    if (readout.direction) {
+                        readoutHtml += ' <span style="color:#92400e; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(readout.direction)) + '</span>';
+                    }
+                    if (readout.endpoint_context) {
+                        readoutHtml += ' <span style="color:#6b7280;">' + escapeHtml(humanizeEnum(readout.endpoint_context)) + '</span>';
+                    }
+                    if (readout._regulatory_endpoints && readout._regulatory_endpoints.length) {
+                        readoutHtml += '<div style="margin-top:3px; color:#4338ca; line-height:1.35;">';
+                        readout._regulatory_endpoints.forEach(function(endpoint) {
+                            readoutHtml += '<div>FDA ' + escapeHtml(endpoint.row_id || '');
+                            if (endpoint.endpoint_validation_level) {
+                                readoutHtml += ' · ' + escapeHtml(humanizeEnum(endpoint.endpoint_validation_level));
+                            }
+                            if (endpoint.surrogate_endpoint) {
+                                readoutHtml += '<div style="color:#6b7280;">' + escapeHtml(endpoint.surrogate_endpoint) + '</div>';
+                            }
+                            readoutHtml += '</div>';
+                        });
+                        readoutHtml += '</div>';
+                    }
+                    if (readout.interpretation || readout.description) {
+                        readoutHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(readout.interpretation || readout.description) + '</div>';
+                    }
+                    readoutHtml += '</div>';
+                });
+                readoutHtml += '</div>';
+                html.push(readoutHtml);
             }
 
             /* PDB structures in tooltip */
@@ -2776,7 +2929,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -2795,6 +2948,26 @@
                 
                 
                 <div class="evidence-explanation">This landmark paper establishes that BCR-ABL is a constitutively activated tyrosine kinase that causes CML, directly supporting the pathophysiology description.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/188" target="_blank">CIVIC_ASSERTION:188</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"Chronic Myeloid Leukemia (CML) is a well-defined myeloproliferative neoplasm characterized by the t(9;22)(q34;q11.2) forming the BCR::ABL1 fusion."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted diagnostic assertion supports the BCR::ABL1 fusion as the defining molecular event for CML.</div>
                 
             </div>
             
@@ -3467,7 +3640,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates anti-apoptotic pathways, particularly through PI3K-AKT signaling and upregulation of BCL2 family members. This confers resistance to programmed cell death, allowing accumulation of leukemic cells.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"BCR-ABL1 Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(9;22)(q34;q11) translocation juxtaposes the ABL1 tyrosine kinase gene on chromosome 9 with the BCR gene on chromosome 22, creating the Philadelphia chromosome. The resulting BCR-ABL1 fusion protein has constitutive tyrosine kinase activity independent of normal regulatory mechanisms.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"protein phosphorylation\"]}}, {\"id\": \"Constitutive Tyrosine Kinase Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The BCR-ABL1 fusion protein exhibits constitutive tyrosine kinase activity, bypassing normal growth factor regulation. This activates multiple downstream signaling cascades including RAS-MAPK, PI3K-AKT, and JAK-STAT pathways, promoting cell proliferation and survival.\", \"meta\": {\"cell_types\": [\"myeloid cell\"], \"biological_processes\": [\"protein tyrosine kinase activity\", \"signal transduction\"]}}, {\"id\": \"Genomic Instability and Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 induces genomic instability through reactive oxygen species generation and impaired DNA repair. This promotes acquisition of additional mutations and chromosomal abnormalities, driving progression from chronic phase to blast crisis.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"JAK-STAT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates JAK-STAT signaling independently of cytokine receptor engagement. STAT5 activation drives expression of proliferative and anti-apoptotic target genes, contributing to cytokine-independent growth of leukemic cells.\", \"meta\": {\"biological_processes\": [\"JAK-STAT signaling\"]}}, {\"id\": \"PI3K-AKT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the PI3K-AKT survival pathway through direct phosphorylation and adaptor protein recruitment. AKT phosphorylates and inactivates pro-apoptotic proteins (BAD, FOXO3a), upregulates BCL2 family anti-apoptotic members, and promotes cell survival.\", \"meta\": {\"biological_processes\": [\"PI3K-AKT signaling\"]}}, {\"id\": \"RAS-MAPK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the RAS-MAPK signaling cascade through GRB2/SOS adaptor proteins. Constitutive MAPK pathway activation drives uncontrolled myeloid progenitor proliferation by upregulating cell cycle progression genes.\", \"meta\": {\"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"Reactive Oxygen Species Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 kinase activity increases mitochondrial reactive oxygen species (ROS) production. Chronic oxidative stress causes DNA double-strand breaks and impairs DNA repair fidelity, promoting acquisition of additional mutations and chromosomal abnormalities that drive disease progression.\", \"meta\": {\"biological_processes\": [\"reactive oxygen species biosynthetic process\"]}}, {\"id\": \"Uncontrolled Myeloid Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 signaling drives excessive proliferation of myeloid progenitor cells, leading to marked expansion of the granulocytic lineage. The bone marrow becomes hypercellular with a massively expanded myeloid compartment.\", \"meta\": {\"cell_types\": [\"granulocyte\", \"myeloid progenitor cell\"], \"biological_processes\": [\"myeloid cell homeostasis\"], \"locations\": [\"bone marrow\"]}}], \"edges\": [{\"source\": \"BCR-ABL1 Fusion Oncogene Formation\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"RAS-MAPK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"PI3K-AKT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"Reactive Oxygen Species Generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RAS-MAPK Pathway Hyperactivation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive Oxygen Species Generation\", \"target\": \"Genomic Instability and Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apoptosis Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates anti-apoptotic pathways, particularly through PI3K-AKT signaling and upregulation of BCL2 family members. This confers resistance to programmed cell death, allowing accumulation of leukemic cells.\", \"meta\": {\"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"BCR-ABL1 Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The t(9;22)(q34;q11) translocation juxtaposes the ABL1 tyrosine kinase gene on chromosome 9 with the BCR gene on chromosome 22, creating the Philadelphia chromosome. The resulting BCR-ABL1 fusion protein has constitutive tyrosine kinase activity independent of normal regulatory mechanisms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hematopoietic stem cell\"], \"biological_processes\": [\"protein phosphorylation\"]}}, {\"id\": \"Constitutive Tyrosine Kinase Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The BCR-ABL1 fusion protein exhibits constitutive tyrosine kinase activity, bypassing normal growth factor regulation. This activates multiple downstream signaling cascades including RAS-MAPK, PI3K-AKT, and JAK-STAT pathways, promoting cell proliferation and survival.\", \"meta\": {\"cell_types\": [\"myeloid cell\"], \"biological_processes\": [\"protein tyrosine kinase activity\", \"signal transduction\"]}}, {\"id\": \"Genomic Instability and Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 induces genomic instability through reactive oxygen species generation and impaired DNA repair. This promotes acquisition of additional mutations and chromosomal abnormalities, driving progression from chronic phase to blast crisis.\", \"meta\": {\"biological_processes\": [\"DNA repair\"]}}, {\"id\": \"JAK-STAT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates JAK-STAT signaling independently of cytokine receptor engagement. STAT5 activation drives expression of proliferative and anti-apoptotic target genes, contributing to cytokine-independent growth of leukemic cells.\", \"meta\": {\"biological_processes\": [\"JAK-STAT signaling\"]}}, {\"id\": \"PI3K-AKT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the PI3K-AKT survival pathway through direct phosphorylation and adaptor protein recruitment. AKT phosphorylates and inactivates pro-apoptotic proteins (BAD, FOXO3a), upregulates BCL2 family anti-apoptotic members, and promotes cell survival.\", \"meta\": {\"biological_processes\": [\"PI3K-AKT signaling\"]}}, {\"id\": \"RAS-MAPK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 activates the RAS-MAPK signaling cascade through GRB2/SOS adaptor proteins. Constitutive MAPK pathway activation drives uncontrolled myeloid progenitor proliferation by upregulating cell cycle progression genes.\", \"meta\": {\"biological_processes\": [\"MAPK cascade\"]}}, {\"id\": \"Reactive Oxygen Species Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 kinase activity increases mitochondrial reactive oxygen species (ROS) production. Chronic oxidative stress causes DNA double-strand breaks and impairs DNA repair fidelity, promoting acquisition of additional mutations and chromosomal abnormalities that drive disease progression.\", \"meta\": {\"biological_processes\": [\"reactive oxygen species biosynthetic process\"]}}, {\"id\": \"Uncontrolled Myeloid Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BCR-ABL1 signaling drives excessive proliferation of myeloid progenitor cells, leading to marked expansion of the granulocytic lineage. The bone marrow becomes hypercellular with a massively expanded myeloid compartment.\", \"meta\": {\"cell_types\": [\"granulocyte\", \"myeloid progenitor cell\"], \"biological_processes\": [\"myeloid cell homeostasis\"], \"locations\": [\"bone marrow\"]}}], \"edges\": [{\"source\": \"BCR-ABL1 Fusion Oncogene Formation\", \"target\": \"Constitutive Tyrosine Kinase Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"RAS-MAPK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"PI3K-AKT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"JAK-STAT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive Tyrosine Kinase Activation\", \"target\": \"Reactive Oxygen Species Generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"RAS-MAPK Pathway Hyperactivation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PI3K-AKT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Uncontrolled Myeloid Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"JAK-STAT Pathway Activation\", \"target\": \"Apoptosis Resistance\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive Oxygen Species Generation\", \"target\": \"Genomic Instability and Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -3765,7 +3938,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3802,6 +3975,26 @@
                 
                 
                 <div class="evidence-explanation">Confirms oncogene addiction - CML cells remain dependent on BCR-ABL signaling even in advanced disease.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/assertions/188" target="_blank">CIVIC_ASSERTION:188</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"BCR::ABL1 fusion is a diagnostic criterion for Chronic Myeloid Leukemia (CML)."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted assertion supports BCR::ABL1 as the defining genetic alteration for this CML entry.</div>
                 
             </div>
             
@@ -3921,7 +4114,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
             
@@ -3958,6 +4151,26 @@
                 
                 
                 <div class="evidence-explanation">This establishes that imatinib&#39;s efficacy proves the oncogene addiction paradigm in CML.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/evidence_items/260" target="_blank">CIVIC_EID:260</a>
+                    </span>
+                    
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"The clinical use of imatinib in patients with BCR-ABL fusion has resulted in drastic prognostic improvements in patients with CML."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted evidence item directly supports imatinib sensitivity/response in BCR::ABL1-positive CML.</div>
                 
             </div>
             
@@ -4219,7 +4432,7 @@
     
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
             
@@ -4238,6 +4451,26 @@
                 
                 
                 <div class="evidence-explanation">This paper identified the T315I gatekeeper mutation that confers resistance to first and second-generation TKIs, establishing the need for third-generation TKIs like ponatinib.</div>
+                
+            </div>
+            
+            <div class="evidence-item">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://civicdb.org/links/evidence_items/234" target="_blank">CIVIC_EID:234</a>
+                    </span>
+                    
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    
+                    
+                    <span class="evidence-source source-OTHER">Other</span>
+                    
+                </div>
+                
+                <div class="evidence-snippet">"In chronic myeloid leukemia patients with the ABL T315I mutation, tumors have shown to be resistant to imatinib treatment."</div>
+                
+                
+                <div class="evidence-explanation">CIViC&#39;s accepted evidence item supports T315I as an imatinib-resistance marker, which is the rationale for T315I-active later-generation TKIs such as ponatinib.</div>
                 
             </div>
             
@@ -4317,6 +4550,7 @@
                 </div>
                 
                 
+                
     
     
             </div>
@@ -4326,6 +4560,7 @@
                     BCR-ABL1 Fusion Transcript
                     
                 </div>
+                
                 
                 
     
@@ -4363,7 +4598,7 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: Chronic Myeloid Leukemia, BCR-ABL1 Positive
 creation_date: &#39;2026-01-26T02:55:13Z&#39;
-updated_date: &#39;2026-04-22T20:13:21Z&#39;
+updated_date: &#39;2026-05-11T02:45:15Z&#39;
 description: &gt;-
   Chronic myeloid leukemia (CML), BCR-ABL1 positive, is a myeloproliferative neoplasm
   characterized by the Philadelphia chromosome, resulting from a reciprocal translocation
@@ -4377,6 +4612,64 @@ categories:
 - Myeloproliferative Neoplasm
 parents:
 - myeloid leukemia
+external_assertions:
+- name: CIViC BCR::ABL1 diagnostic assertion
+  source: CIViC
+  assertion_type: accepted_assertion
+  external_id: CIVIC_ASSERTION:188
+  url: https://civicdb.org/links/assertions/188
+  description: &gt;-
+    CIViC accepted assertion that BCR::ABL1 fusion is a diagnostic marker for
+    chronic myeloid leukemia.
+  notes: &gt;-
+    01-May-2026 CIViC accepted assertion: molecular_profile=&#34;BCR::ABL1
+    Fusion&#34;; disease=&#34;Chronic Myeloid Leukemia&#34;; assertion_type=Diagnostic;
+    significance=Positive; AMP category=Tier I - Level A.
+  evidence:
+  - reference: CIVIC_ASSERTION:188
+    reference_title: &#34;BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Diagnostic Positive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: BCR::ABL1 fusion is a diagnostic criterion for Chronic Myeloid Leukemia (CML).
+    explanation: CIViC records an accepted diagnostic assertion for BCR::ABL1 fusion in chronic myeloid leukemia.
+- name: CIViC BCR::ABL1 imatinib sensitivity evidence item
+  source: CIViC
+  assertion_type: accepted_evidence_item
+  external_id: CIVIC_EID:260
+  url: https://civicdb.org/links/evidence_items/260
+  description: &gt;-
+    CIViC accepted evidence item linking BCR::ABL1 fusion in chronic myeloid
+    leukemia to imatinib sensitivity/response.
+  notes: &gt;-
+    01-May-2026 CIViC accepted evidence item: evidence_type=Predictive;
+    evidence_level=A; significance=Sensitivity/Response; therapy=Imatinib;
+    citation_id=PMID:20537386.
+  evidence:
+  - reference: CIVIC_EID:260
+    reference_title: &#34;BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: The clinical use of imatinib in patients with BCR-ABL fusion has resulted in drastic prognostic improvements in patients with CML.
+    explanation: CIViC records an accepted predictive sensitivity evidence item for BCR::ABL1 fusion and imatinib in CML.
+- name: CIViC BCR::ABL1 plus ABL1 T315I imatinib resistance evidence item
+  source: CIViC
+  assertion_type: accepted_evidence_item
+  external_id: CIVIC_EID:234
+  url: https://civicdb.org/links/evidence_items/234
+  description: &gt;-
+    CIViC accepted evidence item linking BCR::ABL1 fusion with ABL1 T315I in
+    chronic myeloid leukemia to imatinib resistance.
+  notes: &gt;-
+    01-May-2026 CIViC accepted evidence item: molecular_profile=&#34;BCR::ABL1
+    Fusion AND ABL1 T315I&#34;; evidence_type=Predictive; evidence_level=B;
+    significance=Resistance; therapy=Imatinib; citation_id=PMID:20537386.
+  evidence:
+  - reference: CIVIC_EID:234
+    reference_title: &#34;BCR::ABL1 Fusion AND ABL1 T315I / Chronic Myeloid Leukemia (Predictive Resistance)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: In chronic myeloid leukemia patients with the ABL T315I mutation, tumors have shown to be resistant to imatinib treatment.
+    explanation: CIViC records an accepted predictive resistance evidence item for ABL1 T315I and imatinib in CML.
 stages:
 - name: Chronic Phase
   description: &gt;-
@@ -4430,6 +4723,12 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;BCR-ABL is a constitutively activated tyrosine kinase that causes chronic myeloid leukemia (CML). Since tyrosine kinase activity is essential to the transforming function of BCR-ABL, an inhibitor of the kinase could be an effective treatment for CML.&#34;
     explanation: This landmark paper establishes that BCR-ABL is a constitutively activated tyrosine kinase that causes CML, directly supporting the pathophysiology description.
+  - reference: CIVIC_ASSERTION:188
+    reference_title: &#34;BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Diagnostic Positive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Chronic Myeloid Leukemia (CML) is a well-defined myeloproliferative neoplasm characterized by the t(9;22)(q34;q11.2) forming the BCR::ABL1 fusion.
+    explanation: CIViC&#39;s accepted diagnostic assertion supports the BCR::ABL1 fusion as the defining molecular event for CML.
 - name: Constitutive Tyrosine Kinase Activation
   description: &gt;-
     The BCR-ABL1 fusion protein exhibits constitutive tyrosine kinase activity,
@@ -4698,6 +4997,12 @@ genetic:
     supports: PARTIAL
     snippet: &#34;These studies provide evidence that genetically complex cancers retain dependence on an initial oncogenic event.&#34;
     explanation: Confirms oncogene addiction - CML cells remain dependent on BCR-ABL signaling even in advanced disease.
+  - reference: CIVIC_ASSERTION:188
+    reference_title: &#34;BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Diagnostic Positive)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: BCR::ABL1 fusion is a diagnostic criterion for Chronic Myeloid Leukemia (CML).
+    explanation: CIViC&#39;s accepted assertion supports BCR::ABL1 as the defining genetic alteration for this CML entry.
 treatments:
 - name: Imatinib
   description: &gt;-
@@ -4733,6 +5038,12 @@ treatments:
     supports: SUPPORT
     snippet: &#34;Our results provide evidence of the essential role of BCR-ABL tyrosine kinase activity in CML and demonstrate the potential for the development of anticancer drugs based on the specific molecular abnormality present in a human cancer.&#34;
     explanation: This establishes that imatinib&#39;s efficacy proves the oncogene addiction paradigm in CML.
+  - reference: CIVIC_EID:260
+    reference_title: &#34;BCR::ABL1 Fusion / Chronic Myeloid Leukemia (Predictive Sensitivity/Response)&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: The clinical use of imatinib in patients with BCR-ABL fusion has resulted in drastic prognostic improvements in patients with CML.
+    explanation: CIViC&#39;s accepted evidence item directly supports imatinib sensitivity/response in BCR::ABL1-positive CML.
 - name: Dasatinib
   description: &gt;-
     Second-generation TKI with greater potency against BCR-ABL1 and activity against
@@ -4798,6 +5109,12 @@ treatments:
     supports: PARTIAL
     snippet: &#34;In six of nine patients, resistance was associated with a single amino acid substitution in a threonine residue of the Abl kinase domain known to form a critical hydrogen bond with the drug. This substitution of threonine with isoleucine was sufficient to confer STI-571 resistance.&#34;
     explanation: This paper identified the T315I gatekeeper mutation that confers resistance to first and second-generation TKIs, establishing the need for third-generation TKIs like ponatinib.
+  - reference: CIVIC_EID:234
+    reference_title: &#34;BCR::ABL1 Fusion AND ABL1 T315I / Chronic Myeloid Leukemia (Predictive Resistance)&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: In chronic myeloid leukemia patients with the ABL T315I mutation, tumors have shown to be resistant to imatinib treatment.
+    explanation: CIViC&#39;s accepted evidence item supports T315I as an imatinib-resistance marker, which is the rationale for T315I-active later-generation TKIs such as ponatinib.
 - name: Allogeneic Stem Cell Transplantation
   description: &gt;-
     Potentially curative option historically used as primary therapy before TKI era.
@@ -5135,7 +5452,7 @@ CML pathophysiology is anchored in BCR-ABL1–driven oncogenic signaling (STAT5,
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic Myeloid Leukemia, BCR-ABL1 Positive", "mondoId": "MONDO:0011996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive", "yamlRevision": "1739085cbbe5"};
+        const OS_CONFIG = {"diseaseName": "Chronic Myeloid Leukemia, BCR-ABL1 Positive", "mondoId": "MONDO:0011996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive", "yamlRevision": "58beb4d77295"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
