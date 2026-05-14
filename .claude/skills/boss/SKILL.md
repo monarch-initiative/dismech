@@ -24,7 +24,7 @@ Example user invocations:
    * user intent: create a new tp session to curate a new disease
    * SOP:
       * create an issue (may be skipped): use `gh`.
-      * start a tmux/tp session: `tp new dismech-issue-NNNN-<handle> --profile codex --repo ~/repos/dismech --branch feat/dismech-issue-NNNN-<handle> --description <desc> --prompt "/curate <DISEASE> <INFO>"`
+      * start a tmux/tp session: `tp new issue-NNNN-<handle> --profile codex --repo <path-to-dismech> --branch feat/dismech-issue-NNNN-<handle> --description <desc> --prompt "/curate <DISEASE> <INFO>"`
 * `/boss status`
    * user intent: I want to know the status of all sessions in this repo
       - are they active?
@@ -33,8 +33,8 @@ Example user invocations:
       - is the PR passing?
       - has the PR been reviewed? If so, was it approved? If not, send `tp send <name> "address comments in #<NN>`
       - is the PR in conflict? I so, prompt the agent to fix: `tp send ...`
-* `/boss status`
-   * user intend: PR is merged, and I don't need to do further work
+* `/boss kill`
+   * user intent: PR is merged, and I don't need to do further work; tear down the session/worktree/branch
 
 
 ## About
