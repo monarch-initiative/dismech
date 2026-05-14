@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04481178
+reference_id: "clinicaltrials:NCT04481178"
 title: A Retrospective Study on Laser Treatment of Nevus of Ota in Thai Patients
 content_type: summary
 ---

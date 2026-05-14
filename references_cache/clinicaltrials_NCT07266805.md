@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07266805
+reference_id: "clinicaltrials:NCT07266805"
 title: "A Phase 3, Randomized, Double-blind, Placebo-controlled, 3-Part Study to Evaluate the Efficacy and Safety of Orally Administered Deucrictibant Extended-release (XR) Tablet for Prophylaxis and Deucrictibant Immediate-release (IR) Capsule for On-demand Treatment of Angioedema Attacks in Adults With Acquired Angioedema Due to C1 Inhibitor Deficiency"
 content_type: summary
 ---

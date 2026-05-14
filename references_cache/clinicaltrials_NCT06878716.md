@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06878716
+reference_id: "clinicaltrials:NCT06878716"
 title: "Official Title : Silver Russell Syndrome, Parental Fertility and Assisted Reproductive Technology 600 caractères Maximum"
 content_type: summary
 ---

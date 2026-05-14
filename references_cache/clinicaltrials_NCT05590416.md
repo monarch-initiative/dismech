@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05590416
+reference_id: "clinicaltrials:NCT05590416"
 title: An Observational Study of Adalimumab in the Treatment of Acute Vogt-Koyanagi-Harada Disease
 content_type: summary
 ---
