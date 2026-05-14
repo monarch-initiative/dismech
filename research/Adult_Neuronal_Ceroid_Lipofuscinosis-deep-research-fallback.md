@@ -32,7 +32,7 @@ that recessive pathogenic variants in CLN6 are the most common recessive
 cause of Kufs disease, particularly the Type A progressive myoclonus
 epilepsy phenotype, and provided systematic clinicopathologic and
 ultrastructural characterization showing fingerprint and granular
-lipopigment inclusions in CLN6-related cases (PMID:21820099). Subsequent
+lipopigment inclusions in CLN6-related cases (PMID:21549341). Subsequent
 exome work by Smith and colleagues identified homozygous and compound
 heterozygous CTSF mutations encoding cathepsin F as the major recessive
 cause of Kufs Type B (designated CLN13), implicating impaired lysosomal
@@ -41,7 +41,7 @@ The autosomal dominant adult-onset form CLN4 is caused by heterozygous
 mutations in DNAJC5 encoding cysteine-string protein alpha (CSPalpha), as
 established by Noskova and colleagues using linkage and exome sequencing in
 multiple unrelated families with autosomal dominant adult NCL
-(PMID:21549341).
+(PMID:21820099).
 
 Mechanistically, the three molecular etiologies converge on lysosomal and
 synaptic dysfunction. CLN6 encodes an ER-resident transmembrane protein
@@ -69,11 +69,11 @@ dominant (DNAJC5) inheritance patterns.
 
 ## Key References
 
-- PMID:21549341 - Noskova et al. Mutations in DNAJC5, encoding
+- PMID:21549341 - Arsov et al. Kufs disease, the major adult form of
+  neuronal ceroid lipofuscinosis, caused by mutations in CLN6.
+- PMID:21820099 - Noskova et al. Mutations in DNAJC5, encoding
   cysteine-string protein alpha, cause autosomal-dominant adult-onset
   neuronal ceroid lipofuscinosis (CLN4).
-- PMID:21820099 - Arsov et al. Kufs disease, the major adult form of
-  neuronal ceroid lipofuscinosis, caused by mutations in CLN6.
 - PMID:23297359 - Smith et al. Cathepsin F mutations cause Type B Kufs
   disease, an adult-onset neuronal ceroid lipofuscinosis.
 - PMID:30561534 - Review of neuronal ceroid lipofuscinoses summarizing
