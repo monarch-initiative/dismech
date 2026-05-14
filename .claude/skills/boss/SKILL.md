@@ -1,14 +1,14 @@
 ---
 name: boss
 description: Use ONLY when the user explicitly asks to orchestrate parallel external agents (Codex or Claude Code) in tmux sessions via tp (tmux-pilot). Or when a user tells you that you're the boss or orchestrator. You can also use this if you are an operclaw agent. NEVER auto-invoke for a generic "do this in parallel" request. For in-process subagents, use superpowers:dispatching-parallel-agents instead.
-argument-hint: [ "curate" | "new" | "status" | "kill" | "research" | <QUESTION> ] [INFO]
+argument-hint: '[ "curate" | "new" | "status" | "kill" | "research" | <QUESTION> ] [INFO]'
 ---
 
 # boss: orchestrate multiple agents in the dismech repo
 
 ## Overview
 
-Use this skill when the user wants you to orchestrate one of more dismech jobs, in such a way the user has observability via the `tmux` wrapper `tp`
+Use this skill when the user wants you to orchestrate one or more dismech jobs, in such a way the user has observability via the `tmux` wrapper `tp`
 
 Ground rules:
 
