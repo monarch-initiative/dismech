@@ -1,6 +1,6 @@
 ---
 name: claim-disease
-description: Use when claiming the next high-priority uncurated disease from the dismech priority dashboard. Picks the top-ranked disease in dashboard/priority.json that is not already covered in kb/disorders/, opens a GitHub curation issue, and assigns it to the current GitHub user. Accepts an optional integer to claim N diseases at once.
+description: Use when claiming the next high-priority uncurated disease from the dismech priority dashboard. Picks the top-ranked disease in dashboard/priority.json that is not already covered in kb/disorders/, opens a GitHub curation issue, and assigns it to the current GitHub user. Accepts an optional integer 1–8 to claim N diseases at once.
 ---
 
 # claim-disease
@@ -19,30 +19,31 @@ Skip when:
 
 ## Inputs
 
-- Optional positional argument: number of diseases to claim. Defaults to **1**.
+- Optional positional argument **N**: number of diseases to claim. Defaults to **1**, maximum **8**.
+- Invoked as `/claim-disease` (claims 1) or `/claim-disease 3` (claims 3). The number, if present, is the only argument and must be a positive integer between 1 and 8 inclusive. The cap exists because filing many issues at once swamps the curation queue and generates more cleanup than throughput.
 
 ## Workflow
 
-1. **Verify priority data is fresh.** If `dashboard/priority.json` is older than 30 days or missing, ask the user whether to regenerate (`just gen-dashboard`) before continuing. Do not silently use stale data.
-2. **Resolve the current GitHub user**: `gh api user -q .login`. Use that as the issue assignee.
-3. **Run the candidate finder** (Python snippet below). It reads `dashboard/priority.json`, builds the set of already-covered MONDO IDs from every YAML in `kb/disorders/`, and prints the top N uncovered candidates that have an actionable recommendation (`CURATE_ROOT` or `CURATE_ROOT_WITH_SUBTYPES`). Skips `LUMP_INTO_PARENT`, `REVIEW_AGAINST_PARENT`, `DROP_GROUPING_TERM`.
-4. **Check for existing open issues** for each candidate before posting — search by MONDO ID:
-   ```bash
-   gh issue list --state open --search "MONDO:0100249 in:title,body" --json number,title
-   ```
-   If a match exists, skip that candidate, log it, and pick the next one from the finder output.
-5. **Open one issue per candidate** with the template below. Labels: `curation,enhancement`. Assignee: the GitHub user from step 2.
-6. **Report** issue URLs to the user, plus any candidates that were skipped (already covered, already has an open issue).
+1. **Read N from the user's argument.** If the user passed an integer, use it. If no argument, default to 1. `N` is the target number of issues to file and is used in steps 4 and 6. If the argument is non-integer, `<= 0`, or `> 8`, stop and ask the user to clarify rather than guess. Never silently cap a request for `N > 8` to 8 — the user may be picking diseases for batch handoff and needs to know the limit was hit.
+2. **Verify priority data is fresh.** If `dashboard/priority.json` is older than 30 days or missing, ask the user whether to regenerate (`just gen-dashboard`) before continuing. Do not silently use stale data.
+3. **Resolve the current GitHub user**: `gh api user -q .login`. Use that as the issue assignee.
+4. **Run the candidate finder** (Python snippet below) with `LIMIT = N + 50` so there is headroom for candidates that get skipped. The finder reads `dashboard/priority.json`, builds the set of already-covered MONDO IDs from every YAML in `kb/disorders/`, and prints the top `LIMIT` uncovered candidates that have an actionable recommendation (`CURATE_ROOT` or `CURATE_ROOT_WITH_SUBTYPES`). Skips `LUMP_INTO_PARENT`, `REVIEW_AGAINST_PARENT`, `DROP_GROUPING_TERM`. Treat the output as an ordered **candidate pool**.
+5. **Bulk-check open issues** for the candidate pool in one batch (one `gh issue list` call per MONDO ID, parallelisable). Discard any candidate whose MONDO ID already appears in the title or body of an open issue.
+6. **Iterate the pool top-down and claim until you have N successful claims** (or the pool is exhausted):
+   - Skip any candidate flagged `possibly_covered_by` unless the user has already confirmed it is genuinely uncurated.
+   - For each remaining candidate, open one issue with the template below. Labels: `curation,enhancement`. Assignee: the GitHub user from step 3.
+   - Stop as soon as you have filed N issues. If the pool runs out before you reach N, report the shortfall and offer to re-run the finder with a larger `LIMIT`.
+7. **Report** the URLs of every issue filed, plus a short list of candidates that were skipped and why (already has open issue / `possibly_covered_by` / not actionable).
 
 ## Candidate finder
 
-Run this from the repo root. Pass N as the first argument. The finder filters by MONDO ID, by canonical label, and by synonym list — and additionally surfaces any candidates whose label appears as a substring in an existing entry's label/synonyms (these are flagged as `possibly_covered` and should be reviewed by hand, not auto-claimed).
+Run this from the repo root. Pass `LIMIT` as the first argument — this is **not** the number of issues to file, it is the size of the candidate pool to draw from. Use `LIMIT = N + 50` so there is headroom for candidates that get skipped (already-claimed, `possibly_covered_by`). The finder filters by MONDO ID, by canonical label, and by synonym list — and additionally surfaces any candidates whose label appears as a substring in an existing entry's label/synonyms (these are flagged as `possibly_covered` and should be reviewed by hand, not auto-claimed).
 
 ```bash
-N=${1:-1} python3 - <<'PY'
+LIMIT=${1:-51} python3 - <<'PY'
 import json, os, glob, yaml, re
 
-n = int(os.environ.get("N", "1"))
+n = int(os.environ.get("LIMIT", "51"))
 
 def norm(s):
     return re.sub(r"\s+", " ", s.lower().strip()) if s else ""
@@ -162,6 +163,8 @@ EOF
    ```bash
    grep -rli "zellweger" kb/disorders/
    ```
+- **Filing fewer issues than requested without saying so.** The candidate pool is `LIMIT = N + 50`, but on a busy day even that can be exhausted by already-filed issues. If you finish step 6 with fewer than N claims, say so explicitly in the report and offer to re-run the finder with a larger `LIMIT`. Don't pad the count with `possibly_covered_by` candidates the user hasn't confirmed.
+- **Confusing `LIMIT` with `N`.** `LIMIT` is the candidate-pool size passed to the finder. `N` is how many issues to actually file. They are not the same number; never pass `N` directly as the finder's argument.
 
 ## Tracker
 
