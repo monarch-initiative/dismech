@@ -54,7 +54,8 @@ covered_label_corpus = []     # for substring fallback (list of (norm_label, kb_
 
 for path in glob.glob("kb/disorders/*.yaml"):
     try:
-        d = yaml.safe_load(open(path))
+        with open(path) as fh:
+            d = yaml.safe_load(fh)
     except Exception:
         continue
     if not isinstance(d, dict):
@@ -82,7 +83,13 @@ for path in glob.glob("kb/disorders/*.yaml"):
             covered_labels.add(norm(syn["name"]))
             covered_label_corpus.append((norm(syn["name"]), path))
 
-priority = json.load(open("dashboard/priority.json"))
+try:
+    with open("dashboard/priority.json") as fh:
+        priority = json.load(fh)
+except FileNotFoundError:
+    raise SystemExit(
+        "dashboard/priority.json not found — run `just gen-dashboard` first"
+    )
 actionable = {"CURATE_ROOT", "CURATE_ROOT_WITH_SUBTYPES"}
 picks = []
 for row in priority["rows"]:
