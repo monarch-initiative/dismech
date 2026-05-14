@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03224767
+reference_id: "clinicaltrials:NCT03224767"
 title: Phase II Trial of BRAF/MEK Inhibitors in Papillary Craniopharyngiomas
 content_type: summary
 ---

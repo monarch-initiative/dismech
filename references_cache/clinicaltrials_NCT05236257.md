@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05236257
+reference_id: "clinicaltrials:NCT05236257"
 title: A Comparison of Clinical Outcomes in Infantile Fibrosarcoma (IFS) Patients Treated With Larotrectinib in the Phase I/II SCOUT Study Versus (an) External Historical Cohort(s)
 content_type: summary
 ---
